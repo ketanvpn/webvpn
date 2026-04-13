@@ -1,0 +1,352 @@
+Dokumentasi API AutoGoPay
+Selamat datang di dokumentasi API AutoGoPay. Disini tersedia penjelasan lengkap mengenai cara menggunakan API untuk mengintegrasikan pembayaran QRIS GoPay ke aplikasi Anda.
+
+Base URL
+https://api-gopay.sawargipay.cloud
+Fitur Utama
+✓
+Generate QRIS dinamis dengan amount custom
+✓
+Cek status transaksi real-time
+✓
+Webhook callback otomatis saat pembayaran berhasil
+✓
+Response time 50ms untuk performa maksimal
+Autentikasi
+Semua request API memerlukan API Key yang dikirim melalui header Authorization dengan format Bearer Token.
+
+API Key Anda
+agp_02cbafec••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+
+⚠️ Jangan bagikan API Key Anda kepada siapapun. Jika bocor, segera regenerate di halaman Settings.
+
+Contoh Header
+Authorization: Bearer agp_02cbafec91f007fe0afc6bbc50f0daeee5e91b6636c07565a7a95e8c673d0f8c
+
+Daftar Transaksi
+Endpoint untuk mengambil daftar transaksi terbaru yang diurutkan berdasarkan waktu (terbaru dulu).
+
+POST
+/transactions
+Contoh Request
+curl -X POST 'https://api-gopay.sawargipay.cloud/transactions' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer agp_02cbafec91f007fe0afc6bbc50f0daeee5e91b6636c07565a7a95e8c673d0f8c'
+
+Contoh Response
+{
+  "success": true,
+  "data": {
+    "transactions": [
+      {
+        "id": "TRX-001",
+        "time": "2024-03-18 15:16:33",
+        "amount": 50000,
+        "currency": "IDR",
+        "payment_type": "qris",
+        "status": "settlement",
+        "issuer": "gopay"
+      }
+    ]
+  }
+}
+
+Generate QRIS
+Endpoint untuk membuat transaksi QRIS baru dengan amount yang ditentukan. Order ID akan di-generate otomatis oleh sistem.
+
+POST
+/qris/generate
+Request Body
+{
+  "amount": 10000
+}
+
+Parameters:
+
+• amount - Jumlah pembayaran dalam IDR (wajib, harus lebih dari 0)
+Contoh Request
+curl -X POST 'https://api-gopay.sawargipay.cloud/qris/generate' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer agp_02cbafec91f007fe0afc6bbc50f0daeee5e91b6636c07565a7a95e8c673d0f8c' \
+  -d '{"amount": 10000}'
+
+Contoh Response
+{
+  "success": true,
+  "message": "QRIS created successfully",
+  "data": {
+    "transaction_id": "53bc6ed2-441d-4bd0-bc39-11fdfff5fedb",
+    "order_id": "AutoGopay-1774618440-2411",
+    "amount": 10000,
+    "transaction_status": "pending",
+    "qr_string": "00020101021226610014COM.GO-JEK.WWW...",
+    "qr_url": "https://api.midtrans.com/v2/qris/53bc6ed2-441d-4bd0-bc39-11fdfff5fedb/qr-code",
+    "transaction_time": "2026-03-27 20:34:00",
+    "expiry_time": "2026-03-27 20:49:00"
+  }
+}
+
+Response Fields:
+
+• transaction_id - ID transaksi unik (gunakan untuk cek status)
+• order_id - Order ID yang di-generate otomatis
+• qr_url - URL gambar QR code (langsung bisa ditampilkan)
+• qr_string - String QRIS untuk generate QR manual
+• expiry_time - Waktu kadaluarsa (15 menit dari pembuatan)
+Status Transaksi
+Endpoint untuk mengecek status pembayaran transaksi QRIS menggunakan transaction ID.
+
+POST
+/qris/status
+Request Body
+{
+  "transaction_id": "cee18277-1c1b-4afe-a424-3fe01905e603"
+}
+
+Response (Settlement)
+{
+  "success": true,
+  "message": "Transaction successful",
+  "data": {
+    "transaction_id": "a96cae51-8fff-4ec9-a580-4fa0cdafc7ae",
+    "transaction_status": "settlement",
+    "transaction_time": "2026-03-27 20:23:45"
+  }
+}
+
+Response (Pending)
+{
+  "success": false,
+  "message": "Transaction pending",
+  "data": {
+    "transaction_id": "a96cae51-8fff-4ec9-a580-4fa0cdafc7ae",
+    "transaction_status": "pending",
+    "transaction_time": "2026-03-27 20:23:45"
+  }
+}
+
+Status Values:
+
+• pending - Menunggu pembayaran
+• settlement - Pembayaran berhasil ✓
+• expire - Transaksi kadaluarsa
+• cancel - Transaksi dibatalkan
+Cancel QRIS
+Endpoint untuk membatalkan transaksi QRIS yang masih pending. Transaksi yang sudah dibayar atau expired tidak dapat dibatalkan.
+
+POST
+/qris/cancel
+Request Body
+{
+  "transaction_id": "0dcd8281-61ca-4ea8-a449-a3dffcf86d24"
+}
+
+Response (Success)
+{
+  "success": true,
+  "message": "Transaction cancelled successfully",
+  "data": {
+    "transaction_id": "0dcd8281-61ca-4ea8-a449-a3dffcf86d24",
+    "order_id": "AUTOGOPAY-1775455929-177",
+    "transaction_status": "cancel",
+    "transaction_time": "2026-04-06 13:12:09",
+    "amount": 10000
+  }
+}
+
+Response (Error - Already Cancelled)
+{
+  "success": false,
+  "message": "Transaction cannot be cancelled (already cancelled or completed)",
+  "data": {
+    "transaction_id": "5a111f47-b30e-4237-9985-1dbc25f12b83",
+    "status_code": "412"
+  }
+}
+
+Catatan Penting:
+
+• Hanya transaksi dengan status pending yang bisa dibatalkan
+• Transaksi yang sudah dibayar (settlement) tidak bisa dibatalkan
+• Transaksi yang sudah expired tidak perlu dibatalkan
+• Polling otomatis akan dihentikan setelah cancel berhasil
+Webhook Callback
+Webhook callback memungkinkan Anda menerima notifikasi real-time saat transaksi dibayar. Sistem kami akan otomatis mengirim data transaksi ke server Anda saat pembayaran berhasil.
+
+Keuntungan Webhook
+✓
+Notifikasi real-time - tidak perlu polling
+✓
+Update database otomatis saat pembayaran diterima
+✓
+Mengurangi beban server dan API calls
+⚠️ VERIFIKASI SIGNATURE WAJIB
+Anda HARUS memverifikasi header X-Signature di setiap request webhook. Tanpa verifikasi signature, endpoint webhook Anda rentan terhadap request tidak sah dan transaksi palsu.
+
+Cara Setup Webhook
+Buat endpoint di server Anda untuk menerima POST request
+Implementasi verifikasi signature (WAJIB)
+Buka halaman Settings dan masukkan URL webhook Anda
+Sistem akan mengirim verification challenge
+Endpoint Anda harus return {"success": true}
+Webhook Headers
+Header	Deskripsi
+Content-Type	application/json
+User-Agent	AutoGopay-Callback/1.0
+X-Callback-Event	transaction.received
+X-Signature	HMAC-SHA256 signature (REQUIRED)
+Webhook Payload
+{
+  "event": "transaction.received",
+  "timestamp": "2024-03-29 14:30:45",
+  "transaction": {
+    "id": "TRX-001",
+    "time": "2024-03-29 14:30:40",
+    "amount": 50000,
+    "currency": "IDR",
+    "payment_type": "qris",
+    "status": "settlement",
+    "issuer": "gopay"
+  }
+}
+
+Transaction Fields:
+
+• id - Transaction ID
+• time - Transaction time
+• amount - Amount in IDR
+• status - Transaction status (settlement, pending, expire, cancel)
+Contoh Implementasi
+PHP
+Dengan Verifikasi Signature
+<?php
+// webhook.php
+$payload = file_get_contents('php://input');
+$signature = $_SERVER['HTTP_X_SIGNATURE'] ?? '';
+$apiKey = 'your_api_key_here';
+
+// Verify signature (REQUIRED!)
+$expectedSignature = hash_hmac('sha256', $payload, $apiKey);
+if (!hash_equals($expectedSignature, $signature)) {
+    http_response_code(401);
+    exit('Invalid signature');
+}
+
+$data = json_decode($payload, true);
+
+// Handle verification challenge
+if ($data['event'] === 'verification.challenge') {
+    http_response_code(200);
+    echo json_encode(['success' => true]);
+    exit;
+}
+
+// Process transaction
+if ($data['event'] === 'transaction.received') {
+    $transaction = $data['transaction'];
+    $transactionId = $transaction['id'];
+    $amount = $transaction['amount'];
+    $status = $transaction['status'];
+    
+    if ($status === 'settlement') {
+        // Update your database
+        // Send notification to customer
+        error_log("Payment received: $transactionId - Rp $amount");
+    }
+}
+
+http_response_code(200);
+echo json_encode(['success' => true]);
+?>
+
+Node.js
+Dengan Verifikasi Signature
+const express = require('express');
+const crypto = require('crypto');
+const app = express();
+
+app.use(express.json());
+
+app.post('/webhook/gopay', async (req, res) => {
+  const signature = req.headers['x-signature'];
+  const apiKey = 'your_api_key_here';
+  const payload = JSON.stringify(req.body);
+  
+  // Verify signature (REQUIRED!)
+  const expectedSignature = crypto
+    .createHmac('sha256', apiKey)
+    .update(payload)
+    .digest('hex');
+  
+  if (signature !== expectedSignature) {
+    return res.status(401).json({ error: 'Invalid signature' });
+  }
+  
+  const { event, transaction } = req.body;
+  
+  // Handle verification challenge
+  if (event === 'verification.challenge') {
+    return res.json({ success: true });
+  }
+  
+  // Process transaction
+  if (event === 'transaction.received' && transaction.status === 'settlement') {
+    // Update your database
+    // Send notification to customer
+    console.log(`Payment received: ${transaction.id} - Rp ${transaction.amount}`);
+  }
+  
+  res.json({ success: true });
+});
+
+app.listen(3000);
+
+Python
+Dengan Verifikasi Signature
+from flask import Flask, request, jsonify
+import hmac
+import hashlib
+
+app = Flask(__name__)
+
+@app.route('/webhook/gopay', methods=['POST'])
+def gopay_webhook():
+    signature = request.headers.get('X-Signature', '')
+    api_key = 'your_api_key_here'
+    payload = request.get_data(as_text=True)
+    
+    # Verify signature (REQUIRED!)
+    expected_signature = hmac.new(
+        api_key.encode(),
+        payload.encode(),
+        hashlib.sha256
+    ).hexdigest()
+    
+    if not hmac.compare_digest(signature, expected_signature):
+        return jsonify({'error': 'Invalid signature'}), 401
+    
+    data = request.json
+    
+    # Handle verification challenge
+    if data.get('event') == 'verification.challenge':
+        return jsonify({'success': True})
+    
+    # Process transaction
+    if data.get('event') == 'transaction.received':
+        transaction = data['transaction']
+        if transaction['status'] == 'settlement':
+            # Update your database
+            # Send notification to customer
+            print(f"Payment received: {transaction['id']} - Rp {transaction['amount']:,}")
+    
+    return jsonify({'success': True})
+
+if __name__ == '__main__':
+    app.run(port=3000)
+
+Catatan Penting
+• HTTPS Required: URL webhook harus menggunakan HTTPS di production
+• Return 200 OK: Selalu return HTTP 200 dalam 10 detik
+• Idempotency: Cek apakah transaksi sudah diproses untuk mencegah duplikat
+• Security: Verifikasi X-Signature untuk memastikan request autentik

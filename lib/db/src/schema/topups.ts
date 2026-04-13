@@ -11,6 +11,8 @@ export const topupsTable = pgTable("topup_transactions", {
   status: text("status").notNull().default("pending"),
   confirmedBy: integer("confirmed_by"),
   rejectionNote: text("rejection_note"),
+  autogopayTransactionId: text("autogopay_transaction_id"),
+  expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

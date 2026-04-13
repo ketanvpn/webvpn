@@ -8,16 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { QrCode, Zap, CheckCircle2, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { QrCode, Zap, AlertCircle, Eye, EyeOff, Copy, CheckCircle2, Info } from "lucide-react";
 import { useState, useEffect } from "react";
 
 const schema = z.object({
@@ -26,14 +25,20 @@ const schema = z.object({
   qrisStaticUrl: z.string().optional().nullable(),
   autoGopayEnabled: z.boolean(),
   autoGopayApiUrl: z.string().optional().nullable(),
-  autoGopayMerchantId: z.string().optional().nullable(),
   autoGopaySecretKey: z.string().optional().nullable(),
-  autoGopayCallbackToken: z.string().optional().nullable(),
 });
 
 type FormValues = z.infer<typeof schema>;
 
-function SecretInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+function SecretInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
   const [show, setShow] = useState(false);
   return (
     <div className="relative">
@@ -55,6 +60,24 @@ function SecretInput({ value, onChange, placeholder }: { value: string; onChange
   );
 }
 
+function CopyableCode({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(value).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  return (
+    <div className="flex items-center gap-2 bg-background border rounded px-2 py-1.5">
+      <code className="text-[11px] flex-1 break-all select-all font-mono">{value}</code>
+      <button type="button" onClick={copy} className="shrink-0 text-muted-foreground hover:text-foreground">
+        {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+      </button>
+    </div>
+  );
+}
+
 export default function AdminPaymentSettings() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -68,10 +91,8 @@ export default function AdminPaymentSettings() {
       qrisEnabled: true,
       qrisStaticUrl: "",
       autoGopayEnabled: false,
-      autoGopayApiUrl: "",
-      autoGopayMerchantId: "",
+      autoGopayApiUrl: "https://api-gopay.sawargipay.cloud",
       autoGopaySecretKey: "",
-      autoGopayCallbackToken: "",
     },
   });
 
@@ -82,10 +103,8 @@ export default function AdminPaymentSettings() {
         qrisEnabled: settings.qrisEnabled ?? true,
         qrisStaticUrl: settings.qrisStaticUrl ?? "",
         autoGopayEnabled: settings.autoGopayEnabled ?? false,
-        autoGopayApiUrl: settings.autoGopayApiUrl ?? "",
-        autoGopayMerchantId: settings.autoGopayMerchantId ?? "",
+        autoGopayApiUrl: settings.autoGopayApiUrl ?? "https://api-gopay.sawargipay.cloud",
         autoGopaySecretKey: settings.autoGopaySecretKey ?? "",
-        autoGopayCallbackToken: settings.autoGopayCallbackToken ?? "",
       });
     }
   }, [settings]);
@@ -94,12 +113,14 @@ export default function AdminPaymentSettings() {
     updateSettings.mutate(
       {
         data: {
-          ...values,
+          activeGateway: values.activeGateway,
+          qrisEnabled: values.qrisEnabled,
           qrisStaticUrl: values.qrisStaticUrl || null,
+          autoGopayEnabled: values.autoGopayEnabled,
           autoGopayApiUrl: values.autoGopayApiUrl || null,
-          autoGopayMerchantId: values.autoGopayMerchantId || null,
           autoGopaySecretKey: values.autoGopaySecretKey || null,
-          autoGopayCallbackToken: values.autoGopayCallbackToken || null,
+          autoGopayMerchantId: null,
+          autoGopayCallbackToken: null,
         },
       },
       {
@@ -109,12 +130,14 @@ export default function AdminPaymentSettings() {
         },
         onError: (err) =>
           toast({ title: "Gagal menyimpan", description: (err as any).error, variant: "destructive" }),
-      }
+      },
     );
   };
 
   const activeGateway = form.watch("activeGateway");
   const qrisStaticUrl = form.watch("qrisStaticUrl");
+
+  const webhookUrl = `${window.location.origin.replace(/:(\d+)$/, "")}/api/webhooks/autogopay`;
 
   if (isLoading) {
     return (
@@ -138,11 +161,13 @@ export default function AdminPaymentSettings() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
 
-          {/* ── Pilih Gateway Aktif ────────────────────────────────────── */}
+          {/* ── Pilih Gateway Aktif ──────────────────────── */}
           <Card className="border-2">
             <CardHeader className="pb-4">
               <CardTitle className="text-base">Gateway Aktif</CardTitle>
-              <CardDescription>Pilih metode pembayaran yang akan digunakan saat user melakukan topup.</CardDescription>
+              <CardDescription>
+                Pilih metode pembayaran yang digunakan saat user melakukan topup.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <FormField
@@ -150,6 +175,7 @@ export default function AdminPaymentSettings() {
                 name="activeGateway"
                 render={({ field }) => (
                   <div className="grid grid-cols-2 gap-3">
+                    {/* QRIS Statis */}
                     <button
                       type="button"
                       onClick={() => field.onChange("qris_static")}
@@ -167,10 +193,11 @@ export default function AdminPaymentSettings() {
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Upload gambar QRIS sekali, user scan manual lalu admin konfirmasi.
+                        Gambar QRIS tetap, konfirmasi manual oleh admin.
                       </p>
                     </button>
 
+                    {/* AutoGoPay */}
                     <button
                       type="button"
                       onClick={() => field.onChange("autogopay")}
@@ -188,7 +215,7 @@ export default function AdminPaymentSettings() {
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        QRIS dinamis via API AutoGoPay. Konfirmasi otomatis via webhook.
+                        QRIS dinamis, konfirmasi otomatis via webhook.
                       </p>
                     </button>
                   </div>
@@ -197,8 +224,8 @@ export default function AdminPaymentSettings() {
             </CardContent>
           </Card>
 
-          {/* ── QRIS Statis ───────────────────────────────────────────── */}
-          <Card className={`border-2 ${activeGateway === "qris_static" ? "border-primary/30" : "opacity-60"}`}>
+          {/* ── QRIS Statis ──────────────────────────────── */}
+          <Card className={`border-2 transition-opacity ${activeGateway === "qris_static" ? "border-primary/30" : "opacity-50"}`}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -211,17 +238,13 @@ export default function AdminPaymentSettings() {
                   render={({ field }) => (
                     <div className="flex items-center gap-2">
                       <Label htmlFor="qris-enabled" className="text-xs text-muted-foreground">Aktifkan</Label>
-                      <Switch
-                        id="qris-enabled"
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
+                      <Switch id="qris-enabled" checked={field.value} onCheckedChange={field.onChange} />
                     </div>
                   )}
                 />
               </div>
               <CardDescription>
-                Masukkan URL gambar QRIS statis kamu. URL ini akan ditampilkan ke user saat topup.
+                Masukkan URL gambar QRIS kamu. URL ini ditampilkan ke user saat topup.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -240,7 +263,7 @@ export default function AdminPaymentSettings() {
                     </FormControl>
                     <FormMessage />
                     <p className="text-xs text-muted-foreground">
-                      Bisa pakai URL langsung dari Google Drive, S3, atau hosting gambar lainnya.
+                      Bisa pakai URL dari Google Drive, S3, Imgbb, atau hosting gambar lainnya.
                     </p>
                   </FormItem>
                 )}
@@ -256,7 +279,8 @@ export default function AdminPaymentSettings() {
                       className="max-h-48 object-contain"
                       onError={(e) => {
                         (e.target as HTMLImageElement).style.display = "none";
-                        (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                        const sibling = (e.target as HTMLImageElement).nextElementSibling;
+                        if (sibling) sibling.classList.remove("hidden");
                       }}
                     />
                     <div className="hidden text-center text-sm text-muted-foreground py-4">
@@ -269,14 +293,14 @@ export default function AdminPaymentSettings() {
             </CardContent>
           </Card>
 
-          {/* ── AutoGoPay ────────────────────────────────────────────── */}
-          <Card className={`border-2 ${activeGateway === "autogopay" ? "border-primary/30" : "opacity-60"}`}>
+          {/* ── AutoGoPay ───────────────────────────────── */}
+          <Card className={`border-2 transition-opacity ${activeGateway === "autogopay" ? "border-primary/30" : "opacity-50"}`}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Zap className="h-5 w-5" />
                   <CardTitle className="text-base">AutoGoPay</CardTitle>
-                  <Badge variant="secondary" className="text-[10px]">API</Badge>
+                  <Badge variant="secondary" className="text-[10px]">QRIS Dinamis</Badge>
                 </div>
                 <FormField
                   control={form.control}
@@ -284,20 +308,17 @@ export default function AdminPaymentSettings() {
                   render={({ field }) => (
                     <div className="flex items-center gap-2">
                       <Label htmlFor="ag-enabled" className="text-xs text-muted-foreground">Aktifkan</Label>
-                      <Switch
-                        id="ag-enabled"
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
+                      <Switch id="ag-enabled" checked={field.value} onCheckedChange={field.onChange} />
                     </div>
                   )}
                 />
               </div>
               <CardDescription>
-                Integrasi dengan AutoGoPay untuk QRIS dinamis dan konfirmasi otomatis. Sama seperti yang dipakai bot Telegram.
+                Generate QRIS dinamis per transaksi. Saldo otomatis dikreditkan saat user bayar via webhook.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+
               <FormField
                 control={form.control}
                 name="autoGopayApiUrl"
@@ -306,80 +327,59 @@ export default function AdminPaymentSettings() {
                     <FormLabel>Base URL API</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="https://autogopay.example.com/api"
+                        placeholder="https://api-gopay.sawargipay.cloud"
                         {...field}
                         value={field.value ?? ""}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="autoGopayMerchantId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Merchant ID</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Masukkan Merchant ID"
-                        {...field}
-                        value={field.value ?? ""}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="autoGopaySecretKey"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Secret Key</FormLabel>
-                    <FormControl>
-                      <SecretInput
-                        value={field.value ?? ""}
-                        onChange={field.onChange}
-                        placeholder="Masukkan Secret Key"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Separator />
-              <FormField
-                control={form.control}
-                name="autoGopayCallbackToken"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Callback / Webhook Token</FormLabel>
-                    <FormControl>
-                      <SecretInput
-                        value={field.value ?? ""}
-                        onChange={field.onChange}
-                        placeholder="Token untuk verifikasi webhook"
                       />
                     </FormControl>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Token ini digunakan untuk memverifikasi notifikasi pembayaran yang masuk dari AutoGoPay.
+                      Default: <code className="bg-muted px-1 rounded text-[10px]">https://api-gopay.sawargipay.cloud</code>
                     </p>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <div className="rounded-lg bg-muted/50 border p-3 text-xs text-muted-foreground space-y-1">
-                <p className="font-medium text-foreground flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" /> Webhook URL kamu:
+              <FormField
+                control={form.control}
+                name="autoGopaySecretKey"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>API Key</FormLabel>
+                    <FormControl>
+                      <SecretInput
+                        value={field.value ?? ""}
+                        onChange={field.onChange}
+                        placeholder="agp_02cbafec..."
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      API Key dari dashboard AutoGoPay. Digunakan untuk autentikasi request dan verifikasi webhook.
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Webhook info */}
+              <div className="rounded-lg bg-blue-500/5 border border-blue-500/20 p-3 space-y-2">
+                <p className="text-xs font-semibold flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                  <Info className="h-3.5 w-3.5" /> Setup Webhook AutoGoPay
                 </p>
-                <code className="bg-background border rounded px-2 py-1 text-[11px] block select-all">
-                  {window.location.origin.replace(window.location.pathname, "")}/api/webhooks/autogopay
-                </code>
-                <p>Daftarkan URL ini di dashboard AutoGoPay untuk konfirmasi otomatis.</p>
+                <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
+                  <li>Buka dashboard AutoGoPay → Settings → Webhook</li>
+                  <li>Masukkan URL di bawah ini sebagai Webhook URL</li>
+                  <li>Klik Verify — sistem akan kirim challenge dan auto-pass</li>
+                </ol>
+                <div className="mt-2">
+                  <p className="text-[11px] font-medium text-muted-foreground mb-1">Webhook URL kamu:</p>
+                  <CopyableCode value={webhookUrl} />
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Setelah webhook aktif, saldo user otomatis dikreditkan saat pembayaran berhasil.
+                </p>
               </div>
+
             </CardContent>
           </Card>
 

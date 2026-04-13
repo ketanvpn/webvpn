@@ -9,6 +9,7 @@ import balanceRouter from "./balance";
 import dashboardRouter from "./dashboard";
 import adminRouter from "./admin";
 import settingsRouter from "./settings";
+import webhookRouter from "./webhook";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(balanceRouter);
 router.use(dashboardRouter);
 router.use(adminRouter);
 router.use(settingsRouter);
+router.use(webhookRouter);
 
 export default router;

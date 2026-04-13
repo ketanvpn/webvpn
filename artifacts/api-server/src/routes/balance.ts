@@ -5,6 +5,7 @@ import { eq, desc, and } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { TopupBalanceBody } from "@workspace/api-zod";
 import { getPaymentSettingsMap } from "./settings";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -18,6 +19,7 @@ function formatTopup(t: typeof topupsTable.$inferSelect & { username?: string | 
     status: t.status,
     confirmedBy: t.confirmedBy,
     rejectionNote: t.rejectionNote ?? null,
+    expiresAt: t.expiresAt ?? null,
     createdAt: t.createdAt,
     updatedAt: t.updatedAt,
   };
@@ -56,10 +58,60 @@ router.post("/balance/topup", requireAuth, async (req, res) => {
 
   const settingsMap = await getPaymentSettingsMap();
   const activeGateway = settingsMap["activeGateway"] ?? "qris_static";
+
   let qrisUrl: string | null = null;
+  let autogopayTransactionId: string | null = null;
+  let expiresAt: Date | null = null;
 
   if (activeGateway === "qris_static") {
     qrisUrl = settingsMap["qrisStaticUrl"] ?? null;
+    expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  } else if (activeGateway === "autogopay") {
+    const apiUrl = (settingsMap["autoGopayApiUrl"] ?? "https://api-gopay.sawargipay.cloud").replace(/\/$/, "");
+    const apiKey = settingsMap["autoGopaySecretKey"];
+
+    if (!apiKey) {
+      res.status(503).json({ error: "AutoGoPay belum dikonfigurasi. Hubungi admin." });
+      return;
+    }
+
+    let agpResponse: Response;
+    try {
+      agpResponse = await fetch(`${apiUrl}/qris/generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({ amount }),
+      });
+    } catch (err) {
+      logger.error({ err }, "AutoGoPay: fetch error saat generate QRIS");
+      res.status(503).json({ error: "Gagal menghubungi AutoGoPay. Coba lagi." });
+      return;
+    }
+
+    let agpData: {
+      success: boolean;
+      data?: { transaction_id: string; qr_url: string; expiry_time: string };
+      message?: string;
+    };
+    try {
+      agpData = await agpResponse.json();
+    } catch {
+      res.status(503).json({ error: "Response tidak valid dari AutoGoPay." });
+      return;
+    }
+
+    if (!agpData.success || !agpData.data) {
+      logger.error({ agpData }, "AutoGoPay: generate QRIS gagal");
+      res.status(502).json({ error: agpData.message ?? "Gagal membuat QRIS. Coba lagi." });
+      return;
+    }
+
+    autogopayTransactionId = agpData.data.transaction_id;
+    qrisUrl = agpData.data.qr_url;
+    expiresAt = new Date(agpData.data.expiry_time.replace(" ", "T") + "+07:00");
   }
 
   const [topup] = await db
@@ -69,6 +121,8 @@ router.post("/balance/topup", requireAuth, async (req, res) => {
       amount: String(amount),
       status: "pending",
       qrisUrl,
+      autogopayTransactionId,
+      expiresAt,
     })
     .returning();
 
@@ -77,7 +131,7 @@ router.post("/balance/topup", requireAuth, async (req, res) => {
     amount: Number(topup.amount),
     qrisUrl: topup.qrisUrl,
     status: topup.status,
-    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    expiresAt: topup.expiresAt,
   });
 });
 
