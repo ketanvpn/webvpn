@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, differenceInDays } from "date-fns";
 import { Link } from "wouter";
-import { Server, Activity, ShieldOff, Globe } from "lucide-react";
+import { Server, Activity, ShieldOff } from "lucide-react";
 
 function DaysRemaining({ expiresAt, isActive }: { expiresAt: string; isActive: boolean }) {
   const now = new Date();
@@ -63,20 +63,20 @@ export default function Accounts() {
                 <Card className={`${cardBorder} transition-colors cursor-pointer h-full flex flex-col group`}>
                   <CardHeader className="pb-3 border-b bg-muted/20">
                     <div className="flex justify-between items-start">
-                      <Badge variant={account.isActive ? "default" : "destructive"} className="mb-2">
-                        {account.isActive ? "Aktif" : "Nonaktif"}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl leading-none">{account.server.flag}</span>
+                        <Badge variant={account.isActive ? "default" : "destructive"}>
+                          {account.isActive ? "Aktif" : "Nonaktif"}
+                        </Badge>
+                      </div>
                       <Badge variant="outline" className="uppercase font-bold">{account.protocol}</Badge>
                     </div>
-                    <CardTitle className="text-lg font-mono truncate" title={account.username}>
+                    <CardTitle className="text-lg font-mono truncate mt-1" title={account.username}>
                       {account.username}
                     </CardTitle>
+                    <p className="text-xs text-muted-foreground">{account.server.name} &bull; {account.server.location}</p>
                   </CardHeader>
                   <CardContent className="pt-4 flex-1 space-y-3">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Globe className="h-4 w-4" />
-                      <span>{account.server.name} ({account.server.flag})</span>
-                    </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Activity className="h-4 w-4" />
                       <span>Kuota: {account.quota ? `${account.usedQuota || 0}/${account.quota} GB` : "Tidak Terbatas"}</span>

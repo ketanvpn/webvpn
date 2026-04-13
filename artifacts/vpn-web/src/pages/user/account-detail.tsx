@@ -77,8 +77,8 @@ export default function AccountDetail() {
                 <div>
                   <CardTitle className="text-2xl font-mono">{account.username}</CardTitle>
                   <CardDescription className="mt-1 flex items-center gap-2 text-sm">
-                    <Server className="h-4 w-4" />
-                    {account.server.name} ({account.server.location} {account.server.flag})
+                    <span className="text-xl leading-none">{account.server.flag}</span>
+                    <span>{account.server.name} &bull; {account.server.location}</span>
                   </CardDescription>
                 </div>
                 <Badge variant="secondary" className="uppercase text-lg py-1">{account.protocol}</Badge>
