@@ -4,6 +4,7 @@ import { usersTable, topupsTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { TopupBalanceBody } from "@workspace/api-zod";
+import { getPaymentSettingsMap } from "./settings";
 
 const router = Router();
 
@@ -53,13 +54,21 @@ router.post("/balance/topup", requireAuth, async (req, res) => {
   const { amount } = parsed.data;
   const userId = req.user!.userId;
 
+  const settingsMap = await getPaymentSettingsMap();
+  const activeGateway = settingsMap["activeGateway"] ?? "qris_static";
+  let qrisUrl: string | null = null;
+
+  if (activeGateway === "qris_static") {
+    qrisUrl = settingsMap["qrisStaticUrl"] ?? null;
+  }
+
   const [topup] = await db
     .insert(topupsTable)
     .values({
       userId,
       amount: String(amount),
       status: "pending",
-      qrisUrl: null,
+      qrisUrl,
     })
     .returning();
 

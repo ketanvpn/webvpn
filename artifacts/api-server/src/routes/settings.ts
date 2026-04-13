@@ -1,0 +1,92 @@
+import { Router } from "express";
+import { db } from "@workspace/db";
+import { settingsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { requireAdmin } from "../lib/auth";
+
+const router = Router();
+
+const PAYMENT_KEYS = [
+  "qrisStaticUrl",
+  "qrisEnabled",
+  "autoGopayEnabled",
+  "autoGopayApiUrl",
+  "autoGopayMerchantId",
+  "autoGopaySecretKey",
+  "autoGopayCallbackToken",
+  "activeGateway",
+] as const;
+
+type PaymentKey = (typeof PAYMENT_KEYS)[number];
+
+async function getSettingValue(key: string): Promise<string | null> {
+  const [row] = await db
+    .select({ value: settingsTable.value })
+    .from(settingsTable)
+    .where(eq(settingsTable.key, key))
+    .limit(1);
+  return row?.value ?? null;
+}
+
+async function setSettingValue(key: string, value: string | null): Promise<void> {
+  await db
+    .insert(settingsTable)
+    .values({ key, value })
+    .onConflictDoUpdate({
+      target: settingsTable.key,
+      set: { value, updatedAt: new Date() },
+    });
+}
+
+function parseBoolean(v: string | null): boolean {
+  return v === "true";
+}
+
+router.get("/admin/settings/payment", requireAdmin, async (_req, res) => {
+  const rows = await db.select().from(settingsTable);
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+
+  res.json({
+    qrisStaticUrl: map["qrisStaticUrl"] ?? null,
+    qrisEnabled: parseBoolean(map["qrisEnabled"] ?? "true"),
+    autoGopayEnabled: parseBoolean(map["autoGopayEnabled"] ?? null),
+    autoGopayApiUrl: map["autoGopayApiUrl"] ?? null,
+    autoGopayMerchantId: map["autoGopayMerchantId"] ?? null,
+    autoGopaySecretKey: map["autoGopaySecretKey"] ?? null,
+    autoGopayCallbackToken: map["autoGopayCallbackToken"] ?? null,
+    activeGateway: map["activeGateway"] ?? "qris_static",
+  });
+});
+
+router.put("/admin/settings/payment", requireAdmin, async (req, res) => {
+  const body = req.body as Record<string, string | boolean | null>;
+
+  for (const key of PAYMENT_KEYS) {
+    if (key in body) {
+      const raw = body[key];
+      const value = raw === null || raw === undefined ? null : String(raw);
+      await setSettingValue(key, value);
+    }
+  }
+
+  const rows = await db.select().from(settingsTable);
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+
+  res.json({
+    qrisStaticUrl: map["qrisStaticUrl"] ?? null,
+    qrisEnabled: parseBoolean(map["qrisEnabled"] ?? "true"),
+    autoGopayEnabled: parseBoolean(map["autoGopayEnabled"] ?? null),
+    autoGopayApiUrl: map["autoGopayApiUrl"] ?? null,
+    autoGopayMerchantId: map["autoGopayMerchantId"] ?? null,
+    autoGopaySecretKey: map["autoGopaySecretKey"] ?? null,
+    autoGopayCallbackToken: map["autoGopayCallbackToken"] ?? null,
+    activeGateway: map["activeGateway"] ?? "qris_static",
+  });
+});
+
+export async function getPaymentSettingsMap(): Promise<Record<string, string | null>> {
+  const rows = await db.select().from(settingsTable);
+  return Object.fromEntries(rows.map((r) => [r.key, r.value]));
+}
+
+export default router;

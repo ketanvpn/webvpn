@@ -1102,6 +1102,41 @@ paths:
               schema:
                 $ref: "#/components/schemas/VpnAccount"
 
+  # ─── Payment Settings ──────────────────────────────────────────────────
+  /admin/settings/payment:
+    get:
+      operationId: adminGetPaymentSettings
+      tags: [admin]
+      summary: Get payment gateway settings
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Payment settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentSettings"
+    put:
+      operationId: adminUpdatePaymentSettings
+      tags: [admin]
+      summary: Update payment gateway settings
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentSettings"
+      responses:
+        "200":
+          description: Updated payment settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentSettings"
+
   # ─── Servers (public) ──────────────────────────────────────────────────
   /servers:
     get:
@@ -1126,6 +1161,41 @@ components:
       name: token
 
   schemas:
+    PaymentSettings:
+      type: object
+      properties:
+        qrisStaticUrl:
+          type: string
+          nullable: true
+          description: URL gambar QRIS statis untuk topup manual
+        qrisEnabled:
+          type: boolean
+          description: Aktifkan metode QRIS statis
+        autoGopayEnabled:
+          type: boolean
+          description: Aktifkan integrasi AutoGoPay
+        autoGopayApiUrl:
+          type: string
+          nullable: true
+          description: Base URL API AutoGoPay
+        autoGopayMerchantId:
+          type: string
+          nullable: true
+          description: Merchant ID AutoGoPay
+        autoGopaySecretKey:
+          type: string
+          nullable: true
+          description: Secret Key AutoGoPay
+        autoGopayCallbackToken:
+          type: string
+          nullable: true
+          description: Token verifikasi callback/webhook AutoGoPay
+        activeGateway:
+          type: string
+          nullable: true
+          description: "Gateway aktif: 'qris_static' | 'autogopay'"
+          enum: [qris_static, autogopay]
+
     HealthStatus:
       type: object
       required: [status]

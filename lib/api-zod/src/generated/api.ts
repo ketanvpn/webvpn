@@ -1337,6 +1337,81 @@ export const AdminToggleAccountResponse = zod.object({
 });
 
 /**
+ * @summary Get payment gateway settings
+ */
+export const AdminGetPaymentSettingsResponse = zod.object({
+  qrisStaticUrl: zod
+    .string()
+    .nullish()
+    .describe("URL gambar QRIS statis untuk topup manual"),
+  qrisEnabled: zod.boolean().optional().describe("Aktifkan metode QRIS statis"),
+  autoGopayEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan integrasi AutoGoPay"),
+  autoGopayApiUrl: zod.string().nullish().describe("Base URL API AutoGoPay"),
+  autoGopayMerchantId: zod.string().nullish().describe("Merchant ID AutoGoPay"),
+  autoGopaySecretKey: zod.string().nullish().describe("Secret Key AutoGoPay"),
+  autoGopayCallbackToken: zod
+    .string()
+    .nullish()
+    .describe("Token verifikasi callback\/webhook AutoGoPay"),
+  activeGateway: zod
+    .enum(["qris_static", "autogopay"])
+    .nullish()
+    .describe("Gateway aktif: 'qris_static' | 'autogopay'"),
+});
+
+/**
+ * @summary Update payment gateway settings
+ */
+export const AdminUpdatePaymentSettingsBody = zod.object({
+  qrisStaticUrl: zod
+    .string()
+    .nullish()
+    .describe("URL gambar QRIS statis untuk topup manual"),
+  qrisEnabled: zod.boolean().optional().describe("Aktifkan metode QRIS statis"),
+  autoGopayEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan integrasi AutoGoPay"),
+  autoGopayApiUrl: zod.string().nullish().describe("Base URL API AutoGoPay"),
+  autoGopayMerchantId: zod.string().nullish().describe("Merchant ID AutoGoPay"),
+  autoGopaySecretKey: zod.string().nullish().describe("Secret Key AutoGoPay"),
+  autoGopayCallbackToken: zod
+    .string()
+    .nullish()
+    .describe("Token verifikasi callback\/webhook AutoGoPay"),
+  activeGateway: zod
+    .enum(["qris_static", "autogopay"])
+    .nullish()
+    .describe("Gateway aktif: 'qris_static' | 'autogopay'"),
+});
+
+export const AdminUpdatePaymentSettingsResponse = zod.object({
+  qrisStaticUrl: zod
+    .string()
+    .nullish()
+    .describe("URL gambar QRIS statis untuk topup manual"),
+  qrisEnabled: zod.boolean().optional().describe("Aktifkan metode QRIS statis"),
+  autoGopayEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan integrasi AutoGoPay"),
+  autoGopayApiUrl: zod.string().nullish().describe("Base URL API AutoGoPay"),
+  autoGopayMerchantId: zod.string().nullish().describe("Merchant ID AutoGoPay"),
+  autoGopaySecretKey: zod.string().nullish().describe("Secret Key AutoGoPay"),
+  autoGopayCallbackToken: zod
+    .string()
+    .nullish()
+    .describe("Token verifikasi callback\/webhook AutoGoPay"),
+  activeGateway: zod
+    .enum(["qris_static", "autogopay"])
+    .nullish()
+    .describe("Gateway aktif: 'qris_static' | 'autogopay'"),
+});
+
+/**
  * @summary List available VPN servers (public, name/location only)
  */
 export const ListServersResponseItem = zod.object({

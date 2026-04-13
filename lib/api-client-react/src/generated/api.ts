@@ -46,6 +46,7 @@ import type {
   MessageResponse,
   Order,
   OrderListResponse,
+  PaymentSettings,
   Product,
   PublicServer,
   RegisterBody,
@@ -3633,6 +3634,168 @@ export const useAdminToggleAccount = <
   TContext
 > => {
   return useMutation(getAdminToggleAccountMutationOptions(options));
+};
+
+/**
+ * @summary Get payment gateway settings
+ */
+export const getAdminGetPaymentSettingsUrl = () => {
+  return `/api/admin/settings/payment`;
+};
+
+export const adminGetPaymentSettings = async (
+  options?: RequestInit,
+): Promise<PaymentSettings> => {
+  return customFetch<PaymentSettings>(getAdminGetPaymentSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminGetPaymentSettingsQueryKey = () => {
+  return [`/api/admin/settings/payment`] as const;
+};
+
+export const getAdminGetPaymentSettingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminGetPaymentSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetPaymentSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminGetPaymentSettingsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminGetPaymentSettings>>
+  > = ({ signal }) => adminGetPaymentSettings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetPaymentSettings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminGetPaymentSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetPaymentSettings>>
+>;
+export type AdminGetPaymentSettingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get payment gateway settings
+ */
+
+export function useAdminGetPaymentSettings<
+  TData = Awaited<ReturnType<typeof adminGetPaymentSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetPaymentSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminGetPaymentSettingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update payment gateway settings
+ */
+export const getAdminUpdatePaymentSettingsUrl = () => {
+  return `/api/admin/settings/payment`;
+};
+
+export const adminUpdatePaymentSettings = async (
+  paymentSettings: PaymentSettings,
+  options?: RequestInit,
+): Promise<PaymentSettings> => {
+  return customFetch<PaymentSettings>(getAdminUpdatePaymentSettingsUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(paymentSettings),
+  });
+};
+
+export const getAdminUpdatePaymentSettingsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdatePaymentSettings>>,
+    TError,
+    { data: BodyType<PaymentSettings> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdatePaymentSettings>>,
+  TError,
+  { data: BodyType<PaymentSettings> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdatePaymentSettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdatePaymentSettings>>,
+    { data: BodyType<PaymentSettings> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminUpdatePaymentSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdatePaymentSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdatePaymentSettings>>
+>;
+export type AdminUpdatePaymentSettingsMutationBody = BodyType<PaymentSettings>;
+export type AdminUpdatePaymentSettingsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update payment gateway settings
+ */
+export const useAdminUpdatePaymentSettings = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdatePaymentSettings>>,
+    TError,
+    { data: BodyType<PaymentSettings> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdatePaymentSettings>>,
+  TError,
+  { data: BodyType<PaymentSettings> },
+  TContext
+> => {
+  return useMutation(getAdminUpdatePaymentSettingsMutationOptions(options));
 };
 
 /**

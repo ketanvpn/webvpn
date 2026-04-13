@@ -48,6 +48,8 @@ export * from "./messageResponse";
 export * from "./order";
 export * from "./orderListResponse";
 export * from "./orderStatus";
+export * from "./paymentSettings";
+export * from "./paymentSettingsActiveGateway";
 export * from "./product";
 export * from "./productProtocol";
 export * from "./publicServer";

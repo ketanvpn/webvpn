@@ -8,6 +8,7 @@ import accountsRouter from "./accounts";
 import balanceRouter from "./balance";
 import dashboardRouter from "./dashboard";
 import adminRouter from "./admin";
+import settingsRouter from "./settings";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(accountsRouter);
 router.use(balanceRouter);
 router.use(dashboardRouter);
 router.use(adminRouter);
+router.use(settingsRouter);
 
 export default router;

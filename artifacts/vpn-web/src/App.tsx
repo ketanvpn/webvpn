@@ -28,6 +28,7 @@ import AdminServers from "@/pages/admin/servers";
 import AdminOrders from "@/pages/admin/orders";
 import AdminTopups from "@/pages/admin/topups";
 import AdminAccounts from "@/pages/admin/accounts";
+import AdminPaymentSettings from "@/pages/admin/payment-settings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -98,6 +99,9 @@ function Router() {
       </Route>
       <Route path="/admin/topups">
         <Layout requireAdmin><AdminTopups /></Layout>
+      </Route>
+      <Route path="/admin/settings/payment">
+        <Layout requireAdmin><AdminPaymentSettings /></Layout>
       </Route>
 
       <Route component={NotFound} />

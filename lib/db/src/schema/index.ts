@@ -4,3 +4,4 @@ export * from "./products";
 export * from "./orders";
 export * from "./vpn_accounts";
 export * from "./topups";
+export * from "./settings";

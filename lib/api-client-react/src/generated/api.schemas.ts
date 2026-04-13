@@ -5,6 +5,37 @@
  * KETANTECH VPN Store API
  * OpenAPI spec version: 0.1.0
  */
+/**
+ * Gateway aktif: 'qris_static' | 'autogopay'
+ */
+export type PaymentSettingsActiveGateway =
+  | (typeof PaymentSettingsActiveGateway)[keyof typeof PaymentSettingsActiveGateway]
+  | null;
+
+export const PaymentSettingsActiveGateway = {
+  qris_static: "qris_static",
+  autogopay: "autogopay",
+} as const;
+
+export interface PaymentSettings {
+  /** URL gambar QRIS statis untuk topup manual */
+  qrisStaticUrl?: string | null;
+  /** Aktifkan metode QRIS statis */
+  qrisEnabled?: boolean;
+  /** Aktifkan integrasi AutoGoPay */
+  autoGopayEnabled?: boolean;
+  /** Base URL API AutoGoPay */
+  autoGopayApiUrl?: string | null;
+  /** Merchant ID AutoGoPay */
+  autoGopayMerchantId?: string | null;
+  /** Secret Key AutoGoPay */
+  autoGopaySecretKey?: string | null;
+  /** Token verifikasi callback/webhook AutoGoPay */
+  autoGopayCallbackToken?: string | null;
+  /** Gateway aktif: 'qris_static' | 'autogopay' */
+  activeGateway?: PaymentSettingsActiveGateway;
+}
+
 export interface HealthStatus {
   status: string;
 }
