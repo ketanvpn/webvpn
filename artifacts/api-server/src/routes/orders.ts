@@ -6,6 +6,7 @@ import { requireAuth } from "../lib/auth";
 import { CreateOrderBody } from "@workspace/api-zod";
 import { formatProduct } from "./products";
 import { randomUUID } from "crypto";
+import { createPanelAccount, sanitizeVpnUsername } from "../lib/vpn-panel";
 
 const router = Router();
 
@@ -163,46 +164,89 @@ router.post("/orders/:id/pay", requireAuth, async (req, res) => {
     return;
   }
 
-  const servers = await db
+  // Pick a server that supports the ordered protocol
+  const allServers = await db
     .select()
     .from(serversTable)
-    .where(eq(serversTable.isActive, true))
-    .limit(1);
+    .where(eq(serversTable.isActive, true));
 
-  if (servers.length === 0) {
-    res.status(400).json({ error: "No available servers" });
+  // Prefer a server that supports the protocol; fall back to first active server
+  const server =
+    allServers.find((s) =>
+      Array.isArray(s.supportedProtocols) &&
+      s.supportedProtocols.includes(product.protocol)
+    ) ?? allServers[0];
+
+  if (!server) {
+    res.status(400).json({ error: "Tidak ada server yang tersedia saat ini" });
     return;
   }
 
-  const server = servers[0];
   const expiresAt = new Date(Date.now() + product.durationDays * 24 * 60 * 60 * 1000);
-  const vpnUsername = `${user.username}_${Date.now()}`;
+
+  // Sanitize username for panel (alphanumeric only)
+  const rawUsername = `${sanitizeVpnUsername(user.username)}${Date.now()}`;
   const vpnPassword = randomUUID().replace(/-/g, "").slice(0, 12);
   const vpnUuid = randomUUID();
 
+  let finalUsername = rawUsername;
+  let finalPassword: string | null = vpnPassword;
+  let finalUuid: string | null = vpnUuid;
   let configLink: string | null = null;
-  if (product.protocol === "vmess") {
-    const config = Buffer.from(
-      JSON.stringify({
-        v: "2",
-        ps: `KETANTECH-${server.name}`,
-        add: server.host,
-        port: 443,
-        id: vpnUuid,
-        aid: 0,
-        net: "ws",
-        type: "none",
-        host: server.host,
-        path: "/vmess",
-        tls: "tls",
-      })
-    ).toString("base64");
-    configLink = `vmess://${config}`;
-  } else if (product.protocol === "vless") {
-    configLink = `vless://${vpnUuid}@${server.host}:443?security=tls&type=ws&path=/vless#KETANTECH-${server.name}`;
-  } else if (product.protocol === "trojan") {
-    configLink = `trojan://${vpnPassword}@${server.host}:443?security=tls#KETANTECH-${server.name}`;
+
+  // ─── Call VPN Panel API if server is configured ───────────────────────────
+  const hasPanel = server.apiUrl && server.apiToken;
+
+  if (hasPanel) {
+    try {
+      const panelResult = await createPanelAccount({
+        apiUrl: server.apiUrl!,
+        apiToken: server.apiToken!,
+        protocol: product.protocol,
+        username: rawUsername,
+        password: vpnPassword,
+        durationDays: product.durationDays,
+        quota: product.quota ? Number(product.quota) : null,
+        maxConnections: product.maxConnections ?? null,
+        uuid: vpnUuid,
+      });
+
+      // Use credentials returned from panel
+      finalUsername = panelResult.username;
+      finalPassword = panelResult.password ?? vpnPassword;
+      finalUuid = panelResult.uuid ?? vpnUuid;
+      configLink = panelResult.configLink ?? null;
+
+      console.log(`[orders] Panel account created: ${product.protocol}/${finalUsername} on ${server.name}`);
+    } catch (panelErr) {
+      const msg = panelErr instanceof Error ? panelErr.message : String(panelErr);
+      console.error(`[orders] Panel API error for ${product.protocol}: ${msg}`);
+      // Refund and abort — do not create a "fake" account
+      res.status(502).json({
+        error: `Gagal membuat akun VPN di server: ${msg}`,
+      });
+      return;
+    }
+  } else {
+    // No panel configured — generate credentials locally (offline mode / testing)
+    console.warn(`[orders] Server "${server.name}" has no apiUrl/apiToken. Using local credential generation.`);
+    if (product.protocol === "vmess") {
+      const config = Buffer.from(
+        JSON.stringify({
+          v: "2", ps: `KETANTECH-${server.name}`,
+          add: server.host, port: 443, id: vpnUuid,
+          aid: 0, net: "ws", type: "none", host: server.host,
+          path: "/vmess", tls: "tls",
+        })
+      ).toString("base64");
+      configLink = `vmess://${config}`;
+    } else if (product.protocol === "vless") {
+      configLink = `vless://${vpnUuid}@${server.host}:443?security=tls&type=ws&path=/vless#KETANTECH-${server.name}`;
+    } else if (product.protocol === "trojan") {
+      configLink = `trojan://${vpnPassword}@${server.host}:443?security=tls#KETANTECH-${server.name}`;
+    }
   }
+  // ─────────────────────────────────────────────────────────────────────────
 
   const [vpnAccount] = await db
     .insert(vpnAccountsTable)
@@ -210,9 +254,9 @@ router.post("/orders/:id/pay", requireAuth, async (req, res) => {
       userId,
       orderId: order.id,
       protocol: product.protocol,
-      username: vpnUsername,
-      password: vpnPassword,
-      uuid: vpnUuid,
+      username: finalUsername,
+      password: finalPassword,
+      uuid: finalUuid,
       serverId: server.id,
       configLink,
       expiresAt,

@@ -9,12 +9,14 @@ import {
   topupsTable,
 } from "@workspace/db";
 import { eq, and, ilike, desc, asc, sql } from "drizzle-orm";
+import { randomUUID } from "crypto";
 import { requireAdmin } from "../lib/auth";
 import { formatProduct } from "./products";
 import { formatOrder } from "./orders";
 import { formatAccount } from "./accounts";
 import { formatTopup } from "./balance";
 import { formatFullServer } from "./servers";
+import { createPanelAccount, sanitizeVpnUsername } from "../lib/vpn-panel";
 import {
   AdminListUsersQueryParams,
   AdminUpdateUserBody,
@@ -470,9 +472,98 @@ router.post("/admin/orders/:id/confirm", requireAdmin, async (req, res) => {
     return;
   }
 
+  if (order.status === "paid") {
+    res.json(await formatOrder(order));
+    return;
+  }
+
+  // Provision VPN account if not already linked
+  let vpnAccountId = order.vpnAccountId;
+
+  if (!vpnAccountId) {
+    const [product] = await db
+      .select()
+      .from(productsTable)
+      .where(eq(productsTable.id, order.productId))
+      .limit(1);
+
+    const [user] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, order.userId))
+      .limit(1);
+
+    const allServers = await db
+      .select()
+      .from(serversTable)
+      .where(eq(serversTable.isActive, true));
+
+    const server =
+      product
+        ? (allServers.find((s) =>
+            Array.isArray(s.supportedProtocols) &&
+            s.supportedProtocols.includes(product.protocol)
+          ) ?? allServers[0])
+        : allServers[0];
+
+    if (product && user && server) {
+      const expiresAt = new Date(Date.now() + product.durationDays * 24 * 60 * 60 * 1000);
+      const rawUsername = `${sanitizeVpnUsername(user.username)}${Date.now()}`;
+      const vpnPassword = randomUUID().replace(/-/g, "").slice(0, 12);
+      const vpnUuid = randomUUID();
+
+      let finalUsername = rawUsername;
+      let finalPassword: string | null = vpnPassword;
+      let finalUuid: string | null = vpnUuid;
+      let configLink: string | null = null;
+
+      if (server.apiUrl && server.apiToken) {
+        try {
+          const panelResult = await createPanelAccount({
+            apiUrl: server.apiUrl,
+            apiToken: server.apiToken,
+            protocol: product.protocol,
+            username: rawUsername,
+            password: vpnPassword,
+            durationDays: product.durationDays,
+            quota: product.quota ? Number(product.quota) : null,
+            maxConnections: product.maxConnections ?? null,
+            uuid: vpnUuid,
+          });
+          finalUsername = panelResult.username;
+          finalPassword = panelResult.password ?? vpnPassword;
+          finalUuid = panelResult.uuid ?? vpnUuid;
+          configLink = panelResult.configLink ?? null;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error(`[admin/confirm] Panel API error: ${msg}`);
+          // Continue — admin confirmation still marks order paid even if panel fails
+        }
+      }
+
+      const [vpnAccount] = await db
+        .insert(vpnAccountsTable)
+        .values({
+          userId: user.id,
+          orderId: order.id,
+          protocol: product.protocol,
+          username: finalUsername,
+          password: finalPassword,
+          uuid: finalUuid,
+          serverId: server.id,
+          configLink,
+          expiresAt,
+          quota: product.quota ?? null,
+        })
+        .returning();
+
+      vpnAccountId = vpnAccount.id;
+    }
+  }
+
   const [updated] = await db
     .update(ordersTable)
-    .set({ status: "paid", updatedAt: new Date() })
+    .set({ status: "paid", vpnAccountId: vpnAccountId ?? order.vpnAccountId, updatedAt: new Date() })
     .where(eq(ordersTable.id, id))
     .returning();
 
