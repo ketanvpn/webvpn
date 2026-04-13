@@ -1107,6 +1107,106 @@ export const AdminRejectTopupResponse = zod.object({
 });
 
 /**
+ * @summary List all VPN accounts (admin)
+ */
+export const adminListAccountsQueryLimitDefault = 20;
+export const adminListAccountsQueryOffsetDefault = 0;
+
+export const AdminListAccountsQueryParams = zod.object({
+  userId: zod.coerce.number().optional(),
+  protocol: zod
+    .enum(["ssh", "vmess", "vless", "trojan", "shadowsocks"])
+    .optional(),
+  isActive: zod.coerce.boolean().optional(),
+  limit: zod.coerce.number().default(adminListAccountsQueryLimitDefault),
+  offset: zod.coerce.number().default(adminListAccountsQueryOffsetDefault),
+});
+
+export const AdminListAccountsResponse = zod.object({
+  accounts: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        userId: zod.number(),
+        orderId: zod.number().nullish(),
+        protocol: zod.enum(["ssh", "vmess", "vless", "trojan", "shadowsocks"]),
+        username: zod.string(),
+        password: zod.string().nullish(),
+        uuid: zod.string().nullish(),
+        serverId: zod.number().optional(),
+        server: zod.object({
+          id: zod.number(),
+          name: zod.string(),
+          location: zod.string(),
+          flag: zod.string().describe("Country flag emoji or code"),
+          isActive: zod.boolean(),
+        }),
+        configLink: zod
+          .string()
+          .nullish()
+          .describe("vmess:\/\/ or vless:\/\/ or trojan:\/\/ link"),
+        expiresAt: zod.coerce.date(),
+        quota: zod.number().nullish(),
+        usedQuota: zod.number().nullish(),
+        isActive: zod.boolean(),
+        createdAt: zod.coerce.date(),
+      })
+      .and(
+        zod.object({
+          user: zod
+            .object({
+              id: zod.number(),
+              username: zod.string(),
+              email: zod.string(),
+              fullName: zod.string().nullish(),
+              role: zod.enum(["user", "reseller", "admin"]),
+              balance: zod.number().describe("Balance in IDR"),
+              isActive: zod.boolean(),
+              referralCode: zod.string().nullish(),
+              createdAt: zod.coerce.date(),
+            })
+            .nullish(),
+        }),
+      ),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Toggle VPN account active/inactive (admin)
+ */
+export const AdminToggleAccountParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminToggleAccountResponse = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  orderId: zod.number().nullish(),
+  protocol: zod.enum(["ssh", "vmess", "vless", "trojan", "shadowsocks"]),
+  username: zod.string(),
+  password: zod.string().nullish(),
+  uuid: zod.string().nullish(),
+  serverId: zod.number().optional(),
+  server: zod.object({
+    id: zod.number(),
+    name: zod.string(),
+    location: zod.string(),
+    flag: zod.string().describe("Country flag emoji or code"),
+    isActive: zod.boolean(),
+  }),
+  configLink: zod
+    .string()
+    .nullish()
+    .describe("vmess:\/\/ or vless:\/\/ or trojan:\/\/ link"),
+  expiresAt: zod.coerce.date(),
+  quota: zod.number().nullish(),
+  usedQuota: zod.number().nullish(),
+  isActive: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
  * @summary List available VPN servers (public, name/location only)
  */
 export const ListServersResponseItem = zod.object({

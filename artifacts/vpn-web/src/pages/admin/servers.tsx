@@ -1,42 +1,177 @@
-import { useAdminListServers, useAdminDeleteServer, getAdminListServersQueryKey } from "@workspace/api-client-react";
+import {
+  useAdminListServers,
+  useAdminCreateServer,
+  useAdminUpdateServer,
+  useAdminDeleteServer,
+  getAdminListServersQueryKey,
+} from "@workspace/api-client-react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Server, Plus, MoreVertical, Edit, Trash2, Activity } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import type { AdminListServersResponseItem } from "@workspace/api-client-react/src/generated/api.schemas";
+
+type ServerForm = {
+  name: string;
+  location: string;
+  flag: string;
+  host: string;
+  apiUrl: string;
+  apiToken: string;
+  supportedProtocols: string[];
+  isActive: boolean;
+};
+
+const emptyForm: ServerForm = {
+  name: "",
+  location: "",
+  flag: "🌐",
+  host: "",
+  apiUrl: "",
+  apiToken: "",
+  supportedProtocols: ["ssh", "vmess"],
+  isActive: true,
+};
+
+const allProtocols = ["ssh", "vmess", "vless", "trojan", "shadowsocks"];
 
 export default function AdminServers() {
   const { data: servers, isLoading } = useAdminListServers();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const createServer = useAdminCreateServer();
+  const updateServer = useAdminUpdateServer();
   const deleteServer = useAdminDeleteServer();
 
-  const handleDelete = (id: number) => {
-    if (confirm("Are you sure you want to delete this server?")) {
-      deleteServer.mutate({ id }, {
-        onSuccess: () => {
-          toast({ title: "Server deleted" });
-          queryClient.invalidateQueries({ queryKey: getAdminListServersQueryKey() });
-        },
-        onError: (err) => {
-          toast({ title: "Failed to delete server", description: err.error, variant: "destructive" });
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [form, setForm] = useState<ServerForm>(emptyForm);
+
+  const openCreate = () => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (s: AdminListServersResponseItem) => {
+    setEditingId(s.id);
+    setForm({
+      name: s.name,
+      location: s.location,
+      flag: s.flag,
+      host: s.host,
+      apiUrl: s.apiUrl ?? "",
+      apiToken: s.apiToken ?? "",
+      supportedProtocols: s.supportedProtocols ?? [],
+      isActive: s.isActive,
+    });
+    setDialogOpen(true);
+  };
+
+  const toggleProtocol = (protocol: string) => {
+    setForm((prev) => ({
+      ...prev,
+      supportedProtocols: prev.supportedProtocols.includes(protocol)
+        ? prev.supportedProtocols.filter((p) => p !== protocol)
+        : [...prev.supportedProtocols, protocol],
+    }));
+  };
+
+  const handleSave = () => {
+    if (!form.name || !form.host || !form.location) {
+      toast({ title: "Isi semua field yang diperlukan", variant: "destructive" });
+      return;
+    }
+    if (form.supportedProtocols.length === 0) {
+      toast({ title: "Pilih minimal satu protokol", variant: "destructive" });
+      return;
+    }
+
+    const payload = {
+      name: form.name,
+      location: form.location,
+      flag: form.flag,
+      host: form.host,
+      apiUrl: form.apiUrl || undefined,
+      apiToken: form.apiToken || undefined,
+      supportedProtocols: form.supportedProtocols,
+      isActive: form.isActive,
+    };
+
+    if (editingId) {
+      updateServer.mutate(
+        { id: editingId, data: payload },
+        {
+          onSuccess: () => {
+            toast({ title: "Server berhasil diperbarui" });
+            queryClient.invalidateQueries({ queryKey: getAdminListServersQueryKey() });
+            setDialogOpen(false);
+          },
+          onError: (err) => toast({ title: "Gagal memperbarui server", description: err.error, variant: "destructive" }),
         }
-      });
+      );
+    } else {
+      createServer.mutate(
+        { data: payload },
+        {
+          onSuccess: () => {
+            toast({ title: "Server berhasil ditambahkan" });
+            queryClient.invalidateQueries({ queryKey: getAdminListServersQueryKey() });
+            setDialogOpen(false);
+          },
+          onError: (err) => toast({ title: "Gagal menambah server", description: err.error, variant: "destructive" }),
+        }
+      );
     }
   };
+
+  const handleDelete = (id: number, name: string) => {
+    if (confirm(`Yakin ingin menghapus server "${name}"?`)) {
+      deleteServer.mutate(
+        { id },
+        {
+          onSuccess: () => {
+            toast({ title: "Server dihapus" });
+            queryClient.invalidateQueries({ queryKey: getAdminListServersQueryKey() });
+          },
+          onError: (err) => toast({ title: "Gagal menghapus server", description: err.error, variant: "destructive" }),
+        }
+      );
+    }
+  };
+
+  const isSaving = createServer.isPending || updateServer.isPending;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">VPN Servers</h1>
-          <p className="text-muted-foreground mt-1">Manage infrastructure nodes and nodes status.</p>
+          <h1 className="text-3xl font-bold tracking-tight">Server VPN</h1>
+          <p className="text-muted-foreground mt-1">Kelola node infrastruktur VPN.</p>
         </div>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" /> Add Server
+        <Button className="gap-2" onClick={openCreate} data-testid="button-add-server">
+          <Plus className="h-4 w-4" /> Tambah Server
         </Button>
       </div>
 
@@ -45,11 +180,11 @@ export default function AdminServers() {
           [1, 2, 3].map((i) => <Skeleton key={i} className="h-48 w-full" />)
         ) : servers && servers.length > 0 ? (
           servers.map((server) => (
-            <Card key={server.id} className="flex flex-col group">
+            <Card key={server.id} className="flex flex-col group" data-testid={`card-server-${server.id}`}>
               <CardHeader className="pb-3 border-b bg-muted/20">
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-2">
-                    <span className="text-2xl" role="img" aria-label="flag">{server.flag}</span>
+                    <span className="text-2xl">{server.flag}</span>
                     <Badge variant={server.isActive ? "default" : "destructive"}>
                       {server.isActive ? "Online" : "Offline"}
                     </Badge>
@@ -61,14 +196,14 @@ export default function AdminServers() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem className="gap-2 cursor-pointer">
+                      <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => openEdit(server)}>
                         <Edit className="h-4 w-4" /> Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem 
+                      <DropdownMenuItem
                         className="gap-2 cursor-pointer text-destructive focus:text-destructive"
-                        onClick={() => handleDelete(server.id)}
+                        onClick={() => handleDelete(server.id, server.name)}
                       >
-                        <Trash2 className="h-4 w-4" /> Delete
+                        <Trash2 className="h-4 w-4" /> Hapus
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -79,10 +214,10 @@ export default function AdminServers() {
               <CardContent className="pt-4 flex-1 space-y-4">
                 <div className="flex items-center gap-2 text-sm">
                   <Server className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-mono text-muted-foreground">{server.host}</span>
+                  <span className="font-mono text-muted-foreground truncate">{server.host}</span>
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {server.supportedProtocols.map(p => (
+                  {server.supportedProtocols?.map((p) => (
                     <Badge key={p} variant="secondary" className="text-[10px] uppercase px-1.5 py-0">
                       {p}
                     </Badge>
@@ -90,19 +225,127 @@ export default function AdminServers() {
                 </div>
                 <div className="pt-4 mt-auto border-t flex justify-between items-center text-sm">
                   <span className="text-muted-foreground flex items-center gap-1">
-                    <Activity className="h-4 w-4" /> Active Accounts
+                    <Activity className="h-4 w-4" /> Akun Aktif
                   </span>
-                  <span className="font-bold">{server.activeAccounts || 0}</span>
+                  <span className="font-bold">{server.activeAccounts ?? 0}</span>
                 </div>
               </CardContent>
             </Card>
           ))
         ) : (
           <div className="col-span-full p-12 text-center border rounded-xl bg-card border-dashed">
-            <p className="text-muted-foreground">No servers found.</p>
+            <p className="text-muted-foreground">Belum ada server.</p>
           </div>
         )}
       </div>
+
+      {/* Form Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingId ? "Edit Server" : "Tambah Server Baru"}</DialogTitle>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="srv-name">Nama Server *</Label>
+                <Input
+                  id="srv-name"
+                  placeholder="SG-01"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  data-testid="input-server-name"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="srv-flag">Flag (emoji)</Label>
+                <Input
+                  id="srv-flag"
+                  placeholder="🇸🇬"
+                  value={form.flag}
+                  onChange={(e) => setForm({ ...form, flag: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="srv-location">Lokasi *</Label>
+              <Input
+                id="srv-location"
+                placeholder="Singapore"
+                value={form.location}
+                onChange={(e) => setForm({ ...form, location: e.target.value })}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="srv-host">Host / IP *</Label>
+              <Input
+                id="srv-host"
+                placeholder="sg1.example.com atau 1.2.3.4"
+                value={form.host}
+                onChange={(e) => setForm({ ...form, host: e.target.value })}
+                data-testid="input-server-host"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="srv-api">URL API (opsional)</Label>
+              <Input
+                id="srv-api"
+                placeholder="https://server.com:8888"
+                value={form.apiUrl}
+                onChange={(e) => setForm({ ...form, apiUrl: e.target.value })}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="srv-token">Token API (opsional)</Label>
+              <Input
+                id="srv-token"
+                type="password"
+                placeholder="••••••••"
+                value={form.apiToken}
+                onChange={(e) => setForm({ ...form, apiToken: e.target.value })}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Protokol yang Didukung *</Label>
+              <div className="flex flex-wrap gap-3 pt-1">
+                {allProtocols.map((p) => (
+                  <div key={p} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`proto-${p}`}
+                      checked={form.supportedProtocols.includes(p)}
+                      onCheckedChange={() => toggleProtocol(p)}
+                    />
+                    <Label htmlFor={`proto-${p}`} className="uppercase font-mono cursor-pointer">{p}</Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={form.isActive}
+                onCheckedChange={(v) => setForm({ ...form, isActive: v })}
+                id="srv-active"
+                data-testid="switch-server-active"
+              />
+              <Label htmlFor="srv-active">Server Aktif</Label>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Batal</Button>
+            <Button onClick={handleSave} disabled={isSaving} data-testid="button-save-server">
+              {isSaving ? "Menyimpan..." : editingId ? "Simpan Perubahan" : "Tambah Server"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

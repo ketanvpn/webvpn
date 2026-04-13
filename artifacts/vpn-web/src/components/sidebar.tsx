@@ -14,6 +14,7 @@ import {
   Package,
   CreditCard,
   Menu,
+  Shield,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -33,6 +34,7 @@ const adminNav = [
   { title: "Servers", href: "/admin/servers", icon: Server },
   { title: "Orders", href: "/admin/orders", icon: ShoppingCart },
   { title: "Topups", href: "/admin/topups", icon: CreditCard },
+  { title: "VPN Accounts", href: "/admin/accounts", icon: Shield },
 ];
 
 export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {

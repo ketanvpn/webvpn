@@ -27,6 +27,7 @@ import AdminProducts from "@/pages/admin/products";
 import AdminServers from "@/pages/admin/servers";
 import AdminOrders from "@/pages/admin/orders";
 import AdminTopups from "@/pages/admin/topups";
+import AdminAccounts from "@/pages/admin/accounts";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -91,6 +92,9 @@ function Router() {
       </Route>
       <Route path="/admin/orders">
         <Layout requireAdmin><AdminOrders /></Layout>
+      </Route>
+      <Route path="/admin/accounts">
+        <Layout requireAdmin><AdminAccounts /></Layout>
       </Route>
       <Route path="/admin/topups">
         <Layout requireAdmin><AdminTopups /></Layout>

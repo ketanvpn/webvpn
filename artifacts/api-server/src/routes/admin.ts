@@ -568,4 +568,130 @@ router.post("/admin/topups/:id/reject", requireAdmin, async (req, res) => {
   res.json(formatTopup(updated));
 });
 
+// ─── Admin: VPN Accounts ─────────────────────────────────────────────────────
+
+router.get("/admin/accounts", requireAdmin, async (req, res) => {
+  const { userId, protocol, isActive } = req.query as Record<string, string | undefined>;
+  const limit = Math.min(parseInt(String(req.query.limit ?? "20"), 10), 100);
+  const offset = parseInt(String(req.query.offset ?? "0"), 10);
+
+  const conditions = [];
+  if (userId) conditions.push(eq(vpnAccountsTable.userId, parseInt(userId, 10)));
+  if (protocol) conditions.push(eq(vpnAccountsTable.protocol, protocol));
+  if (isActive !== undefined) conditions.push(eq(vpnAccountsTable.isActive, isActive === "true"));
+
+  const accounts = await db
+    .select({
+      id: vpnAccountsTable.id,
+      userId: vpnAccountsTable.userId,
+      orderId: vpnAccountsTable.orderId,
+      protocol: vpnAccountsTable.protocol,
+      username: vpnAccountsTable.username,
+      password: vpnAccountsTable.password,
+      uuid: vpnAccountsTable.uuid,
+      serverId: vpnAccountsTable.serverId,
+      configLink: vpnAccountsTable.configLink,
+      expiresAt: vpnAccountsTable.expiresAt,
+      quota: vpnAccountsTable.quota,
+      usedQuota: vpnAccountsTable.usedQuota,
+      isActive: vpnAccountsTable.isActive,
+      createdAt: vpnAccountsTable.createdAt,
+      updatedAt: vpnAccountsTable.updatedAt,
+      userUsername: usersTable.username,
+      userEmail: usersTable.email,
+      serverName: serversTable.name,
+      serverLocation: serversTable.location,
+      serverFlag: serversTable.flag,
+      serverIsActive: serversTable.isActive,
+    })
+    .from(vpnAccountsTable)
+    .leftJoin(usersTable, eq(vpnAccountsTable.userId, usersTable.id))
+    .leftJoin(serversTable, eq(vpnAccountsTable.serverId, serversTable.id))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(vpnAccountsTable.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  const [total] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(vpnAccountsTable)
+    .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+  const formatted = accounts.map((a) => ({
+    id: a.id,
+    userId: a.userId,
+    orderId: a.orderId,
+    protocol: a.protocol,
+    username: a.username,
+    password: a.password,
+    uuid: a.uuid,
+    serverId: a.serverId,
+    server: {
+      id: a.serverId,
+      name: a.serverName ?? "",
+      location: a.serverLocation ?? "",
+      flag: a.serverFlag ?? "🌐",
+      isActive: a.serverIsActive ?? false,
+    },
+    configLink: a.configLink,
+    expiresAt: a.expiresAt,
+    quota: a.quota != null ? Number(a.quota) : null,
+    usedQuota: a.usedQuota != null ? Number(a.usedQuota) : null,
+    isActive: a.isActive,
+    createdAt: a.createdAt,
+    user: a.userUsername
+      ? { id: a.userId, username: a.userUsername, email: a.userEmail ?? "" }
+      : null,
+  }));
+
+  res.json({ accounts: formatted, total: total?.count ?? 0 });
+});
+
+router.post("/admin/accounts/:id/toggle", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+
+  const [account] = await db
+    .select()
+    .from(vpnAccountsTable)
+    .where(eq(vpnAccountsTable.id, id))
+    .limit(1);
+
+  if (!account) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(vpnAccountsTable)
+    .set({ isActive: !account.isActive, updatedAt: new Date() })
+    .where(eq(vpnAccountsTable.id, id))
+    .returning();
+
+  const [server] = await db
+    .select()
+    .from(serversTable)
+    .where(eq(serversTable.id, updated.serverId))
+    .limit(1);
+
+  res.json({
+    id: updated.id,
+    userId: updated.userId,
+    orderId: updated.orderId,
+    protocol: updated.protocol,
+    username: updated.username,
+    password: updated.password,
+    uuid: updated.uuid,
+    serverId: updated.serverId,
+    server: server
+      ? { id: server.id, name: server.name, location: server.location, flag: server.flag, isActive: server.isActive }
+      : null,
+    configLink: updated.configLink,
+    expiresAt: updated.expiresAt,
+    quota: updated.quota != null ? Number(updated.quota) : null,
+    usedQuota: updated.usedQuota != null ? Number(updated.usedQuota) : null,
+    isActive: updated.isActive,
+    createdAt: updated.createdAt,
+  });
+});
+
 export default router;

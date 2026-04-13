@@ -17,7 +17,9 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AdminAccountListResponse,
   AdminDashboard,
+  AdminListAccountsParams,
   AdminListOrdersParams,
   AdminListTopupsParams,
   AdminListUsersParams,
@@ -3011,6 +3013,190 @@ export const useAdminRejectTopup = <
   TContext
 > => {
   return useMutation(getAdminRejectTopupMutationOptions(options));
+};
+
+/**
+ * @summary List all VPN accounts (admin)
+ */
+export const getAdminListAccountsUrl = (params?: AdminListAccountsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/accounts?${stringifiedParams}`
+    : `/api/admin/accounts`;
+};
+
+export const adminListAccounts = async (
+  params?: AdminListAccountsParams,
+  options?: RequestInit,
+): Promise<AdminAccountListResponse> => {
+  return customFetch<AdminAccountListResponse>(
+    getAdminListAccountsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getAdminListAccountsQueryKey = (
+  params?: AdminListAccountsParams,
+) => {
+  return [`/api/admin/accounts`, ...(params ? [params] : [])] as const;
+};
+
+export const getAdminListAccountsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListAccounts>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: AdminListAccountsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListAccounts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListAccountsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListAccounts>>
+  > = ({ signal }) => adminListAccounts(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListAccounts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListAccountsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListAccounts>>
+>;
+export type AdminListAccountsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all VPN accounts (admin)
+ */
+
+export function useAdminListAccounts<
+  TData = Awaited<ReturnType<typeof adminListAccounts>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: AdminListAccountsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListAccounts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListAccountsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Toggle VPN account active/inactive (admin)
+ */
+export const getAdminToggleAccountUrl = (id: number) => {
+  return `/api/admin/accounts/${id}/toggle`;
+};
+
+export const adminToggleAccount = async (
+  id: number,
+  options?: RequestInit,
+): Promise<VpnAccount> => {
+  return customFetch<VpnAccount>(getAdminToggleAccountUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAdminToggleAccountMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminToggleAccount>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminToggleAccount>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminToggleAccount"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminToggleAccount>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminToggleAccount(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminToggleAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminToggleAccount>>
+>;
+
+export type AdminToggleAccountMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Toggle VPN account active/inactive (admin)
+ */
+export const useAdminToggleAccount = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminToggleAccount>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminToggleAccount>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminToggleAccountMutationOptions(options));
 };
 
 /**

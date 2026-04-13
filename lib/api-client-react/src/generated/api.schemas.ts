@@ -333,6 +333,15 @@ export type AdminUserDetail = User & {
   topupHistory?: TopupTransaction[];
 };
 
+export type AdminVpnAccount = VpnAccount & {
+  user?: User | null;
+};
+
+export interface AdminAccountListResponse {
+  accounts: AdminVpnAccount[];
+  total: number;
+}
+
 export type AdminUpdateUserBodyRole =
   (typeof AdminUpdateUserBodyRole)[keyof typeof AdminUpdateUserBodyRole];
 
@@ -423,4 +432,23 @@ export const AdminListTopupsStatus = {
   pending: "pending",
   confirmed: "confirmed",
   rejected: "rejected",
+} as const;
+
+export type AdminListAccountsParams = {
+  userId?: number;
+  protocol?: AdminListAccountsProtocol;
+  isActive?: boolean;
+  limit?: number;
+  offset?: number;
+};
+
+export type AdminListAccountsProtocol =
+  (typeof AdminListAccountsProtocol)[keyof typeof AdminListAccountsProtocol];
+
+export const AdminListAccountsProtocol = {
+  ssh: "ssh",
+  vmess: "vmess",
+  vless: "vless",
+  trojan: "trojan",
+  shadowsocks: "shadowsocks",
 } as const;
