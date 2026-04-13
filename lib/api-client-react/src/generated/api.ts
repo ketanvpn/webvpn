@@ -18,6 +18,8 @@ import type {
 
 import type {
   AdminAccountListResponse,
+  AdminBroadcast200,
+  AdminBroadcastBody,
   AdminDashboard,
   AdminExtendAccount200,
   AdminExtendAccountBody,
@@ -26,6 +28,8 @@ import type {
   AdminListTopupsParams,
   AdminListUsersParams,
   AdminOrderListResponse,
+  AdminRegisterTelegramWebhook200,
+  AdminRegisterTelegramWebhookBody,
   AdminRejectTopupBody,
   AdminUpdateUserBody,
   AdminUserDetail,
@@ -38,6 +42,7 @@ import type {
   CreateServerBody,
   DashboardSummary,
   ErrorResponse,
+  GetTelegramLink200,
   HealthStatus,
   ListOrdersParams,
   ListProductsParams,
@@ -52,9 +57,11 @@ import type {
   RegisterBody,
   RenewAccountBody,
   SuccessResponse,
+  TelegramSettings,
   TopupBody,
   TopupResponse,
   TopupTransaction,
+  UnlinkTelegram200,
   UpdateProductBody,
   UpdateProfileBody,
   UpdateServerBody,
@@ -3796,6 +3803,501 @@ export const useAdminUpdatePaymentSettings = <
   TContext
 > => {
   return useMutation(getAdminUpdatePaymentSettingsMutationOptions(options));
+};
+
+/**
+ * @summary Get Telegram bot settings
+ */
+export const getAdminGetTelegramSettingsUrl = () => {
+  return `/api/admin/settings/telegram`;
+};
+
+export const adminGetTelegramSettings = async (
+  options?: RequestInit,
+): Promise<TelegramSettings> => {
+  return customFetch<TelegramSettings>(getAdminGetTelegramSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminGetTelegramSettingsQueryKey = () => {
+  return [`/api/admin/settings/telegram`] as const;
+};
+
+export const getAdminGetTelegramSettingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminGetTelegramSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetTelegramSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminGetTelegramSettingsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminGetTelegramSettings>>
+  > = ({ signal }) => adminGetTelegramSettings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetTelegramSettings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminGetTelegramSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetTelegramSettings>>
+>;
+export type AdminGetTelegramSettingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get Telegram bot settings
+ */
+
+export function useAdminGetTelegramSettings<
+  TData = Awaited<ReturnType<typeof adminGetTelegramSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetTelegramSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminGetTelegramSettingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update Telegram bot settings
+ */
+export const getAdminUpdateTelegramSettingsUrl = () => {
+  return `/api/admin/settings/telegram`;
+};
+
+export const adminUpdateTelegramSettings = async (
+  telegramSettings: TelegramSettings,
+  options?: RequestInit,
+): Promise<TelegramSettings> => {
+  return customFetch<TelegramSettings>(getAdminUpdateTelegramSettingsUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(telegramSettings),
+  });
+};
+
+export const getAdminUpdateTelegramSettingsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateTelegramSettings>>,
+    TError,
+    { data: BodyType<TelegramSettings> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateTelegramSettings>>,
+  TError,
+  { data: BodyType<TelegramSettings> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateTelegramSettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateTelegramSettings>>,
+    { data: BodyType<TelegramSettings> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminUpdateTelegramSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateTelegramSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateTelegramSettings>>
+>;
+export type AdminUpdateTelegramSettingsMutationBody =
+  BodyType<TelegramSettings>;
+export type AdminUpdateTelegramSettingsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update Telegram bot settings
+ */
+export const useAdminUpdateTelegramSettings = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateTelegramSettings>>,
+    TError,
+    { data: BodyType<TelegramSettings> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateTelegramSettings>>,
+  TError,
+  { data: BodyType<TelegramSettings> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateTelegramSettingsMutationOptions(options));
+};
+
+/**
+ * @summary Broadcast message to all Telegram-linked users
+ */
+export const getAdminBroadcastUrl = () => {
+  return `/api/admin/broadcast`;
+};
+
+export const adminBroadcast = async (
+  adminBroadcastBody: AdminBroadcastBody,
+  options?: RequestInit,
+): Promise<AdminBroadcast200> => {
+  return customFetch<AdminBroadcast200>(getAdminBroadcastUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminBroadcastBody),
+  });
+};
+
+export const getAdminBroadcastMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminBroadcast>>,
+    TError,
+    { data: BodyType<AdminBroadcastBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminBroadcast>>,
+  TError,
+  { data: BodyType<AdminBroadcastBody> },
+  TContext
+> => {
+  const mutationKey = ["adminBroadcast"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminBroadcast>>,
+    { data: BodyType<AdminBroadcastBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminBroadcast(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminBroadcastMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminBroadcast>>
+>;
+export type AdminBroadcastMutationBody = BodyType<AdminBroadcastBody>;
+export type AdminBroadcastMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Broadcast message to all Telegram-linked users
+ */
+export const useAdminBroadcast = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminBroadcast>>,
+    TError,
+    { data: BodyType<AdminBroadcastBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminBroadcast>>,
+  TError,
+  { data: BodyType<AdminBroadcastBody> },
+  TContext
+> => {
+  return useMutation(getAdminBroadcastMutationOptions(options));
+};
+
+/**
+ * @summary Register Telegram webhook URL
+ */
+export const getAdminRegisterTelegramWebhookUrl = () => {
+  return `/api/admin/telegram/register-webhook`;
+};
+
+export const adminRegisterTelegramWebhook = async (
+  adminRegisterTelegramWebhookBody: AdminRegisterTelegramWebhookBody,
+  options?: RequestInit,
+): Promise<AdminRegisterTelegramWebhook200> => {
+  return customFetch<AdminRegisterTelegramWebhook200>(
+    getAdminRegisterTelegramWebhookUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(adminRegisterTelegramWebhookBody),
+    },
+  );
+};
+
+export const getAdminRegisterTelegramWebhookMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminRegisterTelegramWebhook>>,
+    TError,
+    { data: BodyType<AdminRegisterTelegramWebhookBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminRegisterTelegramWebhook>>,
+  TError,
+  { data: BodyType<AdminRegisterTelegramWebhookBody> },
+  TContext
+> => {
+  const mutationKey = ["adminRegisterTelegramWebhook"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminRegisterTelegramWebhook>>,
+    { data: BodyType<AdminRegisterTelegramWebhookBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminRegisterTelegramWebhook(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminRegisterTelegramWebhookMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminRegisterTelegramWebhook>>
+>;
+export type AdminRegisterTelegramWebhookMutationBody =
+  BodyType<AdminRegisterTelegramWebhookBody>;
+export type AdminRegisterTelegramWebhookMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Register Telegram webhook URL
+ */
+export const useAdminRegisterTelegramWebhook = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminRegisterTelegramWebhook>>,
+    TError,
+    { data: BodyType<AdminRegisterTelegramWebhookBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminRegisterTelegramWebhook>>,
+  TError,
+  { data: BodyType<AdminRegisterTelegramWebhookBody> },
+  TContext
+> => {
+  return useMutation(getAdminRegisterTelegramWebhookMutationOptions(options));
+};
+
+/**
+ * @summary Generate Telegram link token for current user
+ */
+export const getGetTelegramLinkUrl = () => {
+  return `/api/telegram/link`;
+};
+
+export const getTelegramLink = async (
+  options?: RequestInit,
+): Promise<GetTelegramLink200> => {
+  return customFetch<GetTelegramLink200>(getGetTelegramLinkUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTelegramLinkQueryKey = () => {
+  return [`/api/telegram/link`] as const;
+};
+
+export const getGetTelegramLinkQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTelegramLink>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getTelegramLink>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetTelegramLinkQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTelegramLink>>> = ({
+    signal,
+  }) => getTelegramLink({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTelegramLink>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTelegramLinkQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTelegramLink>>
+>;
+export type GetTelegramLinkQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Generate Telegram link token for current user
+ */
+
+export function useGetTelegramLink<
+  TData = Awaited<ReturnType<typeof getTelegramLink>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getTelegramLink>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTelegramLinkQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Unlink Telegram from current user
+ */
+export const getUnlinkTelegramUrl = () => {
+  return `/api/telegram/link`;
+};
+
+export const unlinkTelegram = async (
+  options?: RequestInit,
+): Promise<UnlinkTelegram200> => {
+  return customFetch<UnlinkTelegram200>(getUnlinkTelegramUrl(), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getUnlinkTelegramMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unlinkTelegram>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unlinkTelegram>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["unlinkTelegram"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unlinkTelegram>>,
+    void
+  > = () => {
+    return unlinkTelegram(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UnlinkTelegramMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unlinkTelegram>>
+>;
+
+export type UnlinkTelegramMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Unlink Telegram from current user
+ */
+export const useUnlinkTelegram = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unlinkTelegram>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof unlinkTelegram>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getUnlinkTelegramMutationOptions(options));
 };
 
 /**

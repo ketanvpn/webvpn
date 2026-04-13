@@ -17,5 +17,7 @@ export interface User {
   balance: number;
   isActive: boolean;
   referralCode?: string | null;
+  /** Telegram user ID (linked) */
+  telegramId?: number | null;
   createdAt: Date;
 }

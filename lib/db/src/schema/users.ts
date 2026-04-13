@@ -1,4 +1,4 @@
-import { pgTable, serial, text, boolean, numeric, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, boolean, numeric, timestamp, bigint } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -12,6 +12,8 @@ export const usersTable = pgTable("users", {
   balance: numeric("balance", { precision: 12, scale: 2 }).notNull().default("0"),
   isActive: boolean("is_active").notNull().default(true),
   referralCode: text("referral_code").unique(),
+  telegramId: bigint("telegram_id", { mode: "number" }),
+  telegramLinkToken: text("telegram_link_token"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

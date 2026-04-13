@@ -18,6 +18,15 @@ const PAYMENT_KEYS = [
   "activeGateway",
 ] as const;
 
+const TELEGRAM_KEYS = [
+  "telegramBotToken",
+  "telegramAdminChatId",
+  "telegramEnabled",
+  "telegramBotUsername",
+] as const;
+
+type TelegramKey = (typeof TELEGRAM_KEYS)[number];
+
 type PaymentKey = (typeof PAYMENT_KEYS)[number];
 
 async function getSettingValue(key: string): Promise<string | null> {
@@ -85,5 +94,38 @@ export async function getPaymentSettingsMap(): Promise<Record<string, string | n
   const rows = await db.select().from(settingsTable);
   return Object.fromEntries(rows.map((r) => [r.key, r.value]));
 }
+
+// ─── Telegram Settings ────────────────────────────────────────────────────────
+
+function buildTelegramSettingsResponse(map: Record<string, string | null>) {
+  return {
+    telegramBotToken: map["telegramBotToken"] ?? null,
+    telegramAdminChatId: map["telegramAdminChatId"] ?? null,
+    telegramEnabled: parseBoolean(map["telegramEnabled"] ?? "false"),
+    telegramBotUsername: map["telegramBotUsername"] ?? null,
+  };
+}
+
+router.get("/admin/settings/telegram", requireAdmin, async (_req, res) => {
+  const rows = await db.select().from(settingsTable);
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  res.json(buildTelegramSettingsResponse(map));
+});
+
+router.put("/admin/settings/telegram", requireAdmin, async (req, res) => {
+  const body = req.body as Record<string, string | boolean | null>;
+
+  for (const key of TELEGRAM_KEYS) {
+    if (key in body) {
+      const raw = body[key];
+      const value = raw === null || raw === undefined ? null : String(raw);
+      await setSettingValue(key, value);
+    }
+  }
+
+  const rows = await db.select().from(settingsTable);
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  res.json(buildTelegramSettingsResponse(map));
+});
 
 export default router;

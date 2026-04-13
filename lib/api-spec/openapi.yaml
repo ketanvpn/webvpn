@@ -1137,6 +1137,144 @@ paths:
               schema:
                 $ref: "#/components/schemas/PaymentSettings"
 
+  /admin/settings/telegram:
+    get:
+      operationId: adminGetTelegramSettings
+      tags: [admin]
+      summary: Get Telegram bot settings
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Telegram settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramSettings"
+    put:
+      operationId: adminUpdateTelegramSettings
+      tags: [admin]
+      summary: Update Telegram bot settings
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TelegramSettings"
+      responses:
+        "200":
+          description: Updated Telegram settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramSettings"
+
+  /admin/broadcast:
+    post:
+      operationId: adminBroadcast
+      tags: [admin]
+      summary: Broadcast message to all Telegram-linked users
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message:
+                  type: string
+      responses:
+        "200":
+          description: Broadcast result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, sent, failed]
+                properties:
+                  success:
+                    type: boolean
+                  sent:
+                    type: integer
+                  failed:
+                    type: integer
+
+  /admin/telegram/register-webhook:
+    post:
+      operationId: adminRegisterTelegramWebhook
+      tags: [admin]
+      summary: Register Telegram webhook URL
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url:
+                  type: string
+      responses:
+        "200":
+          description: Webhook registered
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+
+  /telegram/link:
+    get:
+      operationId: getTelegramLink
+      tags: [auth]
+      summary: Generate Telegram link token for current user
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Telegram link info
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token]
+                properties:
+                  token:
+                    type: string
+                  botUsername:
+                    type: string
+                    nullable: true
+                  url:
+                    type: string
+                    nullable: true
+    delete:
+      operationId: unlinkTelegram
+      tags: [auth]
+      summary: Unlink Telegram from current user
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Unlinked
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+
   # ─── Servers (public) ──────────────────────────────────────────────────
   /servers:
     get:
@@ -1199,6 +1337,25 @@ components:
           nullable: true
           description: "Gateway aktif: 'qris_static' | 'autogopay'"
           enum: [qris_static, autogopay]
+
+    TelegramSettings:
+      type: object
+      properties:
+        telegramBotToken:
+          type: string
+          nullable: true
+          description: Telegram Bot API token dari BotFather
+        telegramAdminChatId:
+          type: string
+          nullable: true
+          description: Chat ID Telegram admin untuk menerima notifikasi
+        telegramEnabled:
+          type: boolean
+          description: Aktifkan notifikasi Telegram
+        telegramBotUsername:
+          type: string
+          nullable: true
+          description: Username bot (auto-detect)
 
     HealthStatus:
       type: object
@@ -1287,6 +1444,10 @@ components:
         referralCode:
           type: string
           nullable: true
+        telegramId:
+          type: integer
+          nullable: true
+          description: Telegram user ID (linked)
         createdAt:
           type: string
           format: date-time

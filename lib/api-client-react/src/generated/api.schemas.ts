@@ -38,6 +38,17 @@ export interface PaymentSettings {
   activeGateway?: PaymentSettingsActiveGateway;
 }
 
+export interface TelegramSettings {
+  /** Telegram Bot API token dari BotFather */
+  telegramBotToken?: string | null;
+  /** Chat ID Telegram admin untuk menerima notifikasi */
+  telegramAdminChatId?: string | null;
+  /** Aktifkan notifikasi Telegram */
+  telegramEnabled?: boolean;
+  /** Username bot (auto-detect) */
+  telegramBotUsername?: string | null;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -86,6 +97,8 @@ export interface User {
   balance: number;
   isActive: boolean;
   referralCode?: string | null;
+  /** Telegram user ID (linked) */
+  telegramId?: number | null;
   createdAt: string;
 }
 
@@ -552,4 +565,32 @@ export type AdminExtendAccount200 = {
   id: number;
   expiresAt: string;
   isActive: boolean;
+};
+
+export type AdminBroadcastBody = {
+  message: string;
+};
+
+export type AdminBroadcast200 = {
+  success: boolean;
+  sent: number;
+  failed: number;
+};
+
+export type AdminRegisterTelegramWebhookBody = {
+  url: string;
+};
+
+export type AdminRegisterTelegramWebhook200 = {
+  success: boolean;
+};
+
+export type GetTelegramLink200 = {
+  token: string;
+  botUsername?: string | null;
+  url?: string | null;
+};
+
+export type UnlinkTelegram200 = {
+  success: boolean;
 };

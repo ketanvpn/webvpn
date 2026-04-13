@@ -17,6 +17,7 @@ import { formatAccount } from "./accounts";
 import { formatTopup } from "./balance";
 import { formatFullServer } from "./servers";
 import { createPanelAccount, sanitizeVpnUsername } from "../lib/vpn-panel";
+import { notifyUserTopupConfirmed, notifyUserTopupRejected } from "../lib/telegram";
 import {
   AdminListUsersQueryParams,
   AdminUpdateUserBody,
@@ -656,6 +657,14 @@ router.post("/admin/topups/:id/confirm", requireAdmin, async (req, res) => {
     .where(eq(topupsTable.id, id))
     .returning();
 
+  // Notify user via Telegram (fire and forget)
+  const [updatedUser] = await db
+    .select({ balance: usersTable.balance })
+    .from(usersTable)
+    .where(eq(usersTable.id, topup.userId))
+    .limit(1);
+  notifyUserTopupConfirmed(topup.userId, Number(topup.amount), Number(updatedUser?.balance ?? 0)).catch(() => {});
+
   res.json(formatTopup(updated));
 });
 
@@ -680,6 +689,9 @@ router.post("/admin/topups/:id/reject", requireAdmin, async (req, res) => {
     .set({ status: "rejected", confirmedBy: adminId, rejectionNote, updatedAt: new Date() })
     .where(eq(topupsTable.id, id))
     .returning();
+
+  // Notify user via Telegram (fire and forget)
+  notifyUserTopupRejected(topup.userId, Number(topup.amount), rejectionNote).catch(() => {});
 
   res.json(formatTopup(updated));
 });

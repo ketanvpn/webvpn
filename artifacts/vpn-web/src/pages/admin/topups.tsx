@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatRupiah } from "@/lib/format";
 import { format } from "date-fns";
-import { CreditCard, Check, X, CheckCircle, XCircle, Clock, QrCode } from "lucide-react";
+import { CreditCard, Check, X, CheckCircle, XCircle, Clock, QrCode, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -84,11 +84,20 @@ export default function AdminTopups() {
     );
   };
 
+  const handleExport = () => {
+    window.open("/api/admin/export/topups", "_blank");
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Topup Saldo</h1>
-        <p className="text-muted-foreground mt-1">Tinjau dan proses permintaan deposit user.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Topup Saldo</h1>
+          <p className="text-muted-foreground mt-1">Tinjau dan proses permintaan deposit user.</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={handleExport} className="gap-1.5 shrink-0">
+          <Download className="h-4 w-4" /> Export CSV
+        </Button>
       </div>
 
       <Tabs value={status} onValueChange={setStatus}>

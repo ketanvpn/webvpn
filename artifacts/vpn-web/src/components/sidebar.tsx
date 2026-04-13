@@ -16,6 +16,8 @@ import {
   Menu,
   Shield,
   QrCode,
+  Send,
+  Bell,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useGetAdminDashboard } from "@workspace/api-client-react";
@@ -45,6 +47,8 @@ const adminNav: NavItem[] = [
   { title: "Topups", href: "/admin/topups", icon: CreditCard, badgeKey: "pendingTopups" },
   { title: "VPN Accounts", href: "/admin/accounts", icon: Shield },
   { title: "Payment Gateway", href: "/admin/settings/payment", icon: QrCode },
+  { title: "Notifikasi Telegram", href: "/admin/settings/telegram", icon: Bell },
+  { title: "Broadcast", href: "/admin/broadcast", icon: Send },
 ];
 
 export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {

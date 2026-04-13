@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatRupiah } from "@/lib/format";
 import { format } from "date-fns";
-import { ShoppingCart, CheckCircle, Trash2, FileText, Search, Server } from "lucide-react";
+import { ShoppingCart, CheckCircle, Trash2, FileText, Search, Server, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -91,7 +91,16 @@ export default function AdminOrders() {
           <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
           <p className="text-muted-foreground mt-1">Kelola dan konfirmasi pembelian user.</p>
         </div>
-        <div className="relative w-full sm:w-64">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open("/api/admin/export/orders", "_blank")}
+            className="gap-1.5 shrink-0"
+          >
+            <Download className="h-4 w-4" /> Export CSV
+          </Button>
+          <div className="relative w-full sm:w-64">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
@@ -101,6 +110,7 @@ export default function AdminOrders() {
             onChange={(e) => setSearch(e.target.value)}
             data-testid="input-order-search"
           />
+          </div>
         </div>
       </div>
 

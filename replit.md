@@ -99,12 +99,13 @@ botvpn-fixed/          — Bot Telegram (Node.js + SQLite, terpisah dari web)
 
 | Tabel | Kolom Penting |
 |---|---|
-| `users` | id, username, email, passwordHash, role, balance, isActive, referralCode |
+| `users` | id, username, email, passwordHash, role, balance, isActive, referralCode, **telegramId** (bigint), **telegramLinkToken** (text) |
 | `vpn_servers` | id, name, location, flag, host, apiUrl, apiToken, supportedProtocols, isActive |
 | `products` | id, name, protocol, durationDays, price, quota, serverId |
 | `orders` | id, userId, productId, amount, status (pending/paid/failed/expired), paymentMethod, notes, vpnAccountId |
 | `vpn_accounts` | id, userId, protocol, username, password, uuid, serverId, configLink, allLinks, expiresAt, isActive |
 | `topup_transactions` | id, userId, amount, qrisUrl, status (pending/confirmed/rejected), confirmedBy, rejectionNote |
+| `settings` | key, value — menyimpan konfigurasi Telegram bot (telegramBotToken, telegramAdminChatId, telegramEnabled, telegramBotUsername) |
 
 ---
 
@@ -156,6 +157,16 @@ botvpn-fixed/          — Bot Telegram (Node.js + SQLite, terpisah dari web)
 - `POST /api/admin/accounts/:id/extend` — perpanjang akun N hari
 - `PATCH /api/admin/accounts/:id/toggle` — aktif/nonaktif akun
 - `DELETE /api/admin/accounts/:id` — hapus akun permanen
+- `GET /api/admin/settings/telegram` — baca konfigurasi Telegram bot
+- `PUT /api/admin/settings/telegram` — update konfigurasi Telegram bot
+- `GET /api/admin/export/topups` — export topups ke CSV
+- `GET /api/admin/export/orders` — export orders ke CSV
+- `POST /api/admin/broadcast` — broadcast pesan ke semua user yang sudah link Telegram
+
+### Telegram Bot (Webhook)
+- `POST /api/telegram/webhook` — terima update dari Telegram API
+- `GET /api/telegram/link` — generate token untuk linking akun Telegram (user)
+- `DELETE /api/telegram/link` — unlink Telegram dari akun user
 
 ---
 

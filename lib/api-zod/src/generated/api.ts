@@ -46,6 +46,7 @@ export const LoginResponse = zod.object({
     balance: zod.number().describe("Balance in IDR"),
     isActive: zod.boolean(),
     referralCode: zod.string().nullish(),
+    telegramId: zod.number().nullish().describe("Telegram user ID (linked)"),
     createdAt: zod.coerce.date(),
   }),
   token: zod.string(),
@@ -70,6 +71,7 @@ export const GetMeResponse = zod.object({
   balance: zod.number().describe("Balance in IDR"),
   isActive: zod.boolean(),
   referralCode: zod.string().nullish(),
+  telegramId: zod.number().nullish().describe("Telegram user ID (linked)"),
   createdAt: zod.coerce.date(),
 });
 
@@ -90,6 +92,7 @@ export const UpdateProfileResponse = zod.object({
   balance: zod.number().describe("Balance in IDR"),
   isActive: zod.boolean(),
   referralCode: zod.string().nullish(),
+  telegramId: zod.number().nullish().describe("Telegram user ID (linked)"),
   createdAt: zod.coerce.date(),
 });
 
@@ -616,6 +619,10 @@ export const GetAdminDashboardResponse = zod.object({
               balance: zod.number().describe("Balance in IDR"),
               isActive: zod.boolean(),
               referralCode: zod.string().nullish(),
+              telegramId: zod
+                .number()
+                .nullish()
+                .describe("Telegram user ID (linked)"),
               createdAt: zod.coerce.date(),
             })
             .nullish(),
@@ -665,6 +672,7 @@ export const AdminListUsersResponse = zod.object({
       balance: zod.number().describe("Balance in IDR"),
       isActive: zod.boolean(),
       referralCode: zod.string().nullish(),
+      telegramId: zod.number().nullish().describe("Telegram user ID (linked)"),
       createdAt: zod.coerce.date(),
     }),
   ),
@@ -688,6 +696,7 @@ export const AdminGetUserResponse = zod
     balance: zod.number().describe("Balance in IDR"),
     isActive: zod.boolean(),
     referralCode: zod.string().nullish(),
+    telegramId: zod.number().nullish().describe("Telegram user ID (linked)"),
     createdAt: zod.coerce.date(),
   })
   .and(
@@ -822,6 +831,7 @@ export const AdminUpdateUserResponse = zod.object({
   balance: zod.number().describe("Balance in IDR"),
   isActive: zod.boolean(),
   referralCode: zod.string().nullish(),
+  telegramId: zod.number().nullish().describe("Telegram user ID (linked)"),
   createdAt: zod.coerce.date(),
 });
 
@@ -1065,6 +1075,10 @@ export const AdminListOrdersResponse = zod.object({
               balance: zod.number().describe("Balance in IDR"),
               isActive: zod.boolean(),
               referralCode: zod.string().nullish(),
+              telegramId: zod
+                .number()
+                .nullish()
+                .describe("Telegram user ID (linked)"),
               createdAt: zod.coerce.date(),
             })
             .nullish(),
@@ -1250,6 +1264,10 @@ export const AdminListAccountsResponse = zod.object({
               balance: zod.number().describe("Balance in IDR"),
               isActive: zod.boolean(),
               referralCode: zod.string().nullish(),
+              telegramId: zod
+                .number()
+                .nullish()
+                .describe("Telegram user ID (linked)"),
               createdAt: zod.coerce.date(),
             })
             .nullish(),
@@ -1430,6 +1448,109 @@ export const AdminUpdatePaymentSettingsResponse = zod.object({
     .enum(["qris_static", "autogopay"])
     .nullish()
     .describe("Gateway aktif: 'qris_static' | 'autogopay'"),
+});
+
+/**
+ * @summary Get Telegram bot settings
+ */
+export const AdminGetTelegramSettingsResponse = zod.object({
+  telegramBotToken: zod
+    .string()
+    .nullish()
+    .describe("Telegram Bot API token dari BotFather"),
+  telegramAdminChatId: zod
+    .string()
+    .nullish()
+    .describe("Chat ID Telegram admin untuk menerima notifikasi"),
+  telegramEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan notifikasi Telegram"),
+  telegramBotUsername: zod
+    .string()
+    .nullish()
+    .describe("Username bot (auto-detect)"),
+});
+
+/**
+ * @summary Update Telegram bot settings
+ */
+export const AdminUpdateTelegramSettingsBody = zod.object({
+  telegramBotToken: zod
+    .string()
+    .nullish()
+    .describe("Telegram Bot API token dari BotFather"),
+  telegramAdminChatId: zod
+    .string()
+    .nullish()
+    .describe("Chat ID Telegram admin untuk menerima notifikasi"),
+  telegramEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan notifikasi Telegram"),
+  telegramBotUsername: zod
+    .string()
+    .nullish()
+    .describe("Username bot (auto-detect)"),
+});
+
+export const AdminUpdateTelegramSettingsResponse = zod.object({
+  telegramBotToken: zod
+    .string()
+    .nullish()
+    .describe("Telegram Bot API token dari BotFather"),
+  telegramAdminChatId: zod
+    .string()
+    .nullish()
+    .describe("Chat ID Telegram admin untuk menerima notifikasi"),
+  telegramEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan notifikasi Telegram"),
+  telegramBotUsername: zod
+    .string()
+    .nullish()
+    .describe("Username bot (auto-detect)"),
+});
+
+/**
+ * @summary Broadcast message to all Telegram-linked users
+ */
+export const AdminBroadcastBody = zod.object({
+  message: zod.string(),
+});
+
+export const AdminBroadcastResponse = zod.object({
+  success: zod.boolean(),
+  sent: zod.number(),
+  failed: zod.number(),
+});
+
+/**
+ * @summary Register Telegram webhook URL
+ */
+export const AdminRegisterTelegramWebhookBody = zod.object({
+  url: zod.string(),
+});
+
+export const AdminRegisterTelegramWebhookResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Generate Telegram link token for current user
+ */
+export const GetTelegramLinkResponse = zod.object({
+  token: zod.string(),
+  botUsername: zod.string().nullish(),
+  url: zod.string().nullish(),
+});
+
+/**
+ * @summary Unlink Telegram from current user
+ */
+export const UnlinkTelegramResponse = zod.object({
+  success: zod.boolean(),
 });
 
 /**

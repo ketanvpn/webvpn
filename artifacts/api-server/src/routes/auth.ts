@@ -74,6 +74,7 @@ router.post("/auth/register", async (req, res) => {
         balance: Number(user.balance),
         isActive: user.isActive,
         referralCode: user.referralCode,
+        telegramId: user.telegramId ?? null,
         createdAt: user.createdAt,
       },
       token,
@@ -129,6 +130,7 @@ router.post("/auth/login", async (req, res) => {
         balance: Number(user.balance),
         isActive: user.isActive,
         referralCode: user.referralCode,
+        telegramId: user.telegramId ?? null,
         createdAt: user.createdAt,
       },
       token,
@@ -173,6 +175,7 @@ router.patch("/auth/profile", requireAuth, async (req, res) => {
     balance: Number(updated.balance),
     isActive: updated.isActive,
     referralCode: updated.referralCode,
+    telegramId: updated.telegramId ?? null,
     createdAt: updated.createdAt,
   });
 });
@@ -233,6 +236,7 @@ router.get("/auth/me", requireAuth, async (req, res) => {
     balance: Number(user.balance),
     isActive: user.isActive,
     referralCode: user.referralCode,
+    telegramId: user.telegramId ?? null,
     createdAt: user.createdAt,
   });
 });

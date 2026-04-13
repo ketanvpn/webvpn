@@ -10,6 +10,9 @@ import dashboardRouter from "./dashboard";
 import adminRouter from "./admin";
 import settingsRouter from "./settings";
 import webhookRouter from "./webhook";
+import telegramBotRouter from "./telegram-bot";
+import broadcastRouter from "./broadcast";
+import exportRouter from "./export";
 
 const router: IRouter = Router();
 
@@ -24,5 +27,8 @@ router.use(dashboardRouter);
 router.use(adminRouter);
 router.use(settingsRouter);
 router.use(webhookRouter);
+router.use(telegramBotRouter);
+router.use(broadcastRouter);
+router.use(exportRouter);
 
 export default router;

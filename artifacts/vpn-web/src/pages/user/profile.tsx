@@ -2,6 +2,8 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   useUpdateProfile,
   useChangePassword,
+  useGetTelegramLink,
+  useUnlinkTelegram,
   getGetMeQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -10,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { UserCircle, Mail, Key, Shield, Calendar, Edit2, Lock } from "lucide-react";
+import { UserCircle, Mail, Key, Shield, Calendar, Edit2, Lock, Send, CheckCircle, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -40,9 +42,36 @@ export default function Profile() {
   const queryClient = useQueryClient();
   const [editMode, setEditMode] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [telegramLink, setTelegramLink] = useState<string | null>(null);
 
   const updateProfile = useUpdateProfile();
   const changePassword = useChangePassword();
+  const unlinkTelegram = useUnlinkTelegram();
+
+  const { refetch: fetchTelegramLink, isFetching: isFetchingLink } = useGetTelegramLink({
+    query: { enabled: false },
+  });
+
+  const handleGetTelegramLink = async () => {
+    const result = await fetchTelegramLink();
+    if (result.data?.url) {
+      setTelegramLink(result.data.url);
+    } else if (result.data?.token) {
+      setTelegramLink(`t.me/…?start=link_${result.data.token}`);
+      toast({ title: "Token berhasil dibuat", description: "Salin link dan kirim ke bot Telegram kamu" });
+    }
+  };
+
+  const handleUnlinkTelegram = () => {
+    unlinkTelegram.mutate(undefined, {
+      onSuccess: () => {
+        toast({ title: "Telegram berhasil diputus" });
+        queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+        setTelegramLink(null);
+      },
+      onError: () => toast({ title: "Gagal memutus Telegram", variant: "destructive" }),
+    });
+  };
 
   const profileForm = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
@@ -296,6 +325,86 @@ export default function Profile() {
             </Form>
           </CardContent>
         )}
+      </Card>
+
+      {/* Telegram Linking Card */}
+      <Card className="border-2">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Send className="h-4 w-4" /> Notifikasi Telegram
+              </CardTitle>
+              <CardDescription className="mt-1">
+                Hubungkan akun dengan Telegram untuk menerima notifikasi topup
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Separator className="mb-4" />
+          {user.telegramId ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm text-green-600">
+                <CheckCircle className="h-4 w-4" />
+                <span>Telegram terhubung (ID: {user.telegramId})</span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleUnlinkTelegram}
+                disabled={unlinkTelegram.isPending}
+                className="text-destructive hover:text-destructive border-destructive/30"
+              >
+                {unlinkTelegram.isPending ? "Memutus..." : "Putus Koneksi Telegram"}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {!telegramLink ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGetTelegramLink}
+                  disabled={isFetchingLink}
+                  className="gap-2"
+                >
+                  <Send className="h-4 w-4" />
+                  {isFetchingLink ? "Membuat link..." : "Dapatkan Link Telegram"}
+                </Button>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Klik link di bawah untuk membuka bot Telegram dan menghubungkan akun:
+                  </p>
+                  <a
+                    href={telegramLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm text-primary hover:underline"
+                  >
+                    <ExternalLink className="h-4 w-4 shrink-0" />
+                    <span className="break-all">{telegramLink}</span>
+                  </a>
+                  <p className="text-xs text-muted-foreground">
+                    Link hanya berlaku satu kali. Jika bot tidak merespons, buat link baru.
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setTelegramLink(null)}
+                    className="text-xs"
+                  >
+                    Buat link baru
+                  </Button>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Belum punya bot? Tanya admin untuk mendapatkan link bot KETANTECH VPN.
+              </p>
+            </div>
+          )}
+        </CardContent>
       </Card>
     </div>
   );

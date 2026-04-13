@@ -6,6 +6,7 @@ import { requireAuth } from "../lib/auth";
 import { TopupBalanceBody } from "@workspace/api-zod";
 import { getPaymentSettingsMap } from "./settings";
 import { logger } from "../lib/logger";
+import { notifyAdminNewTopup } from "../lib/telegram";
 
 const router = Router();
 
@@ -55,6 +56,12 @@ router.post("/balance/topup", requireAuth, async (req, res) => {
   }
   const { amount } = parsed.data;
   const userId = req.user!.userId;
+
+  const [userInfo] = await db
+    .select({ username: usersTable.username, email: usersTable.email })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
 
   const settingsMap = await getPaymentSettingsMap();
   const activeGateway = settingsMap["activeGateway"] ?? "qris_static";
@@ -126,6 +133,14 @@ router.post("/balance/topup", requireAuth, async (req, res) => {
       expiresAt,
     })
     .returning();
+
+  // Notify admin via Telegram (fire and forget)
+  notifyAdminNewTopup(
+    topup.id,
+    amount,
+    userInfo?.username ?? `User#${userId}`,
+    userInfo?.email ?? "",
+  ).catch((err) => logger.error({ err }, "notifyAdminNewTopup failed"));
 
   res.status(201).json({
     id: topup.id,

@@ -29,6 +29,8 @@ import AdminOrders from "@/pages/admin/orders";
 import AdminTopups from "@/pages/admin/topups";
 import AdminAccounts from "@/pages/admin/accounts";
 import AdminPaymentSettings from "@/pages/admin/payment-settings";
+import AdminBroadcast from "@/pages/admin/broadcast";
+import AdminTelegramSettings from "@/pages/admin/telegram-settings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -102,6 +104,12 @@ function Router() {
       </Route>
       <Route path="/admin/settings/payment">
         <Layout requireAdmin><AdminPaymentSettings /></Layout>
+      </Route>
+      <Route path="/admin/settings/telegram">
+        <Layout requireAdmin><AdminTelegramSettings /></Layout>
+      </Route>
+      <Route path="/admin/broadcast">
+        <Layout requireAdmin><AdminBroadcast /></Layout>
       </Route>
 
       <Route component={NotFound} />
