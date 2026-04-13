@@ -10,6 +10,10 @@ import type { AdminListOrdersStatus } from "./adminListOrdersStatus";
 export type AdminListOrdersParams = {
   status?: AdminListOrdersStatus;
   userId?: number;
+  /**
+   * Search by username
+   */
+  search?: string;
   limit?: number;
   offset?: number;
 };

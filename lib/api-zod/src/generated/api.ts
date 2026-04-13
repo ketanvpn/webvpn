@@ -311,6 +311,7 @@ export const ListTopupHistoryResponseItem = zod.object({
   qrisUrl: zod.string().nullish(),
   status: zod.enum(["pending", "confirmed", "rejected"]),
   confirmedBy: zod.number().nullish(),
+  rejectionNote: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date().optional(),
 });
@@ -520,6 +521,7 @@ export const GetAdminDashboardResponse = zod.object({
   totalRevenue: zod.number(),
   activeAccounts: zod.number(),
   pendingTopups: zod.number(),
+  pendingOrders: zod.number(),
   revenueToday: zod.number().optional(),
   revenueThisMonth: zod.number().optional(),
   ordersByProtocol: zod
@@ -595,6 +597,7 @@ export const GetAdminDashboardResponse = zod.object({
       qrisUrl: zod.string().nullish(),
       status: zod.enum(["pending", "confirmed", "rejected"]),
       confirmedBy: zod.number().nullish(),
+      rejectionNote: zod.string().nullish(),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date().optional(),
     }),
@@ -609,6 +612,10 @@ export const adminListUsersQueryOffsetDefault = 0;
 
 export const AdminListUsersQueryParams = zod.object({
   search: zod.coerce.string().optional(),
+  role: zod
+    .enum(["user", "reseller", "admin"])
+    .optional()
+    .describe("Filter by role"),
   limit: zod.coerce.number().default(adminListUsersQueryLimitDefault),
   offset: zod.coerce.number().default(adminListUsersQueryOffsetDefault),
 });
@@ -744,6 +751,7 @@ export const AdminGetUserResponse = zod
             qrisUrl: zod.string().nullish(),
             status: zod.enum(["pending", "confirmed", "rejected"]),
             confirmedBy: zod.number().nullish(),
+            rejectionNote: zod.string().nullish(),
             createdAt: zod.coerce.date(),
             updatedAt: zod.coerce.date().optional(),
           }),
@@ -967,6 +975,7 @@ export const adminListOrdersQueryOffsetDefault = 0;
 export const AdminListOrdersQueryParams = zod.object({
   status: zod.enum(["pending", "paid", "failed", "expired"]).optional(),
   userId: zod.coerce.number().optional(),
+  search: zod.coerce.string().optional().describe("Search by username"),
   limit: zod.coerce.number().default(adminListOrdersQueryLimitDefault),
   offset: zod.coerce.number().default(adminListOrdersQueryOffsetDefault),
 });
@@ -1089,6 +1098,7 @@ export const AdminListTopupsResponseItem = zod.object({
   qrisUrl: zod.string().nullish(),
   status: zod.enum(["pending", "confirmed", "rejected"]),
   confirmedBy: zod.number().nullish(),
+  rejectionNote: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date().optional(),
 });
@@ -1109,6 +1119,7 @@ export const AdminConfirmTopupResponse = zod.object({
   qrisUrl: zod.string().nullish(),
   status: zod.enum(["pending", "confirmed", "rejected"]),
   confirmedBy: zod.number().nullish(),
+  rejectionNote: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date().optional(),
 });
@@ -1120,6 +1131,10 @@ export const AdminRejectTopupParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const AdminRejectTopupBody = zod.object({
+  rejectionNote: zod.string().nullish(),
+});
+
 export const AdminRejectTopupResponse = zod.object({
   id: zod.number(),
   userId: zod.number(),
@@ -1128,6 +1143,7 @@ export const AdminRejectTopupResponse = zod.object({
   qrisUrl: zod.string().nullish(),
   status: zod.enum(["pending", "confirmed", "rejected"]),
   confirmedBy: zod.number().nullish(),
+  rejectionNote: zod.string().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date().optional(),
 });

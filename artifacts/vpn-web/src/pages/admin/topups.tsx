@@ -16,6 +16,15 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { AdminListTopupsStatus } from "@workspace/api-client-react/src/generated/api.schemas";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 const statusConfig: Record<string, { label: string; class: string; icon: typeof Clock }> = {
   pending:   { label: "Menunggu",   class: "bg-yellow-500/10 text-yellow-600 border-yellow-200", icon: Clock },
@@ -25,31 +34,50 @@ const statusConfig: Record<string, { label: string; class: string; icon: typeof 
 
 export default function AdminTopups() {
   const [status, setStatus] = useState<string>("pending");
+  const [rejectDialogId, setRejectDialogId] = useState<number | null>(null);
+  const [rejectionNote, setRejectionNote] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data, isLoading } = useAdminListTopups({
-    status: status === "all" ? undefined : (status as AdminListTopupsStatus),
-  });
+  const { data, isLoading } = useAdminListTopups(
+    { status: status === "all" ? undefined : (status as AdminListTopupsStatus) },
+    { query: { refetchInterval: 30_000 } }
+  );
 
   const confirmTopup = useAdminConfirmTopup();
   const rejectTopup = useAdminRejectTopup();
 
-  const handleAction = (id: number, action: "confirm" | "reject") => {
-    const mutation = action === "confirm" ? confirmTopup : rejectTopup;
-    mutation.mutate(
+  const handleConfirm = (id: number) => {
+    confirmTopup.mutate(
       { id },
       {
         onSuccess: () => {
-          toast({ title: action === "confirm" ? "Topup dikonfirmasi" : "Topup ditolak" });
+          toast({ title: "Topup dikonfirmasi" });
           queryClient.invalidateQueries({ queryKey: getAdminListTopupsQueryKey() });
         },
         onError: (err) =>
-          toast({
-            title: action === "confirm" ? "Gagal konfirmasi" : "Gagal tolak",
-            description: err.error,
-            variant: "destructive",
-          }),
+          toast({ title: "Gagal konfirmasi", description: err.error, variant: "destructive" }),
+      }
+    );
+  };
+
+  const openRejectDialog = (id: number) => {
+    setRejectDialogId(id);
+    setRejectionNote("");
+  };
+
+  const handleReject = () => {
+    if (!rejectDialogId) return;
+    rejectTopup.mutate(
+      { id: rejectDialogId, data: { rejectionNote: rejectionNote.trim() || null } },
+      {
+        onSuccess: () => {
+          toast({ title: "Topup ditolak" });
+          queryClient.invalidateQueries({ queryKey: getAdminListTopupsQueryKey() });
+          setRejectDialogId(null);
+        },
+        onError: (err) =>
+          toast({ title: "Gagal tolak", description: err.error, variant: "destructive" }),
       }
     );
   };
@@ -115,6 +143,11 @@ export default function AdminTopups() {
                         <div className="text-sm text-muted-foreground mt-0.5">
                           {format(new Date(topup.createdAt), "d MMM yyyy HH:mm")}
                         </div>
+                        {topup.status === "rejected" && topup.rejectionNote && (
+                          <div className="text-xs text-red-600/80 mt-1 italic">
+                            Alasan: {topup.rejectionNote}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -127,7 +160,7 @@ export default function AdminTopups() {
                           <Button
                             size="sm"
                             className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
-                            onClick={() => handleAction(topup.id, "confirm")}
+                            onClick={() => handleConfirm(topup.id)}
                             disabled={confirmTopup.isPending}
                             data-testid={`button-confirm-topup-${topup.id}`}
                           >
@@ -137,8 +170,7 @@ export default function AdminTopups() {
                             size="sm"
                             variant="outline"
                             className="gap-1.5 text-red-600 border-red-200 hover:bg-red-50"
-                            onClick={() => handleAction(topup.id, "reject")}
-                            disabled={rejectTopup.isPending}
+                            onClick={() => openRejectDialog(topup.id)}
                             data-testid={`button-reject-topup-${topup.id}`}
                           >
                             <X className="h-4 w-4" /> Tolak
@@ -157,6 +189,38 @@ export default function AdminTopups() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={rejectDialogId !== null} onOpenChange={(open) => { if (!open) setRejectDialogId(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Tolak Permintaan Topup</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <Label htmlFor="reject-note">Alasan penolakan (opsional)</Label>
+            <Textarea
+              id="reject-note"
+              placeholder="Contoh: Bukti pembayaran tidak valid, nominal tidak sesuai..."
+              value={rejectionNote}
+              onChange={(e) => setRejectionNote(e.target.value)}
+              rows={3}
+              maxLength={200}
+              data-testid="input-rejection-note"
+            />
+            <p className="text-xs text-muted-foreground">{rejectionNote.length}/200 karakter</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectDialogId(null)}>Batal</Button>
+            <Button
+              variant="destructive"
+              onClick={handleReject}
+              disabled={rejectTopup.isPending}
+              data-testid="button-confirm-reject"
+            >
+              {rejectTopup.isPending ? "Menolak..." : "Tolak Topup"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

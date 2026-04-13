@@ -79,6 +79,11 @@ router.get("/admin/dashboard", requireAdmin, async (_req, res) => {
     .from(topupsTable)
     .where(eq(topupsTable.status, "pending"));
 
+  const [pendingOrders] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(ordersTable)
+    .where(eq(ordersTable.status, "pending"));
+
   const ordersByProtocol = await db
     .select({
       protocol: productsTable.protocol,
@@ -120,6 +125,7 @@ router.get("/admin/dashboard", requireAdmin, async (_req, res) => {
     totalRevenue: Number(revenueResult[0]?.total ?? 0),
     activeAccounts: activeAccounts?.count ?? 0,
     pendingTopups: pendingTopups?.count ?? 0,
+    pendingOrders: pendingOrders?.count ?? 0,
     revenueToday: Number(revTodayResult[0]?.total ?? 0),
     revenueThisMonth: Number(revMonthResult[0]?.total ?? 0),
     ordersByProtocol,
@@ -131,18 +137,22 @@ router.get("/admin/dashboard", requireAdmin, async (_req, res) => {
 // ─── Admin: Users ─────────────────────────────────────────────────────────────
 
 router.get("/admin/users", requireAdmin, async (req, res) => {
-  const { search } = req.query as Record<string, string | undefined>;
+  const { search, role } = req.query as Record<string, string | undefined>;
   const limit = Math.min(parseInt(String(req.query.limit ?? "20"), 10), 100);
   const offset = parseInt(String(req.query.offset ?? "0"), 10);
 
-  const conditions = search
-    ? [ilike(usersTable.username, `%${search}%`)]
-    : [];
+  const conditions = [];
+  if (search) conditions.push(ilike(usersTable.username, `%${search}%`));
+  if (role && ["user", "reseller", "admin"].includes(role)) {
+    conditions.push(eq(usersTable.role, role));
+  }
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
   const users = await db
     .select()
     .from(usersTable)
-    .where(conditions.length > 0 ? conditions[0] : undefined)
+    .where(whereClause)
     .orderBy(desc(usersTable.createdAt))
     .limit(limit)
     .offset(offset);
@@ -150,7 +160,7 @@ router.get("/admin/users", requireAdmin, async (req, res) => {
   const [total] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(usersTable)
-    .where(conditions.length > 0 ? conditions[0] : undefined);
+    .where(whereClause);
 
   res.json({
     users: users.map(formatUser),
@@ -407,17 +417,32 @@ router.delete("/admin/servers/:id", requireAdmin, async (req, res) => {
 // ─── Admin: Orders ────────────────────────────────────────────────────────────
 
 router.get("/admin/orders", requireAdmin, async (req, res) => {
-  const { status, userId } = req.query as Record<string, string | undefined>;
+  const { status, userId, search } = req.query as Record<string, string | undefined>;
   const limit = Math.min(parseInt(String(req.query.limit ?? "20"), 10), 100);
   const offset = parseInt(String(req.query.offset ?? "0"), 10);
 
   const conditions = [];
   if (status) conditions.push(eq(ordersTable.status, status));
   if (userId) conditions.push(eq(ordersTable.userId, parseInt(userId, 10)));
+  if (search) conditions.push(ilike(usersTable.username, `%${search}%`));
 
-  const orders = await db
-    .select()
+  const rows = await db
+    .select({
+      order: ordersTable,
+      user: {
+        id: usersTable.id,
+        username: usersTable.username,
+        email: usersTable.email,
+        fullName: usersTable.fullName,
+        role: usersTable.role,
+        balance: usersTable.balance,
+        isActive: usersTable.isActive,
+        referralCode: usersTable.referralCode,
+        createdAt: usersTable.createdAt,
+      },
+    })
     .from(ordersTable)
+    .leftJoin(usersTable, eq(ordersTable.userId, usersTable.id))
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(ordersTable.createdAt))
     .limit(limit)
@@ -426,16 +451,12 @@ router.get("/admin/orders", requireAdmin, async (req, res) => {
   const [total] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(ordersTable)
+    .leftJoin(usersTable, eq(ordersTable.userId, usersTable.id))
     .where(conditions.length > 0 ? and(...conditions) : undefined);
 
   const formatted = await Promise.all(
-    orders.map(async (o) => {
-      const base = await formatOrder(o);
-      const [user] = await db
-        .select()
-        .from(usersTable)
-        .where(eq(usersTable.id, o.userId))
-        .limit(1);
+    rows.map(async ({ order, user }) => {
+      const base = await formatOrder(order);
       return {
         ...base,
         user: user
@@ -588,6 +609,7 @@ router.get("/admin/topups", requireAdmin, async (req, res) => {
       qrisUrl: topupsTable.qrisUrl,
       status: topupsTable.status,
       confirmedBy: topupsTable.confirmedBy,
+      rejectionNote: topupsTable.rejectionNote,
       createdAt: topupsTable.createdAt,
       updatedAt: topupsTable.updatedAt,
     })
@@ -640,6 +662,7 @@ router.post("/admin/topups/:id/confirm", requireAdmin, async (req, res) => {
 router.post("/admin/topups/:id/reject", requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const adminId = req.user!.userId;
+  const rejectionNote = req.body?.rejectionNote ? String(req.body.rejectionNote).slice(0, 200) : null;
 
   const [topup] = await db
     .select()
@@ -654,7 +677,7 @@ router.post("/admin/topups/:id/reject", requireAdmin, async (req, res) => {
 
   const [updated] = await db
     .update(topupsTable)
-    .set({ status: "rejected", confirmedBy: adminId, updatedAt: new Date() })
+    .set({ status: "rejected", confirmedBy: adminId, rejectionNote, updatedAt: new Date() })
     .where(eq(topupsTable.id, id))
     .returning();
 

@@ -5,9 +5,14 @@
  * KETANTECH VPN Store API
  * OpenAPI spec version: 0.1.0
  */
+import type { AdminListUsersRole } from "./adminListUsersRole";
 
 export type AdminListUsersParams = {
   search?: string;
+  /**
+   * Filter by role
+   */
+  role?: AdminListUsersRole;
   limit?: number;
   offset?: number;
 };

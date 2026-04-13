@@ -10,8 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatRupiah } from "@/lib/format";
 import { format } from "date-fns";
-import { ShoppingCart, CheckCircle, Trash2, FileText } from "lucide-react";
+import { ShoppingCart, CheckCircle, Trash2, FileText, Search, Server } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -27,6 +28,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Link, useSearch } from "wouter";
+import { useDebounce } from "@/hooks/use-debounce";
 
 const statusColors: Record<string, string> = {
   pending: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
@@ -36,13 +39,23 @@ const statusColors: Record<string, string> = {
 };
 
 export default function AdminOrders() {
-  const [status, setStatus] = useState<string>("all");
+  const searchStr = useSearch();
+  const urlParams = new URLSearchParams(searchStr);
+  const initialStatus = urlParams.get("status") ?? "all";
+
+  const [status, setStatus] = useState<string>(initialStatus);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 400);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data, isLoading } = useAdminListOrders({
-    status: status === "all" ? undefined : (status as AdminListOrdersStatus),
-  });
+  const { data, isLoading } = useAdminListOrders(
+    {
+      status: status === "all" ? undefined : (status as AdminListOrdersStatus),
+      search: debouncedSearch || undefined,
+    },
+    { query: { refetchInterval: 30_000 } }
+  );
 
   const confirmOrder = useAdminConfirmOrder();
   const deleteOrder = useAdminDeleteOrder();
@@ -73,9 +86,22 @@ export default function AdminOrders() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
-        <p className="text-muted-foreground mt-1">Kelola dan konfirmasi pembelian user.</p>
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
+          <p className="text-muted-foreground mt-1">Kelola dan konfirmasi pembelian user.</p>
+        </div>
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Cari username..."
+            className="pl-9"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            data-testid="input-order-search"
+          />
+        </div>
       </div>
 
       <Tabs defaultValue="all" value={status} onValueChange={setStatus}>
@@ -91,6 +117,7 @@ export default function AdminOrders() {
         <CardHeader className="bg-muted/20 border-b">
           <CardTitle className="text-lg flex items-center gap-2">
             <ShoppingCart className="h-5 w-5" /> Transaksi
+            {data && <span className="text-sm font-normal text-muted-foreground">({data.total} total)</span>}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -122,6 +149,14 @@ export default function AdminOrders() {
                         <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                           <FileText className="h-3 w-3" />
                           <span className="font-medium text-foreground/70">Remarks:</span> {order.notes}
+                        </div>
+                      )}
+                      {order.status === "paid" && order.vpnAccountId && (
+                        <div className="mt-1.5">
+                          <Link href={`/admin/accounts`} className="text-xs text-primary hover:underline flex items-center gap-1 w-fit">
+                            <Server className="h-3 w-3" />
+                            Lihat Akun VPN #{order.vpnAccountId}
+                          </Link>
                         </div>
                       )}
                     </div>
@@ -178,7 +213,7 @@ export default function AdminOrders() {
             </div>
           ) : (
             <div className="p-12 text-center text-muted-foreground">
-              Tidak ada order ditemukan.
+              {search ? `Tidak ada order untuk username "${search}".` : "Tidak ada order ditemukan."}
             </div>
           )}
         </CardContent>

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { formatRupiah } from "@/lib/format";
 import { format } from "date-fns";
 import { useDebounce } from "@/hooks/use-debounce";
-import { Users, Search, ShieldAlert, Shield } from "lucide-react";
+import { Users, Search, ShieldAlert, Shield, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -24,20 +24,34 @@ const roleColors: Record<string, string> = {
   user: "",
 };
 
+const PAGE_SIZE = 20;
+
 export default function AdminUsers() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [page, setPage] = useState(0);
   const debouncedSearch = useDebounce(search, 500);
 
   const { data, isLoading } = useAdminListUsers({
     search: debouncedSearch || undefined,
+    role: roleFilter === "all" ? undefined : roleFilter,
+    limit: PAGE_SIZE,
+    offset: page * PAGE_SIZE,
   });
 
-  const filtered = data?.users
-    ? roleFilter === "all"
-      ? data.users
-      : data.users.filter((u) => u.role === roleFilter)
-    : [];
+  const total = data?.total ?? 0;
+  const users = data?.users ?? [];
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    setPage(0);
+  };
+
+  const handleRoleChange = (val: string) => {
+    setRoleFilter(val);
+    setPage(0);
+  };
 
   return (
     <div className="space-y-6">
@@ -54,10 +68,10 @@ export default function AdminUsers() {
               placeholder="Cari username / email..."
               className="pl-9"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
             />
           </div>
-          <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <Select value={roleFilter} onValueChange={handleRoleChange}>
             <SelectTrigger className="w-[130px]">
               <SelectValue />
             </SelectTrigger>
@@ -74,7 +88,8 @@ export default function AdminUsers() {
       <Card>
         <CardHeader className="bg-muted/20 border-b">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Users className="h-5 w-5" /> Daftar User ({filtered.length})
+            <Users className="h-5 w-5" /> Daftar User
+            {!isLoading && <span className="text-sm font-normal text-muted-foreground">({total} total)</span>}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -84,9 +99,9 @@ export default function AdminUsers() {
                 <Skeleton key={i} className="h-16 w-full" />
               ))}
             </div>
-          ) : filtered.length > 0 ? (
+          ) : users.length > 0 ? (
             <div className="divide-y">
-              {filtered.map((user) => (
+              {users.map((user) => (
                 <div key={user.id} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-accent/30 transition-colors">
                   <div className="flex items-start gap-4">
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
@@ -127,6 +142,32 @@ export default function AdminUsers() {
               {search || roleFilter !== "all"
                 ? "Tidak ada user yang cocok dengan filter."
                 : "Belum ada user terdaftar."}
+            </div>
+          )}
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t">
+              <span className="text-sm text-muted-foreground">
+                Halaman {page + 1} dari {totalPages}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={page >= totalPages - 1}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

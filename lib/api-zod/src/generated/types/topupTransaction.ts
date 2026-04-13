@@ -15,6 +15,7 @@ export interface TopupTransaction {
   qrisUrl?: string | null;
   status: TopupTransactionStatus;
   confirmedBy?: number | null;
+  rejectionNote?: string | null;
   createdAt: Date;
   updatedAt?: Date;
 }

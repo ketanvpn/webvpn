@@ -223,6 +223,7 @@ export interface TopupTransaction {
   qrisUrl?: string | null;
   status: TopupTransactionStatus;
   confirmedBy?: number | null;
+  rejectionNote?: string | null;
   createdAt: string;
   updatedAt?: string;
 }
@@ -329,6 +330,7 @@ export interface AdminDashboard {
   totalRevenue: number;
   activeAccounts: number;
   pendingTopups: number;
+  pendingOrders: number;
   revenueToday?: number;
   revenueThisMonth?: number;
   ordersByProtocol?: AdminDashboardOrdersByProtocolItem[];
@@ -412,13 +414,30 @@ export type ListTopupHistoryParams = {
 
 export type AdminListUsersParams = {
   search?: string;
+  /**
+   * Filter by role
+   */
+  role?: AdminListUsersRole;
   limit?: number;
   offset?: number;
 };
 
+export type AdminListUsersRole =
+  (typeof AdminListUsersRole)[keyof typeof AdminListUsersRole];
+
+export const AdminListUsersRole = {
+  user: "user",
+  reseller: "reseller",
+  admin: "admin",
+} as const;
+
 export type AdminListOrdersParams = {
   status?: AdminListOrdersStatus;
   userId?: number;
+  /**
+   * Search by username
+   */
+  search?: string;
   limit?: number;
   offset?: number;
 };
@@ -447,6 +466,10 @@ export const AdminListTopupsStatus = {
   confirmed: "confirmed",
   rejected: "rejected",
 } as const;
+
+export type AdminRejectTopupBody = {
+  rejectionNote?: string | null;
+};
 
 export type AdminListAccountsParams = {
   userId?: number;

@@ -10,6 +10,7 @@ export const topupsTable = pgTable("topup_transactions", {
   qrisUrl: text("qris_url"),
   status: text("status").notNull().default("pending"),
   confirmedBy: integer("confirmed_by"),
+  rejectionNote: text("rejection_note"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

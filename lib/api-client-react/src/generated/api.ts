@@ -26,6 +26,7 @@ import type {
   AdminListTopupsParams,
   AdminListUsersParams,
   AdminOrderListResponse,
+  AdminRejectTopupBody,
   AdminUpdateUserBody,
   AdminUserDetail,
   AdminUserListResponse,
@@ -2943,11 +2944,14 @@ export const getAdminRejectTopupUrl = (id: number) => {
 
 export const adminRejectTopup = async (
   id: number,
+  adminRejectTopupBody?: AdminRejectTopupBody,
   options?: RequestInit,
 ): Promise<TopupTransaction> => {
   return customFetch<TopupTransaction>(getAdminRejectTopupUrl(id), {
     ...options,
     method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminRejectTopupBody),
   });
 };
 
@@ -2958,14 +2962,14 @@ export const getAdminRejectTopupMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof adminRejectTopup>>,
     TError,
-    { id: number },
+    { id: number; data: BodyType<AdminRejectTopupBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof adminRejectTopup>>,
   TError,
-  { id: number },
+  { id: number; data: BodyType<AdminRejectTopupBody> },
   TContext
 > => {
   const mutationKey = ["adminRejectTopup"];
@@ -2979,11 +2983,11 @@ export const getAdminRejectTopupMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof adminRejectTopup>>,
-    { id: number }
+    { id: number; data: BodyType<AdminRejectTopupBody> }
   > = (props) => {
-    const { id } = props ?? {};
+    const { id, data } = props ?? {};
 
-    return adminRejectTopup(id, requestOptions);
+    return adminRejectTopup(id, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -2992,7 +2996,7 @@ export const getAdminRejectTopupMutationOptions = <
 export type AdminRejectTopupMutationResult = NonNullable<
   Awaited<ReturnType<typeof adminRejectTopup>>
 >;
-
+export type AdminRejectTopupMutationBody = BodyType<AdminRejectTopupBody>;
 export type AdminRejectTopupMutationError = ErrorType<unknown>;
 
 /**
@@ -3005,14 +3009,14 @@ export const useAdminRejectTopup = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof adminRejectTopup>>,
     TError,
-    { id: number },
+    { id: number; data: BodyType<AdminRejectTopupBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof adminRejectTopup>>,
   TError,
-  { id: number },
+  { id: number; data: BodyType<AdminRejectTopupBody> },
   TContext
 > => {
   return useMutation(getAdminRejectTopupMutationOptions(options));

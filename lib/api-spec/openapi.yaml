@@ -477,6 +477,12 @@ paths:
           in: query
           schema:
             type: string
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [user, reseller, admin]
+          description: Filter by role
         - name: limit
           in: query
           schema:
@@ -725,6 +731,11 @@ paths:
           in: query
           schema:
             type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search by username
         - name: limit
           in: query
           schema:
@@ -832,6 +843,16 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rejectionNote:
+                  type: string
+                  nullable: true
       responses:
         "200":
           description: Topup rejected
@@ -1359,6 +1380,9 @@ components:
         confirmedBy:
           type: integer
           nullable: true
+        rejectionNote:
+          type: string
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -1539,7 +1563,7 @@ components:
 
     AdminDashboard:
       type: object
-      required: [totalUsers, totalOrders, totalRevenue, activeAccounts, pendingTopups, recentOrders, recentTopups]
+      required: [totalUsers, totalOrders, totalRevenue, activeAccounts, pendingTopups, pendingOrders, recentOrders, recentTopups]
       properties:
         totalUsers:
           type: integer
@@ -1550,6 +1574,8 @@ components:
         activeAccounts:
           type: integer
         pendingTopups:
+          type: integer
+        pendingOrders:
           type: integer
         revenueToday:
           type: number

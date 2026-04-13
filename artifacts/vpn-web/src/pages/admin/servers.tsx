@@ -27,6 +27,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Server, Plus, MoreVertical, Edit, Trash2, Activity } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -67,6 +77,7 @@ export default function AdminServers() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<ServerForm>(emptyForm);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
 
   const openCreate = () => {
     setEditingId(null);
@@ -146,19 +157,19 @@ export default function AdminServers() {
     }
   };
 
-  const handleDelete = (id: number, name: string) => {
-    if (confirm(`Yakin ingin menghapus server "${name}"?`)) {
-      deleteServer.mutate(
-        { id },
-        {
-          onSuccess: () => {
-            toast({ title: "Server dihapus" });
-            queryClient.invalidateQueries({ queryKey: getAdminListServersQueryKey() });
-          },
-          onError: (err) => toast({ title: "Gagal menghapus server", description: err.error, variant: "destructive" }),
-        }
-      );
-    }
+  const handleDeleteConfirm = () => {
+    if (!deleteTarget) return;
+    deleteServer.mutate(
+      { id: deleteTarget.id },
+      {
+        onSuccess: () => {
+          toast({ title: "Server dihapus" });
+          queryClient.invalidateQueries({ queryKey: getAdminListServersQueryKey() });
+          setDeleteTarget(null);
+        },
+        onError: (err) => toast({ title: "Gagal menghapus server", description: err.error, variant: "destructive" }),
+      }
+    );
   };
 
   const isSaving = createServer.isPending || updateServer.isPending;
@@ -201,7 +212,7 @@ export default function AdminServers() {
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="gap-2 cursor-pointer text-destructive focus:text-destructive"
-                        onClick={() => handleDelete(server.id, server.name)}
+                        onClick={() => setDeleteTarget({ id: server.id, name: server.name })}
                       >
                         <Trash2 className="h-4 w-4" /> Hapus
                       </DropdownMenuItem>
@@ -346,6 +357,28 @@ export default function AdminServers() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation AlertDialog */}
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Server "{deleteTarget?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Server ini akan dihapus secara permanen. Semua akun VPN yang terhubung ke server ini mungkin terpengaruh. Aksi ini tidak bisa dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={handleDeleteConfirm}
+              disabled={deleteServer.isPending}
+            >
+              {deleteServer.isPending ? "Menghapus..." : "Hapus Server"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

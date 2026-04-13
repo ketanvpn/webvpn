@@ -92,6 +92,25 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </Link>
+
+        <Link href="/admin/orders?status=pending">
+          <Card className={`cursor-pointer hover:shadow-md transition-all ${summary.pendingOrders > 0 ? "border-orange-500/50 bg-orange-500/5 hover:border-orange-500" : "hover:border-primary/50"}`}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Orders</CardTitle>
+              <ShoppingCart className={`h-4 w-4 ${summary.pendingOrders > 0 ? "text-orange-600" : "text-muted-foreground"}`} />
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${summary.pendingOrders > 0 ? "text-orange-600" : ""}`}>
+                {summary.pendingOrders}
+              </div>
+              {summary.pendingOrders > 0 ? (
+                <p className="text-xs mt-1 text-orange-600/80 font-medium">Klik untuk konfirmasi →</p>
+              ) : (
+                <p className="text-xs mt-1 text-muted-foreground">Semua sudah diproses</p>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">

@@ -15,6 +15,7 @@ export interface AdminDashboard {
   totalRevenue: number;
   activeAccounts: number;
   pendingTopups: number;
+  pendingOrders: number;
   revenueToday?: number;
   revenueThisMonth?: number;
   ordersByProtocol?: AdminDashboardOrdersByProtocolItem[];

@@ -16,6 +16,7 @@ function formatTopup(t: typeof topupsTable.$inferSelect & { username?: string | 
     qrisUrl: t.qrisUrl,
     status: t.status,
     confirmedBy: t.confirmedBy,
+    rejectionNote: t.rejectionNote ?? null,
     createdAt: t.createdAt,
     updatedAt: t.updatedAt,
   };
