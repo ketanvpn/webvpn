@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatRupiah } from "@/lib/format";
 import { format } from "date-fns";
-import { CreditCard, Check, X, CheckCircle, XCircle, Clock } from "lucide-react";
+import { CreditCard, Check, X, CheckCircle, XCircle, Clock, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -21,6 +21,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,6 +37,7 @@ export default function AdminTopups() {
   const [status, setStatus] = useState<string>("pending");
   const [rejectDialogId, setRejectDialogId] = useState<number | null>(null);
   const [rejectionNote, setRejectionNote] = useState("");
+  const [qrisPreviewUrl, setQrisPreviewUrl] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -151,12 +153,22 @@ export default function AdminTopups() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4 sm:justify-end">
+                    <div className="flex items-center gap-4 sm:justify-end flex-wrap">
                       <div className="font-bold text-xl text-primary">
                         {formatRupiah(topup.amount)}
                       </div>
                       {topup.status === "pending" && (
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
+                          {(topup as any).qrisUrl && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1.5 text-blue-600 border-blue-200 hover:bg-blue-50"
+                              onClick={() => setQrisPreviewUrl((topup as any).qrisUrl)}
+                            >
+                              <QrCode className="h-4 w-4" /> Lihat QRIS
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
@@ -189,6 +201,30 @@ export default function AdminTopups() {
           )}
         </CardContent>
       </Card>
+
+      {/* QRIS Preview Dialog */}
+      <Dialog open={!!qrisPreviewUrl} onOpenChange={(open) => { if (!open) setQrisPreviewUrl(null); }}>
+        <DialogContent className="sm:max-w-sm text-center">
+          <DialogHeader>
+            <DialogTitle>QRIS Topup</DialogTitle>
+            <DialogDescription>QR code yang digunakan user untuk pembayaran.</DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center p-4 bg-white rounded-lg my-2">
+            {qrisPreviewUrl && (
+              <img
+                src={qrisPreviewUrl}
+                alt="QRIS"
+                className="max-w-full h-auto max-h-64 object-contain"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src =
+                    "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=qris_invalid";
+                }}
+              />
+            )}
+          </div>
+          <Button variant="outline" onClick={() => setQrisPreviewUrl(null)}>Tutup</Button>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={rejectDialogId !== null} onOpenChange={(open) => { if (!open) setRejectDialogId(null); }}>
         <DialogContent className="max-w-md">

@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Wallet, ArrowUpRight, History, Clock } from "lucide-react";
+import { Wallet, ArrowUpRight, History, Clock, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,7 +18,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 const topupSchema = z.object({
-  amount: z.coerce.number().min(10000, "Minimum topup is Rp 10.000"),
+  amount: z.coerce.number().min(10000, "Minimum topup Rp 10.000"),
 });
 
 const presetAmounts = [10000, 25000, 50000, 100000, 200000];
@@ -48,8 +48,8 @@ export default function Balance() {
       },
       onError: (err) => {
         toast({
-          title: "Failed to create topup",
-          description: err.error || "An error occurred",
+          title: "Gagal membuat topup",
+          description: err.error || "Terjadi kesalahan",
           variant: "destructive",
         });
       }
@@ -59,8 +59,8 @@ export default function Balance() {
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Balance & Top Up</h1>
-        <p className="text-muted-foreground mt-1">Manage your account funds and view transaction history.</p>
+        <h1 className="text-3xl font-bold tracking-tight">Saldo & Top Up</h1>
+        <p className="text-muted-foreground mt-1">Kelola saldo dan lihat riwayat transaksi kamu.</p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-8">
@@ -72,7 +72,7 @@ export default function Balance() {
             </div>
             <CardHeader className="pb-2">
               <CardTitle className="text-primary-foreground/80 font-medium text-lg flex items-center gap-2">
-                <Wallet className="h-5 w-5" /> Current Balance
+                <Wallet className="h-5 w-5" /> Saldo Saat Ini
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -96,15 +96,15 @@ export default function Balance() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <ArrowUpRight className="h-5 w-5" /> Top Up Funds
+                <ArrowUpRight className="h-5 w-5" /> Isi Saldo
               </CardTitle>
-              <CardDescription>Add money to your account via QRIS.</CardDescription>
+              <CardDescription>Tambah saldo via QRIS. Konfirmasi oleh admin.</CardDescription>
             </CardHeader>
             <CardContent>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   <div className="space-y-4">
-                    <Label>Select Amount</Label>
+                    <Label>Pilih Nominal</Label>
                     <div className="grid grid-cols-3 gap-2">
                       {presetAmounts.map((amt) => (
                         <Button
@@ -125,7 +125,7 @@ export default function Balance() {
                     name="amount"
                     render={({ field }) => (
                       <FormItem>
-                        <Label>Custom Amount (Min. Rp 10.000)</Label>
+                        <Label>Nominal Lain (Min. Rp 10.000)</Label>
                         <FormControl>
                           <div className="relative">
                             <span className="absolute left-3 top-2.5 text-muted-foreground font-medium">Rp</span>
@@ -138,7 +138,7 @@ export default function Balance() {
                   />
 
                   <Button type="submit" className="w-full h-12 text-lg" disabled={topup.isPending}>
-                    {topup.isPending ? "Generating QRIS..." : "Generate QRIS"}
+                    {topup.isPending ? "Membuat QRIS..." : "Buat QRIS"}
                   </Button>
                 </form>
               </Form>
@@ -151,7 +151,7 @@ export default function Balance() {
           <Card className="h-full flex flex-col border-2">
             <CardHeader className="border-b bg-muted/20">
               <CardTitle className="flex items-center gap-2">
-                <History className="h-5 w-5" /> Recent Transactions
+                <History className="h-5 w-5" /> Riwayat Topup
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0 flex-1">
@@ -162,37 +162,44 @@ export default function Balance() {
               ) : historyData && historyData.length > 0 ? (
                 <div className="divide-y">
                   {historyData.map((tx) => (
-                    <div key={tx.id} className="p-4 sm:p-6 flex items-center justify-between hover:bg-accent/30 transition-colors">
-                      <div className="flex items-center gap-4">
-                        <div className={`p-2 rounded-full ${
-                          tx.status === 'confirmed' ? 'bg-green-500/10 text-green-500' :
-                          tx.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' :
-                          'bg-red-500/10 text-red-500'
-                        }`}>
-                          {tx.status === 'confirmed' ? <ArrowUpRight className="h-5 w-5" /> : 
-                           tx.status === 'pending' ? <Clock className="h-5 w-5" /> : 
-                           <History className="h-5 w-5" />}
-                        </div>
-                        <div>
-                          <div className="font-semibold text-lg">{formatRupiah(tx.amount)}</div>
-                          <div className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
-                            {format(new Date(tx.createdAt), "MMM d, yyyy HH:mm")}
+                    <div key={tx.id} className="p-4 sm:p-6 hover:bg-accent/30 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className={`p-2 rounded-full ${
+                            tx.status === 'confirmed' ? 'bg-green-500/10 text-green-500' :
+                            tx.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' :
+                            'bg-red-500/10 text-red-500'
+                          }`}>
+                            {tx.status === 'confirmed' ? <ArrowUpRight className="h-5 w-5" /> :
+                             tx.status === 'pending' ? <Clock className="h-5 w-5" /> :
+                             <XCircle className="h-5 w-5" />}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-lg">{formatRupiah(tx.amount)}</div>
+                            <div className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
+                              {format(new Date(tx.createdAt), "d MMM yyyy HH:mm")}
+                            </div>
                           </div>
                         </div>
+                        <Badge variant="outline" className={`capitalize ${
+                          tx.status === 'confirmed' ? 'border-green-500 text-green-600' :
+                          tx.status === 'pending' ? 'border-yellow-500 text-yellow-600' :
+                          'border-red-500 text-red-600'
+                        }`}>
+                          {tx.status === 'confirmed' ? 'Dikonfirmasi' : tx.status === 'pending' ? 'Menunggu' : 'Ditolak'}
+                        </Badge>
                       </div>
-                      <Badge variant="outline" className={`capitalize ${
-                        tx.status === 'confirmed' ? 'border-green-500 text-green-600' :
-                        tx.status === 'pending' ? 'border-yellow-500 text-yellow-600' :
-                        'border-red-500 text-red-600'
-                      }`}>
-                        {tx.status}
-                      </Badge>
+                      {tx.status === 'rejected' && (tx as any).rejectionNote && (
+                        <div className="mt-2 ml-14 text-xs text-red-600/80 italic bg-red-50 dark:bg-red-950/20 px-3 py-1.5 rounded-md border border-red-200/60">
+                          Alasan penolakan: {(tx as any).rejectionNote}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="p-12 text-center text-muted-foreground">
-                  No topup history found.
+                  Belum ada riwayat topup.
                 </div>
               )}
             </CardContent>
@@ -203,26 +210,32 @@ export default function Balance() {
       <Dialog open={showQris} onOpenChange={setShowQris}>
         <DialogContent className="sm:max-w-md text-center">
           <DialogHeader>
-            <DialogTitle>Scan QRIS to Pay</DialogTitle>
+            <DialogTitle>Scan QRIS untuk Bayar</DialogTitle>
             <DialogDescription>
-              Open your banking or e-wallet app and scan this QR code to complete the topup.
+              Buka aplikasi bank atau e-wallet kamu dan scan QR berikut untuk menyelesaikan topup.
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-center p-6 bg-white rounded-lg my-4">
-             {/* Use the actual URL from backend, or a placeholder if it's just a dummy string for now */}
             {qrisUrl ? (
-               <img src={qrisUrl} alt="QRIS Code" className="max-w-full h-auto max-h-64 object-contain" onError={(e) => {
-                 // Fallback if URL is invalid (since mock API might return dummy text)
-                 (e.target as HTMLImageElement).src = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=qris_mock";
-               }} />
+              <img
+                src={qrisUrl}
+                alt="QRIS Code"
+                className="max-w-full h-auto max-h-64 object-contain"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src =
+                    "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=qris_mock";
+                }}
+              />
             ) : (
-               <div className="w-48 h-48 bg-gray-200 animate-pulse flex items-center justify-center text-muted-foreground text-sm">QR Code</div>
+              <div className="w-48 h-48 bg-gray-200 animate-pulse flex items-center justify-center text-muted-foreground text-sm">
+                QR Code
+              </div>
             )}
           </div>
           <div className="bg-yellow-500/10 text-yellow-700 p-3 rounded-md text-sm border border-yellow-500/20 text-left">
-            <strong>Note:</strong> After payment, it may take a few moments for the admin to confirm your transaction.
+            <strong>Catatan:</strong> Setelah bayar, admin akan mengonfirmasi topup kamu dalam beberapa saat.
           </div>
-          <Button className="w-full mt-2" onClick={() => setShowQris(false)}>Close</Button>
+          <Button className="w-full mt-2" onClick={() => setShowQris(false)}>Tutup</Button>
         </DialogContent>
       </Dialog>
     </div>

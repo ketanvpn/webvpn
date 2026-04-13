@@ -238,3 +238,25 @@ Setiap kali mengubah `lib/api-spec/openapi.yaml`:
 - Bahasa UI: Bahasa Indonesia
 - Semua operasi delete/destructive di admin menggunakan AlertDialog (shadcn), bukan `window.confirm()`
 - Session plan progress dicatat di `.local/` (jangan commit)
+
+## Progress Batch Improvement
+
+### Batch 3 ✅ (April 2026)
+- Backend: `PATCH /auth/profile` (edit fullName/email) + `POST /auth/change-password` (verifikasi current password)
+- Profile page: form edit profil inline + form ganti password (dengan validasi)
+- User dashboard: semua card jadi clickable (Saldo→/balance, Akun Aktif→/accounts, Total Order→/orders)
+- Balance page: semua label Bahasa Indonesia, rejectionNote tampil di riwayat topup ditolak, QRIS dialog diupdate
+- User accounts list: tampilkan sisa hari dengan warna (hijau >7hr, kuning 3-7hr, merah ≤3hr)
+- Admin accounts: search berubah dari client-side → server-side (debounced, instant filter)
+- Admin orders: link "Lihat Akun VPN" → `/admin/users/{userId}` (lebih targeted)
+- Admin topups: tombol "Lihat QRIS" untuk topup pending (dialog preview QRIS image)
+- Admin dashboard: refetchInterval 30 detik ditambahkan
+
+### Batch 2 ✅
+- Topup rejection dialog dengan rejectionNote
+- Pending orders card di admin dashboard
+- Search orders by username (server-side)
+- Auto-refresh topups/orders (30 detik)
+- Server-side pagination users + filter role
+- Servers delete pakai AlertDialog
+- Paid orders link ke akun VPN

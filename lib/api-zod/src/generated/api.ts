@@ -74,6 +74,40 @@ export const GetMeResponse = zod.object({
 });
 
 /**
+ * @summary Update current user profile (fullName, email)
+ */
+export const UpdateProfileBody = zod.object({
+  fullName: zod.string().nullish(),
+  email: zod.string().optional(),
+});
+
+export const UpdateProfileResponse = zod.object({
+  id: zod.number(),
+  username: zod.string(),
+  email: zod.string(),
+  fullName: zod.string().nullish(),
+  role: zod.enum(["user", "reseller", "admin"]),
+  balance: zod.number().describe("Balance in IDR"),
+  isActive: zod.boolean(),
+  referralCode: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Change current user password
+ */
+export const changePasswordBodyNewPasswordMin = 6;
+
+export const ChangePasswordBody = zod.object({
+  currentPassword: zod.string(),
+  newPassword: zod.string().min(changePasswordBodyNewPasswordMin),
+});
+
+export const ChangePasswordResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
  * @summary List all active VPN packages
  */
 export const ListProductsQueryParams = zod.object({
@@ -1160,6 +1194,10 @@ export const AdminListAccountsQueryParams = zod.object({
     .enum(["ssh", "vmess", "vless", "trojan", "shadowsocks"])
     .optional(),
   isActive: zod.coerce.boolean().optional(),
+  search: zod.coerce
+    .string()
+    .optional()
+    .describe("Search by VPN username, user username or email"),
   limit: zod.coerce.number().default(adminListAccountsQueryLimitDefault),
   offset: zod.coerce.number().default(adminListAccountsQueryOffsetDefault),
 });

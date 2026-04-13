@@ -44,6 +44,7 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
+import { useDebounce } from "@/hooks/use-debounce";
 
 const LIMIT = 20;
 
@@ -55,8 +56,8 @@ export default function AdminAccounts() {
   const [offset, setOffset] = useState(0);
   const [protocol, setProtocol] = useState("semua");
   const [isActiveFilter, setIsActiveFilter] = useState("semua");
-  const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
+  const debouncedSearch = useDebounce(searchInput, 400);
   const [extendDays, setExtendDays] = useState("30");
   const [extendDialogId, setExtendDialogId] = useState<number | null>(null);
 
@@ -65,6 +66,7 @@ export default function AdminAccounts() {
     offset,
     protocol: protocol === "semua" ? undefined : protocol,
     isActive: isActiveFilter === "semua" ? undefined : isActiveFilter === "aktif",
+    search: debouncedSearch || undefined,
   });
 
   const toggleAccount = useAdminToggleAccount();
@@ -123,25 +125,10 @@ export default function AdminAccounts() {
     );
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSearch(searchInput);
-    setOffset(0);
-  };
-
   const accounts = data?.accounts ?? [];
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / LIMIT);
   const currentPage = Math.floor(offset / LIMIT) + 1;
-
-  const filtered = search
-    ? accounts.filter(
-        (a) =>
-          a.username?.toLowerCase().includes(search.toLowerCase()) ||
-          a.user?.username?.toLowerCase().includes(search.toLowerCase()) ||
-          a.user?.email?.toLowerCase().includes(search.toLowerCase())
-      )
-    : accounts;
 
   return (
     <div className="space-y-6">
@@ -152,18 +139,16 @@ export default function AdminAccounts() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
-        <form onSubmit={handleSearch} className="flex gap-2 flex-1 min-w-[200px]">
+        <div className="relative flex-1 min-w-[200px] max-w-xs">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Cari username / email user..."
             value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="max-w-xs"
+            onChange={(e) => { setSearchInput(e.target.value); setOffset(0); }}
+            className="pl-9"
             data-testid="input-account-search"
           />
-          <Button type="submit" variant="outline" size="icon">
-            <Search className="h-4 w-4" />
-          </Button>
-        </form>
+        </div>
         <Select
           value={protocol}
           onValueChange={(v) => { setProtocol(v); setOffset(0); }}
@@ -205,11 +190,13 @@ export default function AdminAccounts() {
             <div className="p-6 space-y-4">
               {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-14 w-full" />)}
             </div>
-          ) : filtered.length === 0 ? (
-            <div className="p-12 text-center text-muted-foreground">Tidak ada akun VPN ditemukan.</div>
+          ) : accounts.length === 0 ? (
+            <div className="p-12 text-center text-muted-foreground">
+              {debouncedSearch ? `Tidak ada akun untuk "${debouncedSearch}".` : "Tidak ada akun VPN ditemukan."}
+            </div>
           ) : (
             <div className="divide-y">
-              {filtered.map((acc) => {
+              {accounts.map((acc) => {
                 const expired = acc.expiresAt && new Date(acc.expiresAt) < new Date();
                 const isActive = acc.isActive && !expired;
                 return (

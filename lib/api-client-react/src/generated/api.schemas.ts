@@ -375,6 +375,17 @@ export interface AdminUpdateUserBody {
   adjustBalance?: number;
 }
 
+export type UpdateProfileBody = {
+  fullName?: string | null;
+  email?: string;
+};
+
+export type ChangePasswordBody = {
+  currentPassword: string;
+  /** @minLength 6 */
+  newPassword: string;
+};
+
 export type ListProductsParams = {
   protocol?: ListProductsProtocol;
   category?: string;
@@ -475,6 +486,10 @@ export type AdminListAccountsParams = {
   userId?: number;
   protocol?: AdminListAccountsProtocol;
   isActive?: boolean;
+  /**
+   * Search by VPN username, user username or email
+   */
+  search?: string;
   limit?: number;
   offset?: number;
 };

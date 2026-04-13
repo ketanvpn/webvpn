@@ -1,77 +1,301 @@
 import { useAuth } from "@/hooks/use-auth";
+import {
+  useUpdateProfile,
+  useChangePassword,
+  getGetMeQueryKey,
+} from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { UserCircle, Mail, Key, Shield, Calendar } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { UserCircle, Mail, Key, Shield, Calendar, Edit2, Lock } from "lucide-react";
 import { format } from "date-fns";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
+
+const profileSchema = z.object({
+  fullName: z.string().optional(),
+  email: z.string().email("Email tidak valid"),
+});
+
+const passwordSchema = z.object({
+  currentPassword: z.string().min(1, "Wajib diisi"),
+  newPassword: z.string().min(6, "Minimal 6 karakter"),
+  confirmPassword: z.string().min(1, "Wajib diisi"),
+}).refine((d) => d.newPassword === d.confirmPassword, {
+  message: "Konfirmasi password tidak cocok",
+  path: ["confirmPassword"],
+});
 
 export default function Profile() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [editMode, setEditMode] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+
+  const updateProfile = useUpdateProfile();
+  const changePassword = useChangePassword();
+
+  const profileForm = useForm<z.infer<typeof profileSchema>>({
+    resolver: zodResolver(profileSchema),
+    values: {
+      fullName: user?.fullName ?? "",
+      email: user?.email ?? "",
+    },
+  });
+
+  const passwordForm = useForm<z.infer<typeof passwordSchema>>({
+    resolver: zodResolver(passwordSchema),
+    defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
+  });
 
   if (!user) return null;
+
+  const onSaveProfile = (values: z.infer<typeof profileSchema>) => {
+    updateProfile.mutate(
+      { data: { fullName: values.fullName || null, email: values.email } },
+      {
+        onSuccess: () => {
+          toast({ title: "Profil berhasil diperbarui" });
+          queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+          setEditMode(false);
+        },
+        onError: (err) =>
+          toast({ title: "Gagal memperbarui profil", description: err.error, variant: "destructive" }),
+      }
+    );
+  };
+
+  const onChangePassword = (values: z.infer<typeof passwordSchema>) => {
+    changePassword.mutate(
+      { data: { currentPassword: values.currentPassword, newPassword: values.newPassword } },
+      {
+        onSuccess: () => {
+          toast({ title: "Password berhasil diubah" });
+          passwordForm.reset();
+          setShowPasswordForm(false);
+        },
+        onError: (err) =>
+          toast({ title: "Gagal ubah password", description: err.error, variant: "destructive" }),
+      }
+    );
+  };
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Profile</h1>
-        <p className="text-muted-foreground mt-1">Manage your personal information.</p>
+        <h1 className="text-3xl font-bold tracking-tight">Profil</h1>
+        <p className="text-muted-foreground mt-1">Kelola informasi akun kamu.</p>
       </div>
 
+      {/* Profile Card */}
       <Card className="border-2 shadow-sm overflow-hidden">
-        <div className="h-32 bg-primary/10 relative">
-           <div className="absolute -bottom-12 left-6 h-24 w-24 bg-background rounded-full p-2">
-             <div className="h-full w-full bg-primary/20 rounded-full flex items-center justify-center text-primary">
-               <UserCircle className="h-12 w-12" />
-             </div>
-           </div>
-        </div>
-        
-        <CardContent className="pt-16 pb-8 px-6 space-y-8">
-          <div>
-            <h2 className="text-2xl font-bold">{user.fullName || user.username}</h2>
-            <div className="flex items-center gap-3 mt-2">
-              <Badge variant="secondary" className="capitalize flex items-center gap-1">
-                <Shield className="h-3 w-3" />
-                {user.role}
-              </Badge>
-              <Badge variant={user.isActive ? "outline" : "destructive"} className={user.isActive ? "border-green-500 text-green-600" : ""}>
-                {user.isActive ? "Active Account" : "Suspended"}
-              </Badge>
+        <div className="h-28 bg-primary/10 relative">
+          <div className="absolute -bottom-10 left-6 h-20 w-20 bg-background rounded-full p-1.5 border-2 border-border">
+            <div className="h-full w-full bg-primary/20 rounded-full flex items-center justify-center text-primary">
+              <UserCircle className="h-10 w-10" />
             </div>
           </div>
+        </div>
 
-          <div className="grid gap-6 pt-6 border-t">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-1">
-                <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <UserCircle className="h-4 w-4" /> Username
+        <CardContent className="pt-14 pb-6 px-6">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-bold">{user.fullName || user.username}</h2>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge variant="secondary" className="capitalize flex items-center gap-1 text-xs">
+                  <Shield className="h-3 w-3" /> {user.role}
+                </Badge>
+                <Badge
+                  variant={user.isActive ? "outline" : "destructive"}
+                  className={user.isActive ? "border-green-500 text-green-600 text-xs" : "text-xs"}
+                >
+                  {user.isActive ? "Aktif" : "Disuspend"}
+                </Badge>
+              </div>
+            </div>
+            {!editMode && (
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setEditMode(true)}>
+                <Edit2 className="h-3.5 w-3.5" /> Edit Profil
+              </Button>
+            )}
+          </div>
+
+          <Separator className="my-4" />
+
+          {editMode ? (
+            <Form {...profileForm}>
+              <form onSubmit={profileForm.handleSubmit(onSaveProfile)} className="space-y-4">
+                <FormField
+                  control={profileForm.control}
+                  name="fullName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nama Lengkap</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Nama lengkap kamu" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={profileForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="email@contoh.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex gap-2 pt-2">
+                  <Button type="submit" disabled={updateProfile.isPending} size="sm">
+                    {updateProfile.isPending ? "Menyimpan..." : "Simpan Perubahan"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setEditMode(false); profileForm.reset(); }}
+                  >
+                    Batal
+                  </Button>
                 </div>
-                <div className="font-medium text-lg">{user.username}</div>
+              </form>
+            </Form>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1">
+                <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <UserCircle className="h-3.5 w-3.5" /> Username
+                </div>
+                <div className="font-medium">{user.username}</div>
               </div>
               <div className="space-y-1">
-                <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <Mail className="h-4 w-4" /> Email
+                <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <Mail className="h-3.5 w-3.5" /> Email
                 </div>
-                <div className="font-medium text-lg">{user.email}</div>
+                <div className="font-medium">{user.email}</div>
               </div>
+              {user.fullName && (
+                <div className="space-y-1">
+                  <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                    <UserCircle className="h-3.5 w-3.5" /> Nama Lengkap
+                  </div>
+                  <div className="font-medium">{user.fullName}</div>
+                </div>
+              )}
               {user.referralCode && (
                 <div className="space-y-1">
-                  <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <Key className="h-4 w-4" /> Referral Code
+                  <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                    <Key className="h-3.5 w-3.5" /> Kode Referral
                   </div>
-                  <div className="font-mono bg-muted px-2 py-1 rounded inline-block text-sm">
+                  <div className="font-mono bg-muted px-2 py-0.5 rounded text-sm inline-block">
                     {user.referralCode}
                   </div>
                 </div>
               )}
               <div className="space-y-1">
-                <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <Calendar className="h-4 w-4" /> Member Since
+                <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5" /> Bergabung
                 </div>
-                <div className="font-medium">{format(new Date(user.createdAt), "MMMM d, yyyy")}</div>
+                <div className="font-medium">{format(new Date(user.createdAt), "d MMMM yyyy")}</div>
               </div>
             </div>
-          </div>
+          )}
         </CardContent>
+      </Card>
+
+      {/* Change Password Card */}
+      <Card className="border-2">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Lock className="h-4 w-4" /> Keamanan
+              </CardTitle>
+              <CardDescription className="mt-1">Ubah password akun kamu</CardDescription>
+            </div>
+            {!showPasswordForm && (
+              <Button size="sm" variant="outline" onClick={() => setShowPasswordForm(true)}>
+                Ubah Password
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        {showPasswordForm && (
+          <CardContent className="pt-0">
+            <Separator className="mb-4" />
+            <Form {...passwordForm}>
+              <form onSubmit={passwordForm.handleSubmit(onChangePassword)} className="space-y-4">
+                <FormField
+                  control={passwordForm.control}
+                  name="currentPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password Saat Ini</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="••••••••" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={passwordForm.control}
+                  name="newPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password Baru</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="Min. 6 karakter" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={passwordForm.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Konfirmasi Password Baru</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="Ulangi password baru" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex gap-2 pt-1">
+                  <Button type="submit" disabled={changePassword.isPending} size="sm" variant="destructive">
+                    {changePassword.isPending ? "Mengubah..." : "Ubah Password"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setShowPasswordForm(false); passwordForm.reset(); }}
+                  >
+                    Batal
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </CardContent>
+        )}
       </Card>
     </div>
   );

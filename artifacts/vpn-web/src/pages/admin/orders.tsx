@@ -153,9 +153,12 @@ export default function AdminOrders() {
                       )}
                       {order.status === "paid" && order.vpnAccountId && (
                         <div className="mt-1.5">
-                          <Link href={`/admin/accounts`} className="text-xs text-primary hover:underline flex items-center gap-1 w-fit">
+                          <Link
+                            href={`/admin/users/${order.userId}`}
+                            className="text-xs text-primary hover:underline flex items-center gap-1 w-fit"
+                          >
                             <Server className="h-3 w-3" />
-                            Lihat Akun VPN #{order.vpnAccountId}
+                            Lihat Akun VPN user ini →
                           </Link>
                         </div>
                       )}

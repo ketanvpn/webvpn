@@ -11,6 +11,10 @@ export type AdminListAccountsParams = {
   userId?: number;
   protocol?: AdminListAccountsProtocol;
   isActive?: boolean;
+  /**
+   * Search by VPN username, user username or email
+   */
+  search?: string;
   limit?: number;
   offset?: number;
 };

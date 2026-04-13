@@ -27,63 +27,81 @@ export default function Dashboard() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">Overview of your account status and recent activity.</p>
+        <p className="text-muted-foreground mt-1">Ringkasan status akun dan aktivitas terbaru.</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Balance</CardTitle>
-            <Wallet className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary">{formatRupiah(summary.balance)}</div>
-            {summary.pendingTopup !== undefined && summary.pendingTopup > 0 && (
-              <p className="text-xs text-muted-foreground mt-1">
-                + {formatRupiah(summary.pendingTopup)} pending
+        <Link href="/balance">
+          <Card className="cursor-pointer hover:border-primary/50 hover:shadow-md transition-all bg-primary text-primary-foreground">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-primary-foreground/80">Saldo</CardTitle>
+              <Wallet className="h-4 w-4 opacity-80" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatRupiah(summary.balance)}</div>
+              {summary.pendingTopup !== undefined && summary.pendingTopup > 0 && (
+                <p className="text-xs mt-1 text-primary-foreground/70">
+                  + {formatRupiah(summary.pendingTopup)} pending
+                </p>
+              )}
+              {(!summary.pendingTopup || summary.pendingTopup === 0) && (
+                <p className="text-xs mt-1 text-primary-foreground/70">Klik untuk topup →</p>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/accounts">
+          <Card className="cursor-pointer hover:border-primary/50 hover:shadow-md transition-all">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Akun Aktif</CardTitle>
+              <Server className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{summary.activeAccounts}</div>
+              <p className="text-xs mt-1 text-muted-foreground">Klik untuk kelola →</p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/orders">
+          <Card className="cursor-pointer hover:border-primary/50 hover:shadow-md transition-all">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Order</CardTitle>
+              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{summary.totalOrders}</div>
+              <p className="text-xs mt-1 text-muted-foreground">Klik untuk riwayat →</p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/accounts">
+          <Card className={`cursor-pointer hover:shadow-md transition-all ${(summary.expiringAccounts?.length ?? 0) > 0 ? "border-destructive/50 bg-destructive/5 hover:border-destructive" : "hover:border-primary/50"}`}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className={`text-sm font-medium ${(summary.expiringAccounts?.length ?? 0) > 0 ? "text-destructive" : ""}`}>
+                Segera Expired
+              </CardTitle>
+              <AlertCircle className={`h-4 w-4 ${(summary.expiringAccounts?.length ?? 0) > 0 ? "text-destructive" : "text-muted-foreground"}`} />
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${(summary.expiringAccounts?.length ?? 0) > 0 ? "text-destructive" : ""}`}>
+                {summary.expiringAccounts?.length || 0}
+              </div>
+              <p className="text-xs mt-1 text-muted-foreground">
+                {(summary.expiringAccounts?.length ?? 0) > 0 ? "Segera perpanjang →" : "Semua aman"}
               </p>
-            )}
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Accounts</CardTitle>
-            <Server className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary.activeAccounts}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary.totalOrders}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-destructive">Expiring Soon</CardTitle>
-            <AlertCircle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">
-              {summary.expiringAccounts?.length || 0}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Accounts expiring in 3 days</p>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <Card className="col-span-1">
-          <CardHeader>
-            <CardTitle>Recent Orders</CardTitle>
+        <Card>
+          <CardHeader className="flex items-center justify-between">
+            <CardTitle>Order Terbaru</CardTitle>
+            <Link href="/orders" className="text-xs text-primary hover:underline">Lihat semua →</Link>
           </CardHeader>
           <CardContent>
             {summary.recentOrders && summary.recentOrders.length > 0 ? (
@@ -91,17 +109,17 @@ export default function Dashboard() {
                 {summary.recentOrders.map((order) => (
                   <div key={order.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
                     <div>
-                      <div className="font-medium">Order #{order.id}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {format(new Date(order.createdAt), "MMM d, yyyy")}
+                      <div className="font-medium text-sm">Order #{order.id}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {format(new Date(order.createdAt), "d MMM yyyy")}
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <div className="font-medium">{formatRupiah(order.amount)}</div>
+                    <div className="flex items-center gap-3">
+                      <div className="font-medium text-sm">{formatRupiah(order.amount)}</div>
                       <Badge variant={
                         order.status === "paid" ? "default" :
                         order.status === "pending" ? "secondary" : "destructive"
-                      }>
+                      } className="text-[10px]">
                         {order.status}
                       </Badge>
                     </div>
@@ -109,14 +127,15 @@ export default function Dashboard() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground py-4 text-center">No recent orders found.</p>
+              <p className="text-sm text-muted-foreground py-4 text-center">Belum ada order.</p>
             )}
           </CardContent>
         </Card>
 
-        <Card className="col-span-1">
-          <CardHeader>
-            <CardTitle>Expiring Accounts</CardTitle>
+        <Card>
+          <CardHeader className="flex items-center justify-between">
+            <CardTitle>Akun Segera Expired</CardTitle>
+            <Link href="/accounts" className="text-xs text-primary hover:underline">Lihat semua →</Link>
           </CardHeader>
           <CardContent>
             {summary.expiringAccounts && summary.expiringAccounts.length > 0 ? (
@@ -124,22 +143,22 @@ export default function Dashboard() {
                 {summary.expiringAccounts.map((account) => (
                   <div key={account.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
                     <div>
-                      <div className="font-medium">{account.username}</div>
-                      <div className="text-sm text-muted-foreground uppercase">{account.protocol}</div>
+                      <div className="font-medium text-sm font-mono">{account.username}</div>
+                      <div className="text-xs text-muted-foreground uppercase mt-0.5">{account.protocol}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm text-destructive font-medium">
-                        Expires {format(new Date(account.expiresAt), "MMM d")}
+                      <div className="text-xs text-destructive font-medium">
+                        {format(new Date(account.expiresAt), "d MMM")}
                       </div>
                       <Link href={`/accounts/${account.id}`} className="text-xs text-primary hover:underline">
-                        Manage
+                        Kelola →
                       </Link>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground py-4 text-center">No accounts expiring soon.</p>
+              <p className="text-sm text-muted-foreground py-4 text-center">Tidak ada akun yang akan expired.</p>
             )}
           </CardContent>
         </Card>

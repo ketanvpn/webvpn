@@ -8,7 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
 
 export default function AdminDashboard() {
-  const { data: summary, isLoading } = useGetAdminDashboard();
+  const { data: summary, isLoading } = useGetAdminDashboard({
+    query: { refetchInterval: 30_000 },
+  });
 
   if (isLoading || !summary) {
     return (

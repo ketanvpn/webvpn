@@ -8,7 +8,7 @@ import {
   vpnAccountsTable,
   topupsTable,
 } from "@workspace/db";
-import { eq, and, ilike, desc, asc, sql } from "drizzle-orm";
+import { eq, and, or, ilike, desc, asc, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { requireAdmin } from "../lib/auth";
 import { formatProduct } from "./products";
@@ -687,7 +687,7 @@ router.post("/admin/topups/:id/reject", requireAdmin, async (req, res) => {
 // ─── Admin: VPN Accounts ─────────────────────────────────────────────────────
 
 router.get("/admin/accounts", requireAdmin, async (req, res) => {
-  const { userId, protocol, isActive } = req.query as Record<string, string | undefined>;
+  const { userId, protocol, isActive, search } = req.query as Record<string, string | undefined>;
   const limit = Math.min(parseInt(String(req.query.limit ?? "20"), 10), 100);
   const offset = parseInt(String(req.query.offset ?? "0"), 10);
 
@@ -695,6 +695,15 @@ router.get("/admin/accounts", requireAdmin, async (req, res) => {
   if (userId) conditions.push(eq(vpnAccountsTable.userId, parseInt(userId, 10)));
   if (protocol) conditions.push(eq(vpnAccountsTable.protocol, protocol));
   if (isActive !== undefined) conditions.push(eq(vpnAccountsTable.isActive, isActive === "true"));
+  if (search) {
+    conditions.push(
+      or(
+        ilike(vpnAccountsTable.username, `%${search}%`),
+        ilike(usersTable.username, `%${search}%`),
+        ilike(usersTable.email, `%${search}%`)
+      )!
+    );
+  }
 
   const accounts = await db
     .select({
@@ -731,6 +740,7 @@ router.get("/admin/accounts", requireAdmin, async (req, res) => {
   const [total] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(vpnAccountsTable)
+    .leftJoin(usersTable, eq(vpnAccountsTable.userId, usersTable.id))
     .where(conditions.length > 0 ? and(...conditions) : undefined);
 
   const formatted = accounts.map((a) => ({
