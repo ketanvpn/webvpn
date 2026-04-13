@@ -1,0 +1,194 @@
+import { useGetProduct, useCreateOrder, getGetBalanceQueryKey, useGetBalance } from "@workspace/api-client-react";
+import { useParams, useLocation } from "wouter";
+import { formatRupiah } from "@/lib/format";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Clock, HardDrive, Network, ShieldCheck, ArrowLeft, Server } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
+import { useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { useQueryClient } from "@tanstack/react-query";
+
+export default function ProductDetail() {
+  const { id } = useParams<{ id: string }>();
+  const productId = parseInt(id || "0", 10);
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [paymentMethod, setPaymentMethod] = useState<"balance" | "qris">("balance");
+
+  const { data: product, isLoading } = useGetProduct(productId, {
+    query: { enabled: !!productId }
+  });
+
+  const { data: balanceData } = useGetBalance();
+  const balance = balanceData?.balance || 0;
+
+  const createOrder = useCreateOrder();
+
+  const handlePurchase = () => {
+    if (paymentMethod === "balance" && balance < (product?.price || 0)) {
+      toast({
+        title: "Insufficient Balance",
+        description: "Please top up your balance first.",
+        variant: "destructive",
+      });
+      setLocation("/balance");
+      return;
+    }
+
+    createOrder.mutate({
+      data: {
+        productId,
+        paymentMethod,
+      }
+    }, {
+      onSuccess: (order) => {
+        toast({
+          title: "Order created successfully",
+          description: "Your order has been placed.",
+        });
+        queryClient.invalidateQueries({ queryKey: getGetBalanceQueryKey() });
+        setLocation(`/orders/${order.id}`);
+      },
+      onError: (err) => {
+        toast({
+          title: "Order Failed",
+          description: err.error || "An error occurred while creating order",
+          variant: "destructive",
+        });
+      }
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-[400px] w-full max-w-3xl" />
+      </div>
+    );
+  }
+
+  if (!product) {
+    return <div>Product not found</div>;
+  }
+
+  return (
+    <div className="space-y-6 max-w-4xl mx-auto">
+      <div>
+        <Button variant="ghost" size="sm" asChild className="mb-4">
+          <Link href="/products" className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Products
+          </Link>
+        </Button>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-8">
+        <div className="space-y-6">
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <Badge variant="secondary" className="uppercase">{product.protocol}</Badge>
+              {product.category && <Badge variant="outline">{product.category}</Badge>}
+            </div>
+            <h1 className="text-4xl font-extrabold tracking-tight">{product.name}</h1>
+            <p className="text-muted-foreground mt-4 text-lg">{product.description}</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Card>
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-2">
+                <Clock className="h-8 w-8 text-primary" />
+                <div className="text-sm font-medium">Duration</div>
+                <div className="text-xl font-bold">{product.durationDays} Days</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-2">
+                <HardDrive className="h-8 w-8 text-primary" />
+                <div className="text-sm font-medium">Quota</div>
+                <div className="text-xl font-bold">{product.quota ? `${product.quota} GB` : "Unlimited"}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-2">
+                <Network className="h-8 w-8 text-primary" />
+                <div className="text-sm font-medium">Max IP</div>
+                <div className="text-xl font-bold">{product.maxConnections || "Unlimited"}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-2">
+                <Server className="h-8 w-8 text-primary" />
+                <div className="text-sm font-medium">Server</div>
+                <div className="text-xl font-bold">Premium</div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="bg-accent/50 p-4 rounded-xl border flex items-start gap-4">
+            <ShieldCheck className="h-6 w-6 text-primary mt-1 flex-shrink-0" />
+            <div className="text-sm">
+              <span className="font-semibold block mb-1">Guaranteed Quality</span>
+              High-performance servers with 99.9% uptime SLA. Perfect for gaming, streaming, and secure browsing.
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <Card className="border-2 border-primary/20 sticky top-24 shadow-lg">
+            <CardHeader className="bg-muted/50 border-b">
+              <CardTitle>Order Summary</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-6">
+              <div className="flex justify-between items-center pb-4 border-b">
+                <span className="text-muted-foreground">Price</span>
+                <span className="text-2xl font-bold">{formatRupiah(product.price)}</span>
+              </div>
+              
+              <div className="space-y-3">
+                <Label htmlFor="payment-method">Payment Method</Label>
+                <Select value={paymentMethod} onValueChange={(v: "balance" | "qris") => setPaymentMethod(v)}>
+                  <SelectTrigger id="payment-method">
+                    <SelectValue placeholder="Select payment method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="balance">
+                      Account Balance ({formatRupiah(balance)})
+                    </SelectItem>
+                    <SelectItem value="qris">QRIS (Pay directly)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {paymentMethod === "balance" && balance < product.price && (
+                <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md border border-destructive/20">
+                  Insufficient balance. You need {formatRupiah(product.price - balance)} more.
+                  <Link href="/balance" className="font-semibold underline block mt-1">Top up now</Link>
+                </div>
+              )}
+            </CardContent>
+            <CardFooter className="bg-muted/50 border-t flex flex-col gap-3 pt-6">
+              <Button 
+                size="lg" 
+                className="w-full text-lg h-14" 
+                onClick={handlePurchase}
+                disabled={createOrder.isPending || (paymentMethod === "balance" && balance < product.price)}
+              >
+                {createOrder.isPending ? "Processing..." : "Place Order"}
+              </Button>
+              <p className="text-xs text-center text-muted-foreground">
+                By purchasing, you agree to our Terms of Service.
+              </p>
+            </CardFooter>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}

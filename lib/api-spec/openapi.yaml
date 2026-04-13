@@ -1,22 +1,39 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: KETANTECH VPN Store API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: users
+    description: User management
+  - name: products
+    description: VPN products/packages
+  - name: orders
+    description: Orders and transactions
+  - name: accounts
+    description: VPN accounts (user's active services)
+  - name: balance
+    description: User balance / topup
+  - name: admin
+    description: Admin operations
+  - name: servers
+    description: VPN servers management
+  - name: dashboard
+    description: Dashboard stats
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +41,1382 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── Auth ──────────────────────────────────────────────────────────────
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterBody"
+      responses:
+        "201":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "409":
+          description: Username/email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout (clear cookie)
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current authenticated user
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── Products ──────────────────────────────────────────────────────────
+  /products:
+    get:
+      operationId: listProducts
+      tags: [products]
+      summary: List all active VPN packages
+      parameters:
+        - name: protocol
+          in: query
+          schema:
+            type: string
+            enum: [ssh, vmess, vless, trojan, shadowsocks]
+        - name: category
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Product list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+
+  /products/{id}:
+    get:
+      operationId: getProduct
+      tags: [products]
+      summary: Get product detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Product detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── Orders ────────────────────────────────────────────────────────────
+  /orders:
+    get:
+      operationId: listOrders
+      tags: [orders]
+      summary: List current user's orders
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, paid, failed, expired]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Order list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderListResponse"
+    post:
+      operationId: createOrder
+      tags: [orders]
+      summary: Create a new order (purchase VPN)
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderBody"
+      responses:
+        "201":
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      summary: Get order detail
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Order detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /orders/{id}/pay:
+    post:
+      operationId: payOrder
+      tags: [orders]
+      summary: Pay for order using balance
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Payment successful, VPN account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "400":
+          description: Insufficient balance or invalid state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── Balance / Topup ───────────────────────────────────────────────────
+  /balance:
+    get:
+      operationId: getBalance
+      tags: [balance]
+      summary: Get current user's balance
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Balance info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceResponse"
+
+  /balance/topup:
+    post:
+      operationId: topupBalance
+      tags: [balance]
+      summary: Request a QRIS topup
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TopupBody"
+      responses:
+        "201":
+          description: Topup request created with QRIS code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TopupResponse"
+
+  /balance/topup/history:
+    get:
+      operationId: listTopupHistory
+      tags: [balance]
+      summary: Get topup history
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Topup history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TopupTransaction"
+
+  # ─── Accounts (VPN) ────────────────────────────────────────────────────
+  /accounts:
+    get:
+      operationId: listAccounts
+      tags: [accounts]
+      summary: List current user's active VPN accounts
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: VPN account list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VpnAccount"
+
+  /accounts/{id}:
+    get:
+      operationId: getAccount
+      tags: [accounts]
+      summary: Get VPN account detail
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Account detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VpnAccount"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /accounts/{id}/renew:
+    post:
+      operationId: renewAccount
+      tags: [accounts]
+      summary: Renew a VPN account
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenewAccountBody"
+      responses:
+        "200":
+          description: Renewed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VpnAccount"
+        "400":
+          description: Insufficient balance or error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── Dashboard summary ─────────────────────────────────────────────────
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get user dashboard summary (balance, active accounts, recent orders)
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  # ─── Admin: Dashboard ──────────────────────────────────────────────────
+  /admin/dashboard:
+    get:
+      operationId: getAdminDashboard
+      tags: [admin]
+      summary: Admin dashboard stats
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Admin stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDashboard"
+
+  # ─── Admin: Users ──────────────────────────────────────────────────────
+  /admin/users:
+    get:
+      operationId: adminListUsers
+      tags: [admin]
+      summary: List all users (admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: User list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserListResponse"
+
+  /admin/users/{id}:
+    get:
+      operationId: adminGetUser
+      tags: [admin]
+      summary: Get user detail (admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserDetail"
+    patch:
+      operationId: adminUpdateUser
+      tags: [admin]
+      summary: Update user (admin) — adjust balance, lock/unlock, set role
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUpdateUserBody"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  # ─── Admin: Products ───────────────────────────────────────────────────
+  /admin/products:
+    get:
+      operationId: adminListProducts
+      tags: [admin]
+      summary: List all products (admin)
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: All products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+    post:
+      operationId: adminCreateProduct
+      tags: [admin]
+      summary: Create product (admin)
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProductBody"
+      responses:
+        "201":
+          description: Created product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+
+  /admin/products/{id}:
+    patch:
+      operationId: adminUpdateProduct
+      tags: [admin]
+      summary: Update product (admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProductBody"
+      responses:
+        "200":
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+    delete:
+      operationId: adminDeleteProduct
+      tags: [admin]
+      summary: Delete product (admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # ─── Admin: Servers ────────────────────────────────────────────────────
+  /admin/servers:
+    get:
+      operationId: adminListServers
+      tags: [admin]
+      summary: List VPN servers (admin)
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Server list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VpnServer"
+    post:
+      operationId: adminCreateServer
+      tags: [admin]
+      summary: Add VPN server (admin)
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServerBody"
+      responses:
+        "201":
+          description: Created server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VpnServer"
+
+  /admin/servers/{id}:
+    patch:
+      operationId: adminUpdateServer
+      tags: [admin]
+      summary: Update VPN server (admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateServerBody"
+      responses:
+        "200":
+          description: Updated server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VpnServer"
+    delete:
+      operationId: adminDeleteServer
+      tags: [admin]
+      summary: Delete VPN server (admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # ─── Admin: Orders ─────────────────────────────────────────────────────
+  /admin/orders:
+    get:
+      operationId: adminListOrders
+      tags: [admin]
+      summary: List all orders (admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, paid, failed, expired]
+        - name: userId
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Order list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOrderListResponse"
+
+  /admin/orders/{id}/confirm:
+    post:
+      operationId: adminConfirmOrder
+      tags: [admin]
+      summary: Manually confirm/approve an order
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Order confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+  # ─── Admin: Topup ──────────────────────────────────────────────────────
+  /admin/topups:
+    get:
+      operationId: adminListTopups
+      tags: [admin]
+      summary: List all topup requests (admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, confirmed, rejected]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Topup list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TopupTransaction"
+
+  /admin/topups/{id}/confirm:
+    post:
+      operationId: adminConfirmTopup
+      tags: [admin]
+      summary: Confirm a topup (credit user balance)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Topup confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TopupTransaction"
+
+  /admin/topups/{id}/reject:
+    post:
+      operationId: adminRejectTopup
+      tags: [admin]
+      summary: Reject a topup request
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Topup rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TopupTransaction"
+
+  # ─── Servers (public) ──────────────────────────────────────────────────
+  /servers:
+    get:
+      operationId: listServers
+      tags: [servers]
+      summary: List available VPN servers (public, name/location only)
+      responses:
+        "200":
+          description: Server list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PublicServer"
+
 components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: token
+
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
 
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    MessageResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    # ─── Auth ─────────────────────────────────────────────────────────────
+    RegisterBody:
+      type: object
+      required: [username, password, email]
+      properties:
+        username:
+          type: string
+          minLength: 3
+        password:
+          type: string
+          minLength: 6
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+
+    LoginBody:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      required: [user, token]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        token:
+          type: string
+
+    User:
+      type: object
+      required: [id, username, email, role, balance, isActive, createdAt]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        email:
+          type: string
+        fullName:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [user, reseller, admin]
+        balance:
+          type: number
+          description: Balance in IDR
+        isActive:
+          type: boolean
+        referralCode:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    # ─── Products ─────────────────────────────────────────────────────────
+    Product:
+      type: object
+      required: [id, name, protocol, durationDays, price, isActive]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        protocol:
+          type: string
+          enum: [ssh, vmess, vless, trojan, shadowsocks]
+        durationDays:
+          type: integer
+        price:
+          type: number
+        quota:
+          type: number
+          nullable: true
+          description: Bandwidth quota in GB, null = unlimited
+        maxConnections:
+          type: integer
+          nullable: true
+        isActive:
+          type: boolean
+        category:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+
+    CreateProductBody:
+      type: object
+      required: [name, protocol, durationDays, price]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        protocol:
+          type: string
+          enum: [ssh, vmess, vless, trojan, shadowsocks]
+        durationDays:
+          type: integer
+        price:
+          type: number
+        quota:
+          type: number
+          nullable: true
+        maxConnections:
+          type: integer
+          nullable: true
+        isActive:
+          type: boolean
+          default: true
+        category:
+          type: string
+        sortOrder:
+          type: integer
+          default: 0
+
+    UpdateProductBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        quota:
+          type: number
+          nullable: true
+        maxConnections:
+          type: integer
+          nullable: true
+        isActive:
+          type: boolean
+        category:
+          type: string
+        sortOrder:
+          type: integer
+
+    # ─── Orders ───────────────────────────────────────────────────────────
+    Order:
+      type: object
+      required: [id, userId, productId, status, amount, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        productId:
+          type: integer
+        product:
+          $ref: "#/components/schemas/Product"
+          nullable: true
+        status:
+          type: string
+          enum: [pending, paid, failed, expired]
+        amount:
+          type: number
+        vpnAccountId:
+          type: integer
+          nullable: true
+        paymentMethod:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateOrderBody:
+      type: object
+      required: [productId]
+      properties:
+        productId:
+          type: integer
+        serverId:
+          type: integer
+          nullable: true
+        paymentMethod:
+          type: string
+          enum: [balance, qris]
+          default: balance
+
+    OrderListResponse:
+      type: object
+      required: [orders, total]
+      properties:
+        orders:
+          type: array
+          items:
+            $ref: "#/components/schemas/Order"
+        total:
+          type: integer
+
+    AdminOrderListResponse:
+      type: object
+      required: [orders, total]
+      properties:
+        orders:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminOrder"
+        total:
+          type: integer
+
+    AdminOrder:
+      allOf:
+        - $ref: "#/components/schemas/Order"
+        - type: object
+          properties:
+            user:
+              $ref: "#/components/schemas/User"
+              nullable: true
+
+    # ─── Balance / Topup ──────────────────────────────────────────────────
+    BalanceResponse:
+      type: object
+      required: [balance]
+      properties:
+        balance:
+          type: number
+        pendingTopup:
+          type: number
+
+    TopupBody:
+      type: object
+      required: [amount]
+      properties:
+        amount:
+          type: number
+          minimum: 10000
+          description: Amount in IDR (minimum 10,000)
+
+    TopupResponse:
+      type: object
+      required: [id, amount, qrisUrl, status]
+      properties:
+        id:
+          type: integer
+        amount:
+          type: number
+        qrisUrl:
+          type: string
+          description: URL of QRIS payment image
+        expiresAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [pending, confirmed, rejected]
+
+    TopupTransaction:
+      type: object
+      required: [id, userId, amount, status, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        username:
+          type: string
+          nullable: true
+        amount:
+          type: number
+        qrisUrl:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, confirmed, rejected]
+        confirmedBy:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # ─── VPN Accounts ─────────────────────────────────────────────────────
+    VpnAccount:
+      type: object
+      required: [id, userId, protocol, username, server, expiresAt, isActive, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        orderId:
+          type: integer
+          nullable: true
+        protocol:
+          type: string
+          enum: [ssh, vmess, vless, trojan, shadowsocks]
+        username:
+          type: string
+        password:
+          type: string
+          nullable: true
+        uuid:
+          type: string
+          nullable: true
+        serverId:
+          type: integer
+        server:
+          $ref: "#/components/schemas/PublicServer"
+        configLink:
+          type: string
+          nullable: true
+          description: vmess:// or vless:// or trojan:// link
+        expiresAt:
+          type: string
+          format: date-time
+        quota:
+          type: number
+          nullable: true
+        usedQuota:
+          type: number
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    RenewAccountBody:
+      type: object
+      required: [productId]
+      properties:
+        productId:
+          type: integer
+
+    # ─── Servers ──────────────────────────────────────────────────────────
+    PublicServer:
+      type: object
+      required: [id, name, location, flag, isActive]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        location:
+          type: string
+        flag:
+          type: string
+          description: Country flag emoji or code
+        isActive:
+          type: boolean
+
+    VpnServer:
+      allOf:
+        - $ref: "#/components/schemas/PublicServer"
+        - type: object
+          required: [host, supportedProtocols]
+          properties:
+            host:
+              type: string
+            apiUrl:
+              type: string
+              nullable: true
+            apiToken:
+              type: string
+              nullable: true
+            supportedProtocols:
+              type: array
+              items:
+                type: string
+            activeAccounts:
+              type: integer
+              nullable: true
+
+    CreateServerBody:
+      type: object
+      required: [name, location, flag, host, supportedProtocols]
+      properties:
+        name:
+          type: string
+        location:
+          type: string
+        flag:
+          type: string
+        host:
+          type: string
+        apiUrl:
+          type: string
+        apiToken:
+          type: string
+        supportedProtocols:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+          default: true
+
+    UpdateServerBody:
+      type: object
+      properties:
+        name:
+          type: string
+        location:
+          type: string
+        flag:
+          type: string
+        host:
+          type: string
+        apiUrl:
+          type: string
+        apiToken:
+          type: string
+        supportedProtocols:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+
+    # ─── Dashboard ────────────────────────────────────────────────────────
+    DashboardSummary:
+      type: object
+      required: [balance, activeAccounts, totalOrders, recentOrders]
+      properties:
+        balance:
+          type: number
+        activeAccounts:
+          type: integer
+        totalOrders:
+          type: integer
+        pendingTopup:
+          type: number
+        recentOrders:
+          type: array
+          items:
+            $ref: "#/components/schemas/Order"
+        expiringAccounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/VpnAccount"
+          description: Accounts expiring within 3 days
+
+    AdminDashboard:
+      type: object
+      required: [totalUsers, totalOrders, totalRevenue, activeAccounts, pendingTopups, recentOrders, recentTopups]
+      properties:
+        totalUsers:
+          type: integer
+        totalOrders:
+          type: integer
+        totalRevenue:
+          type: number
+        activeAccounts:
+          type: integer
+        pendingTopups:
+          type: integer
+        revenueToday:
+          type: number
+        revenueThisMonth:
+          type: number
+        ordersByProtocol:
+          type: array
+          items:
+            type: object
+            required: [protocol, count]
+            properties:
+              protocol:
+                type: string
+              count:
+                type: integer
+        recentOrders:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminOrder"
+        recentTopups:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopupTransaction"
+
+    AdminUserListResponse:
+      type: object
+      required: [users, total]
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+        total:
+          type: integer
+
+    AdminUserDetail:
+      allOf:
+        - $ref: "#/components/schemas/User"
+        - type: object
+          properties:
+            orders:
+              type: array
+              items:
+                $ref: "#/components/schemas/Order"
+            accounts:
+              type: array
+              items:
+                $ref: "#/components/schemas/VpnAccount"
+            topupHistory:
+              type: array
+              items:
+                $ref: "#/components/schemas/TopupTransaction"
+
+    AdminUpdateUserBody:
+      type: object
+      properties:
+        balance:
+          type: number
+        isActive:
+          type: boolean
+        role:
+          type: string
+          enum: [user, reseller, admin]
+        adjustBalance:
+          type: number
+          description: Add/subtract from balance (positive = add, negative = subtract)

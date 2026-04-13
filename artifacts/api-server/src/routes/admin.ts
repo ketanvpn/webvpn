@@ -1,0 +1,571 @@
+import { Router } from "express";
+import { db } from "@workspace/db";
+import {
+  usersTable,
+  productsTable,
+  serversTable,
+  ordersTable,
+  vpnAccountsTable,
+  topupsTable,
+} from "@workspace/db";
+import { eq, and, ilike, desc, asc, sql } from "drizzle-orm";
+import { requireAdmin } from "../lib/auth";
+import { formatProduct } from "./products";
+import { formatOrder } from "./orders";
+import { formatAccount } from "./accounts";
+import { formatTopup } from "./balance";
+import { formatFullServer } from "./servers";
+import {
+  AdminListUsersQueryParams,
+  AdminUpdateUserBody,
+  AdminCreateProductBody,
+  AdminUpdateProductBody,
+  AdminCreateServerBody,
+  AdminUpdateServerBody,
+  AdminListOrdersQueryParams,
+  AdminListTopupsQueryParams,
+} from "@workspace/api-zod";
+
+const router = Router();
+
+function formatUser(u: typeof usersTable.$inferSelect) {
+  return {
+    id: u.id,
+    username: u.username,
+    email: u.email,
+    fullName: u.fullName,
+    role: u.role,
+    balance: Number(u.balance),
+    isActive: u.isActive,
+    referralCode: u.referralCode,
+    createdAt: u.createdAt,
+  };
+}
+
+// ─── Admin Dashboard ──────────────────────────────────────────────────────────
+
+router.get("/admin/dashboard", requireAdmin, async (_req, res) => {
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const [totalUsers] = await db.select({ count: sql<number>`count(*)::int` }).from(usersTable);
+  const [totalOrders] = await db.select({ count: sql<number>`count(*)::int` }).from(ordersTable);
+
+  const revenueResult = await db
+    .select({ total: sql<string>`coalesce(sum(amount), 0)` })
+    .from(ordersTable)
+    .where(eq(ordersTable.status, "paid"));
+
+  const revTodayResult = await db
+    .select({ total: sql<string>`coalesce(sum(amount), 0)` })
+    .from(ordersTable)
+    .where(and(eq(ordersTable.status, "paid"), sql`created_at >= ${todayStart}`));
+
+  const revMonthResult = await db
+    .select({ total: sql<string>`coalesce(sum(amount), 0)` })
+    .from(ordersTable)
+    .where(and(eq(ordersTable.status, "paid"), sql`created_at >= ${monthStart}`));
+
+  const [activeAccounts] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(vpnAccountsTable)
+    .where(and(eq(vpnAccountsTable.isActive, true), sql`expires_at > now()`));
+
+  const [pendingTopups] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(topupsTable)
+    .where(eq(topupsTable.status, "pending"));
+
+  const ordersByProtocol = await db
+    .select({
+      protocol: productsTable.protocol,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(ordersTable)
+    .innerJoin(productsTable, eq(ordersTable.productId, productsTable.id))
+    .where(eq(ordersTable.status, "paid"))
+    .groupBy(productsTable.protocol);
+
+  const recentOrders = await db
+    .select()
+    .from(ordersTable)
+    .orderBy(desc(ordersTable.createdAt))
+    .limit(10);
+
+  const recentTopups = await db
+    .select({
+      id: topupsTable.id,
+      userId: topupsTable.userId,
+      username: usersTable.username,
+      amount: topupsTable.amount,
+      qrisUrl: topupsTable.qrisUrl,
+      status: topupsTable.status,
+      confirmedBy: topupsTable.confirmedBy,
+      createdAt: topupsTable.createdAt,
+      updatedAt: topupsTable.updatedAt,
+    })
+    .from(topupsTable)
+    .leftJoin(usersTable, eq(topupsTable.userId, usersTable.id))
+    .orderBy(desc(topupsTable.createdAt))
+    .limit(10);
+
+  const formattedRecentOrders = await Promise.all(recentOrders.map(formatOrder));
+
+  res.json({
+    totalUsers: totalUsers?.count ?? 0,
+    totalOrders: totalOrders?.count ?? 0,
+    totalRevenue: Number(revenueResult[0]?.total ?? 0),
+    activeAccounts: activeAccounts?.count ?? 0,
+    pendingTopups: pendingTopups?.count ?? 0,
+    revenueToday: Number(revTodayResult[0]?.total ?? 0),
+    revenueThisMonth: Number(revMonthResult[0]?.total ?? 0),
+    ordersByProtocol,
+    recentOrders: formattedRecentOrders,
+    recentTopups: recentTopups.map((t) => formatTopup(t as typeof topupsTable.$inferSelect & { username?: string | null })),
+  });
+});
+
+// ─── Admin: Users ─────────────────────────────────────────────────────────────
+
+router.get("/admin/users", requireAdmin, async (req, res) => {
+  const { search } = req.query as Record<string, string | undefined>;
+  const limit = Math.min(parseInt(String(req.query.limit ?? "20"), 10), 100);
+  const offset = parseInt(String(req.query.offset ?? "0"), 10);
+
+  const conditions = search
+    ? [ilike(usersTable.username, `%${search}%`)]
+    : [];
+
+  const users = await db
+    .select()
+    .from(usersTable)
+    .where(conditions.length > 0 ? conditions[0] : undefined)
+    .orderBy(desc(usersTable.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  const [total] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(usersTable)
+    .where(conditions.length > 0 ? conditions[0] : undefined);
+
+  res.json({
+    users: users.map(formatUser),
+    total: total?.count ?? 0,
+  });
+});
+
+router.get("/admin/users/:id", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, id))
+    .limit(1);
+
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const orders = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.userId, id))
+    .orderBy(desc(ordersTable.createdAt))
+    .limit(20);
+
+  const accounts = await db
+    .select()
+    .from(vpnAccountsTable)
+    .where(eq(vpnAccountsTable.userId, id))
+    .orderBy(desc(vpnAccountsTable.createdAt))
+    .limit(20);
+
+  const topupHistory = await db
+    .select()
+    .from(topupsTable)
+    .where(eq(topupsTable.userId, id))
+    .orderBy(desc(topupsTable.createdAt))
+    .limit(20);
+
+  const formattedOrders = await Promise.all(orders.map(formatOrder));
+  const formattedAccounts = await Promise.all(accounts.map(formatAccount));
+
+  res.json({
+    ...formatUser(user),
+    orders: formattedOrders,
+    accounts: formattedAccounts,
+    topupHistory: topupHistory.map((t) => formatTopup(t)),
+  });
+});
+
+router.patch("/admin/users/:id", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const parsed = AdminUpdateUserBody.safeParse(req.body);
+
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input" });
+    return;
+  }
+
+  const { balance, isActive, role, adjustBalance } = parsed.data;
+
+  const [existing] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, id))
+    .limit(1);
+
+  if (!existing) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const updateData: Partial<typeof usersTable.$inferSelect> = {};
+
+  if (balance !== undefined) updateData.balance = String(balance) as unknown as number & string;
+  if (isActive !== undefined) updateData.isActive = isActive;
+  if (role !== undefined) updateData.role = role;
+  if (adjustBalance !== undefined) {
+    const newBal = Number(existing.balance) + adjustBalance;
+    updateData.balance = String(Math.max(0, newBal)) as unknown as number & string;
+  }
+
+  const [updated] = await db
+    .update(usersTable)
+    .set(updateData)
+    .where(eq(usersTable.id, id))
+    .returning();
+
+  res.json(formatUser(updated));
+});
+
+// ─── Admin: Products ──────────────────────────────────────────────────────────
+
+router.get("/admin/products", requireAdmin, async (_req, res) => {
+  const products = await db
+    .select()
+    .from(productsTable)
+    .orderBy(asc(productsTable.sortOrder), asc(productsTable.id));
+  res.json(products.map(formatProduct));
+});
+
+router.post("/admin/products", requireAdmin, async (req, res) => {
+  const parsed = AdminCreateProductBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input" });
+    return;
+  }
+  const data = parsed.data;
+  const [product] = await db
+    .insert(productsTable)
+    .values({
+      name: data.name,
+      description: data.description ?? null,
+      protocol: data.protocol,
+      durationDays: data.durationDays,
+      price: String(data.price),
+      quota: data.quota != null ? String(data.quota) : null,
+      maxConnections: data.maxConnections ?? null,
+      isActive: data.isActive ?? true,
+      category: data.category ?? null,
+      sortOrder: data.sortOrder ?? 0,
+    })
+    .returning();
+  res.status(201).json(formatProduct(product));
+});
+
+router.patch("/admin/products/:id", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const parsed = AdminUpdateProductBody.safeParse(req.body);
+
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input" });
+    return;
+  }
+
+  const data = parsed.data;
+  const updateData: Record<string, unknown> = {};
+  if (data.name !== undefined) updateData.name = data.name;
+  if (data.description !== undefined) updateData.description = data.description;
+  if (data.price !== undefined) updateData.price = String(data.price);
+  if (data.quota !== undefined) updateData.quota = data.quota != null ? String(data.quota) : null;
+  if (data.maxConnections !== undefined) updateData.maxConnections = data.maxConnections;
+  if (data.isActive !== undefined) updateData.isActive = data.isActive;
+  if (data.category !== undefined) updateData.category = data.category;
+  if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
+
+  const [product] = await db
+    .update(productsTable)
+    .set(updateData)
+    .where(eq(productsTable.id, id))
+    .returning();
+
+  if (!product) {
+    res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  res.json(formatProduct(product));
+});
+
+router.delete("/admin/products/:id", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  await db.update(productsTable).set({ isActive: false }).where(eq(productsTable.id, id));
+  res.json({ message: "Product deleted" });
+});
+
+// ─── Admin: Servers ───────────────────────────────────────────────────────────
+
+router.get("/admin/servers", requireAdmin, async (_req, res) => {
+  const servers = await db
+    .select()
+    .from(serversTable)
+    .orderBy(asc(serversTable.sortOrder));
+
+  const result = await Promise.all(
+    servers.map(async (s) => {
+      const [{ count }] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(vpnAccountsTable)
+        .where(and(eq(vpnAccountsTable.serverId, s.id), eq(vpnAccountsTable.isActive, true)));
+      return { ...formatFullServer(s), activeAccounts: count ?? 0 };
+    })
+  );
+
+  res.json(result);
+});
+
+router.post("/admin/servers", requireAdmin, async (req, res) => {
+  const parsed = AdminCreateServerBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input" });
+    return;
+  }
+  const data = parsed.data;
+  const [server] = await db
+    .insert(serversTable)
+    .values({
+      name: data.name,
+      location: data.location,
+      flag: data.flag,
+      host: data.host,
+      apiUrl: data.apiUrl ?? null,
+      apiToken: data.apiToken ?? null,
+      supportedProtocols: data.supportedProtocols,
+      isActive: data.isActive ?? true,
+    })
+    .returning();
+  res.status(201).json(formatFullServer(server));
+});
+
+router.patch("/admin/servers/:id", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const parsed = AdminUpdateServerBody.safeParse(req.body);
+
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input" });
+    return;
+  }
+
+  const data = parsed.data;
+  const updateData: Record<string, unknown> = {};
+  if (data.name !== undefined) updateData.name = data.name;
+  if (data.location !== undefined) updateData.location = data.location;
+  if (data.flag !== undefined) updateData.flag = data.flag;
+  if (data.host !== undefined) updateData.host = data.host;
+  if (data.apiUrl !== undefined) updateData.apiUrl = data.apiUrl;
+  if (data.apiToken !== undefined) updateData.apiToken = data.apiToken;
+  if (data.supportedProtocols !== undefined) updateData.supportedProtocols = data.supportedProtocols;
+  if (data.isActive !== undefined) updateData.isActive = data.isActive;
+
+  const [server] = await db
+    .update(serversTable)
+    .set(updateData)
+    .where(eq(serversTable.id, id))
+    .returning();
+
+  if (!server) {
+    res.status(404).json({ error: "Server not found" });
+    return;
+  }
+
+  res.json(formatFullServer(server));
+});
+
+router.delete("/admin/servers/:id", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  await db.update(serversTable).set({ isActive: false }).where(eq(serversTable.id, id));
+  res.json({ message: "Server deleted" });
+});
+
+// ─── Admin: Orders ────────────────────────────────────────────────────────────
+
+router.get("/admin/orders", requireAdmin, async (req, res) => {
+  const { status, userId } = req.query as Record<string, string | undefined>;
+  const limit = Math.min(parseInt(String(req.query.limit ?? "20"), 10), 100);
+  const offset = parseInt(String(req.query.offset ?? "0"), 10);
+
+  const conditions = [];
+  if (status) conditions.push(eq(ordersTable.status, status));
+  if (userId) conditions.push(eq(ordersTable.userId, parseInt(userId, 10)));
+
+  const orders = await db
+    .select()
+    .from(ordersTable)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(ordersTable.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  const [total] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(ordersTable)
+    .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+  const formatted = await Promise.all(
+    orders.map(async (o) => {
+      const base = await formatOrder(o);
+      const [user] = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, o.userId))
+        .limit(1);
+      return {
+        ...base,
+        user: user
+          ? {
+              id: user.id,
+              username: user.username,
+              email: user.email,
+              fullName: user.fullName,
+              role: user.role,
+              balance: Number(user.balance),
+              isActive: user.isActive,
+              referralCode: user.referralCode,
+              createdAt: user.createdAt,
+            }
+          : null,
+      };
+    })
+  );
+
+  res.json({ orders: formatted, total: total?.count ?? 0 });
+});
+
+router.post("/admin/orders/:id/confirm", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+
+  const [order] = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.id, id))
+    .limit(1);
+
+  if (!order) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(ordersTable)
+    .set({ status: "paid", updatedAt: new Date() })
+    .where(eq(ordersTable.id, id))
+    .returning();
+
+  res.json(await formatOrder(updated));
+});
+
+// ─── Admin: Topups ────────────────────────────────────────────────────────────
+
+router.get("/admin/topups", requireAdmin, async (req, res) => {
+  const { status } = req.query as Record<string, string | undefined>;
+  const limit = Math.min(parseInt(String(req.query.limit ?? "20"), 10), 100);
+  const offset = parseInt(String(req.query.offset ?? "0"), 10);
+
+  const topups = await db
+    .select({
+      id: topupsTable.id,
+      userId: topupsTable.userId,
+      username: usersTable.username,
+      amount: topupsTable.amount,
+      qrisUrl: topupsTable.qrisUrl,
+      status: topupsTable.status,
+      confirmedBy: topupsTable.confirmedBy,
+      createdAt: topupsTable.createdAt,
+      updatedAt: topupsTable.updatedAt,
+    })
+    .from(topupsTable)
+    .leftJoin(usersTable, eq(topupsTable.userId, usersTable.id))
+    .where(status ? eq(topupsTable.status, status) : undefined)
+    .orderBy(desc(topupsTable.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  res.json(topups.map((t) => formatTopup(t as typeof topupsTable.$inferSelect & { username?: string | null })));
+});
+
+router.post("/admin/topups/:id/confirm", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const adminId = req.user!.userId;
+
+  const [topup] = await db
+    .select()
+    .from(topupsTable)
+    .where(eq(topupsTable.id, id))
+    .limit(1);
+
+  if (!topup) {
+    res.status(404).json({ error: "Topup not found" });
+    return;
+  }
+
+  if (topup.status !== "pending") {
+    res.status(400).json({ error: "Topup is not pending" });
+    return;
+  }
+
+  await db
+    .update(usersTable)
+    .set({
+      balance: sql`balance + ${Number(topup.amount)}`,
+    })
+    .where(eq(usersTable.id, topup.userId));
+
+  const [updated] = await db
+    .update(topupsTable)
+    .set({ status: "confirmed", confirmedBy: adminId, updatedAt: new Date() })
+    .where(eq(topupsTable.id, id))
+    .returning();
+
+  res.json(formatTopup(updated));
+});
+
+router.post("/admin/topups/:id/reject", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const adminId = req.user!.userId;
+
+  const [topup] = await db
+    .select()
+    .from(topupsTable)
+    .where(eq(topupsTable.id, id))
+    .limit(1);
+
+  if (!topup) {
+    res.status(404).json({ error: "Topup not found" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(topupsTable)
+    .set({ status: "rejected", confirmedBy: adminId, updatedAt: new Date() })
+    .where(eq(topupsTable.id, id))
+    .returning();
+
+  res.json(formatTopup(updated));
+});
+
+export default router;

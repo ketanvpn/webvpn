@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "VPN Store Web"
+version = "1.0.0"
+id = "artifacts/vpn-web"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18678
+
+[services.development]
+run = "pnpm --filter @workspace/vpn-web run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/vpn-web", "run", "build" ]
+publicDir = "artifacts/vpn-web/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18678"
+BASE_PATH = "/"
