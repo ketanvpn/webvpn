@@ -37,7 +37,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Server, Plus, MoreVertical, Edit, Trash2, Activity } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Server, Plus, MoreVertical, Edit, Trash2, Activity, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import type { AdminListServersResponseItem } from "@workspace/api-client-react/src/generated/api.schemas";
@@ -65,6 +66,144 @@ const emptyForm: ServerForm = {
 };
 
 const allProtocols = ["ssh", "vmess", "vless", "trojan", "shadowsocks"];
+
+const COUNTRY_FLAGS = [
+  // Asia Tenggara
+  { flag: "🇮🇩", name: "Indonesia" },
+  { flag: "🇸🇬", name: "Singapura" },
+  { flag: "🇲🇾", name: "Malaysia" },
+  { flag: "🇹🇭", name: "Thailand" },
+  { flag: "🇵🇭", name: "Filipina" },
+  { flag: "🇻🇳", name: "Vietnam" },
+  { flag: "🇰🇭", name: "Kamboja" },
+  { flag: "🇲🇲", name: "Myanmar" },
+  // Asia Timur
+  { flag: "🇯🇵", name: "Jepang" },
+  { flag: "🇰🇷", name: "Korea Selatan" },
+  { flag: "🇨🇳", name: "Tiongkok" },
+  { flag: "🇹🇼", name: "Taiwan" },
+  { flag: "🇭🇰", name: "Hong Kong" },
+  { flag: "🇲🇴", name: "Makau" },
+  // Asia Selatan & Tengah
+  { flag: "🇮🇳", name: "India" },
+  { flag: "🇵🇰", name: "Pakistan" },
+  { flag: "🇧🇩", name: "Bangladesh" },
+  { flag: "🇰🇿", name: "Kazakhstan" },
+  // Asia Barat / Timur Tengah
+  { flag: "🇹🇷", name: "Turki" },
+  { flag: "🇦🇪", name: "UEA" },
+  { flag: "🇸🇦", name: "Arab Saudi" },
+  { flag: "🇮🇱", name: "Israel" },
+  // Eropa Barat
+  { flag: "🇩🇪", name: "Jerman" },
+  { flag: "🇫🇷", name: "Prancis" },
+  { flag: "🇬🇧", name: "Inggris" },
+  { flag: "🇳🇱", name: "Belanda" },
+  { flag: "🇨🇭", name: "Swiss" },
+  { flag: "🇸🇪", name: "Swedia" },
+  { flag: "🇳🇴", name: "Norwegia" },
+  { flag: "🇫🇮", name: "Finlandia" },
+  { flag: "🇩🇰", name: "Denmark" },
+  { flag: "🇪🇸", name: "Spanyol" },
+  { flag: "🇮🇹", name: "Italia" },
+  { flag: "🇵🇹", name: "Portugal" },
+  { flag: "🇦🇹", name: "Austria" },
+  { flag: "🇧🇪", name: "Belgia" },
+  { flag: "🇵🇱", name: "Polandia" },
+  { flag: "🇨🇿", name: "Ceko" },
+  { flag: "🇭🇺", name: "Hungaria" },
+  { flag: "🇷🇴", name: "Rumania" },
+  // Eropa Timur / CIS
+  { flag: "🇷🇺", name: "Rusia" },
+  { flag: "🇺🇦", name: "Ukraina" },
+  { flag: "🇱🇻", name: "Latvia" },
+  { flag: "🇱🇹", name: "Lithuania" },
+  { flag: "🇪🇪", name: "Estonia" },
+  { flag: "🇲🇩", name: "Moldova" },
+  // Amerika
+  { flag: "🇺🇸", name: "Amerika" },
+  { flag: "🇨🇦", name: "Kanada" },
+  { flag: "🇧🇷", name: "Brasil" },
+  { flag: "🇲🇽", name: "Meksiko" },
+  { flag: "🇦🇷", name: "Argentina" },
+  { flag: "🇨🇱", name: "Chile" },
+  { flag: "🇨🇴", name: "Kolombia" },
+  // Oseania
+  { flag: "🇦🇺", name: "Australia" },
+  { flag: "🇳🇿", name: "Selandia Baru" },
+  // Afrika
+  { flag: "🇿🇦", name: "Afrika Selatan" },
+  { flag: "🇳🇬", name: "Nigeria" },
+  { flag: "🇪🇬", name: "Mesir" },
+  { flag: "🇰🇪", name: "Kenya" },
+  // Lainnya
+  { flag: "🌐", name: "Global" },
+];
+
+function FlagPicker({ value, onChange }: { value: string; onChange: (flag: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filtered = search.trim()
+    ? COUNTRY_FLAGS.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()) || c.flag.includes(search))
+    : COUNTRY_FLAGS;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className="w-full justify-between font-normal text-left"
+          type="button"
+        >
+          <span className="flex items-center gap-2">
+            <span className="text-2xl leading-none">{value}</span>
+            <span className="text-sm text-muted-foreground">
+              {COUNTRY_FLAGS.find((c) => c.flag === value)?.name ?? "Pilih bendera"}
+            </span>
+          </span>
+          <ChevronDown className="h-4 w-4 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-2" align="start">
+        <Input
+          placeholder="Cari negara..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="mb-2 h-8 text-sm"
+          autoFocus
+        />
+        <div className="grid grid-cols-5 gap-1 max-h-56 overflow-y-auto pr-1">
+          {filtered.map((c) => (
+            <button
+              key={c.flag}
+              type="button"
+              title={c.name}
+              onClick={() => {
+                onChange(c.flag);
+                setOpen(false);
+                setSearch("");
+              }}
+              className={`flex flex-col items-center justify-center p-1.5 rounded-md text-xl leading-none hover:bg-accent transition-colors cursor-pointer ${
+                value === c.flag ? "bg-primary/10 ring-1 ring-primary" : ""
+              }`}
+            >
+              {c.flag}
+              <span className="text-[9px] text-muted-foreground mt-0.5 truncate w-full text-center leading-tight">
+                {c.name}
+              </span>
+            </button>
+          ))}
+          {filtered.length === 0 && (
+            <div className="col-span-5 py-4 text-center text-sm text-muted-foreground">
+              Tidak ditemukan
+            </div>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export default function AdminServers() {
   const { data: servers, isLoading } = useAdminListServers();
@@ -258,26 +397,23 @@ export default function AdminServers() {
           </DialogHeader>
 
           <div className="grid gap-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="srv-name">Nama Server *</Label>
-                <Input
-                  id="srv-name"
-                  placeholder="SG-01"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  data-testid="input-server-name"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="srv-flag">Flag (emoji)</Label>
-                <Input
-                  id="srv-flag"
-                  placeholder="🇸🇬"
-                  value={form.flag}
-                  onChange={(e) => setForm({ ...form, flag: e.target.value })}
-                />
-              </div>
+            <div className="grid gap-2">
+              <Label htmlFor="srv-name">Nama Server *</Label>
+              <Input
+                id="srv-name"
+                placeholder="SG-01"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                data-testid="input-server-name"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Bendera Negara</Label>
+              <FlagPicker
+                value={form.flag}
+                onChange={(flag) => setForm({ ...form, flag })}
+              />
             </div>
 
             <div className="grid gap-2">
