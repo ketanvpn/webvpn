@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
+const LINK_ORDER = ["tls", "none", "grpc", "uptls", "upntls"];
+
 const LINK_LABELS: Record<string, string> = {
   tls: "WS TLS",
   none: "WS No TLS",
@@ -157,7 +159,11 @@ export default function AccountDetail() {
               {hasAllLinks ? (
                 // Show all links from panel
                 <div className="space-y-3">
-                  {Object.entries(allLinks!).map(([key, link]) => {
+                  {[
+                    ...LINK_ORDER.filter(k => !!allLinks![k]),
+                    ...Object.keys(allLinks!).filter(k => !LINK_ORDER.includes(k) && !!allLinks![k]),
+                  ].map((key) => {
+                    const link = allLinks![key];
                     if (!link) return null;
                     const label = LINK_LABELS[key] ?? key.toUpperCase();
                     return (
