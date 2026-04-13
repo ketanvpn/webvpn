@@ -25,9 +25,10 @@ async function formatAccount(a: typeof vpnAccountsTable.$inferSelect) {
     uuid: a.uuid,
     serverId: a.serverId,
     server: server
-      ? { id: server.id, name: server.name, location: server.location, flag: server.flag, isActive: server.isActive }
+      ? { id: server.id, name: server.name, host: server.host, location: server.location, flag: server.flag, isActive: server.isActive }
       : null,
     configLink: a.configLink,
+    allLinks: a.allLinks ?? null,
     expiresAt: a.expiresAt,
     quota: a.quota != null ? Number(a.quota) : null,
     usedQuota: a.usedQuota != null ? Number(a.usedQuota) : null,

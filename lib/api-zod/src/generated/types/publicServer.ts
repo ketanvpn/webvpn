@@ -9,6 +9,7 @@
 export interface PublicServer {
   id: number;
   name: string;
+  host?: string | null;
   location: string;
   /** Country flag emoji or code */
   flag: string;

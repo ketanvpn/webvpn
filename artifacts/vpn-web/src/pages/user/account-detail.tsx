@@ -11,6 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
+const LINK_LABELS: Record<string, string> = {
+  tls: "WS TLS",
+  none: "WS No TLS",
+  grpc: "gRPC TLS",
+  uptls: "Upgrade TLS",
+  upntls: "Upgrade No TLS",
+};
+
 export default function AccountDetail() {
   const { id } = useParams<{ id: string }>();
   const accountId = parseInt(id || "0", 10);
@@ -23,8 +31,8 @@ export default function AccountDetail() {
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     toast({
-      title: "Copied!",
-      description: `${label} copied to clipboard.`,
+      title: "Disalin!",
+      description: `${label} disalin ke clipboard.`,
     });
   };
 
@@ -38,8 +46,12 @@ export default function AccountDetail() {
   }
 
   if (!account) {
-    return <div>Account not found</div>;
+    return <div>Akun tidak ditemukan</div>;
   }
+
+  // Build config links list: prefer allLinks if available, fallback to configLink
+  const allLinks = account.allLinks as Record<string, string | null> | null | undefined;
+  const hasAllLinks = allLinks && Object.values(allLinks).some(v => !!v);
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -47,11 +59,11 @@ export default function AccountDetail() {
         <Button variant="ghost" size="sm" asChild>
           <Link href="/accounts" className="flex items-center gap-2">
             <ArrowLeft className="h-4 w-4" />
-            Back to Accounts
+            Kembali ke Akun
           </Link>
         </Button>
         <Badge variant={account.isActive ? "default" : "destructive"} className="text-sm px-3 py-1">
-          {account.isActive ? "Active" : "Expired"}
+          {account.isActive ? "Aktif" : "Expired"}
         </Badge>
       </div>
 
@@ -71,10 +83,10 @@ export default function AccountDetail() {
               </div>
             </CardHeader>
             <CardContent className="pt-6 space-y-6">
-              
+
               <div className="grid sm:grid-cols-2 gap-4 p-4 bg-accent/30 rounded-lg border">
                 <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground uppercase font-semibold">Expires At</div>
+                  <div className="text-xs text-muted-foreground uppercase font-semibold">Expired At</div>
                   <div className="font-medium flex items-center gap-2">
                     <Clock className="h-4 w-4 text-primary" />
                     {format(new Date(account.expiresAt), "MMM d, yyyy HH:mm")}
@@ -90,8 +102,8 @@ export default function AccountDetail() {
               </div>
 
               <div className="space-y-4">
-                <h3 className="font-semibold text-lg border-b pb-2">Connection Details</h3>
-                
+                <h3 className="font-semibold text-lg border-b pb-2">Detail Koneksi</h3>
+
                 <div className="space-y-4">
                   {account.uuid && (
                     <div className="space-y-1.5">
@@ -120,11 +132,11 @@ export default function AccountDetail() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <Label>Host / IP</Label>
-                      <Input value={account.server.host} readOnly className="font-mono bg-muted/50 text-sm" />
+                      <Input value={account.server.host ?? ""} readOnly className="font-mono bg-muted/50 text-sm" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Port</Label>
-                      <Input value={account.protocol === 'ssh' ? "22 / 443" : "443"} readOnly className="font-mono bg-muted/50 text-sm" />
+                      <Label>Port TLS / Non TLS</Label>
+                      <Input value={account.protocol === 'ssh' ? "22 / 443" : "443 / 80"} readOnly className="font-mono bg-muted/50 text-sm" />
                     </div>
                   </div>
                 </div>
@@ -132,78 +144,127 @@ export default function AccountDetail() {
             </CardContent>
           </Card>
 
-          {account.configLink && (
-            <Card className="border-primary/20 bg-primary/5 shadow-md">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <ShieldCheck className="h-5 w-5 text-primary" />
-                  Quick Import URL
-                </CardTitle>
-                <CardDescription>Copy this link into your VPN client (V2Ray, Clash, NekoBox, etc)</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                  <Input value={account.configLink} readOnly className="font-mono text-xs bg-background" />
-                  <Button onClick={() => copyToClipboard(account.configLink!, "Config Link")}>
-                    Copy
-                  </Button>
+          {/* Config Links Section */}
+          <Card className="border-primary/20 bg-primary/5 shadow-md">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-primary" />
+                Quick Import URL
+              </CardTitle>
+              <CardDescription>Salin link ke VPN client kamu (V2Ray, Clash, NekoBox, dll)</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {hasAllLinks ? (
+                // Show all links from panel
+                <div className="space-y-3">
+                  {Object.entries(allLinks!).map(([key, link]) => {
+                    if (!link) return null;
+                    const label = LINK_LABELS[key] ?? key.toUpperCase();
+                    return (
+                      <div key={key} className="space-y-1.5">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{label}</div>
+                        <div className="flex gap-2">
+                          <Input value={link} readOnly className="font-mono text-xs bg-background" />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="shrink-0"
+                            onClick={() => copyToClipboard(link, label)}
+                          >
+                            <Copy className="h-3.5 w-3.5 mr-1" />
+                            Copy
+                          </Button>
+                        </div>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="w-full gap-2 text-xs text-muted-foreground hover:text-foreground">
+                              <QrCode className="h-3.5 w-3.5" />
+                              QR Code
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-md flex flex-col items-center justify-center p-8">
+                            <DialogHeader>
+                              <DialogTitle className="text-center mb-2">Scan QR — {label}</DialogTitle>
+                            </DialogHeader>
+                            <div className="w-64 h-64 bg-white border-4 border-black p-4 flex flex-col items-center justify-center relative">
+                              <div className="absolute inset-0 grid grid-cols-5 grid-rows-5 gap-1 p-2 opacity-20">
+                                {Array.from({ length: 25 }).map((_, i) => <div key={i} className={`bg-black ${i % 2 === 0 ? 'rounded-sm' : ''}`} />)}
+                              </div>
+                              <QrCode className="h-16 w-16 text-black relative z-10" />
+                              <span className="text-xs font-mono text-black mt-2 relative z-10 font-bold">QR PLACEHOLDER</span>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    );
+                  })}
                 </div>
-                
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" className="w-full gap-2">
-                      <QrCode className="h-4 w-4" />
-                      Show QR Code
+              ) : account.configLink ? (
+                // Fallback: single config link
+                <div className="space-y-4">
+                  <div className="flex gap-2">
+                    <Input value={account.configLink} readOnly className="font-mono text-xs bg-background" />
+                    <Button onClick={() => copyToClipboard(account.configLink!, "Config Link")}>
+                      Copy
                     </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-md flex flex-col items-center justify-center p-8">
-                    <DialogHeader>
-                      <DialogTitle className="text-center mb-4">Scan with VPN Client</DialogTitle>
-                    </DialogHeader>
-                    {/* Placeholder for actual QR code, since we don't have a QR library installed */}
-                    <div className="w-64 h-64 bg-white border-4 border-black p-4 flex flex-col items-center justify-center relative">
+                  </div>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="w-full gap-2">
+                        <QrCode className="h-4 w-4" />
+                        Show QR Code
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md flex flex-col items-center justify-center p-8">
+                      <DialogHeader>
+                        <DialogTitle className="text-center mb-4">Scan with VPN Client</DialogTitle>
+                      </DialogHeader>
+                      <div className="w-64 h-64 bg-white border-4 border-black p-4 flex flex-col items-center justify-center relative">
                         <div className="absolute inset-0 grid grid-cols-5 grid-rows-5 gap-1 p-2 opacity-20">
-                           {Array.from({length: 25}).map((_,i) => <div key={i} className={`bg-black ${i%2===0?'rounded-sm':''}`}/>)}
+                          {Array.from({ length: 25 }).map((_, i) => <div key={i} className={`bg-black ${i % 2 === 0 ? 'rounded-sm' : ''}`} />)}
                         </div>
                         <QrCode className="h-16 w-16 text-black relative z-10" />
                         <span className="text-xs font-mono text-black mt-2 relative z-10 font-bold">QR CODE PLACEHOLDER</span>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </CardContent>
-            </Card>
-          )}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">Config link belum tersedia.</p>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         <div className="space-y-6">
-           <Card>
+          <Card>
             <CardHeader>
-              <CardTitle>Actions</CardTitle>
+              <CardTitle>Aksi</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <Button className="w-full" asChild>
                 <Link href="/products">Renew / Upgrade</Link>
               </Button>
               <Button variant="outline" className="w-full text-muted-foreground" asChild>
-                <Link href={`/orders/${account.orderId}`}>View Original Order</Link>
+                <Link href={`/orders/${account.orderId}`}>Lihat Order Asli</Link>
               </Button>
             </CardContent>
-           </Card>
+          </Card>
 
-           <Card className="bg-muted/30">
+          <Card className="bg-muted/30">
             <CardHeader>
-              <CardTitle className="text-sm">Client Apps</CardTitle>
+              <CardTitle className="text-sm">Aplikasi Client</CardTitle>
             </CardHeader>
             <CardContent className="text-sm space-y-2">
-              <p className="text-muted-foreground">Download recommended clients for your protocol:</p>
+              <p className="text-muted-foreground">Download client yang direkomendasikan untuk protokol kamu:</p>
               <ul className="list-disc pl-4 space-y-1 text-primary">
                 <li><a href="#" className="hover:underline">v2rayN (Windows)</a></li>
                 <li><a href="#" className="hover:underline">NekoBox (Android)</a></li>
-                <li><a href="#" className="hover:underline">Shadowrocket (Android)</a></li>
+                <li><a href="#" className="hover:underline">Shadowrocket (iOS)</a></li>
                 <li><a href="#" className="hover:underline">V2RayX (iOS)</a></li>
               </ul>
             </CardContent>
-           </Card>
+          </Card>
         </div>
       </div>
     </div>

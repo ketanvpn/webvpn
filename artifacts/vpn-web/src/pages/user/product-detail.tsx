@@ -11,6 +11,7 @@ import { Link } from "wouter";
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function ProductDetail() {
@@ -20,6 +21,7 @@ export default function ProductDetail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [paymentMethod, setPaymentMethod] = useState<"balance" | "qris">("balance");
+  const [remarks, setRemarks] = useState("");
 
   const { data: product, isLoading } = useGetProduct(productId, {
     query: { enabled: !!productId }
@@ -31,10 +33,19 @@ export default function ProductDetail() {
   const createOrder = useCreateOrder();
 
   const handlePurchase = () => {
+    if (!remarks.trim()) {
+      toast({
+        title: "Remarks wajib diisi",
+        description: "Masukkan nama akun VPN kamu (contoh: lekanto1)",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (paymentMethod === "balance" && balance < (product?.price || 0)) {
       toast({
-        title: "Insufficient Balance",
-        description: "Please top up your balance first.",
+        title: "Saldo tidak cukup",
+        description: "Silakan top up saldo terlebih dahulu.",
         variant: "destructive",
       });
       setLocation("/balance");
@@ -45,20 +56,21 @@ export default function ProductDetail() {
       data: {
         productId,
         paymentMethod,
+        remarks: remarks.trim(),
       }
     }, {
       onSuccess: (order) => {
         toast({
-          title: "Order created successfully",
-          description: "Your order has been placed.",
+          title: "Order berhasil dibuat",
+          description: "Pesananmu telah ditempatkan.",
         });
         queryClient.invalidateQueries({ queryKey: getGetBalanceQueryKey() });
         setLocation(`/orders/${order.id}`);
       },
       onError: (err) => {
         toast({
-          title: "Order Failed",
-          description: err.error || "An error occurred while creating order",
+          title: "Order Gagal",
+          description: err.error || "Terjadi kesalahan saat membuat order",
           variant: "destructive",
         });
       }
@@ -134,8 +146,8 @@ export default function ProductDetail() {
           <div className="bg-accent/50 p-4 rounded-xl border flex items-start gap-4">
             <ShieldCheck className="h-6 w-6 text-primary mt-1 flex-shrink-0" />
             <div className="text-sm">
-              <span className="font-semibold block mb-1">Guaranteed Quality</span>
-              High-performance servers with 99.9% uptime SLA. Perfect for gaming, streaming, and secure browsing.
+              <span className="font-semibold block mb-1">Jaminan Kualitas</span>
+              Server performa tinggi dengan SLA uptime 99.9%. Cocok untuk gaming, streaming, dan browsing aman.
             </div>
           </div>
         </div>
@@ -143,47 +155,64 @@ export default function ProductDetail() {
         <div>
           <Card className="border-2 border-primary/20 sticky top-24 shadow-lg">
             <CardHeader className="bg-muted/50 border-b">
-              <CardTitle>Order Summary</CardTitle>
+              <CardTitle>Ringkasan Order</CardTitle>
             </CardHeader>
             <CardContent className="pt-6 space-y-6">
               <div className="flex justify-between items-center pb-4 border-b">
-                <span className="text-muted-foreground">Price</span>
+                <span className="text-muted-foreground">Harga</span>
                 <span className="text-2xl font-bold">{formatRupiah(product.price)}</span>
               </div>
-              
+
               <div className="space-y-3">
-                <Label htmlFor="payment-method">Payment Method</Label>
+                <Label htmlFor="remarks">
+                  Nama Akun (Remarks) <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="remarks"
+                  placeholder="Contoh: lekanto1"
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value.replace(/[^a-zA-Z0-9]/g, ""))}
+                  maxLength={20}
+                  className="font-mono"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Hanya huruf dan angka. Ini akan menjadi nama akun VPN kamu di server.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <Label htmlFor="payment-method">Metode Pembayaran</Label>
                 <Select value={paymentMethod} onValueChange={(v: "balance" | "qris") => setPaymentMethod(v)}>
                   <SelectTrigger id="payment-method">
-                    <SelectValue placeholder="Select payment method" />
+                    <SelectValue placeholder="Pilih metode pembayaran" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="balance">
-                      Account Balance ({formatRupiah(balance)})
+                      Saldo Akun ({formatRupiah(balance)})
                     </SelectItem>
-                    <SelectItem value="qris">QRIS (Pay directly)</SelectItem>
+                    <SelectItem value="qris">QRIS (Bayar langsung)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {paymentMethod === "balance" && balance < product.price && (
                 <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md border border-destructive/20">
-                  Insufficient balance. You need {formatRupiah(product.price - balance)} more.
-                  <Link href="/balance" className="font-semibold underline block mt-1">Top up now</Link>
+                  Saldo tidak cukup. Kamu butuh {formatRupiah(product.price - balance)} lagi.
+                  <Link href="/balance" className="font-semibold underline block mt-1">Top up sekarang</Link>
                 </div>
               )}
             </CardContent>
             <CardFooter className="bg-muted/50 border-t flex flex-col gap-3 pt-6">
-              <Button 
-                size="lg" 
-                className="w-full text-lg h-14" 
+              <Button
+                size="lg"
+                className="w-full text-lg h-14"
                 onClick={handlePurchase}
-                disabled={createOrder.isPending || (paymentMethod === "balance" && balance < product.price)}
+                disabled={createOrder.isPending || !remarks.trim() || (paymentMethod === "balance" && balance < product.price)}
               >
-                {createOrder.isPending ? "Processing..." : "Place Order"}
+                {createOrder.isPending ? "Memproses..." : "Buat Order"}
               </Button>
               <p className="text-xs text-center text-muted-foreground">
-                By purchasing, you agree to our Terms of Service.
+                Dengan melakukan pembelian, kamu menyetujui Syarat & Ketentuan kami.
               </p>
             </CardFooter>
           </Card>

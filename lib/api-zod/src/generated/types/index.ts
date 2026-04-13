@@ -58,5 +58,6 @@ export * from "./updateServerBody";
 export * from "./user";
 export * from "./userRole";
 export * from "./vpnAccount";
+export * from "./vpnAccountAllLinks";
 export * from "./vpnAccountProtocol";
 export * from "./vpnServer";

@@ -1,4 +1,4 @@
-import { pgTable, serial, text, boolean, numeric, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, boolean, numeric, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -14,6 +14,7 @@ export const vpnAccountsTable = pgTable("vpn_accounts", {
   uuid: text("uuid"),
   serverId: integer("server_id").notNull().references(() => serversTable.id),
   configLink: text("config_link"),
+  allLinks: jsonb("all_links").$type<Record<string, string | null>>(),
   expiresAt: timestamp("expires_at").notNull(),
   quota: numeric("quota", { precision: 10, scale: 2 }),
   usedQuota: numeric("used_quota", { precision: 10, scale: 2 }).default("0"),

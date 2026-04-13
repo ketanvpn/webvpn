@@ -1,0 +1,39 @@
+————————————————————————————————————
+               VMESS
+————————————————————————————————————
+Remarks        : lekanto1
+CITY           : Singapore
+ISP            : DigitalOcean, LLC
+Domain         : do1.ketanx.com
+Port TLS       : 443,8443
+Port none TLS  : 80,8080
+Port any       : 2052,2053,8880
+id             : 82ef1f24-da46-4f50-bd3d-4d7057af05f8
+alterId        : 0
+Security       : auto
+network        : ws,grpc,upgrade
+path ws        : /vmess - /whatever
+serviceName    : vmess
+path upgrade   : /upvmess
+Expired On     : 2026-05-13
+————————————————————————————————————
+           VMESS WS TLS
+————————————————————————————————————
+vmess://ewogICJ2IjogIjIiLAogICJwcyI6ICJsZWthbnRvMSIsCiAgImFkZCI6ICJkbzEua2V0YW54LmNvbSIsCiAgInBvcnQiOiAiNDQzIiwKICAiaWQiOiAiODJlZjFmMjQtZGE0Ni00ZjUwLWJkM2QtNGQ3MDU3YWYwNWY4IiwKICAiYWlkIjogIjAiLAogICJuZXQiOiAid3MiLAogICJwYXRoIjogIi92bWVzcyIsCiAgInR5cGUiOiAibm9uZSIsCiAgImhvc3QiOiAiZG8xLmtldGFueC5jb20iLAogICJzbmkiOiAiZG8xLmtldGFueC5jb20iLAogICJ0bHMiOiAidGxzIgp9Cg==
+————————————————————————————————————
+          VMESS WS NO TLS
+————————————————————————————————————
+vmess://ewogICJ2IjogIjIiLAogICJwcyI6ICJsZWthbnRvMSIsCiAgImFkZCI6ICJkbzEua2V0YW54LmNvbSIsCiAgInBvcnQiOiAiODAiLAogICJpZCI6ICI4MmVmMWYyNC1kYTQ2LTRmNTAtYmQzZC00ZDcwNTdhZjA1ZjgiLAogICJhaWQiOiAiMCIsCiAgIm5ldCI6ICJ3cyIsCiAgInBhdGgiOiAiL3ZtZXNzIiwKICAidHlwZSI6ICJub25lIiwKICAiaG9zdCI6ICJkbzEua2V0YW54LmNvbSIsCiAgInNuaSI6ICJkbzEua2V0YW54LmNvbSIsCiAgInRscyI6ICJub25lIgp9Cg==
+————————————————————————————————————
+             VMESS GRPC
+————————————————————————————————————
+vmess://ewogICJ2IjogIjIiLAogICJwcyI6ICJsZWthbnRvMSIsCiAgImFkZCI6ICJkbzEua2V0YW54LmNvbSIsCiAgInBvcnQiOiAiNDQzIiwKICAiaWQiOiAiODJlZjFmMjQtZGE0Ni00ZjUwLWJkM2QtNGQ3MDU3YWYwNWY4IiwKICAiYWlkIjogIjAiLAogICJuZXQiOiAiZ3JwYyIsCiAgInBhdGgiOiAidm1lc3MiLAogICJ0eXBlIjogIm5vbmUiLAogICJob3N0IjogImRvMS5rZXRhbnguY29tIiwKICAic25pIjogImRvMS5rZXRhbnguY29tIiwKICAidGxzIjogInRscyIKfQo=
+————————————————————————————————————
+         VMESS Upgrade TLS
+————————————————————————————————————
+vmess://ewogICJ2IjogIjIiLAogICJwcyI6ICJsZWthbnRvMSIsCiAgImFkZCI6ICJkbzEua2V0YW54LmNvbSIsCiAgInBvcnQiOiAiNDQzIiwKICAiaWQiOiAiODJlZjFmMjQtZGE0Ni00ZjUwLWJkM2QtNGQ3MDU3YWYwNWY4IiwKICAiYWlkIjogIjAiLAogICJuZXQiOiAiaHR0cHVwZ3JhZGUiLAogICJwYXRoIjogIi91cHZtZXNzIiwKICAidHlwZSI6ICJub25lIiwKICAiaG9zdCI6ICJkbzEua2V0YW54LmNvbSIsCiAgInNuaSI6ICJkbzEua2V0YW54LmNvbSIsCiAgInRscyI6ICJ0bHMiCn0K
+————————————————————————————————————
+        VMESS Upgrade NO TLS
+————————————————————————————————————
+vmess://ewogICJ2IjogIjIiLAogICJwcyI6ICJsZWthbnRvMSIsCiAgImFkZCI6ICJkbzEua2V0YW54LmNvbSIsCiAgInBvcnQiOiAiODAiLAogICJpZCI6ICI4MmVmMWYyNC1kYTQ2LTRmNTAtYmQzZC00ZDcwNTdhZjA1ZjgiLAogICJhaWQiOiAiMCIsCiAgIm5ldCI6ICJodHRwdXBncmFkZSIsCiAgInBhdGgiOiAiL3Vwdm1lc3MiLAogICJ0eXBlIjogIm5vbmUiLAogICJob3N0IjogImRvMS5rZXRhbnguY29tIiwKICAic25pIjogImRvMS5rZXRhbnguY29tIiwKICAidGxzIjogIm5vbmUiCn0K
+————————————————————————————————————

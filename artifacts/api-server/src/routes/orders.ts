@@ -68,7 +68,7 @@ router.post("/orders", requireAuth, async (req, res) => {
     res.status(400).json({ error: "Invalid input" });
     return;
   }
-  const { productId, paymentMethod = "balance" } = parsed.data;
+  const { productId, paymentMethod = "balance", remarks } = parsed.data;
   const userId = req.user!.userId;
 
   const [product] = await db
@@ -90,6 +90,7 @@ router.post("/orders", requireAuth, async (req, res) => {
       status: "pending",
       amount: product.price,
       paymentMethod,
+      notes: remarks ?? null,
     })
     .returning();
 
@@ -186,8 +187,11 @@ router.post("/orders/:id/pay", requireAuth, async (req, res) => {
 
   const expiresAt = new Date(Date.now() + product.durationDays * 24 * 60 * 60 * 1000);
 
-  // Sanitize username for panel (alphanumeric only)
-  const rawUsername = `${sanitizeVpnUsername(user.username)}${Date.now()}`;
+  // Use user-specified remarks as the VPN username, or auto-generate
+  const remarksBase = order.notes ? sanitizeVpnUsername(order.notes) : null;
+  const rawUsername = remarksBase && remarksBase.length >= 3
+    ? `${remarksBase}${Date.now().toString().slice(-4)}`
+    : `${sanitizeVpnUsername(user.username)}${Date.now()}`;
   const vpnPassword = randomUUID().replace(/-/g, "").slice(0, 12);
   const vpnUuid = randomUUID();
 
@@ -195,6 +199,7 @@ router.post("/orders/:id/pay", requireAuth, async (req, res) => {
   let finalPassword: string | null = vpnPassword;
   let finalUuid: string | null = vpnUuid;
   let configLink: string | null = null;
+  let allLinks: Record<string, string | null> | null = null;
 
   // ─── Call VPN Panel API if server is configured ───────────────────────────
   const hasPanel = server.apiUrl && server.apiToken;
@@ -219,6 +224,13 @@ router.post("/orders/:id/pay", requireAuth, async (req, res) => {
       finalPassword = panelResult.password ?? vpnPassword;
       finalUuid = panelResult.uuid ?? vpnUuid;
       configLink = panelResult.configLink ?? null;
+      if (panelResult.allLinks) {
+        const links: Record<string, string | null> = {};
+        for (const [k, v] of Object.entries(panelResult.allLinks)) {
+          links[k] = v ?? null;
+        }
+        allLinks = links;
+      }
 
       console.log(`[orders] Panel account created: ${product.protocol}/${finalUsername} on ${server.name}`);
     } catch (panelErr) {
@@ -262,6 +274,7 @@ router.post("/orders/:id/pay", requireAuth, async (req, res) => {
       uuid: finalUuid,
       serverId: server.id,
       configLink,
+      allLinks,
       expiresAt,
       quota: product.quota ?? null,
     })

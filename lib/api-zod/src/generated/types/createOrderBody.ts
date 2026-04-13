@@ -11,4 +11,6 @@ export interface CreateOrderBody {
   productId: number;
   serverId?: number | null;
   paymentMethod?: CreateOrderBodyPaymentMethod;
+  /** Custom account name / label (e.g. "lekanto1") */
+  remarks?: string | null;
 }

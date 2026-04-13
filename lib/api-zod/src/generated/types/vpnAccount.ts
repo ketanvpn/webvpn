@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { PublicServer } from "./publicServer";
+import type { VpnAccountAllLinks } from "./vpnAccountAllLinks";
 import type { VpnAccountProtocol } from "./vpnAccountProtocol";
 
 export interface VpnAccount {
@@ -18,8 +19,10 @@ export interface VpnAccount {
   uuid?: string | null;
   serverId?: number;
   server: PublicServer;
-  /** vmess:// or vless:// or trojan:// link */
+  /** Primary config link (TLS) */
   configLink?: string | null;
+  /** All config link variants (tls, none, grpc, uptls, upntls) */
+  allLinks?: VpnAccountAllLinks;
   expiresAt: Date;
   quota?: number | null;
   usedQuota?: number | null;

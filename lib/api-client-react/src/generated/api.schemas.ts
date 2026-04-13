@@ -153,6 +153,8 @@ export interface CreateOrderBody {
   productId: number;
   serverId?: number | null;
   paymentMethod?: CreateOrderBodyPaymentMethod;
+  /** Custom account name / label (e.g. "lekanto1") */
+  remarks?: string | null;
 }
 
 export interface OrderListResponse {
@@ -232,9 +234,15 @@ export const VpnAccountProtocol = {
   shadowsocks: "shadowsocks",
 } as const;
 
+/**
+ * All config link variants (tls, none, grpc, uptls, upntls)
+ */
+export type VpnAccountAllLinks = { [key: string]: string | null } | null;
+
 export interface PublicServer {
   id: number;
   name: string;
+  host?: string | null;
   location: string;
   /** Country flag emoji or code */
   flag: string;
@@ -251,8 +259,10 @@ export interface VpnAccount {
   uuid?: string | null;
   serverId?: number;
   server: PublicServer;
-  /** vmess:// or vless:// or trojan:// link */
+  /** Primary config link (TLS) */
   configLink?: string | null;
+  /** All config link variants (tls, none, grpc, uptls, upntls) */
+  allLinks?: VpnAccountAllLinks;
   expiresAt: string;
   quota?: number | null;
   usedQuota?: number | null;

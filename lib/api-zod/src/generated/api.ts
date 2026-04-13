@@ -190,6 +190,10 @@ export const CreateOrderBody = zod.object({
   paymentMethod: zod
     .enum(["balance", "qris"])
     .default(createOrderBodyPaymentMethodDefault),
+  remarks: zod
+    .string()
+    .nullish()
+    .describe('Custom account name \/ label (e.g. \"lekanto1\")'),
 });
 
 /**
@@ -327,14 +331,16 @@ export const ListAccountsResponseItem = zod.object({
   server: zod.object({
     id: zod.number(),
     name: zod.string(),
+    host: zod.string().nullish(),
     location: zod.string(),
     flag: zod.string().describe("Country flag emoji or code"),
     isActive: zod.boolean(),
   }),
-  configLink: zod
-    .string()
+  configLink: zod.string().nullish().describe("Primary config link (TLS)"),
+  allLinks: zod
+    .record(zod.string(), zod.string().nullable())
     .nullish()
-    .describe("vmess:\/\/ or vless:\/\/ or trojan:\/\/ link"),
+    .describe("All config link variants (tls, none, grpc, uptls, upntls)"),
   expiresAt: zod.coerce.date(),
   quota: zod.number().nullish(),
   usedQuota: zod.number().nullish(),
@@ -362,14 +368,16 @@ export const GetAccountResponse = zod.object({
   server: zod.object({
     id: zod.number(),
     name: zod.string(),
+    host: zod.string().nullish(),
     location: zod.string(),
     flag: zod.string().describe("Country flag emoji or code"),
     isActive: zod.boolean(),
   }),
-  configLink: zod
-    .string()
+  configLink: zod.string().nullish().describe("Primary config link (TLS)"),
+  allLinks: zod
+    .record(zod.string(), zod.string().nullable())
     .nullish()
-    .describe("vmess:\/\/ or vless:\/\/ or trojan:\/\/ link"),
+    .describe("All config link variants (tls, none, grpc, uptls, upntls)"),
   expiresAt: zod.coerce.date(),
   quota: zod.number().nullish(),
   usedQuota: zod.number().nullish(),
@@ -400,14 +408,16 @@ export const RenewAccountResponse = zod.object({
   server: zod.object({
     id: zod.number(),
     name: zod.string(),
+    host: zod.string().nullish(),
     location: zod.string(),
     flag: zod.string().describe("Country flag emoji or code"),
     isActive: zod.boolean(),
   }),
-  configLink: zod
-    .string()
+  configLink: zod.string().nullish().describe("Primary config link (TLS)"),
+  allLinks: zod
+    .record(zod.string(), zod.string().nullable())
     .nullish()
-    .describe("vmess:\/\/ or vless:\/\/ or trojan:\/\/ link"),
+    .describe("All config link variants (tls, none, grpc, uptls, upntls)"),
   expiresAt: zod.coerce.date(),
   quota: zod.number().nullish(),
   usedQuota: zod.number().nullish(),
@@ -475,6 +485,7 @@ export const GetDashboardSummaryResponse = zod.object({
         server: zod.object({
           id: zod.number(),
           name: zod.string(),
+          host: zod.string().nullish(),
           location: zod.string(),
           flag: zod.string().describe("Country flag emoji or code"),
           isActive: zod.boolean(),
@@ -482,7 +493,13 @@ export const GetDashboardSummaryResponse = zod.object({
         configLink: zod
           .string()
           .nullish()
-          .describe("vmess:\/\/ or vless:\/\/ or trojan:\/\/ link"),
+          .describe("Primary config link (TLS)"),
+        allLinks: zod
+          .record(zod.string(), zod.string().nullable())
+          .nullish()
+          .describe(
+            "All config link variants (tls, none, grpc, uptls, upntls)",
+          ),
         expiresAt: zod.coerce.date(),
         quota: zod.number().nullish(),
         usedQuota: zod.number().nullish(),
@@ -694,6 +711,7 @@ export const AdminGetUserResponse = zod
             server: zod.object({
               id: zod.number(),
               name: zod.string(),
+              host: zod.string().nullish(),
               location: zod.string(),
               flag: zod.string().describe("Country flag emoji or code"),
               isActive: zod.boolean(),
@@ -701,7 +719,13 @@ export const AdminGetUserResponse = zod
             configLink: zod
               .string()
               .nullish()
-              .describe("vmess:\/\/ or vless:\/\/ or trojan:\/\/ link"),
+              .describe("Primary config link (TLS)"),
+            allLinks: zod
+              .record(zod.string(), zod.string().nullable())
+              .nullish()
+              .describe(
+                "All config link variants (tls, none, grpc, uptls, upntls)",
+              ),
             expiresAt: zod.coerce.date(),
             quota: zod.number().nullish(),
             usedQuota: zod.number().nullish(),
@@ -854,6 +878,7 @@ export const AdminListServersResponseItem = zod
   .object({
     id: zod.number(),
     name: zod.string(),
+    host: zod.string().nullish(),
     location: zod.string(),
     flag: zod.string().describe("Country flag emoji or code"),
     isActive: zod.boolean(),
@@ -907,6 +932,7 @@ export const AdminUpdateServerResponse = zod
   .object({
     id: zod.number(),
     name: zod.string(),
+    host: zod.string().nullish(),
     location: zod.string(),
     flag: zod.string().describe("Country flag emoji or code"),
     isActive: zod.boolean(),
@@ -1137,6 +1163,7 @@ export const AdminListAccountsResponse = zod.object({
         server: zod.object({
           id: zod.number(),
           name: zod.string(),
+          host: zod.string().nullish(),
           location: zod.string(),
           flag: zod.string().describe("Country flag emoji or code"),
           isActive: zod.boolean(),
@@ -1144,7 +1171,13 @@ export const AdminListAccountsResponse = zod.object({
         configLink: zod
           .string()
           .nullish()
-          .describe("vmess:\/\/ or vless:\/\/ or trojan:\/\/ link"),
+          .describe("Primary config link (TLS)"),
+        allLinks: zod
+          .record(zod.string(), zod.string().nullable())
+          .nullish()
+          .describe(
+            "All config link variants (tls, none, grpc, uptls, upntls)",
+          ),
         expiresAt: zod.coerce.date(),
         quota: zod.number().nullish(),
         usedQuota: zod.number().nullish(),
@@ -1191,14 +1224,16 @@ export const AdminToggleAccountResponse = zod.object({
   server: zod.object({
     id: zod.number(),
     name: zod.string(),
+    host: zod.string().nullish(),
     location: zod.string(),
     flag: zod.string().describe("Country flag emoji or code"),
     isActive: zod.boolean(),
   }),
-  configLink: zod
-    .string()
+  configLink: zod.string().nullish().describe("Primary config link (TLS)"),
+  allLinks: zod
+    .record(zod.string(), zod.string().nullable())
     .nullish()
-    .describe("vmess:\/\/ or vless:\/\/ or trojan:\/\/ link"),
+    .describe("All config link variants (tls, none, grpc, uptls, upntls)"),
   expiresAt: zod.coerce.date(),
   quota: zod.number().nullish(),
   usedQuota: zod.number().nullish(),
@@ -1212,6 +1247,7 @@ export const AdminToggleAccountResponse = zod.object({
 export const ListServersResponseItem = zod.object({
   id: zod.number(),
   name: zod.string(),
+  host: zod.string().nullish(),
   location: zod.string(),
   flag: zod.string().describe("Country flag emoji or code"),
   isActive: zod.boolean(),

@@ -1143,6 +1143,10 @@ components:
           type: string
           enum: [balance, qris]
           default: balance
+        remarks:
+          type: string
+          nullable: true
+          description: Custom account name / label (e.g. "lekanto1")
 
     OrderListResponse:
       type: object
@@ -1271,7 +1275,14 @@ components:
         configLink:
           type: string
           nullable: true
-          description: vmess:// or vless:// or trojan:// link
+          description: Primary config link (TLS)
+        allLinks:
+          type: object
+          nullable: true
+          description: All config link variants (tls, none, grpc, uptls, upntls)
+          additionalProperties:
+            type: string
+            nullable: true
         expiresAt:
           type: string
           format: date-time
@@ -1303,6 +1314,9 @@ components:
           type: integer
         name:
           type: string
+        host:
+          type: string
+          nullable: true
         location:
           type: string
         flag:
