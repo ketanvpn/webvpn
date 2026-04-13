@@ -37,7 +37,7 @@ const adminNav = [
 
 export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const [location] = useLocation();
-  const { logout } = useAuth();
+  const { logout, isAdmin: userIsAdmin } = useAuth();
   const nav = isAdmin ? adminNav : userNav;
 
   const NavLinks = () => (
@@ -69,7 +69,7 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
         );
       })}
 
-      {!isAdmin && (
+      {!isAdmin && userIsAdmin && (
         <div className="mt-8">
           <Link
             href="/admin"

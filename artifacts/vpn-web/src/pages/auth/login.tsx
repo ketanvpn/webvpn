@@ -37,18 +37,19 @@ export default function Login() {
     login.mutate(
       { data: values },
       {
-        onSuccess: () => {
+        onSuccess: (data) => {
           toast({
-            title: "Success",
-            description: "Logged in successfully",
+            title: "Berhasil masuk",
+            description: "Selamat datang kembali!",
           });
-          setLocation("/dashboard");
-          window.location.reload(); // Refresh to update auth context
+          const destination = data.user.role === "admin" ? "/admin" : "/dashboard";
+          setLocation(destination);
+          window.location.reload();
         },
         onError: (error) => {
           toast({
-            title: "Error",
-            description: error.error || "Failed to login",
+            title: "Gagal masuk",
+            description: error.error || "Username atau password salah",
             variant: "destructive",
           });
         },
