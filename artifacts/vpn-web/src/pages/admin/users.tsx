@@ -10,38 +10,71 @@ import { format } from "date-fns";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Users, Search, ShieldAlert, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const roleColors: Record<string, string> = {
+  admin: "bg-red-500/10 text-red-600 border-red-200",
+  reseller: "bg-blue-500/10 text-blue-600 border-blue-200",
+  user: "",
+};
 
 export default function AdminUsers() {
   const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
   const debouncedSearch = useDebounce(search, 500);
 
   const { data, isLoading } = useAdminListUsers({
     search: debouncedSearch || undefined,
   });
 
+  const filtered = data?.users
+    ? roleFilter === "all"
+      ? data.users
+      : data.users.filter((u) => u.role === roleFilter)
+    : [];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Users</h1>
-          <p className="text-muted-foreground mt-1">Manage platform users and resellers.</p>
+          <p className="text-muted-foreground mt-1">Kelola user dan reseller platform.</p>
         </div>
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search username or email..."
-            className="pl-9"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="flex gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Cari username / email..."
+              className="pl-9"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="w-[130px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Semua Role</SelectItem>
+              <SelectItem value="user">User</SelectItem>
+              <SelectItem value="reseller">Reseller</SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
       <Card>
         <CardHeader className="bg-muted/20 border-b">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Users className="h-5 w-5" /> User Directory
+            <Users className="h-5 w-5" /> Daftar User ({filtered.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -51,9 +84,9 @@ export default function AdminUsers() {
                 <Skeleton key={i} className="h-16 w-full" />
               ))}
             </div>
-          ) : data?.users && data.users.length > 0 ? (
+          ) : filtered.length > 0 ? (
             <div className="divide-y">
-              {data.users.map((user) => (
+              {filtered.map((user) => (
                 <div key={user.id} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-accent/30 transition-colors">
                   <div className="flex items-start gap-4">
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
@@ -62,8 +95,11 @@ export default function AdminUsers() {
                     <div>
                       <div className="font-semibold flex items-center gap-2">
                         {user.username}
-                        {user.role === 'admin' && <ShieldAlert className="h-3 w-3 text-destructive" />}
-                        {user.role === 'reseller' && <Shield className="h-3 w-3 text-primary" />}
+                        {user.role === 'admin' && <ShieldAlert className="h-3 w-3 text-red-500" />}
+                        {user.role === 'reseller' && <Shield className="h-3 w-3 text-blue-500" />}
+                        <Badge variant="outline" className={`text-[10px] capitalize ${roleColors[user.role] ?? ""}`}>
+                          {user.role}
+                        </Badge>
                       </div>
                       <div className="text-sm text-muted-foreground">{user.email}</div>
                     </div>
@@ -72,14 +108,14 @@ export default function AdminUsers() {
                   <div className="flex items-center gap-6 sm:justify-end">
                     <div className="text-sm text-right hidden sm:block">
                       <div className="font-medium text-primary">{formatRupiah(user.balance)}</div>
-                      <div className="text-xs text-muted-foreground">Joined {format(new Date(user.createdAt), "MMM yyyy")}</div>
+                      <div className="text-xs text-muted-foreground">Bergabung {format(new Date(user.createdAt), "MMM yyyy")}</div>
                     </div>
                     <div className="flex items-center gap-3">
                       <Badge variant={user.isActive ? "outline" : "destructive"}>
-                        {user.isActive ? "Active" : "Locked"}
+                        {user.isActive ? "Aktif" : "Disuspend"}
                       </Badge>
                       <Button size="sm" variant="secondary" asChild>
-                        <Link href={`/admin/users/${user.id}`}>Manage</Link>
+                        <Link href={`/admin/users/${user.id}`}>Kelola</Link>
                       </Button>
                     </div>
                   </div>
@@ -88,7 +124,9 @@ export default function AdminUsers() {
             </div>
           ) : (
             <div className="p-12 text-center text-muted-foreground">
-              No users found matching "{search}".
+              {search || roleFilter !== "all"
+                ? "Tidak ada user yang cocok dengan filter."
+                : "Belum ada user terdaftar."}
             </div>
           )}
         </CardContent>

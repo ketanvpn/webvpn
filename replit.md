@@ -42,7 +42,13 @@ An Indonesian VPN sales platform with both user-facing and admin dashboards.
 - **Balance & Topup**: QRIS payment requests, topup history
 - **VPN accounts**: View config links (vmess://, vless://, trojan://), copy-to-clipboard, renewal
 - **Admin panel**: User management, product CRUD, server CRUD, order management, topup approval/rejection
-- **Admin dashboard**: Revenue stats (today/month), order counts, active accounts, order breakdown by protocol
+- **Admin dashboard**: Revenue stats (today/month), order counts, active accounts, order breakdown by protocol; stat cards are clickable links to relevant pages
+- **Admin sidebar**: Badge notifikasi kuning menampilkan jumlah topup pending di menu "Topups"
+- **Admin Users**: Filter berdasarkan role (user/reseller/admin)
+- **Admin Orders**: Tampilkan remarks/notes pesanan; tombol hapus order (non-paid only) dengan konfirmasi dialog
+- **Admin VPN Accounts**: Tombol "Perpanjang" (extend expiry by N days), toggle aktif/nonaktif, dan hapus akun permanen
+- **Admin User Detail**: Adjust saldo user manual (+/-)
+- **API Admin routes (baru)**: POST /admin/accounts/:id/extend, DELETE /admin/accounts/:id, DELETE /admin/orders/:id
 
 ### Test Credentials
 - Admin: `admin` / `admin123`

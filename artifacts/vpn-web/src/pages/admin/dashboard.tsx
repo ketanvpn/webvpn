@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Users, ShoppingCart, Wallet, Server, Activity, ArrowUpRight } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { Link } from "wouter";
 
 export default function AdminDashboard() {
   const { data: summary, isLoading } = useGetAdminDashboard();
@@ -38,56 +39,66 @@ export default function AdminDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">{formatRupiah(summary.totalRevenue)}</div>
             <p className="text-xs mt-1 text-primary-foreground/80">
-              +{formatRupiah(summary.revenueThisMonth || 0)} this month
+              +{formatRupiah(summary.revenueThisMonth || 0)} bulan ini
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary.totalUsers}</div>
-          </CardContent>
-        </Card>
+        <Link href="/admin/users">
+          <Card className="cursor-pointer hover:border-primary/50 hover:shadow-md transition-all">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{summary.totalUsers}</div>
+              <p className="text-xs mt-1 text-muted-foreground">Klik untuk kelola user</p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active VPNs</CardTitle>
-            <Server className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary.activeAccounts}</div>
-            <p className="text-xs mt-1 text-muted-foreground flex gap-2">
-              {summary.ordersByProtocol?.map(p => (
-                <span key={p.protocol} className="uppercase">{p.protocol}:{p.count}</span>
-              ))}
-            </p>
-          </CardContent>
-        </Card>
+        <Link href="/admin/accounts">
+          <Card className="cursor-pointer hover:border-primary/50 hover:shadow-md transition-all">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active VPNs</CardTitle>
+              <Server className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{summary.activeAccounts}</div>
+              <p className="text-xs mt-1 text-muted-foreground flex gap-2">
+                {summary.ordersByProtocol?.map(p => (
+                  <span key={p.protocol} className="uppercase">{p.protocol}:{p.count}</span>
+                ))}
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card className={summary.pendingTopups > 0 ? "border-yellow-500/50 bg-yellow-500/5" : ""}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Topups</CardTitle>
-            <Activity className={`h-4 w-4 ${summary.pendingTopups > 0 ? "text-yellow-600" : "text-muted-foreground"}`} />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${summary.pendingTopups > 0 ? "text-yellow-600" : ""}`}>
-              {summary.pendingTopups}
-            </div>
-            {summary.pendingTopups > 0 && (
-              <p className="text-xs mt-1 text-yellow-600/80 font-medium">Requires action</p>
-            )}
-          </CardContent>
-        </Card>
+        <Link href="/admin/topups">
+          <Card className={`cursor-pointer hover:shadow-md transition-all ${summary.pendingTopups > 0 ? "border-yellow-500/50 bg-yellow-500/5 hover:border-yellow-500" : "hover:border-primary/50"}`}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Topups</CardTitle>
+              <Activity className={`h-4 w-4 ${summary.pendingTopups > 0 ? "text-yellow-600" : "text-muted-foreground"}`} />
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${summary.pendingTopups > 0 ? "text-yellow-600" : ""}`}>
+                {summary.pendingTopups}
+              </div>
+              {summary.pendingTopups > 0 ? (
+                <p className="text-xs mt-1 text-yellow-600/80 font-medium">Klik untuk proses →</p>
+              ) : (
+                <p className="text-xs mt-1 text-muted-foreground">Semua sudah diproses</p>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
-          <CardHeader>
+          <CardHeader className="flex items-center justify-between">
             <CardTitle>Recent Orders</CardTitle>
+            <Link href="/admin/orders" className="text-xs text-primary hover:underline">Lihat semua →</Link>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -95,7 +106,7 @@ export default function AdminDashboard() {
                 <div key={order.id} className="flex justify-between items-center border-b pb-4 last:border-0 last:pb-0">
                   <div>
                     <div className="font-medium text-sm">
-                      {order.user?.username} <span className="text-muted-foreground font-normal">bought</span> {order.product?.name}
+                      {order.user?.username} <span className="text-muted-foreground font-normal">beli</span> {order.product?.name}
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
                       {format(new Date(order.createdAt), "MMM d, HH:mm")}
@@ -114,8 +125,9 @@ export default function AdminDashboard() {
         </Card>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex items-center justify-between">
             <CardTitle>Recent Topups</CardTitle>
+            <Link href="/admin/topups" className="text-xs text-primary hover:underline">Lihat semua →</Link>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">

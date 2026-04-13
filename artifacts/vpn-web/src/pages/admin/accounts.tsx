@@ -1,10 +1,17 @@
-import { useAdminListAccounts, useAdminToggleAccount, getAdminListAccountsQueryKey } from "@workspace/api-client-react";
+import {
+  useAdminListAccounts,
+  useAdminToggleAccount,
+  useAdminDeleteAccount,
+  useAdminExtendAccount,
+  getAdminListAccountsQueryKey,
+} from "@workspace/api-client-react";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -12,7 +19,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Shield, Search, ChevronLeft, ChevronRight, Power } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Shield, Search, ChevronLeft, ChevronRight, Power, CalendarPlus, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -30,6 +57,8 @@ export default function AdminAccounts() {
   const [isActiveFilter, setIsActiveFilter] = useState("semua");
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
+  const [extendDays, setExtendDays] = useState("30");
+  const [extendDialogId, setExtendDialogId] = useState<number | null>(null);
 
   const { data, isLoading } = useAdminListAccounts({
     limit: LIMIT,
@@ -39,6 +68,8 @@ export default function AdminAccounts() {
   });
 
   const toggleAccount = useAdminToggleAccount();
+  const deleteAccount = useAdminDeleteAccount();
+  const extendAccount = useAdminExtendAccount();
 
   const handleToggle = (id: number, currentActive: boolean) => {
     toggleAccount.mutate(
@@ -52,6 +83,42 @@ export default function AdminAccounts() {
         },
         onError: (err) =>
           toast({ title: "Gagal mengubah status akun", description: err.error, variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleDelete = (id: number) => {
+    deleteAccount.mutate(
+      { id },
+      {
+        onSuccess: () => {
+          toast({ title: "Akun VPN dihapus" });
+          queryClient.invalidateQueries({ queryKey: getAdminListAccountsQueryKey() });
+        },
+        onError: (err) =>
+          toast({ title: "Gagal menghapus akun", description: err.error, variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleExtend = () => {
+    if (!extendDialogId) return;
+    const days = parseInt(extendDays, 10);
+    if (isNaN(days) || days < 1) return;
+
+    extendAccount.mutate(
+      { id: extendDialogId, data: { days } },
+      {
+        onSuccess: (res) => {
+          toast({
+            title: "Akun diperpanjang",
+            description: `Expired baru: ${format(new Date(res.expiresAt), "d MMM yyyy")}`,
+          });
+          setExtendDialogId(null);
+          queryClient.invalidateQueries({ queryKey: getAdminListAccountsQueryKey() });
+        },
+        onError: (err) =>
+          toast({ title: "Gagal memperpanjang akun", description: err.error, variant: "destructive" }),
       }
     );
   };
@@ -193,6 +260,57 @@ export default function AdminAccounts() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 sm:justify-end">
+                      {/* Extend button */}
+                      <Dialog open={extendDialogId === acc.id} onOpenChange={(open) => {
+                        if (!open) setExtendDialogId(null);
+                      }}>
+                        <DialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 text-xs h-8 text-blue-600 border-blue-200 hover:bg-blue-50"
+                            onClick={() => { setExtendDialogId(acc.id); setExtendDays("30"); }}
+                            data-testid={`button-extend-account-${acc.id}`}
+                          >
+                            <CalendarPlus className="h-3.5 w-3.5" />
+                            Perpanjang
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Perpanjang Akun VPN</DialogTitle>
+                            <DialogDescription>
+                              Akun: <strong className="font-mono">{acc.username}</strong><br />
+                              Expired sekarang: {acc.expiresAt ? format(new Date(acc.expiresAt), "d MMM yyyy") : "-"}
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-3 py-2">
+                            <Label>Tambah berapa hari?</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={365}
+                              value={extendDays}
+                              onChange={(e) => setExtendDays(e.target.value)}
+                              placeholder="Contoh: 30"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Dihitung dari tanggal expired saat ini (atau hari ini jika sudah expired).
+                            </p>
+                          </div>
+                          <DialogFooter>
+                            <Button variant="outline" onClick={() => setExtendDialogId(null)}>Batal</Button>
+                            <Button
+                              onClick={handleExtend}
+                              disabled={extendAccount.isPending}
+                            >
+                              Perpanjang {extendDays} Hari
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+
+                      {/* Toggle button */}
                       <Button
                         size="sm"
                         variant={acc.isActive ? "outline" : "default"}
@@ -204,6 +322,38 @@ export default function AdminAccounts() {
                         <Power className="h-3.5 w-3.5" />
                         {acc.isActive ? "Nonaktifkan" : "Aktifkan"}
                       </Button>
+
+                      {/* Delete button */}
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1 text-xs h-8 text-red-600 border-red-200 hover:bg-red-50"
+                            disabled={deleteAccount.isPending}
+                            data-testid={`button-delete-account-${acc.id}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Hapus Akun VPN?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Akun <strong className="font-mono">{acc.username}</strong> milik <strong>{acc.user?.username ?? `#${acc.userId}`}</strong> akan dihapus permanen dari database. Aksi ini tidak bisa dibatalkan.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Batal</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-destructive hover:bg-destructive/90"
+                              onClick={() => handleDelete(acc.id)}
+                            >
+                              Hapus Permanen
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </div>
                 );

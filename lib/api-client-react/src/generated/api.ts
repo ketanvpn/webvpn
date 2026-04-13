@@ -19,6 +19,8 @@ import type {
 import type {
   AdminAccountListResponse,
   AdminDashboard,
+  AdminExtendAccount200,
+  AdminExtendAccountBody,
   AdminListAccountsParams,
   AdminListOrdersParams,
   AdminListTopupsParams,
@@ -46,6 +48,7 @@ import type {
   PublicServer,
   RegisterBody,
   RenewAccountBody,
+  SuccessResponse,
   TopupBody,
   TopupResponse,
   TopupTransaction,
@@ -3114,6 +3117,261 @@ export function useAdminListAccounts<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Extend VPN account expiry by N days (admin)
+ */
+export const getAdminExtendAccountUrl = (id: number) => {
+  return `/api/admin/accounts/${id}/extend`;
+};
+
+export const adminExtendAccount = async (
+  id: number,
+  adminExtendAccountBody: AdminExtendAccountBody,
+  options?: RequestInit,
+): Promise<AdminExtendAccount200> => {
+  return customFetch<AdminExtendAccount200>(getAdminExtendAccountUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminExtendAccountBody),
+  });
+};
+
+export const getAdminExtendAccountMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminExtendAccount>>,
+    TError,
+    { id: number; data: BodyType<AdminExtendAccountBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminExtendAccount>>,
+  TError,
+  { id: number; data: BodyType<AdminExtendAccountBody> },
+  TContext
+> => {
+  const mutationKey = ["adminExtendAccount"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminExtendAccount>>,
+    { id: number; data: BodyType<AdminExtendAccountBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminExtendAccount(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminExtendAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminExtendAccount>>
+>;
+export type AdminExtendAccountMutationBody = BodyType<AdminExtendAccountBody>;
+export type AdminExtendAccountMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Extend VPN account expiry by N days (admin)
+ */
+export const useAdminExtendAccount = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminExtendAccount>>,
+    TError,
+    { id: number; data: BodyType<AdminExtendAccountBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminExtendAccount>>,
+  TError,
+  { id: number; data: BodyType<AdminExtendAccountBody> },
+  TContext
+> => {
+  return useMutation(getAdminExtendAccountMutationOptions(options));
+};
+
+/**
+ * @summary Delete a VPN account (admin)
+ */
+export const getAdminDeleteAccountUrl = (id: number) => {
+  return `/api/admin/accounts/${id}`;
+};
+
+export const adminDeleteAccount = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SuccessResponse> => {
+  return customFetch<SuccessResponse>(getAdminDeleteAccountUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getAdminDeleteAccountMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteAccount>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeleteAccount>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDeleteAccount"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeleteAccount>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDeleteAccount(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeleteAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeleteAccount>>
+>;
+
+export type AdminDeleteAccountMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete a VPN account (admin)
+ */
+export const useAdminDeleteAccount = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteAccount>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeleteAccount>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDeleteAccountMutationOptions(options));
+};
+
+/**
+ * @summary Delete an order (admin, non-paid only)
+ */
+export const getAdminDeleteOrderUrl = (id: number) => {
+  return `/api/admin/orders/${id}`;
+};
+
+export const adminDeleteOrder = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SuccessResponse> => {
+  return customFetch<SuccessResponse>(getAdminDeleteOrderUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getAdminDeleteOrderMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteOrder>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeleteOrder>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDeleteOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeleteOrder>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDeleteOrder(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeleteOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeleteOrder>>
+>;
+
+export type AdminDeleteOrderMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete an order (admin, non-paid only)
+ */
+export const useAdminDeleteOrder = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteOrder>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeleteOrder>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDeleteOrderMutationOptions(options));
+};
 
 /**
  * @summary Toggle VPN account active/inactive (admin)

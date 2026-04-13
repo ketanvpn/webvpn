@@ -9,6 +9,10 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface SuccessResponse {
+  success: boolean;
+}
+
 export interface ErrorResponse {
   error: string;
 }
@@ -462,3 +466,17 @@ export const AdminListAccountsProtocol = {
   trojan: "trojan",
   shadowsocks: "shadowsocks",
 } as const;
+
+export type AdminExtendAccountBody = {
+  /**
+   * @minimum 1
+   * @maximum 365
+   */
+  days: number;
+};
+
+export type AdminExtendAccount200 = {
+  id: number;
+  expiresAt: string;
+  isActive: boolean;
+};

@@ -17,8 +17,16 @@ import {
   Shield,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useGetAdminDashboard } from "@workspace/api-client-react";
 
-const userNav = [
+type NavItem = {
+  title: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badgeKey?: "pendingTopups";
+};
+
+const userNav: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Products", href: "/products", icon: Package },
   { title: "My Accounts", href: "/accounts", icon: Server },
@@ -27,13 +35,13 @@ const userNav = [
   { title: "Profile", href: "/profile", icon: Settings },
 ];
 
-const adminNav = [
+const adminNav: NavItem[] = [
   { title: "Overview", href: "/admin", icon: LayoutDashboard },
   { title: "Users", href: "/admin/users", icon: Users },
   { title: "Products", href: "/admin/products", icon: Package },
   { title: "Servers", href: "/admin/servers", icon: Server },
   { title: "Orders", href: "/admin/orders", icon: ShoppingCart },
-  { title: "Topups", href: "/admin/topups", icon: CreditCard },
+  { title: "Topups", href: "/admin/topups", icon: CreditCard, badgeKey: "pendingTopups" },
   { title: "VPN Accounts", href: "/admin/accounts", icon: Shield },
 ];
 
@@ -41,6 +49,12 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const [location] = useLocation();
   const { logout, isAdmin: userIsAdmin } = useAuth();
   const nav = isAdmin ? adminNav : userNav;
+
+  const { data: dashboardData } = useGetAdminDashboard({
+    query: { enabled: isAdmin, staleTime: 30000 },
+  });
+
+  const pendingTopups = dashboardData?.pendingTopups ?? 0;
 
   const NavLinks = () => (
     <nav className="flex flex-col gap-1 p-4">
@@ -55,6 +69,7 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
 
       {nav.map((item) => {
         const isActive = location === item.href || (location.startsWith(item.href) && item.href !== "/admin" && item.href !== "/dashboard" && item.href !== "/");
+        const badge = item.badgeKey === "pendingTopups" ? pendingTopups : 0;
         return (
           <Link
             key={item.href}
@@ -65,8 +80,13 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
                 : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             }`}
           >
-            <item.icon className="h-4 w-4" />
-            {item.title}
+            <item.icon className="h-4 w-4 shrink-0" />
+            <span className="flex-1">{item.title}</span>
+            {badge > 0 && (
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${isActive ? "bg-primary-foreground/20 text-primary-foreground" : "bg-yellow-500 text-white"}`}>
+                {badge > 99 ? "99+" : badge}
+              </span>
+            )}
           </Link>
         );
       })}

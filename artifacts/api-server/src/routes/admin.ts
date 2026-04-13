@@ -740,6 +740,82 @@ router.get("/admin/accounts", requireAdmin, async (req, res) => {
   res.json({ accounts: formatted, total: total?.count ?? 0 });
 });
 
+router.post("/admin/accounts/:id/extend", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const days = parseInt(String(req.body?.days ?? "30"), 10);
+
+  if (isNaN(days) || days < 1 || days > 365) {
+    res.status(400).json({ error: "Jumlah hari tidak valid (1–365)" });
+    return;
+  }
+
+  const [account] = await db
+    .select()
+    .from(vpnAccountsTable)
+    .where(eq(vpnAccountsTable.id, id))
+    .limit(1);
+
+  if (!account) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+
+  const base = account.expiresAt && new Date(account.expiresAt) > new Date()
+    ? new Date(account.expiresAt)
+    : new Date();
+
+  const newExpiry = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
+
+  const [updated] = await db
+    .update(vpnAccountsTable)
+    .set({ expiresAt: newExpiry, isActive: true, updatedAt: new Date() })
+    .where(eq(vpnAccountsTable.id, id))
+    .returning();
+
+  res.json({ id: updated.id, expiresAt: updated.expiresAt, isActive: updated.isActive });
+});
+
+router.delete("/admin/accounts/:id", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+
+  const [account] = await db
+    .select()
+    .from(vpnAccountsTable)
+    .where(eq(vpnAccountsTable.id, id))
+    .limit(1);
+
+  if (!account) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+
+  await db.delete(vpnAccountsTable).where(eq(vpnAccountsTable.id, id));
+  res.json({ success: true });
+});
+
+router.delete("/admin/orders/:id", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+
+  const [order] = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.id, id))
+    .limit(1);
+
+  if (!order) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+
+  if (order.status === "paid") {
+    res.status(400).json({ error: "Order yang sudah dibayar tidak bisa dihapus" });
+    return;
+  }
+
+  await db.delete(ordersTable).where(eq(ordersTable.id, id));
+  res.json({ success: true });
+});
+
 router.post("/admin/accounts/:id/toggle", requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id, 10);
 

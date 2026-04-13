@@ -1206,6 +1206,47 @@ export const AdminListAccountsResponse = zod.object({
 });
 
 /**
+ * @summary Extend VPN account expiry by N days (admin)
+ */
+export const AdminExtendAccountParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const adminExtendAccountBodyDaysMax = 365;
+
+export const AdminExtendAccountBody = zod.object({
+  days: zod.number().min(1).max(adminExtendAccountBodyDaysMax),
+});
+
+export const AdminExtendAccountResponse = zod.object({
+  id: zod.number(),
+  expiresAt: zod.coerce.date(),
+  isActive: zod.boolean(),
+});
+
+/**
+ * @summary Delete a VPN account (admin)
+ */
+export const AdminDeleteAccountParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminDeleteAccountResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
+ * @summary Delete an order (admin, non-paid only)
+ */
+export const AdminDeleteOrderParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminDeleteOrderResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
  * @summary Toggle VPN account active/inactive (admin)
  */
 export const AdminToggleAccountParams = zod.object({

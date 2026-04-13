@@ -1,16 +1,32 @@
-import { useAdminListOrders, useAdminConfirmOrder, getAdminListOrdersQueryKey } from "@workspace/api-client-react";
+import {
+  useAdminListOrders,
+  useAdminConfirmOrder,
+  useAdminDeleteOrder,
+  getAdminListOrdersQueryKey,
+} from "@workspace/api-client-react";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatRupiah } from "@/lib/format";
 import { format } from "date-fns";
-import { ShoppingCart, CheckCircle } from "lucide-react";
+import { ShoppingCart, CheckCircle, Trash2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { AdminListOrdersStatus } from "@workspace/api-client-react/src/generated/api.schemas";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const statusColors: Record<string, string> = {
   pending: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
@@ -29,15 +45,28 @@ export default function AdminOrders() {
   });
 
   const confirmOrder = useAdminConfirmOrder();
+  const deleteOrder = useAdminDeleteOrder();
 
   const handleConfirm = (id: number) => {
     confirmOrder.mutate({ id }, {
       onSuccess: () => {
-        toast({ title: "Order confirmed", description: "Account generated successfully" });
+        toast({ title: "Order dikonfirmasi", description: "Akun VPN berhasil dibuat" });
         queryClient.invalidateQueries({ queryKey: getAdminListOrdersQueryKey() });
       },
       onError: (err) => {
-        toast({ title: "Failed to confirm", description: err.error, variant: "destructive" });
+        toast({ title: "Gagal konfirmasi", description: err.error, variant: "destructive" });
+      }
+    });
+  };
+
+  const handleDelete = (id: number) => {
+    deleteOrder.mutate({ id }, {
+      onSuccess: () => {
+        toast({ title: "Order dihapus" });
+        queryClient.invalidateQueries({ queryKey: getAdminListOrdersQueryKey() });
+      },
+      onError: (err) => {
+        toast({ title: "Gagal menghapus", description: err.error, variant: "destructive" });
       }
     });
   };
@@ -46,12 +75,12 @@ export default function AdminOrders() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
-        <p className="text-muted-foreground mt-1">Manage and confirm user purchases.</p>
+        <p className="text-muted-foreground mt-1">Kelola dan konfirmasi pembelian user.</p>
       </div>
 
       <Tabs defaultValue="all" value={status} onValueChange={setStatus}>
         <TabsList>
-          <TabsTrigger value="all">All Orders</TabsTrigger>
+          <TabsTrigger value="all">Semua</TabsTrigger>
           <TabsTrigger value="pending">Pending</TabsTrigger>
           <TabsTrigger value="paid">Paid</TabsTrigger>
           <TabsTrigger value="failed">Failed</TabsTrigger>
@@ -61,7 +90,7 @@ export default function AdminOrders() {
       <Card>
         <CardHeader className="bg-muted/20 border-b">
           <CardTitle className="text-lg flex items-center gap-2">
-            <ShoppingCart className="h-5 w-5" /> Transactions
+            <ShoppingCart className="h-5 w-5" /> Transaksi
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -76,35 +105,72 @@ export default function AdminOrders() {
               {data.orders.map((order) => (
                 <div key={order.id} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-accent/30 transition-colors">
                   <div className="flex items-start gap-4">
-                    <div className="hidden sm:flex h-10 w-10 rounded-full bg-primary/10 items-center justify-center text-primary font-bold">
+                    <div className="hidden sm:flex h-10 w-10 rounded-full bg-primary/10 items-center justify-center text-primary font-bold text-sm">
                       #{order.id}
                     </div>
                     <div>
-                      <div className="font-semibold flex items-center gap-2">
+                      <div className="font-semibold flex items-center gap-2 flex-wrap">
                         {order.user?.username}
                         <Badge variant="outline" className={`text-[10px] capitalize ${statusColors[order.status]}`}>
                           {order.status}
                         </Badge>
                       </div>
                       <div className="text-sm text-muted-foreground mt-1">
-                        {order.product?.name} &bull; {order.paymentMethod} &bull; {format(new Date(order.createdAt), "MMM d, HH:mm")}
+                        {order.product?.name} &bull; {order.paymentMethod} &bull; {format(new Date(order.createdAt), "d MMM, HH:mm")}
                       </div>
+                      {order.notes && (
+                        <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          <FileText className="h-3 w-3" />
+                          <span className="font-medium text-foreground/70">Remarks:</span> {order.notes}
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-6 sm:justify-end">
+                  <div className="flex items-center gap-3 sm:justify-end flex-wrap">
                     <div className="font-bold text-lg text-primary">
                       {formatRupiah(order.amount)}
                     </div>
                     {order.status === "pending" && (
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         onClick={() => handleConfirm(order.id)}
                         disabled={confirmOrder.isPending}
                         className="gap-2"
                       >
-                        <CheckCircle className="h-4 w-4" /> Confirm
+                        <CheckCircle className="h-4 w-4" /> Konfirmasi
                       </Button>
+                    )}
+                    {order.status !== "paid" && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 text-red-600 border-red-200 hover:bg-red-50"
+                            disabled={deleteOrder.isPending}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Hapus Order #{order.id}?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Order dari <strong>{order.user?.username}</strong> untuk <strong>{order.product?.name}</strong> akan dihapus permanen. Aksi ini tidak bisa dibatalkan.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Batal</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-destructive hover:bg-destructive/90"
+                              onClick={() => handleDelete(order.id)}
+                            >
+                              Hapus
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     )}
                   </div>
                 </div>
@@ -112,7 +178,7 @@ export default function AdminOrders() {
             </div>
           ) : (
             <div className="p-12 text-center text-muted-foreground">
-              No orders found.
+              Tidak ada order ditemukan.
             </div>
           )}
         </CardContent>

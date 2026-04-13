@@ -9,6 +9,8 @@
 export * from "./adminAccountListResponse";
 export * from "./adminDashboard";
 export * from "./adminDashboardOrdersByProtocolItem";
+export * from "./adminExtendAccount200";
+export * from "./adminExtendAccountBody";
 export * from "./adminListAccountsParams";
 export * from "./adminListAccountsProtocol";
 export * from "./adminListOrdersParams";
@@ -48,6 +50,7 @@ export * from "./productProtocol";
 export * from "./publicServer";
 export * from "./registerBody";
 export * from "./renewAccountBody";
+export * from "./successResponse";
 export * from "./topupBody";
 export * from "./topupResponse";
 export * from "./topupResponseStatus";
