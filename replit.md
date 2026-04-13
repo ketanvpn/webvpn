@@ -1,80 +1,240 @@
-# Workspace
+# KETANTECH VPN Store — Panduan Proyek
 
-## Overview
+## Ringkasan
+Platform penjualan VPN Indonesia berbasis web + bot Telegram. Dibangun sebagai pnpm monorepo dengan TypeScript. Memiliki:
+- **User dashboard** — beli VPN, kelola akun, topup saldo
+- **Admin dashboard** — kelola user/produk/server/order/topup/akun VPN
+- **Bot Telegram** — penjualan VPN via chat (`botvpn-fixed/`)
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+---
 
-## Stack
+## Stack Teknis
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+| Komponen | Teknologi |
+|---|---|
+| Monorepo | pnpm workspaces |
+| Runtime | Node.js 24 |
+| Bahasa | TypeScript 5.9 |
+| API Framework | Express 5 |
+| Database (web) | PostgreSQL + Drizzle ORM |
+| Database (bot) | SQLite |
+| Validasi | Zod (v4), drizzle-zod |
+| API Codegen | Orval (OpenAPI → TS client) |
+| Build | esbuild |
+| Frontend | React + Vite + TailwindCSS + shadcn/ui |
+| State / Data | TanStack Query v5 |
+| Routing (web) | Wouter |
 
-## Key Commands
+---
 
-- `pnpm run --filter @workspace/api-spec codegen` — Re-run OpenAPI → client codegen
-- `pnpm --filter @workspace/db run push` — Push DB schema changes to PostgreSQL
-
-## Artifacts
+## Artifacts (App yang Berjalan)
 
 ### VPN Store Web (`artifacts/vpn-web`)
-- React + Vite SPA, preview path: `/`
-- Port: `18678` (set via `PORT` env var)
+- React + Vite SPA
+- Preview path: `/`
+- Port: `18678` (via env `PORT`)
 
 ### API Server (`artifacts/api-server`)
-- Express 5 REST API, base path: `/api`
+- Express 5 REST API
+- Base path semua endpoint: `/api`
 - Port: `8080`
-- Auth: JWT in httpOnly cookie (`token`)
+- Auth: JWT httpOnly cookie bernama `token`
+- bcrypt 12 rounds
+- Role user: `user` | `reseller` | `admin`
 
-## Project: KETANTECH VPN Store
+---
 
-An Indonesian VPN sales platform with both user-facing and admin dashboards.
+## Credentials Test
+- **Admin**: `admin` / `admin123` → akses `/admin`
+- **Demo user**: `demo` / `demo123` → akses `/dashboard`
 
-### Features
-- **User dashboard**: balance display (IDR), active VPN accounts, order history, account renewal
-- **Product store**: Browse SSH, VMess, VLess, Trojan, Shadowsocks packages with protocol filters
-- **Balance & Topup**: QRIS payment requests, topup history
-- **VPN accounts**: View config links (vmess://, vless://, trojan://), copy-to-clipboard, renewal
-- **Admin panel**: User management, product CRUD, server CRUD, order management, topup approval/rejection
-- **Admin dashboard**: Revenue stats (today/month), order counts, active accounts, order breakdown by protocol; stat cards are clickable links to relevant pages
-- **Admin sidebar**: Badge notifikasi kuning menampilkan jumlah topup pending di menu "Topups"
-- **Admin Users**: Filter berdasarkan role (user/reseller/admin)
-- **Admin Orders**: Tampilkan remarks/notes pesanan; tombol hapus order (non-paid only) dengan konfirmasi dialog
-- **Admin VPN Accounts**: Tombol "Perpanjang" (extend expiry by N days), toggle aktif/nonaktif, dan hapus akun permanen
-- **Admin User Detail**: Adjust saldo user manual (+/-)
-- **API Admin routes (baru)**: POST /admin/accounts/:id/extend, DELETE /admin/accounts/:id, DELETE /admin/orders/:id
+---
 
-### Test Credentials
-- Admin: `admin` / `admin123`
-- Demo user: `demo` / `demo123`
+## Perintah Penting
 
-### DB Schema (`lib/db/src/schema/`)
-- `users` — user accounts with role (user/reseller/admin), balance (IDR), isActive
-- `vpn_servers` — VPN server info (host, API URL, supported protocols, flag)
-- `products` — VPN packages (protocol, duration, price, quota)
-- `orders` — purchase orders (pending/paid/failed/expired)
-- `vpn_accounts` — active VPN credentials (username, password, UUID, configLink, expiresAt)
-- `topup_transactions` — balance topup requests with QRIS info
+```bash
+# Regenerate API client dari OpenAPI spec
+pnpm --filter @workspace/api-spec run codegen
 
-### API Routes (`artifacts/api-server/src/routes/`)
-- `auth.ts` — POST /auth/register, /auth/login, /auth/logout, GET /auth/me
-- `products.ts` — GET /products, /products/:id
-- `servers.ts` — GET /servers (public)
-- `orders.ts` — GET/POST /orders, GET /orders/:id, POST /orders/:id/pay
-- `accounts.ts` — GET /accounts, /accounts/:id, POST /accounts/:id/renew
-- `balance.ts` — GET /balance, POST /balance/topup, GET /balance/topup/history
-- `dashboard.ts` — GET /dashboard/summary
-- `admin.ts` — All /admin/* routes (users, products, servers, orders, topups)
+# Push perubahan schema ke PostgreSQL
+pnpm --filter @workspace/db run push
 
-### Bot (`botvpn-fixed/`)
-Fixed Telegram bot for VPN sales management.
-- Uses SQLite (`sellvpn.db`) — separate from the web app's PostgreSQL
-- Fixed modules: create, renew, del, lock, unlock, trial
-- Uses axios instead of exec(curl) for AutoScript Potato API calls
-- Shared DB connection in `modules/db.js` with WAL mode
+# Jalankan dev server API
+pnpm --filter @workspace/api-server run dev
+
+# Jalankan dev server frontend
+pnpm --filter @workspace/vpn-web run dev
+```
+
+---
+
+## Struktur Monorepo
+
+```
+artifacts/
+  api-server/          — Backend Express API
+    src/
+      routes/          — auth, admin, orders, accounts, balance, products, servers, dashboard
+      lib/             — auth middleware, vpn-panel integration
+  vpn-web/             — Frontend React+Vite
+    src/
+      pages/
+        admin/         — dashboard, users, orders, topups, accounts, servers, products, user-detail
+        user/          — dashboard, orders, accounts, balance, products
+        auth/          — login, register
+
+lib/
+  db/                  — Drizzle ORM schema + migrations
+    src/schema/        — users, products, servers, orders, vpn_accounts, topups
+  api-spec/            — openapi.yaml + orval codegen config
+  api-client-react/    — Generated TanStack Query hooks (dari codegen)
+  api-zod/             — Generated Zod validators (dari codegen)
+
+botvpn-fixed/          — Bot Telegram (Node.js + SQLite, terpisah dari web)
+```
+
+---
+
+## Database Schema (`lib/db/src/schema/`)
+
+| Tabel | Kolom Penting |
+|---|---|
+| `users` | id, username, email, passwordHash, role, balance, isActive, referralCode |
+| `vpn_servers` | id, name, location, flag, host, apiUrl, apiToken, supportedProtocols, isActive |
+| `products` | id, name, protocol, durationDays, price, quota, serverId |
+| `orders` | id, userId, productId, amount, status (pending/paid/failed/expired), paymentMethod, notes, vpnAccountId |
+| `vpn_accounts` | id, userId, protocol, username, password, uuid, serverId, configLink, allLinks, expiresAt, isActive |
+| `topup_transactions` | id, userId, amount, qrisUrl, status (pending/confirmed/rejected), confirmedBy, rejectionNote |
+
+---
+
+## API Routes (`artifacts/api-server/src/routes/`)
+
+### Public / Auth
+- `POST /api/auth/register` — daftar user baru
+- `POST /api/auth/login` — login, set JWT cookie
+- `POST /api/auth/logout` — hapus cookie
+- `GET /api/auth/me` — info user yang login
+
+### User (requireAuth)
+- `GET /api/balance` — saldo user
+- `POST /api/balance/topup` — buat permintaan topup + QRIS
+- `GET /api/balance/topup/history` — riwayat topup
+- `GET /api/products` — daftar produk
+- `GET /api/products/:id` — detail produk
+- `GET /api/servers` — daftar server (publik)
+- `POST /api/orders` — beli produk
+- `GET /api/orders` — riwayat order user
+- `GET /api/orders/:id` — detail order
+- `POST /api/orders/:id/pay` — bayar order dengan saldo
+- `GET /api/accounts` — daftar akun VPN aktif user
+- `GET /api/accounts/:id` — detail akun VPN
+- `POST /api/accounts/:id/renew` — perpanjang akun VPN
+- `GET /api/dashboard/summary` — summary dashboard user
+
+### Admin (requireAdmin)
+- `GET /api/admin/dashboard` — statistik: totalUsers, totalOrders, totalRevenue, activeAccounts, pendingTopups, pendingOrders, revenueToday/Month, ordersByProtocol, recentOrders, recentTopups
+- `GET /api/admin/users?search=&role=&limit=&offset=` — list user (server-side pagination + filter role)
+- `GET /api/admin/users/:id` — detail user beserta orders dan akun
+- `PATCH /api/admin/users/:id` — update role/status user
+- `POST /api/admin/users/:id/adjust-balance` — adjust saldo manual
+- `GET /api/admin/products` — list produk
+- `POST /api/admin/products` — buat produk baru
+- `PUT /api/admin/products/:id` — update produk
+- `DELETE /api/admin/products/:id` — hapus produk
+- `GET /api/admin/servers` — list server
+- `POST /api/admin/servers` — tambah server
+- `PUT /api/admin/servers/:id` — update server
+- `DELETE /api/admin/servers/:id` — hapus server
+- `GET /api/admin/orders?status=&userId=&search=&limit=&offset=` — list order (search by username)
+- `POST /api/admin/orders/:id/confirm` — konfirmasi order (buat akun VPN via panel)
+- `DELETE /api/admin/orders/:id` — hapus order (non-paid only)
+- `GET /api/admin/topups?status=` — list permintaan topup
+- `POST /api/admin/topups/:id/confirm` — konfirmasi topup
+- `POST /api/admin/topups/:id/reject` — tolak topup (body: `{ rejectionNote?: string }`)
+- `GET /api/admin/accounts` — list akun VPN
+- `POST /api/admin/accounts/:id/extend` — perpanjang akun N hari
+- `PATCH /api/admin/accounts/:id/toggle` — aktif/nonaktif akun
+- `DELETE /api/admin/accounts/:id` — hapus akun permanen
+
+---
+
+## Fitur Admin Dashboard (Lengkap)
+
+### Dashboard Overview
+- Card stats: Total Revenue, Total Users, Active VPNs, Pending Topups, Pending Orders
+- Card Pending Topups & Pending Orders berwarna/highlight jika ada yang menunggu
+- Card bisa diklik langsung ke halaman terkait
+- Recent Orders & Recent Topups list
+
+### Admin Orders
+- List semua order dengan filter status (all/pending/paid/failed)
+- **Search by username** (debounced, server-side)
+- Konfirmasi order manual → otomatis buat akun VPN via panel API
+- Hapus order (non-paid) dengan AlertDialog konfirmasi
+- Order "paid" menampilkan link ke akun VPN yang dibuat
+- **Auto-refresh setiap 30 detik**
+- Menampilkan total count
+
+### Admin Topups
+- List topup dengan filter status (pending/confirmed/rejected/all)
+- Konfirmasi topup → tambah saldo user
+- Tolak topup dengan **dialog alasan penolakan** (rejectionNote, max 200 karakter)
+- Topup ditolak menampilkan alasan di bawah item
+- **Auto-refresh setiap 30 detik**
+
+### Admin Users
+- List user dengan search (by username) dan filter role
+- **Server-side pagination** (20 per halaman) dengan tombol prev/next
+- Menampilkan total count
+- Link ke halaman detail user
+
+### Admin Servers
+- Grid card server dengan status online/offline
+- Tambah/edit server via dialog form
+- Hapus server via **AlertDialog** (bukan browser `confirm()`)
+
+### Admin VPN Accounts
+- List semua akun VPN
+- Tombol Perpanjang (extend expiry by N hari)
+- Toggle aktif/nonaktif
+- Hapus akun permanen
+
+---
+
+## VPN Panel Integration
+
+- Endpoint: `POST http://{server.apiUrl}/vps/vmessall`
+- Auth: `Authorization: Bearer {server.apiToken}`
+- Server aktif saat ini: SG-01 (`http://129.212.235.191`)
+- `allLinks` format: `tls|none|grpc|uptls|upntls` (pipe-separated, urutan tetap)
+- File: `artifacts/api-server/src/lib/vpn-panel.ts`
+
+---
+
+## Alur Codegen (Penting!)
+
+Setiap kali mengubah `lib/api-spec/openapi.yaml`:
+1. Jalankan `pnpm --filter @workspace/api-spec run codegen`
+2. Ini akan regenerate:
+   - `lib/api-client-react/src/generated/` — TanStack Query hooks
+   - `lib/api-zod/src/generated/` — Zod validators
+3. Frontend import dari `@workspace/api-client-react` (bukan relative path)
+
+---
+
+## Bot Telegram (`botvpn-fixed/`)
+
+- Runtime: Node.js, SQLite (file: `sellvpn.db`) — **terpisah** dari PostgreSQL web
+- Modul: `create`, `renew`, `del`, `lock`, `unlock`, `trial`
+- Menggunakan `axios` untuk panggil AutoScript Potato API
+- Shared DB connection di `modules/db.js` dengan WAL mode
+
+---
+
+## Catatan Pengembangan
+
+- Currency: IDR, format tampilan: `Rp XX.XXX` (gunakan `formatRupiah()` di `src/lib/format.ts`)
+- Bahasa UI: Bahasa Indonesia
+- Semua operasi delete/destructive di admin menggunakan AlertDialog (shadcn), bukan `window.confirm()`
+- Session plan progress dicatat di `.local/` (jangan commit)
