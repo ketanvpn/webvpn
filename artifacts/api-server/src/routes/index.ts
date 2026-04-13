@@ -13,6 +13,7 @@ import webhookRouter from "./webhook";
 import telegramBotRouter from "./telegram-bot";
 import broadcastRouter from "./broadcast";
 import exportRouter from "./export";
+import balanceLogsRouter from "./balance-logs";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(webhookRouter);
 router.use(telegramBotRouter);
 router.use(broadcastRouter);
 router.use(exportRouter);
+router.use(balanceLogsRouter);
 
 export default router;

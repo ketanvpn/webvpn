@@ -18,6 +18,7 @@ import OrderDetail from "@/pages/user/order-detail";
 import Accounts from "@/pages/user/accounts";
 import AccountDetail from "@/pages/user/account-detail";
 import Balance from "@/pages/user/balance";
+import BalanceLogs from "@/pages/user/balance-logs";
 import Profile from "@/pages/user/profile";
 
 import AdminDashboard from "@/pages/admin/dashboard";
@@ -72,6 +73,9 @@ function Router() {
       </Route>
       <Route path="/balance">
         <Layout><Balance /></Layout>
+      </Route>
+      <Route path="/balance/logs">
+        <Layout><BalanceLogs /></Layout>
       </Route>
       <Route path="/profile">
         <Layout><Profile /></Layout>

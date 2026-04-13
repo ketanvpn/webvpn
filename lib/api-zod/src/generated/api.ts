@@ -355,6 +355,41 @@ export const ListTopupHistoryResponseItem = zod.object({
 export const ListTopupHistoryResponse = zod.array(ListTopupHistoryResponseItem);
 
 /**
+ * @summary Get balance transaction logs
+ */
+export const listBalanceLogsQueryLimitDefault = 30;
+export const listBalanceLogsQueryOffsetDefault = 0;
+
+export const ListBalanceLogsQueryParams = zod.object({
+  limit: zod.coerce.number().default(listBalanceLogsQueryLimitDefault),
+  offset: zod.coerce.number().default(listBalanceLogsQueryOffsetDefault),
+});
+
+export const ListBalanceLogsResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      userId: zod.number(),
+      username: zod.string().nullish(),
+      type: zod
+        .string()
+        .describe("Jenis transaksi: topup | order | adjustment | refund"),
+      amount: zod
+        .number()
+        .describe("Jumlah perubahan (positif = masuk, negatif = keluar)"),
+      balanceBefore: zod.number(),
+      balanceAfter: zod.number(),
+      description: zod.string(),
+      relatedId: zod.number().nullish().describe("ID topup atau order terkait"),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+  total: zod.number(),
+  limit: zod.number(),
+  offset: zod.number(),
+});
+
+/**
  * @summary List current user's active VPN accounts
  */
 export const ListAccountsResponseItem = zod.object({
@@ -833,6 +868,47 @@ export const AdminUpdateUserResponse = zod.object({
   referralCode: zod.string().nullish(),
   telegramId: zod.number().nullish().describe("Telegram user ID (linked)"),
   createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Get balance logs for a specific user (admin)
+ */
+export const AdminGetUserBalanceLogsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const adminGetUserBalanceLogsQueryLimitDefault = 30;
+export const adminGetUserBalanceLogsQueryOffsetDefault = 0;
+
+export const AdminGetUserBalanceLogsQueryParams = zod.object({
+  limit: zod.coerce.number().default(adminGetUserBalanceLogsQueryLimitDefault),
+  offset: zod.coerce
+    .number()
+    .default(adminGetUserBalanceLogsQueryOffsetDefault),
+});
+
+export const AdminGetUserBalanceLogsResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.number(),
+      userId: zod.number(),
+      username: zod.string().nullish(),
+      type: zod
+        .string()
+        .describe("Jenis transaksi: topup | order | adjustment | refund"),
+      amount: zod
+        .number()
+        .describe("Jumlah perubahan (positif = masuk, negatif = keluar)"),
+      balanceBefore: zod.number(),
+      balanceAfter: zod.number(),
+      description: zod.string(),
+      relatedId: zod.number().nullish().describe("ID topup atau order terkait"),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+  total: zod.number(),
+  limit: zod.number(),
+  offset: zod.number(),
 });
 
 /**

@@ -23,6 +23,7 @@ import type {
   AdminDashboard,
   AdminExtendAccount200,
   AdminExtendAccountBody,
+  AdminGetUserBalanceLogsParams,
   AdminListAccountsParams,
   AdminListOrdersParams,
   AdminListTopupsParams,
@@ -35,6 +36,7 @@ import type {
   AdminUserDetail,
   AdminUserListResponse,
   AuthResponse,
+  BalanceLogList,
   BalanceResponse,
   ChangePasswordBody,
   CreateOrderBody,
@@ -44,6 +46,7 @@ import type {
   ErrorResponse,
   GetTelegramLink200,
   HealthStatus,
+  ListBalanceLogsParams,
   ListOrdersParams,
   ListProductsParams,
   ListTopupHistoryParams,
@@ -1431,6 +1434,100 @@ export function useListTopupHistory<
 }
 
 /**
+ * @summary Get balance transaction logs
+ */
+export const getListBalanceLogsUrl = (params?: ListBalanceLogsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/balance/logs?${stringifiedParams}`
+    : `/api/balance/logs`;
+};
+
+export const listBalanceLogs = async (
+  params?: ListBalanceLogsParams,
+  options?: RequestInit,
+): Promise<BalanceLogList> => {
+  return customFetch<BalanceLogList>(getListBalanceLogsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListBalanceLogsQueryKey = (params?: ListBalanceLogsParams) => {
+  return [`/api/balance/logs`, ...(params ? [params] : [])] as const;
+};
+
+export const getListBalanceLogsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listBalanceLogs>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListBalanceLogsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listBalanceLogs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListBalanceLogsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listBalanceLogs>>> = ({
+    signal,
+  }) => listBalanceLogs(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listBalanceLogs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListBalanceLogsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listBalanceLogs>>
+>;
+export type ListBalanceLogsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get balance transaction logs
+ */
+
+export function useListBalanceLogs<
+  TData = Awaited<ReturnType<typeof listBalanceLogs>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListBalanceLogsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listBalanceLogs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListBalanceLogsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary List current user's active VPN accounts
  */
 export const getListAccountsUrl = () => {
@@ -2096,6 +2193,126 @@ export const useAdminUpdateUser = <
 > => {
   return useMutation(getAdminUpdateUserMutationOptions(options));
 };
+
+/**
+ * @summary Get balance logs for a specific user (admin)
+ */
+export const getAdminGetUserBalanceLogsUrl = (
+  id: number,
+  params?: AdminGetUserBalanceLogsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/users/${id}/balance-logs?${stringifiedParams}`
+    : `/api/admin/users/${id}/balance-logs`;
+};
+
+export const adminGetUserBalanceLogs = async (
+  id: number,
+  params?: AdminGetUserBalanceLogsParams,
+  options?: RequestInit,
+): Promise<BalanceLogList> => {
+  return customFetch<BalanceLogList>(
+    getAdminGetUserBalanceLogsUrl(id, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getAdminGetUserBalanceLogsQueryKey = (
+  id: number,
+  params?: AdminGetUserBalanceLogsParams,
+) => {
+  return [
+    `/api/admin/users/${id}/balance-logs`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getAdminGetUserBalanceLogsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminGetUserBalanceLogs>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  params?: AdminGetUserBalanceLogsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminGetUserBalanceLogs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminGetUserBalanceLogsQueryKey(id, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminGetUserBalanceLogs>>
+  > = ({ signal }) =>
+    adminGetUserBalanceLogs(id, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetUserBalanceLogs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminGetUserBalanceLogsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetUserBalanceLogs>>
+>;
+export type AdminGetUserBalanceLogsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get balance logs for a specific user (admin)
+ */
+
+export function useAdminGetUserBalanceLogs<
+  TData = Awaited<ReturnType<typeof adminGetUserBalanceLogs>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  params?: AdminGetUserBalanceLogsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminGetUserBalanceLogs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminGetUserBalanceLogsQueryOptions(
+    id,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary List all products (admin)

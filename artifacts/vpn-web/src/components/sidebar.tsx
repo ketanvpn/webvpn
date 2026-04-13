@@ -18,6 +18,7 @@ import {
   QrCode,
   Send,
   Bell,
+  History,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useGetAdminDashboard } from "@workspace/api-client-react";
@@ -35,6 +36,7 @@ const userNav: NavItem[] = [
   { title: "My Accounts", href: "/accounts", icon: Server },
   { title: "Orders", href: "/orders", icon: ShoppingCart },
   { title: "Balance", href: "/balance", icon: Wallet },
+  { title: "Riwayat Saldo", href: "/balance/logs", icon: History },
   { title: "Profile", href: "/profile", icon: Settings },
 ];
 
@@ -74,7 +76,7 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
       </div>
 
       {nav.map((item) => {
-        const isActive = location === item.href || (location.startsWith(item.href) && item.href !== "/admin" && item.href !== "/dashboard" && item.href !== "/");
+        const isActive = location === item.href || (location.startsWith(item.href + "/") && item.href !== "/admin" && item.href !== "/dashboard" && item.href !== "/" && item.href !== "/balance");
         const badge = item.badgeKey === "pendingTopups" ? pendingTopups : 0;
         return (
           <Link

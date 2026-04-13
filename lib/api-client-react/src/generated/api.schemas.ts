@@ -5,6 +5,29 @@
  * KETANTECH VPN Store API
  * OpenAPI spec version: 0.1.0
  */
+export interface BalanceLog {
+  id: number;
+  userId: number;
+  username?: string | null;
+  /** Jenis transaksi: topup | order | adjustment | refund */
+  type: string;
+  /** Jumlah perubahan (positif = masuk, negatif = keluar) */
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  description: string;
+  /** ID topup atau order terkait */
+  relatedId?: number | null;
+  createdAt: string;
+}
+
+export interface BalanceLogList {
+  data: BalanceLog[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 /**
  * Gateway aktif: 'qris_static' | 'autogopay'
  */
@@ -471,6 +494,11 @@ export type ListTopupHistoryParams = {
   offset?: number;
 };
 
+export type ListBalanceLogsParams = {
+  limit?: number;
+  offset?: number;
+};
+
 export type AdminListUsersParams = {
   search?: string;
   /**
@@ -489,6 +517,11 @@ export const AdminListUsersRole = {
   reseller: "reseller",
   admin: "admin",
 } as const;
+
+export type AdminGetUserBalanceLogsParams = {
+  limit?: number;
+  offset?: number;
+};
 
 export type AdminListOrdersParams = {
   status?: AdminListOrdersStatus;

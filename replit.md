@@ -106,6 +106,7 @@ botvpn-fixed/          — Bot Telegram (Node.js + SQLite, terpisah dari web)
 | `vpn_accounts` | id, userId, protocol, username, password, uuid, serverId, configLink, allLinks, expiresAt, isActive |
 | `topup_transactions` | id, userId, amount, qrisUrl, status (pending/confirmed/rejected), confirmedBy, rejectionNote |
 | `settings` | key, value — menyimpan konfigurasi Telegram bot (telegramBotToken, telegramAdminChatId, telegramEnabled, telegramBotUsername) |
+| `balance_logs` | id, userId, type, amount, balanceBefore, balanceAfter, description, relatedId, createdAt — log semua perubahan saldo |
 
 ---
 
@@ -121,6 +122,7 @@ botvpn-fixed/          — Bot Telegram (Node.js + SQLite, terpisah dari web)
 - `GET /api/balance` — saldo user
 - `POST /api/balance/topup` — buat permintaan topup + QRIS
 - `GET /api/balance/topup/history` — riwayat topup
+- `GET /api/balance/logs` — log semua perubahan saldo user (topup, pembelian, penyesuaian)
 - `GET /api/products` — daftar produk
 - `GET /api/products/:id` — detail produk
 - `GET /api/servers` — daftar server (publik)
@@ -162,6 +164,7 @@ botvpn-fixed/          — Bot Telegram (Node.js + SQLite, terpisah dari web)
 - `GET /api/admin/export/topups` — export topups ke CSV
 - `GET /api/admin/export/orders` — export orders ke CSV
 - `POST /api/admin/broadcast` — broadcast pesan ke semua user yang sudah link Telegram
+- `GET /api/admin/users/:id/balance-logs` — riwayat perubahan saldo user tertentu (admin)
 
 ### Telegram Bot (Webhook)
 - `POST /api/telegram/webhook` — terima update dari Telegram API

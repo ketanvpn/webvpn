@@ -7,6 +7,7 @@ import { CreateOrderBody } from "@workspace/api-zod";
 import { formatProduct } from "./products";
 import { randomUUID } from "crypto";
 import { createPanelAccount, sanitizeVpnUsername } from "../lib/vpn-panel";
+import { addBalanceLog } from "./balance-logs";
 
 const router = Router();
 
@@ -284,6 +285,17 @@ router.post("/orders/:id/pay", requireAuth, async (req, res) => {
     .update(usersTable)
     .set({ balance: String(balance - amount) })
     .where(eq(usersTable.id, userId));
+
+  // Log balance deduction
+  addBalanceLog({
+    userId,
+    type: "order",
+    amount: -amount,
+    balanceBefore: balance,
+    balanceAfter: balance - amount,
+    description: `Pembelian produk: ${product.name} (Order #${order.id})`,
+    relatedId: order.id,
+  }).catch(() => {});
 
   await db
     .update(ordersTable)

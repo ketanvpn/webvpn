@@ -415,6 +415,32 @@ paths:
                 items:
                   $ref: "#/components/schemas/TopupTransaction"
 
+  /balance/logs:
+    get:
+      operationId: listBalanceLogs
+      tags: [balance]
+      summary: Get balance transaction logs
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 30
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Balance logs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceLogList"
+
   # ─── Accounts (VPN) ────────────────────────────────────────────────────
   /accounts:
     get:
@@ -607,6 +633,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/User"
+
+  /admin/users/{id}/balance-logs:
+    get:
+      operationId: adminGetUserBalanceLogs
+      tags: [admin]
+      summary: Get balance logs for a specific user (admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 30
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Balance logs for the user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceLogList"
 
   # ─── Admin: Products ───────────────────────────────────────────────────
   /admin/products:
@@ -1299,6 +1356,52 @@ components:
       name: token
 
   schemas:
+    BalanceLog:
+      type: object
+      required: [id, userId, type, amount, balanceBefore, balanceAfter, description, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        username:
+          type: string
+          nullable: true
+        type:
+          type: string
+          description: "Jenis transaksi: topup | order | adjustment | refund"
+        amount:
+          type: number
+          description: "Jumlah perubahan (positif = masuk, negatif = keluar)"
+        balanceBefore:
+          type: number
+        balanceAfter:
+          type: number
+        description:
+          type: string
+        relatedId:
+          type: integer
+          nullable: true
+          description: "ID topup atau order terkait"
+        createdAt:
+          type: string
+          format: date-time
+
+    BalanceLogList:
+      type: object
+      required: [data, total, limit, offset]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/BalanceLog"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
     PaymentSettings:
       type: object
       properties:

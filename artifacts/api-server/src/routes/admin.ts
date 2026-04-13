@@ -18,6 +18,7 @@ import { formatTopup } from "./balance";
 import { formatFullServer } from "./servers";
 import { createPanelAccount, sanitizeVpnUsername } from "../lib/vpn-panel";
 import { notifyUserTopupConfirmed, notifyUserTopupRejected } from "../lib/telegram";
+import { addBalanceLog } from "./balance-logs";
 import {
   AdminListUsersQueryParams,
   AdminUpdateUserBody,
@@ -242,9 +243,13 @@ router.patch("/admin/users/:id", requireAdmin, async (req, res) => {
   if (balance !== undefined) updateData.balance = String(balance) as unknown as number & string;
   if (isActive !== undefined) updateData.isActive = isActive;
   if (role !== undefined) updateData.role = role;
+
+  let balanceAdjustLog: { balanceBefore: number; balanceAfter: number; amount: number } | null = null;
   if (adjustBalance !== undefined) {
-    const newBal = Number(existing.balance) + adjustBalance;
-    updateData.balance = String(Math.max(0, newBal)) as unknown as number & string;
+    const balanceBefore = Number(existing.balance);
+    const newBal = Math.max(0, balanceBefore + adjustBalance);
+    updateData.balance = String(newBal) as unknown as number & string;
+    balanceAdjustLog = { balanceBefore, balanceAfter: newBal, amount: adjustBalance };
   }
 
   const [updated] = await db
@@ -252,6 +257,17 @@ router.patch("/admin/users/:id", requireAdmin, async (req, res) => {
     .set(updateData)
     .where(eq(usersTable.id, id))
     .returning();
+
+  if (balanceAdjustLog) {
+    addBalanceLog({
+      userId: id,
+      type: "adjustment",
+      amount: balanceAdjustLog.amount,
+      balanceBefore: balanceAdjustLog.balanceBefore,
+      balanceAfter: balanceAdjustLog.balanceAfter,
+      description: `Penyesuaian saldo oleh admin (${balanceAdjustLog.amount >= 0 ? "+" : ""}${balanceAdjustLog.amount})`,
+    }).catch(() => {});
+  }
 
   res.json(formatUser(updated));
 });
@@ -657,13 +673,29 @@ router.post("/admin/topups/:id/confirm", requireAdmin, async (req, res) => {
     .where(eq(topupsTable.id, id))
     .returning();
 
-  // Notify user via Telegram (fire and forget)
+  // Fetch updated balance for notification and log
   const [updatedUser] = await db
     .select({ balance: usersTable.balance })
     .from(usersTable)
     .where(eq(usersTable.id, topup.userId))
     .limit(1);
-  notifyUserTopupConfirmed(topup.userId, Number(topup.amount), Number(updatedUser?.balance ?? 0)).catch(() => {});
+
+  const balanceAfter = Number(updatedUser?.balance ?? 0);
+  const balanceBefore = balanceAfter - Number(topup.amount);
+
+  // Log balance change
+  addBalanceLog({
+    userId: topup.userId,
+    type: "topup",
+    amount: Number(topup.amount),
+    balanceBefore,
+    balanceAfter,
+    description: `Topup dikonfirmasi (ID #${topup.id})`,
+    relatedId: topup.id,
+  }).catch(() => {});
+
+  // Notify user via Telegram (fire and forget)
+  notifyUserTopupConfirmed(topup.userId, Number(topup.amount), balanceAfter).catch(() => {});
 
   res.json(formatTopup(updated));
 });

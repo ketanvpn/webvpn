@@ -1,4 +1,4 @@
-import { useAdminGetUser, useAdminUpdateUser, getAdminGetUserQueryKey } from "@workspace/api-client-react";
+import { useAdminGetUser, useAdminUpdateUser, getAdminGetUserQueryKey, useAdminGetUserBalanceLogs } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   ArrowLeft, UserCircle, Wallet, Lock, Unlock, Mail, Calendar,
   ShoppingCart, Server, CreditCard, CheckCircle, XCircle, Clock,
+  History, ArrowUpRight, ArrowDownLeft, Settings2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -43,6 +44,10 @@ export default function AdminUserDetail() {
 
   const { data: user, isLoading } = useAdminGetUser(userId, {
     query: { enabled: !!userId, queryKey: getAdminGetUserQueryKey(userId) },
+  });
+
+  const { data: balanceLogsData } = useAdminGetUserBalanceLogs(userId, {}, {
+    query: { enabled: !!userId, staleTime: 30000 },
   });
 
   const updateUser = useAdminUpdateUser();
@@ -168,6 +173,9 @@ export default function AdminUserDetail() {
               <TabsTrigger value="topups" className="flex-1 gap-2">
                 <CreditCard className="h-4 w-4" /> Topup ({user.topupHistory?.length ?? 0})
               </TabsTrigger>
+              <TabsTrigger value="balance-logs" className="flex-1 gap-2">
+                <History className="h-4 w-4" /> Log Saldo ({balanceLogsData?.total ?? 0})
+              </TabsTrigger>
             </TabsList>
 
             {/* Orders */}
@@ -260,6 +268,51 @@ export default function AdminUserDetail() {
                           </Badge>
                         </div>
                       ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Log Saldo */}
+            <TabsContent value="balance-logs">
+              <Card>
+                <CardContent className="p-0">
+                  {!balanceLogsData?.data || balanceLogsData.data.length === 0 ? (
+                    <div className="p-8 text-center text-muted-foreground text-sm">
+                      <History className="h-6 w-6 mx-auto mb-2 opacity-30" />
+                      Belum ada riwayat perubahan saldo
+                    </div>
+                  ) : (
+                    <div className="divide-y">
+                      {balanceLogsData.data.map((log) => {
+                        const isPositive = log.amount >= 0;
+                        const typeInfo = log.type === "topup"
+                          ? { label: "Topup", color: "bg-green-500/10 text-green-700 border-green-200", icon: <ArrowDownLeft className="h-3.5 w-3.5 text-green-600" /> }
+                          : log.type === "order"
+                          ? { label: "Pembelian", color: "bg-red-500/10 text-red-700 border-red-200", icon: <ArrowUpRight className="h-3.5 w-3.5 text-red-600" /> }
+                          : { label: "Penyesuaian", color: "bg-blue-500/10 text-blue-700 border-blue-200", icon: <Settings2 className="h-3.5 w-3.5 text-blue-600" /> };
+                        return (
+                          <div key={log.id} className="p-4 flex items-start gap-3 hover:bg-accent/20">
+                            <div className="mt-0.5 w-7 h-7 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                              {typeInfo.icon}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-medium">{log.description}</span>
+                                <Badge className={`text-[10px] ${typeInfo.color}`} variant="outline">{typeInfo.label}</Badge>
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                {format(new Date(log.createdAt), "d MMM yyyy, HH:mm")} &bull;{" "}
+                                <span className="opacity-70">{formatRupiah(log.balanceBefore)} → {formatRupiah(log.balanceAfter)}</span>
+                              </div>
+                            </div>
+                            <span className={`font-bold text-sm flex-shrink-0 ${isPositive ? "text-green-600" : "text-red-600"}`}>
+                              {isPositive ? "+" : ""}{formatRupiah(log.amount)}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </CardContent>
