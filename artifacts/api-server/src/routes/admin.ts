@@ -498,13 +498,15 @@ router.post("/admin/orders/:id/confirm", requireAdmin, async (req, res) => {
       .from(serversTable)
       .where(eq(serversTable.isActive, true));
 
-    const server =
+    const supportsProtocol = (s: typeof allServers[0]) =>
       product
-        ? (allServers.find((s) =>
-            Array.isArray(s.supportedProtocols) &&
-            s.supportedProtocols.includes(product.protocol)
-          ) ?? allServers[0])
-        : allServers[0];
+        ? Array.isArray(s.supportedProtocols) && s.supportedProtocols.includes(product.protocol)
+        : false;
+
+    const server =
+      allServers.find((s) => supportsProtocol(s) && s.apiUrl && s.apiToken) ??
+      allServers.find(supportsProtocol) ??
+      allServers[0];
 
     if (product && user && server) {
       const expiresAt = new Date(Date.now() + product.durationDays * 24 * 60 * 60 * 1000);

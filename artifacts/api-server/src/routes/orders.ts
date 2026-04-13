@@ -170,12 +170,14 @@ router.post("/orders/:id/pay", requireAuth, async (req, res) => {
     .from(serversTable)
     .where(eq(serversTable.isActive, true));
 
-  // Prefer a server that supports the protocol; fall back to first active server
+  // Priority: 1) supports protocol + has panel configured, 2) supports protocol, 3) any active server
+  const supportsProtocol = (s: typeof allServers[0]) =>
+    Array.isArray(s.supportedProtocols) && s.supportedProtocols.includes(product.protocol);
+
   const server =
-    allServers.find((s) =>
-      Array.isArray(s.supportedProtocols) &&
-      s.supportedProtocols.includes(product.protocol)
-    ) ?? allServers[0];
+    allServers.find((s) => supportsProtocol(s) && s.apiUrl && s.apiToken) ??
+    allServers.find((s) => supportsProtocol(s)) ??
+    allServers[0];
 
   if (!server) {
     res.status(400).json({ error: "Tidak ada server yang tersedia saat ini" });
@@ -196,6 +198,7 @@ router.post("/orders/:id/pay", requireAuth, async (req, res) => {
 
   // ─── Call VPN Panel API if server is configured ───────────────────────────
   const hasPanel = server.apiUrl && server.apiToken;
+  console.log(`[orders] Selected server: "${server.name}" (id=${server.id}), protocol=${product.protocol}, hasPanel=${!!hasPanel}`);
 
   if (hasPanel) {
     try {
