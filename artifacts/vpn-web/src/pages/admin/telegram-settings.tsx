@@ -1,3 +1,4 @@
+import { getApiError } from "@/lib/utils";
 import { useEffect } from "react";
 import { useAdminGetTelegramSettings, useAdminUpdateTelegramSettings, useAdminRegisterTelegramWebhook } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -55,7 +56,7 @@ export default function AdminTelegramSettings() {
       {
         onSuccess: () => toast({ title: "Pengaturan Telegram disimpan" }),
         onError: (err) =>
-          toast({ title: "Gagal menyimpan", description: err.error, variant: "destructive" }),
+          toast({ title: "Gagal menyimpan", description: getApiError(err), variant: "destructive" }),
       }
     );
   };
@@ -68,7 +69,7 @@ export default function AdminTelegramSettings() {
         onSuccess: () =>
           toast({ title: "Webhook berhasil didaftarkan", description: webhookUrl }),
         onError: (err) =>
-          toast({ title: "Gagal mendaftar webhook", description: err.error, variant: "destructive" }),
+          toast({ title: "Gagal mendaftar webhook", description: getApiError(err), variant: "destructive" }),
       }
     );
   };

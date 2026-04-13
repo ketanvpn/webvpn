@@ -1,3 +1,4 @@
+import { getApiError } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import {
   useUpdateProfile,
@@ -98,7 +99,7 @@ export default function Profile() {
           setEditMode(false);
         },
         onError: (err) =>
-          toast({ title: "Gagal memperbarui profil", description: err.error, variant: "destructive" }),
+          toast({ title: "Gagal memperbarui profil", description: getApiError(err), variant: "destructive" }),
       }
     );
   };
@@ -113,7 +114,7 @@ export default function Profile() {
           setShowPasswordForm(false);
         },
         onError: (err) =>
-          toast({ title: "Gagal ubah password", description: err.error, variant: "destructive" }),
+          toast({ title: "Gagal ubah password", description: getApiError(err), variant: "destructive" }),
       }
     );
   };

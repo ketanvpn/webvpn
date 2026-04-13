@@ -1,3 +1,4 @@
+import { getApiError } from "@/lib/utils";
 import { useState } from "react";
 import { useAdminBroadcast } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -32,7 +33,7 @@ export default function AdminBroadcast() {
           setMessage("");
         },
         onError: (err) =>
-          toast({ title: "Broadcast gagal", description: err.error, variant: "destructive" }),
+          toast({ title: "Broadcast gagal", description: getApiError(err), variant: "destructive" }),
       }
     );
   };

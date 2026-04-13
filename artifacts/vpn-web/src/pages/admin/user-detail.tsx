@@ -1,3 +1,4 @@
+import { getApiError } from "@/lib/utils";
 import { useAdminGetUser, useAdminUpdateUser, getAdminGetUserQueryKey, useAdminGetUserBalanceLogs } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { AdminUpdateUserBodyRole } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { AdminUpdateUserBodyRole } from "@workspace/api-client-react";
 import { useState } from "react";
 
 const statusColor: Record<string, string> = {
@@ -93,7 +94,7 @@ export default function AdminUserDetail() {
           queryClient.invalidateQueries({ queryKey: getAdminGetUserQueryKey(userId) });
         },
         onError: (err) =>
-          toast({ title: "Gagal menyesuaikan saldo", description: err.error, variant: "destructive" }),
+          toast({ title: "Gagal menyesuaikan saldo", description: getApiError(err), variant: "destructive" }),
       }
     );
   };

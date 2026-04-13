@@ -1,3 +1,4 @@
+import { getApiError } from "@/lib/utils";
 import { useGetBalance, useTopupBalance, useListTopupHistory, getGetBalanceQueryKey, getListTopupHistoryQueryKey } from "@workspace/api-client-react";
 import { formatRupiah } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -78,7 +79,7 @@ export default function Balance() {
       onError: (err) => {
         toast({
           title: "Gagal membuat topup",
-          description: err.error || "Terjadi kesalahan",
+          description: getApiError(err) || "Terjadi kesalahan",
           variant: "destructive",
         });
       }

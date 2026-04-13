@@ -1,3 +1,4 @@
+import { getApiError } from "@/lib/utils";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -52,7 +53,7 @@ export default function Register() {
         onError: (error) => {
           toast({
             title: "Error",
-            description: error.error || "Failed to create account",
+            description: getApiError(error) || "Failed to create account",
             variant: "destructive",
           });
         },

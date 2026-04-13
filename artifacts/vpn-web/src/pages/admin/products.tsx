@@ -1,3 +1,4 @@
+import { getApiError } from "@/lib/utils";
 import {
   useAdminListProducts,
   useAdminCreateProduct,
@@ -38,7 +39,7 @@ import { formatRupiah } from "@/lib/format";
 import { Package, Plus, MoreVertical, Edit, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import type { AdminListProductsResponseItem } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { Product } from "@workspace/api-client-react";
 
 type ProductForm = {
   name: string;
@@ -86,7 +87,7 @@ export default function AdminProducts() {
     setDialogOpen(true);
   };
 
-  const openEdit = (p: AdminListProductsResponseItem) => {
+  const openEdit = (p: Product) => {
     setEditingId(p.id);
     setForm({
       name: p.name,
@@ -131,7 +132,7 @@ export default function AdminProducts() {
             queryClient.invalidateQueries({ queryKey: getAdminListProductsQueryKey() });
             setDialogOpen(false);
           },
-          onError: (err) => toast({ title: "Gagal memperbarui produk", description: err.error, variant: "destructive" }),
+          onError: (err) => toast({ title: "Gagal memperbarui produk", description: getApiError(err), variant: "destructive" }),
         }
       );
     } else {
@@ -143,7 +144,7 @@ export default function AdminProducts() {
             queryClient.invalidateQueries({ queryKey: getAdminListProductsQueryKey() });
             setDialogOpen(false);
           },
-          onError: (err) => toast({ title: "Gagal menambah produk", description: err.error, variant: "destructive" }),
+          onError: (err) => toast({ title: "Gagal menambah produk", description: getApiError(err), variant: "destructive" }),
         }
       );
     }
@@ -158,7 +159,7 @@ export default function AdminProducts() {
             toast({ title: "Produk dihapus" });
             queryClient.invalidateQueries({ queryKey: getAdminListProductsQueryKey() });
           },
-          onError: (err) => toast({ title: "Gagal menghapus produk", description: err.error, variant: "destructive" }),
+          onError: (err) => toast({ title: "Gagal menghapus produk", description: getApiError(err), variant: "destructive" }),
         }
       );
     }

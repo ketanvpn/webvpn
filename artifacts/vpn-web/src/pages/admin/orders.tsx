@@ -1,3 +1,4 @@
+import { getApiError } from "@/lib/utils";
 import {
   useAdminListOrders,
   useAdminConfirmOrder,
@@ -16,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { AdminListOrdersStatus } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { AdminListOrdersStatus } from "@workspace/api-client-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,7 +68,7 @@ export default function AdminOrders() {
         queryClient.invalidateQueries({ queryKey: getAdminListOrdersQueryKey() });
       },
       onError: (err) => {
-        toast({ title: "Gagal konfirmasi", description: err.error, variant: "destructive" });
+        toast({ title: "Gagal konfirmasi", description: getApiError(err), variant: "destructive" });
       }
     });
   };
@@ -79,7 +80,7 @@ export default function AdminOrders() {
         queryClient.invalidateQueries({ queryKey: getAdminListOrdersQueryKey() });
       },
       onError: (err) => {
-        toast({ title: "Gagal menghapus", description: err.error, variant: "destructive" });
+        toast({ title: "Gagal menghapus", description: getApiError(err), variant: "destructive" });
       }
     });
   };

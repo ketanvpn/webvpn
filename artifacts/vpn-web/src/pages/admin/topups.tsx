@@ -1,3 +1,4 @@
+import { getApiError } from "@/lib/utils";
 import {
   useAdminListTopups,
   useAdminConfirmTopup,
@@ -15,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { AdminListTopupsStatus } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { AdminListTopupsStatus } from "@workspace/api-client-react";
 import {
   Dialog,
   DialogContent,
@@ -58,7 +59,7 @@ export default function AdminTopups() {
           queryClient.invalidateQueries({ queryKey: getAdminListTopupsQueryKey() });
         },
         onError: (err) =>
-          toast({ title: "Gagal konfirmasi", description: err.error, variant: "destructive" }),
+          toast({ title: "Gagal konfirmasi", description: getApiError(err), variant: "destructive" }),
       }
     );
   };
@@ -79,7 +80,7 @@ export default function AdminTopups() {
           setRejectDialogId(null);
         },
         onError: (err) =>
-          toast({ title: "Gagal tolak", description: err.error, variant: "destructive" }),
+          toast({ title: "Gagal tolak", description: getApiError(err), variant: "destructive" }),
       }
     );
   };

@@ -1,3 +1,4 @@
+import { getApiError } from "@/lib/utils";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -49,7 +50,7 @@ export default function Login() {
         onError: (error) => {
           toast({
             title: "Gagal masuk",
-            description: error.error || "Username atau password salah",
+            description: getApiError(error) || "Username atau password salah",
             variant: "destructive",
           });
         },

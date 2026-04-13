@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { Link } from "wouter";
 import { ChevronRight } from "lucide-react";
-import type { OrderStatus } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { OrderStatus } from "@workspace/api-client-react";
 
 const statusColors: Record<OrderStatus, string> = {
   pending: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",

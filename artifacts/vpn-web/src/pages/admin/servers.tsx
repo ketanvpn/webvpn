@@ -1,3 +1,4 @@
+import { getApiError } from "@/lib/utils";
 import {
   useAdminListServers,
   useAdminCreateServer,
@@ -41,7 +42,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Server, Plus, MoreVertical, Edit, Trash2, Activity, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import type { AdminListServersResponseItem } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { VpnServer } from "@workspace/api-client-react";
 
 type ServerForm = {
   name: string;
@@ -224,7 +225,7 @@ export default function AdminServers() {
     setDialogOpen(true);
   };
 
-  const openEdit = (s: AdminListServersResponseItem) => {
+  const openEdit = (s: VpnServer) => {
     setEditingId(s.id);
     setForm({
       name: s.name,
@@ -278,7 +279,7 @@ export default function AdminServers() {
             queryClient.invalidateQueries({ queryKey: getAdminListServersQueryKey() });
             setDialogOpen(false);
           },
-          onError: (err) => toast({ title: "Gagal memperbarui server", description: err.error, variant: "destructive" }),
+          onError: (err) => toast({ title: "Gagal memperbarui server", description: getApiError(err), variant: "destructive" }),
         }
       );
     } else {
@@ -290,7 +291,7 @@ export default function AdminServers() {
             queryClient.invalidateQueries({ queryKey: getAdminListServersQueryKey() });
             setDialogOpen(false);
           },
-          onError: (err) => toast({ title: "Gagal menambah server", description: err.error, variant: "destructive" }),
+          onError: (err) => toast({ title: "Gagal menambah server", description: getApiError(err), variant: "destructive" }),
         }
       );
     }
@@ -306,7 +307,7 @@ export default function AdminServers() {
           queryClient.invalidateQueries({ queryKey: getAdminListServersQueryKey() });
           setDeleteTarget(null);
         },
-        onError: (err) => toast({ title: "Gagal menghapus server", description: err.error, variant: "destructive" }),
+        onError: (err) => toast({ title: "Gagal menghapus server", description: getApiError(err), variant: "destructive" }),
       }
     );
   };

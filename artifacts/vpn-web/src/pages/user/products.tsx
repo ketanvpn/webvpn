@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Globe, Clock, HardDrive, Network } from "lucide-react";
-import type { ListProductsProtocol } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { ListProductsProtocol } from "@workspace/api-client-react";
 
 const protocols: { value: string; label: string }[] = [
   { value: "all", label: "All Protocols" },

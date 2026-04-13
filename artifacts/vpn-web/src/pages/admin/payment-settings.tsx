@@ -1,3 +1,4 @@
+import { getApiError } from "@/lib/utils";
 import {
   useAdminGetPaymentSettings,
   useAdminUpdatePaymentSettings,
@@ -135,7 +136,7 @@ export default function AdminPaymentSettings() {
           queryClient.invalidateQueries({ queryKey: getAdminGetPaymentSettingsQueryKey() });
         },
         onError: (err) =>
-          toast({ title: "Gagal menyimpan", description: (err as any).error, variant: "destructive" }),
+          toast({ title: "Gagal menyimpan", description: getApiError(err), variant: "destructive" }),
       },
     );
   };

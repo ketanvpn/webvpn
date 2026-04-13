@@ -1,3 +1,4 @@
+import { getApiError } from "@/lib/utils";
 import {
   useAdminListAccounts,
   useAdminToggleAccount,
@@ -84,7 +85,7 @@ export default function AdminAccounts() {
           queryClient.invalidateQueries({ queryKey: getAdminListAccountsQueryKey() });
         },
         onError: (err) =>
-          toast({ title: "Gagal mengubah status akun", description: err.error, variant: "destructive" }),
+          toast({ title: "Gagal mengubah status akun", description: getApiError(err), variant: "destructive" }),
       }
     );
   };
@@ -98,7 +99,7 @@ export default function AdminAccounts() {
           queryClient.invalidateQueries({ queryKey: getAdminListAccountsQueryKey() });
         },
         onError: (err) =>
-          toast({ title: "Gagal menghapus akun", description: err.error, variant: "destructive" }),
+          toast({ title: "Gagal menghapus akun", description: getApiError(err), variant: "destructive" }),
       }
     );
   };
@@ -120,7 +121,7 @@ export default function AdminAccounts() {
           queryClient.invalidateQueries({ queryKey: getAdminListAccountsQueryKey() });
         },
         onError: (err) =>
-          toast({ title: "Gagal memperpanjang akun", description: err.error, variant: "destructive" }),
+          toast({ title: "Gagal memperpanjang akun", description: getApiError(err), variant: "destructive" }),
       }
     );
   };

@@ -1,3 +1,4 @@
+import { getApiError } from "@/lib/utils";
 import { useGetProduct, useCreateOrder, getGetBalanceQueryKey, useGetBalance } from "@workspace/api-client-react";
 import { useParams, useLocation } from "wouter";
 import { formatRupiah } from "@/lib/format";
@@ -70,7 +71,7 @@ export default function ProductDetail() {
       onError: (err) => {
         toast({
           title: "Order Gagal",
-          description: err.error || "Terjadi kesalahan saat membuat order",
+          description: getApiError(err) || "Terjadi kesalahan saat membuat order",
           variant: "destructive",
         });
       }

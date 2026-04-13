@@ -1,3 +1,4 @@
+import { getApiError } from "@/lib/utils";
 import { useGetOrder, usePayOrder, getGetOrderQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { formatRupiah } from "@/lib/format";
@@ -9,7 +10,7 @@ import { ArrowLeft, Clock, CreditCard, ShoppingBag, AlertCircle, CheckCircle2 } 
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import type { OrderStatus } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { OrderStatus } from "@workspace/api-client-react";
 
 const statusColors: Record<OrderStatus, string> = {
   pending: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
@@ -42,7 +43,7 @@ export default function OrderDetail() {
       onError: (err) => {
         toast({
           title: "Payment Failed",
-          description: err.error || "An error occurred during payment",
+          description: getApiError(err) || "An error occurred during payment",
           variant: "destructive",
         });
       }
