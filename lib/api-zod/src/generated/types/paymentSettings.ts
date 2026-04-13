@@ -12,13 +12,15 @@ export interface PaymentSettings {
   qrisStaticUrl?: string | null;
   /** Aktifkan metode QRIS statis */
   qrisEnabled?: boolean;
+  /** Durasi QRIS statis berlaku dalam menit (default 15) */
+  qrisExpiryMinutes?: number | null;
   /** Aktifkan integrasi AutoGoPay */
   autoGopayEnabled?: boolean;
   /** Base URL API AutoGoPay */
   autoGopayApiUrl?: string | null;
   /** Merchant ID AutoGoPay */
   autoGopayMerchantId?: string | null;
-  /** Secret Key AutoGoPay */
+  /** API Key AutoGoPay (untuk auth dan verifikasi webhook) */
   autoGopaySecretKey?: string | null;
   /** Token verifikasi callback/webhook AutoGoPay */
   autoGopayCallbackToken?: string | null;

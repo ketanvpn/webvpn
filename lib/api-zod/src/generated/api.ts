@@ -1345,13 +1345,20 @@ export const AdminGetPaymentSettingsResponse = zod.object({
     .nullish()
     .describe("URL gambar QRIS statis untuk topup manual"),
   qrisEnabled: zod.boolean().optional().describe("Aktifkan metode QRIS statis"),
+  qrisExpiryMinutes: zod
+    .number()
+    .nullish()
+    .describe("Durasi QRIS statis berlaku dalam menit (default 15)"),
   autoGopayEnabled: zod
     .boolean()
     .optional()
     .describe("Aktifkan integrasi AutoGoPay"),
   autoGopayApiUrl: zod.string().nullish().describe("Base URL API AutoGoPay"),
   autoGopayMerchantId: zod.string().nullish().describe("Merchant ID AutoGoPay"),
-  autoGopaySecretKey: zod.string().nullish().describe("Secret Key AutoGoPay"),
+  autoGopaySecretKey: zod
+    .string()
+    .nullish()
+    .describe("API Key AutoGoPay (untuk auth dan verifikasi webhook)"),
   autoGopayCallbackToken: zod
     .string()
     .nullish()
@@ -1371,13 +1378,20 @@ export const AdminUpdatePaymentSettingsBody = zod.object({
     .nullish()
     .describe("URL gambar QRIS statis untuk topup manual"),
   qrisEnabled: zod.boolean().optional().describe("Aktifkan metode QRIS statis"),
+  qrisExpiryMinutes: zod
+    .number()
+    .nullish()
+    .describe("Durasi QRIS statis berlaku dalam menit (default 15)"),
   autoGopayEnabled: zod
     .boolean()
     .optional()
     .describe("Aktifkan integrasi AutoGoPay"),
   autoGopayApiUrl: zod.string().nullish().describe("Base URL API AutoGoPay"),
   autoGopayMerchantId: zod.string().nullish().describe("Merchant ID AutoGoPay"),
-  autoGopaySecretKey: zod.string().nullish().describe("Secret Key AutoGoPay"),
+  autoGopaySecretKey: zod
+    .string()
+    .nullish()
+    .describe("API Key AutoGoPay (untuk auth dan verifikasi webhook)"),
   autoGopayCallbackToken: zod
     .string()
     .nullish()
@@ -1394,13 +1408,20 @@ export const AdminUpdatePaymentSettingsResponse = zod.object({
     .nullish()
     .describe("URL gambar QRIS statis untuk topup manual"),
   qrisEnabled: zod.boolean().optional().describe("Aktifkan metode QRIS statis"),
+  qrisExpiryMinutes: zod
+    .number()
+    .nullish()
+    .describe("Durasi QRIS statis berlaku dalam menit (default 15)"),
   autoGopayEnabled: zod
     .boolean()
     .optional()
     .describe("Aktifkan integrasi AutoGoPay"),
   autoGopayApiUrl: zod.string().nullish().describe("Base URL API AutoGoPay"),
   autoGopayMerchantId: zod.string().nullish().describe("Merchant ID AutoGoPay"),
-  autoGopaySecretKey: zod.string().nullish().describe("Secret Key AutoGoPay"),
+  autoGopaySecretKey: zod
+    .string()
+    .nullish()
+    .describe("API Key AutoGoPay (untuk auth dan verifikasi webhook)"),
   autoGopayCallbackToken: zod
     .string()
     .nullish()

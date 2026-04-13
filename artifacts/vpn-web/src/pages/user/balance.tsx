@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Wallet, ArrowUpRight, History, Clock, XCircle } from "lucide-react";
+import { Wallet, ArrowUpRight, History, Clock, XCircle, Zap, Timer } from "lucide-react";
 import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,8 +14,32 @@ import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+
+function useCountdown(expiresAt: string | null) {
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!expiresAt) {
+      setSecondsLeft(null);
+      return;
+    }
+    const target = new Date(expiresAt).getTime();
+    const update = () => {
+      const diff = Math.max(0, Math.floor((target - Date.now()) / 1000));
+      setSecondsLeft(diff);
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [expiresAt]);
+
+  if (secondsLeft === null) return null;
+  const m = Math.floor(secondsLeft / 60);
+  const s = secondsLeft % 60;
+  return { secondsLeft, display: `${m}:${String(s).padStart(2, "0")}`, expired: secondsLeft === 0 };
+}
 
 const topupSchema = z.object({
   amount: z.coerce.number().min(10000, "Minimum topup Rp 10.000"),
@@ -28,6 +52,9 @@ export default function Balance() {
   const queryClient = useQueryClient();
   const [showQris, setShowQris] = useState(false);
   const [qrisUrl, setQrisUrl] = useState("");
+  const [qrisExpiresAt, setQrisExpiresAt] = useState<string | null>(null);
+  const [qrisGateway, setQrisGateway] = useState<string | null>(null);
+  const countdown = useCountdown(showQris ? qrisExpiresAt : null);
   
   const { data: balanceData, isLoading: isLoadingBalance } = useGetBalance();
   const { data: historyData, isLoading: isLoadingHistory } = useListTopupHistory();
@@ -41,7 +68,9 @@ export default function Balance() {
   const onSubmit = (values: z.infer<typeof topupSchema>) => {
     topup.mutate({ data: values }, {
       onSuccess: (res) => {
-        setQrisUrl(res.qrisUrl);
+        setQrisUrl(res.qrisUrl ?? "");
+        setQrisExpiresAt(res.expiresAt ?? null);
+        setQrisGateway(res.gateway ?? null);
         setShowQris(true);
         queryClient.invalidateQueries({ queryKey: getListTopupHistoryQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetBalanceQueryKey() });
@@ -215,7 +244,29 @@ export default function Balance() {
               Buka aplikasi bank atau e-wallet kamu dan scan QR berikut untuk menyelesaikan topup.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-center p-6 bg-white rounded-lg my-4">
+
+          {/* Countdown timer */}
+          {countdown && (
+            <div className={`flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-semibold border mx-auto w-fit ${
+              countdown.expired
+                ? "bg-red-500/10 border-red-500/30 text-red-600"
+                : countdown.secondsLeft < 60
+                ? "bg-orange-500/10 border-orange-500/30 text-orange-600"
+                : "bg-muted border-border text-foreground"
+            }`}>
+              <Timer className="h-4 w-4" />
+              {countdown.expired ? "QRIS sudah kadaluarsa" : `QRIS berlaku: ${countdown.display}`}
+            </div>
+          )}
+
+          <div className="flex justify-center p-6 bg-white rounded-lg my-2 relative">
+            {countdown?.expired && (
+              <div className="absolute inset-0 bg-white/90 rounded-lg flex flex-col items-center justify-center z-10 gap-2">
+                <XCircle className="h-10 w-10 text-red-500" />
+                <p className="text-sm font-semibold text-red-600">QRIS Kadaluarsa</p>
+                <p className="text-xs text-muted-foreground">Buat permintaan topup baru.</p>
+              </div>
+            )}
             {qrisUrl ? (
               <img
                 src={qrisUrl}
@@ -232,9 +283,19 @@ export default function Balance() {
               </div>
             )}
           </div>
-          <div className="bg-yellow-500/10 text-yellow-700 p-3 rounded-md text-sm border border-yellow-500/20 text-left">
-            <strong>Catatan:</strong> Setelah bayar, admin akan mengonfirmasi topup kamu dalam beberapa saat.
-          </div>
+
+          {/* Gateway info */}
+          {qrisGateway === "autogopay" ? (
+            <div className="bg-green-500/10 text-green-700 p-3 rounded-md text-sm border border-green-500/20 text-left flex items-start gap-2">
+              <Zap className="h-4 w-4 mt-0.5 shrink-0" />
+              <span><strong>Konfirmasi otomatis!</strong> Saldo dikreditkan langsung setelah pembayaran berhasil.</span>
+            </div>
+          ) : (
+            <div className="bg-yellow-500/10 text-yellow-700 p-3 rounded-md text-sm border border-yellow-500/20 text-left">
+              <strong>Catatan:</strong> Setelah bayar, admin akan mengonfirmasi topup kamu dalam beberapa saat.
+            </div>
+          )}
+
           <Button className="w-full mt-2" onClick={() => setShowQris(false)}>Tutup</Button>
         </DialogContent>
       </Dialog>

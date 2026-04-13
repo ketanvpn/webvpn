@@ -22,13 +22,15 @@ export interface PaymentSettings {
   qrisStaticUrl?: string | null;
   /** Aktifkan metode QRIS statis */
   qrisEnabled?: boolean;
+  /** Durasi QRIS statis berlaku dalam menit (default 15) */
+  qrisExpiryMinutes?: number | null;
   /** Aktifkan integrasi AutoGoPay */
   autoGopayEnabled?: boolean;
   /** Base URL API AutoGoPay */
   autoGopayApiUrl?: string | null;
   /** Merchant ID AutoGoPay */
   autoGopayMerchantId?: string | null;
-  /** Secret Key AutoGoPay */
+  /** API Key AutoGoPay (untuk auth dan verifikasi webhook) */
   autoGopaySecretKey?: string | null;
   /** Token verifikasi callback/webhook AutoGoPay */
   autoGopayCallbackToken?: string | null;
@@ -232,8 +234,10 @@ export interface TopupResponse {
   id: number;
   amount: number;
   /** URL of QRIS payment image */
-  qrisUrl: string;
-  expiresAt?: string;
+  qrisUrl: string | null;
+  expiresAt?: string | null;
+  /** Gateway yang digunakan: 'qris_static' | 'autogopay' */
+  gateway?: string | null;
   status: TopupResponseStatus;
 }
 

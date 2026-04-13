@@ -65,7 +65,8 @@ router.post("/balance/topup", requireAuth, async (req, res) => {
 
   if (activeGateway === "qris_static") {
     qrisUrl = settingsMap["qrisStaticUrl"] ?? null;
-    expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const expiryMinutes = settingsMap["qrisExpiryMinutes"] ? parseInt(settingsMap["qrisExpiryMinutes"], 10) : 15;
+    expiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000);
   } else if (activeGateway === "autogopay") {
     const apiUrl = (settingsMap["autoGopayApiUrl"] ?? "https://api-gopay.sawargipay.cloud").replace(/\/$/, "");
     const apiKey = settingsMap["autoGopaySecretKey"];
@@ -132,6 +133,7 @@ router.post("/balance/topup", requireAuth, async (req, res) => {
     qrisUrl: topup.qrisUrl,
     status: topup.status,
     expiresAt: topup.expiresAt,
+    gateway: activeGateway,
   });
 });
 

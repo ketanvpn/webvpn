@@ -1171,6 +1171,10 @@ components:
         qrisEnabled:
           type: boolean
           description: Aktifkan metode QRIS statis
+        qrisExpiryMinutes:
+          type: integer
+          nullable: true
+          description: Durasi QRIS statis berlaku dalam menit (default 15)
         autoGopayEnabled:
           type: boolean
           description: Aktifkan integrasi AutoGoPay
@@ -1185,7 +1189,7 @@ components:
         autoGopaySecretKey:
           type: string
           nullable: true
-          description: Secret Key AutoGoPay
+          description: API Key AutoGoPay (untuk auth dan verifikasi webhook)
         autoGopayCallbackToken:
           type: string
           nullable: true
@@ -1486,10 +1490,16 @@ components:
           type: number
         qrisUrl:
           type: string
+          nullable: true
           description: URL of QRIS payment image
         expiresAt:
           type: string
           format: date-time
+          nullable: true
+        gateway:
+          type: string
+          nullable: true
+          description: "Gateway yang digunakan: 'qris_static' | 'autogopay'"
         status:
           type: string
           enum: [pending, confirmed, rejected]

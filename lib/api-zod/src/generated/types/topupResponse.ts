@@ -11,7 +11,9 @@ export interface TopupResponse {
   id: number;
   amount: number;
   /** URL of QRIS payment image */
-  qrisUrl: string;
-  expiresAt?: Date;
+  qrisUrl: string | null;
+  expiresAt?: Date | null;
+  /** Gateway yang digunakan: 'qris_static' | 'autogopay' */
+  gateway?: string | null;
   status: TopupResponseStatus;
 }

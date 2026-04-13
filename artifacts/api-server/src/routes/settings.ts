@@ -9,6 +9,7 @@ const router = Router();
 const PAYMENT_KEYS = [
   "qrisStaticUrl",
   "qrisEnabled",
+  "qrisExpiryMinutes",
   "autoGopayEnabled",
   "autoGopayApiUrl",
   "autoGopayMerchantId",
@@ -42,24 +43,30 @@ function parseBoolean(v: string | null): boolean {
   return v === "true";
 }
 
-router.get("/admin/settings/payment", requireAdmin, async (_req, res) => {
-  const rows = await db.select().from(settingsTable);
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-
-  res.json({
+function buildPaymentSettingsResponse(map: Record<string, string | null>) {
+  const expiryRaw = map["qrisExpiryMinutes"];
+  const qrisExpiryMinutes = expiryRaw ? parseInt(expiryRaw, 10) : 15;
+  return {
     qrisStaticUrl: map["qrisStaticUrl"] ?? null,
     qrisEnabled: parseBoolean(map["qrisEnabled"] ?? "true"),
+    qrisExpiryMinutes,
     autoGopayEnabled: parseBoolean(map["autoGopayEnabled"] ?? null),
     autoGopayApiUrl: map["autoGopayApiUrl"] ?? null,
     autoGopayMerchantId: map["autoGopayMerchantId"] ?? null,
     autoGopaySecretKey: map["autoGopaySecretKey"] ?? null,
     autoGopayCallbackToken: map["autoGopayCallbackToken"] ?? null,
     activeGateway: map["activeGateway"] ?? "qris_static",
-  });
+  };
+}
+
+router.get("/admin/settings/payment", requireAdmin, async (_req, res) => {
+  const rows = await db.select().from(settingsTable);
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  res.json(buildPaymentSettingsResponse(map));
 });
 
 router.put("/admin/settings/payment", requireAdmin, async (req, res) => {
-  const body = req.body as Record<string, string | boolean | null>;
+  const body = req.body as Record<string, string | boolean | null | number>;
 
   for (const key of PAYMENT_KEYS) {
     if (key in body) {
@@ -71,17 +78,7 @@ router.put("/admin/settings/payment", requireAdmin, async (req, res) => {
 
   const rows = await db.select().from(settingsTable);
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-
-  res.json({
-    qrisStaticUrl: map["qrisStaticUrl"] ?? null,
-    qrisEnabled: parseBoolean(map["qrisEnabled"] ?? "true"),
-    autoGopayEnabled: parseBoolean(map["autoGopayEnabled"] ?? null),
-    autoGopayApiUrl: map["autoGopayApiUrl"] ?? null,
-    autoGopayMerchantId: map["autoGopayMerchantId"] ?? null,
-    autoGopaySecretKey: map["autoGopaySecretKey"] ?? null,
-    autoGopayCallbackToken: map["autoGopayCallbackToken"] ?? null,
-    activeGateway: map["activeGateway"] ?? "qris_static",
-  });
+  res.json(buildPaymentSettingsResponse(map));
 });
 
 export async function getPaymentSettingsMap(): Promise<Record<string, string | null>> {

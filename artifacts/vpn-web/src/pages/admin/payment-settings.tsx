@@ -16,13 +16,16 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { QrCode, Zap, AlertCircle, Eye, EyeOff, Copy, CheckCircle2, Info } from "lucide-react";
+import { QrCode, Zap, AlertCircle, Eye, EyeOff, Copy, CheckCircle2, Info, Timer } from "lucide-react";
 import { useState, useEffect } from "react";
+
+const EXPIRY_OPTIONS = [5, 10, 15, 30, 60] as const;
 
 const schema = z.object({
   activeGateway: z.enum(["qris_static", "autogopay"]),
   qrisEnabled: z.boolean(),
   qrisStaticUrl: z.string().optional().nullable(),
+  qrisExpiryMinutes: z.number().int().min(1),
   autoGopayEnabled: z.boolean(),
   autoGopayApiUrl: z.string().optional().nullable(),
   autoGopaySecretKey: z.string().optional().nullable(),
@@ -90,6 +93,7 @@ export default function AdminPaymentSettings() {
       activeGateway: "qris_static",
       qrisEnabled: true,
       qrisStaticUrl: "",
+      qrisExpiryMinutes: 15,
       autoGopayEnabled: false,
       autoGopayApiUrl: "https://api-gopay.sawargipay.cloud",
       autoGopaySecretKey: "",
@@ -102,6 +106,7 @@ export default function AdminPaymentSettings() {
         activeGateway: (settings.activeGateway as "qris_static" | "autogopay") ?? "qris_static",
         qrisEnabled: settings.qrisEnabled ?? true,
         qrisStaticUrl: settings.qrisStaticUrl ?? "",
+        qrisExpiryMinutes: settings.qrisExpiryMinutes ?? 15,
         autoGopayEnabled: settings.autoGopayEnabled ?? false,
         autoGopayApiUrl: settings.autoGopayApiUrl ?? "https://api-gopay.sawargipay.cloud",
         autoGopaySecretKey: settings.autoGopaySecretKey ?? "",
@@ -116,6 +121,7 @@ export default function AdminPaymentSettings() {
           activeGateway: values.activeGateway,
           qrisEnabled: values.qrisEnabled,
           qrisStaticUrl: values.qrisStaticUrl || null,
+          qrisExpiryMinutes: values.qrisExpiryMinutes,
           autoGopayEnabled: values.autoGopayEnabled,
           autoGopayApiUrl: values.autoGopayApiUrl || null,
           autoGopaySecretKey: values.autoGopaySecretKey || null,
@@ -265,6 +271,40 @@ export default function AdminPaymentSettings() {
                     <p className="text-xs text-muted-foreground">
                       Bisa pakai URL dari Google Drive, S3, Imgbb, atau hosting gambar lainnya.
                     </p>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="qrisExpiryMinutes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-1.5">
+                      <Timer className="h-4 w-4" /> Durasi QRIS Berlaku
+                    </FormLabel>
+                    <FormControl>
+                      <div className="flex flex-wrap gap-2">
+                        {EXPIRY_OPTIONS.map((min) => (
+                          <button
+                            key={min}
+                            type="button"
+                            onClick={() => field.onChange(min)}
+                            className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
+                              field.value === min
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-border hover:border-primary/50 bg-background"
+                            }`}
+                          >
+                            {min} menit
+                          </button>
+                        ))}
+                      </div>
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      Berapa lama QRIS valid sejak dibuat. Direkomendasikan 10–15 menit.
+                    </p>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
