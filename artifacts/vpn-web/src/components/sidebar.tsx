@@ -60,6 +60,58 @@ const adminNav: NavItem[] = [
   { title: "Broadcast", href: "/admin/broadcast", icon: Send },
 ];
 
+const mobileBottomNav: NavItem[] = [
+  { title: "Beranda", href: "/dashboard", icon: LayoutDashboard },
+  { title: "Produk", href: "/products", icon: Package },
+  { title: "Akun", href: "/accounts", icon: Server },
+  { title: "Order", href: "/orders", icon: ShoppingCart },
+  { title: "Profil", href: "/profile", icon: Settings },
+];
+
+function isNavActive(location: string, href: string): boolean {
+  if (location === href) return true;
+  if (
+    href !== "/admin" &&
+    href !== "/dashboard" &&
+    href !== "/" &&
+    href !== "/balance"
+  ) {
+    return location.startsWith(href + "/");
+  }
+  return false;
+}
+
+export function MobileBottomNav() {
+  const [location] = useLocation();
+
+  return (
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t shadow-lg safe-area-inset-bottom">
+      <div className="flex items-stretch h-16">
+        {mobileBottomNav.map((item) => {
+          const active = isNavActive(location, item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex flex-col items-center justify-center flex-1 gap-1 text-[10px] font-medium transition-colors min-w-0 px-1 ${
+                active
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <item.icon className={`h-5 w-5 shrink-0 ${active ? "text-primary" : ""}`} />
+              <span className="truncate w-full text-center">{item.title}</span>
+              {active && (
+                <span className="absolute bottom-0 h-0.5 w-8 bg-primary rounded-full" />
+              )}
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
 export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const [location] = useLocation();
   const { logout, isAdmin: userIsAdmin } = useAuth();
@@ -83,20 +135,14 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
       </div>
 
       {nav.map((item) => {
-        const isActive =
-          location === item.href ||
-          (location.startsWith(item.href + "/") &&
-            item.href !== "/admin" &&
-            item.href !== "/dashboard" &&
-            item.href !== "/" &&
-            item.href !== "/balance");
+        const active = isNavActive(location, item.href);
         const badge = item.badgeKey === "pendingTopups" ? pendingTopups : 0;
         return (
           <Link
             key={item.href}
             href={item.href}
             className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
-              isActive
+              active
                 ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             }`}
@@ -106,7 +152,7 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
             {badge > 0 && (
               <span
                 className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${
-                  isActive
+                  active
                     ? "bg-primary-foreground/20 text-primary-foreground"
                     : "bg-yellow-500 text-white"
                 }`}
@@ -145,27 +191,29 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
 
   return (
     <>
-      {/* Mobile Sidebar */}
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" className="md:hidden absolute top-4 left-4 z-50">
-            <Menu className="h-5 w-5" />
-            <span className="sr-only">Buka menu</span>
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="p-0 w-64">
-          <SheetHeader className="sr-only">
-            <SheetTitle>Menu Navigasi</SheetTitle>
-            <SheetDescription>Navigasi utama aplikasi KETANTECH VPN</SheetDescription>
-          </SheetHeader>
-          <div className="flex h-full flex-col">
-            <NavLinks />
-          </div>
-        </SheetContent>
-      </Sheet>
+      {/* Mobile Hamburger — hanya untuk admin */}
+      {isAdmin && (
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="md:hidden absolute top-4 left-4 z-50">
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Buka menu</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="p-0 w-64">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Menu Navigasi</SheetTitle>
+              <SheetDescription>Navigasi utama aplikasi KETANTECH VPN</SheetDescription>
+            </SheetHeader>
+            <div className="flex h-full flex-col">
+              <NavLinks />
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
 
-      {/* Desktop Sidebar */}
-      <div className="hidden md:flex h-screen w-64 flex-col border-r bg-card/50 backdrop-blur-xl">
+      {/* Desktop Sidebar — selalu tampil di layar besar */}
+      <div className="hidden md:flex h-screen w-64 flex-col border-r bg-card/50 backdrop-blur-xl sticky top-0">
         <NavLinks />
       </div>
     </>

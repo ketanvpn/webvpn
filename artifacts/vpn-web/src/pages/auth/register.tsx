@@ -17,9 +17,9 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 
 const registerSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  username: z.string().min(3, "Username minimal 3 karakter"),
+  email: z.string().email("Alamat email tidak valid"),
+  password: z.string().min(6, "Password minimal 6 karakter"),
   fullName: z.string().optional(),
 });
 
@@ -44,16 +44,16 @@ export default function Register() {
       {
         onSuccess: () => {
           toast({
-            title: "Success",
-            description: "Account created successfully",
+            title: "Registrasi berhasil",
+            description: "Akun berhasil dibuat, selamat datang!",
           });
           setLocation("/dashboard");
           window.location.reload();
         },
         onError: (error) => {
           toast({
-            title: "Error",
-            description: getApiError(error) || "Failed to create account",
+            title: "Registrasi gagal",
+            description: getApiError(error) || "Gagal membuat akun, coba lagi",
             variant: "destructive",
           });
         },
@@ -69,12 +69,12 @@ export default function Register() {
             KETANTECH
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Create a new account
+            Buat akun baru
           </p>
         </div>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
             <FormField
               control={form.control}
               name="username"
@@ -82,7 +82,11 @@ export default function Register() {
                 <FormItem>
                   <FormLabel>Username</FormLabel>
                   <FormControl>
-                    <Input placeholder="Choose a username" {...field} />
+                    <Input
+                      placeholder="Pilih username"
+                      autoComplete="username"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -95,7 +99,12 @@ export default function Register() {
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="Enter your email" {...field} />
+                    <Input
+                      type="email"
+                      placeholder="Masukkan email"
+                      autoComplete="email"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -106,9 +115,13 @@ export default function Register() {
               name="fullName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Full Name (Optional)</FormLabel>
+                  <FormLabel>Nama Lengkap <span className="text-muted-foreground text-xs">(Opsional)</span></FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter your full name" {...field} />
+                    <Input
+                      placeholder="Masukkan nama lengkap"
+                      autoComplete="name"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -123,7 +136,8 @@ export default function Register() {
                   <FormControl>
                     <Input
                       type="password"
-                      placeholder="Choose a password"
+                      placeholder="Buat password"
+                      autoComplete="new-password"
                       {...field}
                     />
                   </FormControl>
@@ -133,18 +147,18 @@ export default function Register() {
             />
             <Button
               type="submit"
-              className="w-full"
+              className="w-full h-11 text-base"
               disabled={register.isPending}
             >
-              {register.isPending ? "Creating account..." : "Sign up"}
+              {register.isPending ? "Memproses..." : "Daftar"}
             </Button>
           </form>
         </Form>
 
         <div className="text-center text-sm">
-          <span className="text-muted-foreground">Already have an account? </span>
+          <span className="text-muted-foreground">Sudah punya akun? </span>
           <Link href="/login" className="font-medium text-primary hover:underline">
-            Sign in
+            Masuk
           </Link>
         </div>
       </div>

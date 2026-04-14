@@ -17,8 +17,8 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 
 const loginSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  username: z.string().min(3, "Username minimal 3 karakter"),
+  password: z.string().min(6, "Password minimal 6 karakter"),
 });
 
 export default function Login() {
@@ -66,7 +66,7 @@ export default function Login() {
             KETANTECH
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Sign in to your account
+            Masuk ke akunmu
           </p>
         </div>
 
@@ -79,7 +79,11 @@ export default function Login() {
                 <FormItem>
                   <FormLabel>Username</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter your username" {...field} />
+                    <Input
+                      placeholder="Masukkan username"
+                      autoComplete="username"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -94,7 +98,8 @@ export default function Login() {
                   <FormControl>
                     <Input
                       type="password"
-                      placeholder="Enter your password"
+                      placeholder="Masukkan password"
+                      autoComplete="current-password"
                       {...field}
                     />
                   </FormControl>
@@ -104,21 +109,21 @@ export default function Login() {
             />
             <Button
               type="submit"
-              className="w-full"
+              className="w-full h-11 text-base"
               disabled={login.isPending}
             >
-              {login.isPending ? "Signing in..." : "Sign in"}
+              {login.isPending ? "Memproses..." : "Masuk"}
             </Button>
           </form>
         </Form>
 
         <div className="text-center text-sm">
-          <span className="text-muted-foreground">Don't have an account? </span>
+          <span className="text-muted-foreground">Belum punya akun? </span>
           <Link
             href="/register"
             className="font-medium text-primary hover:underline"
           >
-            Sign up
+            Daftar
           </Link>
         </div>
       </div>
