@@ -9,7 +9,8 @@ import {
   topupsTable,
 } from "@workspace/db";
 import { eq, and, or, ilike, desc, asc, sql } from "drizzle-orm";
-import { randomUUID } from "crypto";
+import { randomUUID, randomBytes } from "crypto";
+import bcrypt from "bcryptjs";
 import { requireAdmin } from "../lib/auth";
 import { formatProduct } from "./products";
 import { formatOrder } from "./orders";
@@ -168,6 +169,66 @@ router.get("/admin/users", requireAdmin, async (req, res) => {
     users: users.map(formatUser),
     total: total?.count ?? 0,
   });
+});
+
+router.post("/admin/users", requireAdmin, async (req, res) => {
+  const { username, password, email, fullName, whatsapp, role } = req.body ?? {};
+
+  if (!username || typeof username !== "string" || username.trim().length < 3) {
+    res.status(400).json({ error: "Username minimal 3 karakter" });
+    return;
+  }
+  if (!password || typeof password !== "string" || password.length < 6) {
+    res.status(400).json({ error: "Password minimal 6 karakter" });
+    return;
+  }
+  if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+    res.status(400).json({ error: "Username hanya boleh huruf, angka, dan underscore" });
+    return;
+  }
+  const validRoles = ["user", "reseller", "admin"];
+  const userRole = validRoles.includes(role) ? role : "user";
+
+  const [existingUsername] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.username, username.trim()))
+    .limit(1);
+  if (existingUsername) {
+    res.status(409).json({ error: "Username sudah digunakan" });
+    return;
+  }
+
+  if (email) {
+    const [existingEmail] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.email, String(email)))
+      .limit(1);
+    if (existingEmail) {
+      res.status(409).json({ error: "Email sudah digunakan" });
+      return;
+    }
+  }
+
+  const passwordHash = await bcrypt.hash(String(password), 12);
+  const referralCode = randomBytes(4).toString("hex").toUpperCase();
+
+  const [user] = await db
+    .insert(usersTable)
+    .values({
+      username: username.trim(),
+      email: email ? String(email) : null,
+      passwordHash,
+      fullName: fullName ? String(fullName) : null,
+      whatsapp: whatsapp ? String(whatsapp) : null,
+      isVerified: true,
+      role: userRole,
+      referralCode,
+    })
+    .returning();
+
+  res.status(201).json(formatUser(user));
 });
 
 router.get("/admin/users/:id", requireAdmin, async (req, res) => {

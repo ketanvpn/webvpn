@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { formatRupiah } from "@/lib/format";
 import { format } from "date-fns";
 import { useDebounce } from "@/hooks/use-debounce";
-import { Users, Search, ShieldAlert, Shield, ChevronLeft, ChevronRight } from "lucide-react";
+import { Users, Search, ShieldAlert, Shield, ChevronLeft, ChevronRight, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -17,6 +17,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
+import { getApiError } from "@/lib/utils";
 
 const roleColors: Record<string, string> = {
   admin: "bg-red-500/10 text-red-600 border-red-200",
@@ -26,11 +38,36 @@ const roleColors: Record<string, string> = {
 
 const PAGE_SIZE = 20;
 
+type CreateUserForm = {
+  username: string;
+  password: string;
+  fullName: string;
+  email: string;
+  whatsapp: string;
+  role: "user" | "reseller" | "admin";
+};
+
+const defaultForm: CreateUserForm = {
+  username: "",
+  password: "",
+  fullName: "",
+  email: "",
+  whatsapp: "",
+  role: "user",
+};
+
 export default function AdminUsers() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [page, setPage] = useState(0);
   const debouncedSearch = useDebounce(search, 500);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [form, setForm] = useState<CreateUserForm>(defaultForm);
+  const [isCreating, setIsCreating] = useState(false);
+  const [formErrors, setFormErrors] = useState<Partial<CreateUserForm>>({});
 
   const { data, isLoading } = useAdminListUsers({
     search: debouncedSearch || undefined,
@@ -53,6 +90,63 @@ export default function AdminUsers() {
     setPage(0);
   };
 
+  function validateForm(): boolean {
+    const errors: Partial<CreateUserForm> = {};
+    if (!form.username.trim() || form.username.trim().length < 3) {
+      errors.username = "Username minimal 3 karakter";
+    } else if (!/^[a-zA-Z0-9_]+$/.test(form.username)) {
+      errors.username = "Hanya huruf, angka, dan underscore";
+    }
+    if (!form.password || form.password.length < 6) {
+      errors.password = "Password minimal 6 karakter";
+    }
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      errors.email = "Format email tidak valid";
+    }
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
+
+  async function handleCreate() {
+    if (!validateForm()) return;
+    setIsCreating(true);
+    try {
+      const resp = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          username: form.username.trim(),
+          password: form.password,
+          fullName: form.fullName || undefined,
+          email: form.email || undefined,
+          whatsapp: form.whatsapp || undefined,
+          role: form.role,
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        toast({ title: "Gagal membuat pengguna", description: data.error ?? "Coba lagi", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Pengguna berhasil dibuat!", description: `@${data.username} (${data.role}) sudah ditambahkan.` });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setDialogOpen(false);
+      setForm(defaultForm);
+      setFormErrors({});
+    } catch {
+      toast({ title: "Gagal", description: "Tidak dapat terhubung ke server", variant: "destructive" });
+    } finally {
+      setIsCreating(false);
+    }
+  }
+
+  function handleOpenDialog() {
+    setForm(defaultForm);
+    setFormErrors({});
+    setDialogOpen(true);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
@@ -60,29 +154,34 @@ export default function AdminUsers() {
           <h1 className="text-3xl font-bold tracking-tight">Manajemen Pengguna</h1>
           <p className="text-muted-foreground mt-1">Kelola user dan reseller platform.</p>
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Cari username / email..."
-              className="pl-9"
-              value={search}
-              onChange={(e) => handleSearchChange(e.target.value)}
-            />
-          </div>
-          <Select value={roleFilter} onValueChange={handleRoleChange}>
-            <SelectTrigger className="w-[130px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Semua Role</SelectItem>
-              <SelectItem value="user">User</SelectItem>
-              <SelectItem value="reseller">Reseller</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
-            </SelectContent>
-          </Select>
+        <Button onClick={handleOpenDialog} className="gap-2 shrink-0">
+          <UserPlus className="h-4 w-4" />
+          Tambah Pengguna
+        </Button>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Cari username / email..."
+            className="pl-9"
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+          />
         </div>
+        <Select value={roleFilter} onValueChange={handleRoleChange}>
+          <SelectTrigger className="w-full sm:w-[140px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Semua Role</SelectItem>
+            <SelectItem value="user">User</SelectItem>
+            <SelectItem value="reseller">Reseller</SelectItem>
+            <SelectItem value="admin">Admin</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <Card>
@@ -104,11 +203,11 @@ export default function AdminUsers() {
               {users.map((user) => (
                 <div key={user.id} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-accent/30 transition-colors">
                   <div className="flex items-start gap-4">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">
                       {user.username.substring(0, 2).toUpperCase()}
                     </div>
                     <div>
-                      <div className="font-semibold flex items-center gap-2">
+                      <div className="font-semibold flex items-center gap-2 flex-wrap">
                         {user.username}
                         {user.role === 'admin' && <ShieldAlert className="h-3 w-3 text-red-500" />}
                         {user.role === 'reseller' && <Shield className="h-3 w-3 text-blue-500" />}
@@ -116,7 +215,7 @@ export default function AdminUsers() {
                           {user.role}
                         </Badge>
                       </div>
-                      <div className="text-sm text-muted-foreground">{user.email}</div>
+                      <div className="text-sm text-muted-foreground">{user.email ?? "-"}</div>
                     </div>
                   </div>
 
@@ -172,6 +271,127 @@ export default function AdminUsers() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5" /> Tambah Pengguna Baru
+            </DialogTitle>
+            <DialogDescription>
+              Buat akun baru secara manual. Akun langsung aktif tanpa verifikasi WhatsApp.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="new-username">
+                  Username <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="new-username"
+                  placeholder="contoh123"
+                  value={form.username}
+                  onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+                />
+                {formErrors.username && (
+                  <p className="text-xs text-destructive">{formErrors.username}</p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="new-role">Role</Label>
+                <Select
+                  value={form.role}
+                  onValueChange={(v) => setForm((f) => ({ ...f, role: v as CreateUserForm["role"] }))}
+                >
+                  <SelectTrigger id="new-role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="user">User</SelectItem>
+                    <SelectItem value="reseller">Reseller</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="new-password">
+                Password <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="new-password"
+                type="password"
+                placeholder="Min. 6 karakter"
+                value={form.password}
+                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+              />
+              {formErrors.password && (
+                <p className="text-xs text-destructive">{formErrors.password}</p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="new-fullname">
+                Nama Lengkap <span className="text-muted-foreground text-xs">(opsional)</span>
+              </Label>
+              <Input
+                id="new-fullname"
+                placeholder="Nama lengkap pengguna"
+                value={form.fullName}
+                onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="new-email">
+                Email <span className="text-muted-foreground text-xs">(opsional)</span>
+              </Label>
+              <Input
+                id="new-email"
+                type="email"
+                placeholder="email@contoh.com"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+              />
+              {formErrors.email && (
+                <p className="text-xs text-destructive">{formErrors.email}</p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="new-whatsapp">
+                WhatsApp <span className="text-muted-foreground text-xs">(opsional)</span>
+              </Label>
+              <Input
+                id="new-whatsapp"
+                type="tel"
+                placeholder="08xxxxxxxxxx"
+                value={form.whatsapp}
+                onChange={(e) => setForm((f) => ({ ...f, whatsapp: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isCreating}>
+              Batal
+            </Button>
+            <Button onClick={handleCreate} disabled={isCreating} className="gap-2">
+              {isCreating ? (
+                "Membuat..."
+              ) : (
+                <>
+                  <UserPlus className="h-4 w-4" /> Buat Akun
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
