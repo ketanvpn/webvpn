@@ -245,8 +245,12 @@ export interface CreateOrderBody {
   productId: number;
   serverId?: number | null;
   paymentMethod?: CreateOrderBodyPaymentMethod;
-  /** Custom account name / label (e.g. "lekanto1") */
-  remarks?: string | null;
+  /**
+   * Nama akun VPN unik. Wajib minimal 5 karakter, mengandung huruf dan minimal 2 angka. Contoh: daaw12
+   * @minLength 5
+   * @pattern ^(?=(?:.*[a-zA-Z]))(?=(?:.*[0-9]){2,}).{5,}$
+   */
+  remarks: string;
 }
 
 export interface OrderListResponse {

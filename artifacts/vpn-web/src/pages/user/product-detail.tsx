@@ -44,11 +44,26 @@ export default function ProductDetail() {
 
   const createOrder = useCreateOrder();
 
+  const isRemarksValid = (val: string) => {
+    if (val.length < 5) return false;
+    const hasLetter = /[a-zA-Z]/.test(val);
+    const digitCount = (val.match(/[0-9]/g) || []).length;
+    return hasLetter && digitCount >= 2;
+  };
+
   const handleOpenConfirm = () => {
     if (!remarks.trim()) {
       toast({
         title: "Nama akun wajib diisi",
-        description: "Masukkan nama akun VPN kamu (contoh: lekanto1)",
+        description: "Masukkan nama akun VPN kamu. Contoh: daaw12",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!isRemarksValid(remarks)) {
+      toast({
+        title: "Format nama akun tidak valid",
+        description: "Minimal 5 karakter, harus ada huruf dan minimal 2 angka. Contoh: daaw12",
         variant: "destructive",
       });
       return;
@@ -194,15 +209,24 @@ export default function ProductDetail() {
                 </Label>
                 <Input
                   id="remarks"
-                  placeholder="Contoh: lekanto1"
+                  placeholder="Contoh: daaw12"
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value.replace(/[^a-zA-Z0-9]/g, ""))}
                   maxLength={20}
-                  className="font-mono"
+                  className={`font-mono ${remarks && !isRemarksValid(remarks) ? "border-destructive focus-visible:ring-destructive" : ""}`}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Hanya huruf dan angka. Ini akan menjadi nama akun VPN kamu di server.
+                  Minimal 5 karakter, harus ada huruf dan minimal 2 angka. Ini langsung jadi nama akunmu di server VPN.
                 </p>
+                {remarks && !isRemarksValid(remarks) && (
+                  <p className="text-xs text-destructive">
+                    {remarks.length < 5
+                      ? `Terlalu pendek (${remarks.length}/5 karakter)`
+                      : !/[a-zA-Z]/.test(remarks)
+                      ? "Harus ada minimal 1 huruf"
+                      : "Harus ada minimal 2 angka"}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-3">
@@ -253,7 +277,7 @@ export default function ProductDetail() {
                 size="lg"
                 className="w-full text-lg h-14"
                 onClick={handleOpenConfirm}
-                disabled={createOrder.isPending || !remarks.trim() || (paymentMethod === "balance" && balance < product.price)}
+                disabled={createOrder.isPending || !isRemarksValid(remarks) || (paymentMethod === "balance" && balance < product.price)}
               >
                 {createOrder.isPending ? "Memproses..." : "Buat Order"}
               </Button>

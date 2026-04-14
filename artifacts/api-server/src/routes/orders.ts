@@ -147,10 +147,7 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
   if (!server) throw new Error("Tidak ada server yang tersedia saat ini");
 
   const expiresAt = new Date(Date.now() + product.durationDays * 24 * 60 * 60 * 1000);
-  const remarksBase = order.notes ? sanitizeVpnUsername(order.notes) : null;
-  const rawUsername = remarksBase && remarksBase.length >= 3
-    ? `${remarksBase}${Date.now().toString().slice(-4)}`
-    : `${sanitizeVpnUsername(user.username)}${Date.now()}`;
+  const rawUsername = sanitizeVpnUsername(order.notes ?? user.username);
   const vpnPassword = randomUUID().replace(/-/g, "").slice(0, 12);
   const vpnUuid = randomUUID();
 
@@ -310,7 +307,11 @@ router.get("/orders", requireAuth, async (req, res) => {
 router.post("/orders", requireAuth, async (req, res) => {
   const parsed = CreateOrderBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid input" });
+    const remarksIssue = parsed.error.issues.find((i) => i.path.includes("remarks"));
+    const errorMsg = remarksIssue
+      ? "Nama akun tidak valid. Minimal 5 karakter, harus mengandung huruf dan minimal 2 angka. Contoh: daaw12"
+      : "Input tidak valid";
+    res.status(400).json({ error: errorMsg });
     return;
   }
   const { productId, paymentMethod = "balance", remarks } = parsed.data;

@@ -69,7 +69,6 @@ export const GetMeResponse = zod.object({
   username: zod.string(),
   email: zod.string(),
   fullName: zod.string().nullish(),
-  whatsapp: zod.string().nullish(),
   role: zod.enum(["user", "reseller", "admin"]),
   balance: zod.number().describe("Balance in IDR"),
   isActive: zod.boolean(),
@@ -91,7 +90,6 @@ export const UpdateProfileResponse = zod.object({
   username: zod.string(),
   email: zod.string(),
   fullName: zod.string().nullish(),
-  whatsapp: zod.string().nullish(),
   role: zod.enum(["user", "reseller", "admin"]),
   balance: zod.number().describe("Balance in IDR"),
   isActive: zod.boolean(),
@@ -231,6 +229,11 @@ export const ListOrdersResponse = zod.object({
  * @summary Create a new order (purchase VPN)
  */
 export const createOrderBodyPaymentMethodDefault = `balance`;
+export const createOrderBodyRemarksMin = 5;
+
+export const createOrderBodyRemarksRegExp = new RegExp(
+  "^(?=(?:.\*[a-zA-Z]))(?=(?:.\*[0-9]){2,}).{5,}$",
+);
 
 export const CreateOrderBody = zod.object({
   productId: zod.number(),
@@ -240,8 +243,11 @@ export const CreateOrderBody = zod.object({
     .default(createOrderBodyPaymentMethodDefault),
   remarks: zod
     .string()
-    .nullish()
-    .describe('Custom account name \/ label (e.g. \"lekanto1\")'),
+    .min(createOrderBodyRemarksMin)
+    .regex(createOrderBodyRemarksRegExp)
+    .describe(
+      "Nama akun VPN unik. Wajib minimal 5 karakter, mengandung huruf dan minimal 2 angka. Contoh: daaw12",
+    ),
 });
 
 /**

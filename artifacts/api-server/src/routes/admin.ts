@@ -671,7 +671,7 @@ router.post("/admin/orders/:id/confirm", requireAdmin, async (req, res) => {
 
     if (product && user && server) {
       const expiresAt = new Date(Date.now() + product.durationDays * 24 * 60 * 60 * 1000);
-      const rawUsername = `${sanitizeVpnUsername(user.username)}${Date.now()}`;
+      const rawUsername = sanitizeVpnUsername(order.notes ?? user.username);
       const vpnPassword = randomUUID().replace(/-/g, "").slice(0, 12);
       const vpnUuid = randomUUID();
 
