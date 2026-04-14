@@ -1,0 +1,18 @@
+/var/www/ketantech-vpn/artifacts/vpn-web/src/pages/admin/accounts.tsx, /var/www/ketantech-vpn/artifacts/vpn-web/src/pages/admin/broadcast.tsx, /var/www/ketantech-vpn/artifacts/vpn-web/src/pages/admin/dashboard.tsx, /var/www/ketantech-vpn/artifacts/vpn-web/src/pages/admin/orders.tsx, /var/www/ketantech-vpn/artifacts/vpn-web/src/pages/admin/payment-settings.tsx, /var/www/ketantech-vpn/artifacts/vpn-web/src/pages/admin/products.tsx, /var/www/ketantech-vpn/artifacts/vpn-web/src/pages/admin/servers.tsx, /var/www/ketantech-vpn/artifacts/vpn-web/src/pages/admin/telegram-settings.tsx, /var/www/ketantech-vpn/artifacts/vpn-web/src/pages/admin/topups.tsx, /var/www/ketantech-vpn/artifacts/vpn-web/src/pages/admin/user-detail.tsx, /var/www/ketantech-vpn/artifacts/vpn-web/src/pages/admin/users.tsx, /var/www/ketantech-vpn/artifacts/vpn-web/src/pages/auth/login.tsx, /var/www/ketantech-vpn/artifacts/vpn-web/src/pages/auth/register.tsx, /var/www/ketantech-vpn/artifacts/vpn-web/src/pages/user/account-detail.tsx, /var/www/ketantech-vpn/artifacts/vpn-web/src/pages/user/accounts.tsx, /var/www/ketantech-vpn/artifacts/vpn-web/src/pages/user/balance-logs.tsx, /var/www/ketantech-vpn/artifacts/vpn-web/src/pages/user/balance.tsx, /var/www/ketantech-vpn/artifacts/vpn-web/src/pages/user/dashboard.tsx, /var/www/ketantech-vpn/artifacts/vpn-web/src/pages/user/order-detail.tsx, /var/www/ketantech-vpn/artifacts/vpn-web/src/pages/user/orders.tsx, /var/www/ketantech-vpn/artifacts/vpn-web/src/pages/user/product-detail.tsx, /var/www/ketantech-vpn/artifacts/vpn-web/src/pages/user/products.tsx, /var/www/ketantech-vpn/artifacts/vpn-web/src/pages/user/profile.tsx, dynamic import will not move module into another chunk.
+dist/public/index.html                     0.73 kB │ gzip:   0.41 kB
+dist/public/assets/index-D2g7TBAr.css    126.14 kB │ gzip:  20.17 kB
+dist/public/assets/index-CkeXkOgy.js   1,189.11 kB │ gzip: 332.55 kB
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 13.78s
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [ketantech-api](ids: [ 0 ])
+[PM2] [ketantech-api](0) ✓
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 0  │ ketantech-api      │ fork     │ 3    │ online    │ 0%       │ 19.0mb   │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+root@GEMBOKBILL:/var/www/ketantech-vpn#
