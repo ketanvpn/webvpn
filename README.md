@@ -224,6 +224,12 @@ Kalau masih ada error, baca bagian **Troubleshooting** di bawah.
 
 ### Langkah 11 — Build Aplikasi
 
+Pastikan kamu berada di folder project:
+
+```bash
+cd /var/www/ketantech-vpn
+```
+
 Build backend API:
 
 ```bash
@@ -236,19 +242,33 @@ Build frontend website:
 PORT=3000 BASE_PATH=/ NODE_ENV=production pnpm --filter @workspace/vpn-web run build
 ```
 
-Kedua proses ini akan memakan waktu 1-3 menit. Tunggu sampai selesai.
+Kedua proses ini akan memakan waktu 1-3 menit. Tunggu sampai kembali ke prompt `#` sebelum melanjutkan.
 
 ---
 
 ### Langkah 12 — Jalankan Aplikasi dengan PM2
 
-Buat file konfigurasi PM2 agar semua variabel dari `.env` otomatis terbaca:
+**Pertama, buat SESSION_SECRET** (string acak untuk keamanan sesi login). Jalankan perintah ini dan **catat hasilnya**:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Contoh output (punya kamu akan berbeda, itu normal):
+```
+a3f8b2c1d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1
+```
+
+Salin string panjang itu, lalu buat file konfigurasi PM2:
 
 ```bash
 nano /var/www/ketantech-vpn/ecosystem.config.cjs
 ```
 
-Salin dan tempelkan isi berikut **persis seperti ini** (ganti `PASSWORD_KAMU` dan `SESSION_SECRET_KAMU`):
+Tempelkan isi berikut ke dalam editor. **Ganti tiga bagian ini sebelum menyimpan:**
+- `PASSWORD_KAMU` → password PostgreSQL dari Langkah 5
+- `ketantech_db` → nama database dari Langkah 5 (jika kamu tidak mengubahnya, biarkan `ketantech_db`)
+- `SESSION_SECRET_KAMU` → string panjang acak yang baru saja kamu catat
 
 ```javascript
 module.exports = {
@@ -271,28 +291,34 @@ module.exports = {
 
 Simpan dengan **Ctrl+X**, lalu **Y**, lalu **Enter**.
 
+Verifikasi isinya sudah benar (pastikan tidak ada tulisan `PASSWORD_KAMU` atau `SESSION_SECRET_KAMU` yang belum diganti):
+
+```bash
+cat /var/www/ketantech-vpn/ecosystem.config.cjs
+```
+
 Jalankan aplikasi:
 
 ```bash
 cd /var/www/ketantech-vpn
 pm2 start ecosystem.config.cjs
+pm2 save
 ```
 
-Simpan konfigurasi PM2 agar otomatis jalan saat VPS restart:
+Simpan agar otomatis jalan saat VPS restart:
 
 ```bash
-pm2 save
 pm2 startup
 ```
 
-Perintah `pm2 startup` akan menampilkan sebuah perintah panjang yang harus kamu salin dan jalankan. Contohnya terlihat seperti:
+Perintah `pm2 startup` akan menampilkan sebuah perintah panjang yang harus kamu **salin dan jalankan**. Contohnya:
 
 ```
 [PM2] To setup the startup script, copy/paste the following command:
 sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u root --hp /root
 ```
 
-Salin dan jalankan perintah tersebut.
+Salin seluruh baris `sudo env ...` tersebut dan jalankan.
 
 ---
 
@@ -310,16 +336,20 @@ Lihat log untuk memastikan tidak ada error:
 pm2 logs ketantech-api --lines 30
 ```
 
-Kalau berhasil, akan muncul:
+> **Catatan penting:** Perintah `pm2 logs` menampilkan log lama dan log baru secara bersamaan. **Perhatikan baris paling bawah** — itulah kondisi terkini. Abaikan error yang muncul di baris atas jika baris bawah sudah menunjukkan sukses.
+
+Kalau berhasil, baris-baris **paling bawah** akan terlihat seperti ini:
 
 ```
 Server listening port: 8080
 Default admin created — username: admin, password: admin123
-Scheduler notifikasi kedaluwarsa aktif
-Scheduler auto-backup aktif
+Scheduler notifikasi kedaluwarsa aktif (interval: 6 jam)
+Scheduler auto-backup aktif (cek setiap jam)
 ```
 
-Kalau muncul error `relation "users" does not exist` → berarti Langkah 10 (setup database) belum berhasil. Ulangi Langkah 10 dengan DATABASE_URL yang benar.
+Tekan **Ctrl+C** untuk keluar dari tampilan log.
+
+Kalau baris paling bawah masih menampilkan error `relation "users" does not exist` → berarti Langkah 10 (setup database) belum berhasil. Ulangi Langkah 10 lalu jalankan `pm2 restart ketantech-api`.
 
 ---
 
