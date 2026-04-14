@@ -35,6 +35,7 @@ import AdminTelegramSettings from "@/pages/admin/telegram-settings";
 import AdminWhatsappSettings from "@/pages/admin/whatsapp-settings";
 import AdminReferralSettings from "@/pages/admin/referral-settings";
 import AdminExpiryNotifSettings from "@/pages/admin/expiry-notification-settings";
+import AdminBackup from "@/pages/admin/backup";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -126,6 +127,9 @@ function Router() {
       </Route>
       <Route path="/admin/broadcast">
         <Layout requireAdmin><AdminBroadcast /></Layout>
+      </Route>
+      <Route path="/admin/backup">
+        <Layout requireAdmin><AdminBackup /></Layout>
       </Route>
 
       <Route component={NotFound} />

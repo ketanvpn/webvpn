@@ -21,6 +21,7 @@ import {
   History,
   Smartphone,
   Gift,
+  HardDrive,
 } from "lucide-react";
 import {
   Sheet,
@@ -63,6 +64,7 @@ const adminNav: NavItem[] = [
   { title: "Program Referral", href: "/admin/settings/referral", icon: Gift },
   { title: "Notifikasi Kedaluwarsa", href: "/admin/settings/expiry-notif", icon: Bell },
   { title: "Broadcast", href: "/admin/broadcast", icon: Send },
+  { title: "Backup & Restore DB", href: "/admin/backup", icon: HardDrive },
 ];
 
 const adminPageTitles: Record<string, string> = {
@@ -79,6 +81,7 @@ const adminPageTitles: Record<string, string> = {
   "/admin/settings/referral": "Program Referral",
   "/admin/settings/expiry-notif": "Notifikasi Kedaluwarsa",
   "/admin/broadcast": "Broadcast",
+  "/admin/backup": "Backup & Restore DB",
 };
 
 const mobileBottomNav: NavItem[] = [

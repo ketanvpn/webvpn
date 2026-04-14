@@ -14,6 +14,7 @@ import telegramBotRouter from "./telegram-bot";
 import broadcastRouter from "./broadcast";
 import exportRouter from "./export";
 import balanceLogsRouter from "./balance-logs";
+import backupRouter from "./backup";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(telegramBotRouter);
 router.use(broadcastRouter);
 router.use(exportRouter);
 router.use(balanceLogsRouter);
+router.use(backupRouter);
 
 export default router;

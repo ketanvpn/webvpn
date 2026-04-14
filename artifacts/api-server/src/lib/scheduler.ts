@@ -120,15 +120,40 @@ export async function checkExpiringAccounts(): Promise<void> {
 }
 
 export function startScheduler(): void {
-  const SIX_HOURS = 6 * 60 * 60 * 1000;
+  const ONE_HOUR = 60 * 60 * 1000;
 
   checkExpiringAccounts().catch(() => {});
 
   setInterval(() => {
     checkExpiringAccounts().catch(() => {});
-  }, SIX_HOURS);
+  }, 6 * ONE_HOUR);
 
   logger.info("Scheduler notifikasi kedaluwarsa aktif (interval: 6 jam)");
+
+  // Auto-backup: cek setiap jam apakah sudah waktunya backup
+  import("./backup").then(({ isBackupDue, performBackup }) => {
+    const runBackupIfDue = async () => {
+      try {
+        const due = await isBackupDue();
+        if (due) {
+          logger.info("Auto-backup terjadwal dimulai...");
+          await performBackup();
+        }
+      } catch (err) {
+        logger.error({ err }, "Auto-backup scheduler error");
+      }
+    };
+
+    // Cek pertama kali 1 menit setelah start
+    setTimeout(() => runBackupIfDue().catch(() => {}), 60 * 1000);
+
+    // Lalu cek setiap jam
+    setInterval(() => runBackupIfDue().catch(() => {}), ONE_HOUR);
+
+    logger.info("Scheduler auto-backup aktif (cek setiap jam)");
+  }).catch((err) => {
+    logger.error({ err }, "Failed to load backup module for scheduler");
+  });
 }
 
 export { getReferralBonusAmount };
