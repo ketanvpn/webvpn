@@ -211,7 +211,7 @@ export default function ProductDetail() {
                   id="remarks"
                   placeholder="Contoh: daaw12"
                   value={remarks}
-                  onChange={(e) => setRemarks(e.target.value.replace(/[^a-zA-Z0-9]/g, ""))}
+                  onChange={(e) => setRemarks(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ""))}
                   maxLength={20}
                   className={`font-mono ${remarks && !isRemarksValid(remarks) ? "border-destructive focus-visible:ring-destructive" : ""}`}
                 />

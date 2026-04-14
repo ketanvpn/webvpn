@@ -317,6 +317,9 @@ router.post("/orders", requireAuth, async (req, res) => {
   const { productId, paymentMethod = "balance", remarks } = parsed.data;
   const userId = req.user!.userId;
 
+  // Normalisasi: lowercase + hanya alphanumeric
+  const normalizedRemarks = remarks.toLowerCase().replace(/[^a-z0-9]/g, "");
+
   const [product] = await db
     .select()
     .from(productsTable)
@@ -329,6 +332,39 @@ router.post("/orders", requireAuth, async (req, res) => {
   }
 
   const amount = Number(product.price);
+
+  // ─── Cek duplikat nama akun: cegah bentrok username di server VPN ─────────
+  const [existingAccount] = await db
+    .select({ id: vpnAccountsTable.id })
+    .from(vpnAccountsTable)
+    .where(and(eq(vpnAccountsTable.username, normalizedRemarks), eq(vpnAccountsTable.isActive, true)))
+    .limit(1);
+
+  if (existingAccount) {
+    res.status(409).json({
+      error: `Nama akun "${normalizedRemarks}" sudah dipakai. Pilih nama lain.`,
+    });
+    return;
+  }
+
+  // Cek juga di order pending/processing yang belum jadi akun (supaya tidak race condition)
+  const [existingOrderWithSameName] = await db
+    .select({ id: ordersTable.id })
+    .from(ordersTable)
+    .where(
+      and(
+        sql`lower(notes) = ${normalizedRemarks}`,
+        sql`status IN ('pending', 'processing')`
+      )
+    )
+    .limit(1);
+
+  if (existingOrderWithSameName) {
+    res.status(409).json({
+      error: `Nama akun "${normalizedRemarks}" sedang digunakan di order lain yang belum selesai. Tunggu sebentar atau pilih nama lain.`,
+    });
+    return;
+  }
 
   // ─── Deduplication: cegah order duplikat dalam 2 menit terakhir ───────────
   const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
@@ -377,7 +413,7 @@ router.post("/orders", requireAuth, async (req, res) => {
       status: "pending",
       amount: product.price,
       paymentMethod,
-      notes: remarks ?? null,
+      notes: normalizedRemarks,
       autogopayTransactionId: qrisData?.transactionId ?? null,
       qrisUrl: qrisData?.qrisUrl ?? null,
       expiresAt: qrisData?.expiresAt ?? null,

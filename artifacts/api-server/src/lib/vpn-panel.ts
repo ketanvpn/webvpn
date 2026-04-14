@@ -26,9 +26,9 @@ function buildHeaders(apiToken: string) {
   };
 }
 
-/** Sanitize username to alphanumeric only (panel requirement) */
+/** Sanitize username to lowercase alphanumeric only (panel requirement) */
 export function sanitizeVpnUsername(raw: string): string {
-  return raw.replace(/[^a-zA-Z0-9]/g, "").slice(0, 30);
+  return raw.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 30);
 }
 
 /**

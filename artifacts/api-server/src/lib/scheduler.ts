@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
-import { vpnAccountsTable, usersTable, settingsTable } from "@workspace/db";
-import { eq, and, lte, gte } from "drizzle-orm";
+import { vpnAccountsTable, usersTable, settingsTable, ordersTable } from "@workspace/db";
+import { eq, and, lte, gte, lt } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendWhatsapp } from "./fonnte";
 import { sendMessage } from "./telegram";
@@ -119,16 +119,50 @@ export async function checkExpiringAccounts(): Promise<void> {
   }
 }
 
+/**
+ * Auto-cancel order QRIS yang sudah lewat waktu bayar (expiresAt < now, status masih pending).
+ * Dijalankan setiap 5 menit.
+ */
+async function cancelExpiredQrisOrders(): Promise<void> {
+  try {
+    const now = new Date();
+    const result = await db
+      .update(ordersTable)
+      .set({ status: "cancelled", updatedAt: new Date() })
+      .where(
+        and(
+          eq(ordersTable.status, "pending"),
+          eq(ordersTable.paymentMethod, "qris"),
+          lt(ordersTable.expiresAt, now)
+        )
+      )
+      .returning({ id: ordersTable.id });
+
+    if (result.length > 0) {
+      logger.info({ count: result.length }, "Auto-cancel: order QRIS expired dibatalkan");
+    }
+  } catch (err) {
+    logger.error({ err }, "Error saat auto-cancel order QRIS expired");
+  }
+}
+
 export function startScheduler(): void {
   const ONE_HOUR = 60 * 60 * 1000;
+  const FIVE_MIN = 5 * 60 * 1000;
 
   checkExpiringAccounts().catch(() => {});
+  cancelExpiredQrisOrders().catch(() => {});
 
   setInterval(() => {
     checkExpiringAccounts().catch(() => {});
   }, 6 * ONE_HOUR);
 
+  setInterval(() => {
+    cancelExpiredQrisOrders().catch(() => {});
+  }, FIVE_MIN);
+
   logger.info("Scheduler notifikasi kedaluwarsa aktif (interval: 6 jam)");
+  logger.info("Scheduler auto-cancel QRIS expired aktif (interval: 5 menit)");
 
   // Auto-backup: cek setiap jam apakah sudah waktunya backup
   import("./backup").then(({ isBackupDue, performBackup }) => {
