@@ -120,7 +120,7 @@ export default function Dashboard() {
                         order.status === "paid" ? "default" :
                         order.status === "pending" ? "secondary" : "destructive"
                       } className="text-[10px]">
-                        {order.status}
+                        {order.status === "paid" ? "Lunas" : order.status === "pending" ? "Menunggu" : order.status === "failed" ? "Gagal" : "Kedaluwarsa"}
                       </Badge>
                     </div>
                   </div>

@@ -39,6 +39,13 @@ const statusColors: Record<string, string> = {
   expired: "bg-gray-500/10 text-gray-600 border-gray-500/20",
 };
 
+const statusLabel: Record<string, string> = {
+  pending: "Menunggu",
+  paid: "Lunas",
+  failed: "Gagal",
+  expired: "Kedaluwarsa",
+};
+
 export default function AdminOrders() {
   const searchStr = useSearch();
   const urlParams = new URLSearchParams(searchStr);
@@ -118,9 +125,9 @@ export default function AdminOrders() {
       <Tabs defaultValue="all" value={status} onValueChange={setStatus}>
         <TabsList>
           <TabsTrigger value="all">Semua</TabsTrigger>
-          <TabsTrigger value="pending">Pending</TabsTrigger>
-          <TabsTrigger value="paid">Paid</TabsTrigger>
-          <TabsTrigger value="failed">Failed</TabsTrigger>
+          <TabsTrigger value="pending">Menunggu</TabsTrigger>
+          <TabsTrigger value="paid">Lunas</TabsTrigger>
+          <TabsTrigger value="failed">Gagal</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -149,8 +156,8 @@ export default function AdminOrders() {
                     <div>
                       <div className="font-semibold flex items-center gap-2 flex-wrap">
                         {order.user?.username}
-                        <Badge variant="outline" className={`text-[10px] capitalize ${statusColors[order.status]}`}>
-                          {order.status}
+                        <Badge variant="outline" className={`text-[10px] ${statusColors[order.status]}`}>
+                          {statusLabel[order.status] ?? order.status}
                         </Badge>
                       </div>
                       <div className="text-sm text-muted-foreground mt-1">

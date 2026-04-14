@@ -20,7 +20,14 @@ import {
   Bell,
   History,
 } from "lucide-react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { SheetTrigger } from "@/components/ui/sheet";
 import { useGetAdminDashboard } from "@workspace/api-client-react";
 
 type NavItem = {
@@ -32,22 +39,22 @@ type NavItem = {
 
 const userNav: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { title: "Products", href: "/products", icon: Package },
-  { title: "My Accounts", href: "/accounts", icon: Server },
-  { title: "Orders", href: "/orders", icon: ShoppingCart },
-  { title: "Balance", href: "/balance", icon: Wallet },
+  { title: "Produk VPN", href: "/products", icon: Package },
+  { title: "Akun VPN", href: "/accounts", icon: Server },
+  { title: "Riwayat Order", href: "/orders", icon: ShoppingCart },
+  { title: "Saldo", href: "/balance", icon: Wallet },
   { title: "Riwayat Saldo", href: "/balance/logs", icon: History },
-  { title: "Profile", href: "/profile", icon: Settings },
+  { title: "Profil", href: "/profile", icon: Settings },
 ];
 
 const adminNav: NavItem[] = [
   { title: "Overview", href: "/admin", icon: LayoutDashboard },
-  { title: "Users", href: "/admin/users", icon: Users },
-  { title: "Products", href: "/admin/products", icon: Package },
-  { title: "Servers", href: "/admin/servers", icon: Server },
-  { title: "Orders", href: "/admin/orders", icon: ShoppingCart },
-  { title: "Topups", href: "/admin/topups", icon: CreditCard, badgeKey: "pendingTopups" },
-  { title: "VPN Accounts", href: "/admin/accounts", icon: Shield },
+  { title: "Pengguna", href: "/admin/users", icon: Users },
+  { title: "Produk", href: "/admin/products", icon: Package },
+  { title: "Server", href: "/admin/servers", icon: Server },
+  { title: "Order", href: "/admin/orders", icon: ShoppingCart },
+  { title: "Topup", href: "/admin/topups", icon: CreditCard, badgeKey: "pendingTopups" },
+  { title: "Akun VPN", href: "/admin/accounts", icon: Shield },
   { title: "Payment Gateway", href: "/admin/settings/payment", icon: QrCode },
   { title: "Notifikasi Telegram", href: "/admin/settings/telegram", icon: Bell },
   { title: "Broadcast", href: "/admin/broadcast", icon: Send },
@@ -65,7 +72,7 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const pendingTopups = dashboardData?.pendingTopups ?? 0;
 
   const NavLinks = () => (
-    <nav className="flex flex-col gap-1 p-4">
+    <nav className="flex flex-col gap-1 p-4 h-full">
       <div className="mb-6 px-2">
         <h2 className="text-xl font-bold tracking-tight text-primary">
           KETANTECH
@@ -76,7 +83,13 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
       </div>
 
       {nav.map((item) => {
-        const isActive = location === item.href || (location.startsWith(item.href + "/") && item.href !== "/admin" && item.href !== "/dashboard" && item.href !== "/" && item.href !== "/balance");
+        const isActive =
+          location === item.href ||
+          (location.startsWith(item.href + "/") &&
+            item.href !== "/admin" &&
+            item.href !== "/dashboard" &&
+            item.href !== "/" &&
+            item.href !== "/balance");
         const badge = item.badgeKey === "pendingTopups" ? pendingTopups : 0;
         return (
           <Link
@@ -91,7 +104,13 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
             <item.icon className="h-4 w-4 shrink-0" />
             <span className="flex-1">{item.title}</span>
             {badge > 0 && (
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${isActive ? "bg-primary-foreground/20 text-primary-foreground" : "bg-yellow-500 text-white"}`}>
+              <span
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${
+                  isActive
+                    ? "bg-primary-foreground/20 text-primary-foreground"
+                    : "bg-yellow-500 text-white"
+                }`}
+              >
                 {badge > 99 ? "99+" : badge}
               </span>
             )}
@@ -118,7 +137,7 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
           onClick={logout}
         >
           <LogOut className="h-4 w-4" />
-          Logout
+          Keluar
         </Button>
       </div>
     </nav>
@@ -131,10 +150,14 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
         <SheetTrigger asChild>
           <Button variant="ghost" size="icon" className="md:hidden absolute top-4 left-4 z-50">
             <Menu className="h-5 w-5" />
-            <span className="sr-only">Toggle menu</span>
+            <span className="sr-only">Buka menu</span>
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="p-0 w-64">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Menu Navigasi</SheetTitle>
+            <SheetDescription>Navigasi utama aplikasi KETANTECH VPN</SheetDescription>
+          </SheetHeader>
           <div className="flex h-full flex-col">
             <NavLinks />
           </div>

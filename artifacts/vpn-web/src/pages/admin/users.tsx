@@ -57,7 +57,7 @@ export default function AdminUsers() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Users</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Manajemen Pengguna</h1>
           <p className="text-muted-foreground mt-1">Kelola user dan reseller platform.</p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
