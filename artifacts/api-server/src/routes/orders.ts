@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { ordersTable, productsTable, usersTable, vpnAccountsTable, serversTable } from "@workspace/db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, gte } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { CreateOrderBody } from "@workspace/api-zod";
 import { formatProduct } from "./products";
@@ -83,6 +83,29 @@ router.post("/orders", requireAuth, async (req, res) => {
     return;
   }
 
+  // ─── Deduplication: cegah order duplikat dalam 2 menit terakhir ───────────
+  const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+  const [existingPending] = await db
+    .select({ id: ordersTable.id })
+    .from(ordersTable)
+    .where(
+      and(
+        eq(ordersTable.userId, userId),
+        eq(ordersTable.productId, productId),
+        eq(ordersTable.status, "pending"),
+        gte(ordersTable.createdAt, twoMinutesAgo)
+      )
+    )
+    .limit(1);
+
+  if (existingPending) {
+    res.status(409).json({
+      error: "Kamu sudah punya order pending untuk produk ini. Selesaikan order sebelumnya atau tunggu 2 menit.",
+      existingOrderId: existingPending.id,
+    });
+    return;
+  }
+
   const [order] = await db
     .insert(ordersTable)
     .values({
@@ -120,40 +143,50 @@ router.post("/orders/:id/pay", requireAuth, async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const userId = req.user!.userId;
 
-  const [order] = await db
-    .select()
-    .from(ordersTable)
-    .where(and(eq(ordersTable.id, id), eq(ordersTable.userId, userId)))
-    .limit(1);
+  // ─── Step 1: Atomic order lock ─────────────────────────────────────────────
+  // Atomically change status from 'pending' → 'processing'.
+  // If 0 rows updated: another request already grabbed this order (race condition).
+  const [lockedOrder] = await db
+    .update(ordersTable)
+    .set({ status: "processing", updatedAt: new Date() })
+    .where(
+      and(
+        eq(ordersTable.id, id),
+        eq(ordersTable.userId, userId),
+        eq(ordersTable.status, "pending")
+      )
+    )
+    .returning();
 
-  if (!order) {
-    res.status(404).json({ error: "Order not found" });
+  if (!lockedOrder) {
+    // Check why it failed
+    const [order] = await db
+      .select()
+      .from(ordersTable)
+      .where(and(eq(ordersTable.id, id), eq(ordersTable.userId, userId)))
+      .limit(1);
+
+    if (!order) {
+      res.status(404).json({ error: "Order not found" });
+    } else if (order.status === "paid") {
+      res.status(400).json({ error: "Order sudah dibayar" });
+    } else if (order.status === "processing") {
+      res.status(409).json({ error: "Order sedang diproses, harap tunggu sebentar" });
+    } else {
+      res.status(400).json({ error: `Order tidak dapat dibayar (status: ${order.status})` });
+    }
     return;
   }
 
-  if (order.status !== "pending") {
-    res.status(400).json({ error: "Order is not in pending state" });
-    return;
-  }
-
-  const [user] = await db
-    .select()
-    .from(usersTable)
-    .where(eq(usersTable.id, userId))
-    .limit(1);
-
-  if (!user) {
-    res.status(400).json({ error: "User not found" });
-    return;
-  }
-
-  const balance = Number(user.balance);
+  const order = lockedOrder;
   const amount = Number(order.amount);
 
-  if (balance < amount) {
-    res.status(400).json({ error: "Insufficient balance" });
-    return;
-  }
+  // Helper to rollback order lock on failure
+  const releaseOrderLock = () =>
+    db.update(ordersTable)
+      .set({ status: "pending", updatedAt: new Date() })
+      .where(eq(ordersTable.id, id))
+      .catch(() => {});
 
   const [product] = await db
     .select()
@@ -162,7 +195,21 @@ router.post("/orders/:id/pay", requireAuth, async (req, res) => {
     .limit(1);
 
   if (!product) {
+    await releaseOrderLock();
     res.status(400).json({ error: "Product not found" });
+    return;
+  }
+
+  // Fetch user for username generation
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+
+  if (!user) {
+    await releaseOrderLock();
+    res.status(400).json({ error: "User not found" });
     return;
   }
 
@@ -182,6 +229,7 @@ router.post("/orders/:id/pay", requireAuth, async (req, res) => {
     allServers[0];
 
   if (!server) {
+    await releaseOrderLock();
     res.status(400).json({ error: "Tidak ada server yang tersedia saat ini" });
     return;
   }
@@ -237,7 +285,8 @@ router.post("/orders/:id/pay", requireAuth, async (req, res) => {
     } catch (panelErr) {
       const msg = panelErr instanceof Error ? panelErr.message : String(panelErr);
       console.error(`[orders] Panel API error for ${product.protocol}: ${msg}`);
-      // Refund and abort — do not create a "fake" account
+      // Reset order to pending so user can retry
+      await releaseOrderLock();
       res.status(502).json({
         error: `Gagal membuat akun VPN di server: ${msg}`,
       });
@@ -264,43 +313,81 @@ router.post("/orders/:id/pay", requireAuth, async (req, res) => {
   }
   // ─────────────────────────────────────────────────────────────────────────
 
-  const [vpnAccount] = await db
-    .insert(vpnAccountsTable)
-    .values({
-      userId,
-      orderId: order.id,
-      protocol: product.protocol,
-      username: finalUsername,
-      password: finalPassword,
-      uuid: finalUuid,
-      serverId: server.id,
-      configLink,
-      allLinks,
-      expiresAt,
-      quota: product.quota ?? null,
-    })
-    .returning();
+  // ─── Step 3: DB Transaction — atomic balance + account + order ───────────
+  let balanceBefore: number;
+  let balanceAfter: number;
 
-  await db
-    .update(usersTable)
-    .set({ balance: String(balance - amount) })
-    .where(eq(usersTable.id, userId));
+  try {
+    const result = await db.transaction(async (tx) => {
+      // Atomic balance deduction: only succeeds if balance >= amount at DB level
+      const [updatedUser] = await tx
+        .update(usersTable)
+        .set({ balance: sql`(balance::numeric - ${amount})::text` })
+        .where(
+          and(
+            eq(usersTable.id, userId),
+            gte(sql`balance::numeric`, amount)
+          )
+        )
+        .returning({ balance: usersTable.balance });
 
-  // Log balance deduction
+      if (!updatedUser) {
+        throw new Error("INSUFFICIENT_BALANCE");
+      }
+
+      const newBalance = Number(updatedUser.balance);
+      const prevBalance = newBalance + amount;
+
+      // Insert VPN account
+      const [acc] = await tx
+        .insert(vpnAccountsTable)
+        .values({
+          userId,
+          orderId: order.id,
+          protocol: product.protocol,
+          username: finalUsername,
+          password: finalPassword,
+          uuid: finalUuid,
+          serverId: server.id,
+          configLink,
+          allLinks,
+          expiresAt,
+          quota: product.quota ?? null,
+        })
+        .returning();
+
+      // Mark order as paid
+      await tx
+        .update(ordersTable)
+        .set({ status: "paid", vpnAccountId: acc.id, updatedAt: new Date() })
+        .where(eq(ordersTable.id, order.id));
+
+      return { acc, prevBalance, newBalance };
+    });
+
+    balanceBefore = result.prevBalance;
+    balanceAfter = result.newBalance;
+  } catch (err) {
+    await releaseOrderLock();
+    if (err instanceof Error && err.message === "INSUFFICIENT_BALANCE") {
+      res.status(400).json({ error: "Saldo tidak cukup untuk membayar order ini" });
+    } else {
+      console.error("[orders] Transaction failed:", err);
+      res.status(500).json({ error: "Gagal memproses pembayaran, silakan coba lagi" });
+    }
+    return;
+  }
+
+  // Log balance deduction (fire-and-forget)
   addBalanceLog({
     userId,
     type: "order",
     amount: -amount,
-    balanceBefore: balance,
-    balanceAfter: balance - amount,
+    balanceBefore,
+    balanceAfter,
     description: `Pembelian produk: ${product.name} (Order #${order.id})`,
     relatedId: order.id,
   }).catch(() => {});
-
-  await db
-    .update(ordersTable)
-    .set({ status: "paid", vpnAccountId: vpnAccount.id, updatedAt: new Date() })
-    .where(eq(ordersTable.id, order.id));
 
   const [updatedOrder] = await db
     .select()

@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
@@ -38,5 +38,15 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.use("/api", router);
+
+// ─── Global error handler ─────────────────────────────────────────────────────
+// Catches any unhandled errors thrown (or passed via next(err)) in async routes.
+// Without this, Express 4.x would silently hang the request.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  logger.error({ err }, "Unhandled error");
+  if (res.headersSent) return;
+  res.status(500).json({ error: "Terjadi kesalahan pada server, silakan coba lagi." });
+});
 
 export default app;

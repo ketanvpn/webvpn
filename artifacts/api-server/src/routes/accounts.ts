@@ -1,12 +1,13 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { vpnAccountsTable, serversTable, ordersTable, productsTable, usersTable } from "@workspace/db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql, gte } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { RenewAccountBody } from "@workspace/api-zod";
 import { randomUUID } from "crypto";
 import { renewPanelAccount } from "../lib/vpn-panel";
 import { sendWhatsapp } from "../lib/fonnte";
+import { addBalanceLog } from "./balance-logs";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 
@@ -115,39 +116,77 @@ router.post("/accounts/:id/renew", requireAuth, async (req, res) => {
     .where(eq(usersTable.id, userId))
     .limit(1);
 
-  const balance = Number(user!.balance);
   const price = Number(product.price);
-
-  if (balance < price) {
-    res.status(400).json({ error: "Insufficient balance" });
-    return;
-  }
 
   const baseDate = account.expiresAt > new Date() ? account.expiresAt : new Date();
   const newExpiresAt = new Date(baseDate.getTime() + product.durationDays * 24 * 60 * 60 * 1000);
 
-  await db
-    .update(vpnAccountsTable)
-    .set({ expiresAt: newExpiresAt, isActive: true, updatedAt: new Date() })
-    .where(eq(vpnAccountsTable.id, id));
+  // ─── Atomic transaction: balance deduction + account update + order insert ──
+  let balanceBefore: number;
+  let balanceAfter: number;
 
-  await db
-    .update(usersTable)
-    .set({ balance: String(balance - price) })
-    .where(eq(usersTable.id, userId));
+  try {
+    const txResult = await db.transaction(async (tx) => {
+      const [updatedUser] = await tx
+        .update(usersTable)
+        .set({ balance: sql`(balance::numeric - ${price})::text` })
+        .where(
+          and(
+            eq(usersTable.id, userId),
+            gte(sql`balance::numeric`, price)
+          )
+        )
+        .returning({ balance: usersTable.balance });
 
-  const newOrder = await db
-    .insert(ordersTable)
-    .values({
-      userId,
-      productId: product.id,
-      status: "paid",
-      amount: product.price,
-      vpnAccountId: account.id,
-      paymentMethod: "balance",
-      notes: "renewal",
-    })
-    .returning();
+      if (!updatedUser) {
+        throw new Error("INSUFFICIENT_BALANCE");
+      }
+
+      const newBalance = Number(updatedUser.balance);
+      const prevBalance = newBalance + price;
+
+      await tx
+        .update(vpnAccountsTable)
+        .set({ expiresAt: newExpiresAt, isActive: true, updatedAt: new Date() })
+        .where(eq(vpnAccountsTable.id, id));
+
+      await tx
+        .insert(ordersTable)
+        .values({
+          userId,
+          productId: product.id,
+          status: "paid",
+          amount: product.price,
+          vpnAccountId: account.id,
+          paymentMethod: "balance",
+          notes: "renewal",
+        });
+
+      return { prevBalance, newBalance };
+    });
+
+    balanceBefore = txResult.prevBalance;
+    balanceAfter = txResult.newBalance;
+  } catch (err) {
+    if (err instanceof Error && err.message === "INSUFFICIENT_BALANCE") {
+      res.status(400).json({ error: "Saldo tidak cukup untuk melakukan renew" });
+    } else {
+      console.error("[renew] Transaction failed:", err);
+      res.status(500).json({ error: "Gagal memproses renew, silakan coba lagi" });
+    }
+    return;
+  }
+
+  // Log balance deduction (fire-and-forget)
+  addBalanceLog({
+    userId,
+    type: "order",
+    amount: -price,
+    balanceBefore,
+    balanceAfter,
+    description: `Renew akun VPN: ${account.username} (${product.name})`,
+    relatedId: account.id,
+  }).catch(() => {});
 
   const [updated] = await db
     .select()
