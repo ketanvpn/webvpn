@@ -225,6 +225,10 @@ export interface Order {
   vpnAccountId?: number | null;
   paymentMethod?: string | null;
   notes?: string | null;
+  /** URL gambar QRIS (hanya untuk paymentMethod=qris via AutoGoPay) */
+  qrisUrl?: string | null;
+  /** Waktu kedaluwarsa QRIS */
+  expiresAt?: string | null;
   createdAt: string;
   updatedAt?: string;
 }

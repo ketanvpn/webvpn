@@ -7,13 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { ArrowLeft, Clock, CreditCard, ShoppingBag, AlertCircle, CheckCircle2, Copy, QrCode, Shield } from "lucide-react";
-import { format } from "date-fns";
+import { ArrowLeft, Clock, CreditCard, ShoppingBag, AlertCircle, CheckCircle2, Copy, QrCode, Shield, Loader2, ScanLine, Timer } from "lucide-react";
+import { format, formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import type { OrderStatus } from "@workspace/api-client-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,17 +23,19 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-const statusColors: Record<OrderStatus, string> = {
+const statusColors: Record<string, string> = {
   pending: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
+  processing: "bg-blue-500/10 text-blue-600 border-blue-500/20",
   paid: "bg-green-500/10 text-green-600 border-green-500/20",
   failed: "bg-red-500/10 text-red-600 border-red-500/20",
   expired: "bg-gray-500/10 text-gray-600 border-gray-500/20",
 };
 
-const statusLabel: Record<OrderStatus, string> = {
+const statusLabel: Record<string, string> = {
   pending: "Menunggu Pembayaran",
+  processing: "Sedang Diproses",
   paid: "Lunas",
   failed: "Gagal",
   expired: "Kedaluwarsa",
@@ -61,10 +61,34 @@ export default function OrderDetail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [payConfirmOpen, setPayConfirmOpen] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+
+  const isQrisPending = (o?: { status: string; paymentMethod?: string | null }) =>
+    o?.status === "pending" && o?.paymentMethod === "qris";
 
   const { data: order, isLoading } = useGetOrder(orderId, {
-    query: { enabled: !!orderId }
+    query: {
+      enabled: !!orderId,
+      // Auto-poll every 5s while QRIS payment is pending
+      refetchInterval: (q) => isQrisPending(q.state.data) ? 5000 : false,
+    }
   });
+
+  // Countdown tick
+  useEffect(() => {
+    if (!isQrisPending(order)) return;
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, [order?.status, order?.paymentMethod]);
+
+  // Toast notification when QRIS order becomes paid
+  const prevStatus = useState<string | undefined>(order?.status)[0];
+  useEffect(() => {
+    if (prevStatus === "pending" && order?.status === "paid") {
+      toast({ title: "Pembayaran Diterima!", description: "Akun VPN kamu sudah aktif." });
+      queryClient.invalidateQueries({ queryKey: getGetBalanceQueryKey() });
+    }
+  }, [order?.status]);
 
   const { data: vpnAccount } = useGetAccount(order?.vpnAccountId ?? 0, {
     query: { enabled: !!order?.vpnAccountId && order?.status === "paid" }
@@ -349,10 +373,69 @@ export default function OrderDetail() {
           )}
 
           {order.status === "pending" && order.paymentMethod === "qris" && (
-            <div className="bg-yellow-500/10 p-4 rounded-lg border border-yellow-500/20 text-center space-y-2">
-              <AlertCircle className="h-8 w-8 text-yellow-600 mx-auto" />
-              <div className="font-semibold text-yellow-700">Menunggu Pembayaran</div>
-              <p className="text-sm text-yellow-600/80">Silakan selesaikan pembayaran QRIS kamu.</p>
+            <div className="rounded-xl border-2 border-yellow-500/30 bg-yellow-500/5 overflow-hidden">
+              <div className="bg-yellow-500/15 px-4 py-3 border-b border-yellow-500/20 flex items-center justify-between">
+                <div className="flex items-center gap-2 font-semibold text-yellow-800">
+                  <ScanLine className="h-4 w-4" />
+                  Bayar via QRIS
+                </div>
+                <div className="flex items-center gap-1.5 text-sm text-yellow-700">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Menunggu pembayaran...
+                </div>
+              </div>
+
+              <div className="p-6 flex flex-col items-center gap-4">
+                {order.qrisUrl ? (
+                  <>
+                    <div className="bg-white p-3 rounded-xl border-2 border-yellow-500/30 shadow">
+                      <img
+                        src={order.qrisUrl}
+                        alt="QRIS Payment"
+                        width={220}
+                        height={220}
+                        className="block"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      />
+                    </div>
+                    <p className="text-sm text-center text-muted-foreground max-w-xs">
+                      Scan QR code di atas menggunakan aplikasi dompet digital (GoPay, OVO, Dana, LinkAja, dll.) atau mobile banking.
+                    </p>
+                  </>
+                ) : (
+                  <div className="text-center text-sm text-muted-foreground py-4">
+                    <AlertCircle className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
+                    QRIS tidak tersedia. Hubungi admin.
+                  </div>
+                )}
+
+                <div className="w-full rounded-lg border bg-background divide-y text-sm">
+                  <div className="flex justify-between px-4 py-2.5">
+                    <span className="text-muted-foreground">Total Bayar</span>
+                    <span className="font-bold text-primary">{formatRupiah(order.amount)}</span>
+                  </div>
+                  {order.expiresAt && (
+                    <div className="flex justify-between px-4 py-2.5">
+                      <span className="text-muted-foreground flex items-center gap-1.5">
+                        <Timer className="h-3.5 w-3.5" />
+                        Berlaku hingga
+                      </span>
+                      <span className={`font-medium text-right ${new Date(order.expiresAt).getTime() - now.getTime() < 5 * 60 * 1000 ? "text-destructive" : ""}`}>
+                        {format(new Date(order.expiresAt), "HH:mm:ss", { locale: idLocale })}
+                        <span className="text-xs text-muted-foreground ml-1">
+                          ({new Date(order.expiresAt).getTime() > now.getTime()
+                            ? formatDistanceToNow(new Date(order.expiresAt), { locale: idLocale, addSuffix: true })
+                            : "Kedaluwarsa"})
+                        </span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-xs text-muted-foreground text-center">
+                  Halaman ini otomatis terupdate setelah pembayaran berhasil.
+                </p>
+              </div>
             </div>
           )}
         </CardContent>

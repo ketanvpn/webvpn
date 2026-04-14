@@ -211,6 +211,13 @@ export const ListOrdersResponse = zod.object({
       vpnAccountId: zod.number().nullish(),
       paymentMethod: zod.string().nullish(),
       notes: zod.string().nullish(),
+      qrisUrl: zod
+        .string()
+        .nullish()
+        .describe(
+          "URL gambar QRIS (hanya untuk paymentMethod=qris via AutoGoPay)",
+        ),
+      expiresAt: zod.coerce.date().nullish().describe("Waktu kedaluwarsa QRIS"),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date().optional(),
     }),
@@ -269,6 +276,11 @@ export const GetOrderResponse = zod.object({
   vpnAccountId: zod.number().nullish(),
   paymentMethod: zod.string().nullish(),
   notes: zod.string().nullish(),
+  qrisUrl: zod
+    .string()
+    .nullish()
+    .describe("URL gambar QRIS (hanya untuk paymentMethod=qris via AutoGoPay)"),
+  expiresAt: zod.coerce.date().nullish().describe("Waktu kedaluwarsa QRIS"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date().optional(),
 });
@@ -307,6 +319,11 @@ export const PayOrderResponse = zod.object({
   vpnAccountId: zod.number().nullish(),
   paymentMethod: zod.string().nullish(),
   notes: zod.string().nullish(),
+  qrisUrl: zod
+    .string()
+    .nullish()
+    .describe("URL gambar QRIS (hanya untuk paymentMethod=qris via AutoGoPay)"),
+  expiresAt: zod.coerce.date().nullish().describe("Waktu kedaluwarsa QRIS"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date().optional(),
 });
@@ -542,6 +559,13 @@ export const GetDashboardSummaryResponse = zod.object({
       vpnAccountId: zod.number().nullish(),
       paymentMethod: zod.string().nullish(),
       notes: zod.string().nullish(),
+      qrisUrl: zod
+        .string()
+        .nullish()
+        .describe(
+          "URL gambar QRIS (hanya untuk paymentMethod=qris via AutoGoPay)",
+        ),
+      expiresAt: zod.coerce.date().nullish().describe("Waktu kedaluwarsa QRIS"),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date().optional(),
     }),
@@ -641,6 +665,16 @@ export const GetAdminDashboardResponse = zod.object({
         vpnAccountId: zod.number().nullish(),
         paymentMethod: zod.string().nullish(),
         notes: zod.string().nullish(),
+        qrisUrl: zod
+          .string()
+          .nullish()
+          .describe(
+            "URL gambar QRIS (hanya untuk paymentMethod=qris via AutoGoPay)",
+          ),
+        expiresAt: zod.coerce
+          .date()
+          .nullish()
+          .describe("Waktu kedaluwarsa QRIS"),
         createdAt: zod.coerce.date(),
         updatedAt: zod.coerce.date().optional(),
       })
@@ -773,6 +807,16 @@ export const AdminGetUserResponse = zod
             vpnAccountId: zod.number().nullish(),
             paymentMethod: zod.string().nullish(),
             notes: zod.string().nullish(),
+            qrisUrl: zod
+              .string()
+              .nullish()
+              .describe(
+                "URL gambar QRIS (hanya untuk paymentMethod=qris via AutoGoPay)",
+              ),
+            expiresAt: zod.coerce
+              .date()
+              .nullish()
+              .describe("Waktu kedaluwarsa QRIS"),
             createdAt: zod.coerce.date(),
             updatedAt: zod.coerce.date().optional(),
           }),
@@ -1142,6 +1186,16 @@ export const AdminListOrdersResponse = zod.object({
         vpnAccountId: zod.number().nullish(),
         paymentMethod: zod.string().nullish(),
         notes: zod.string().nullish(),
+        qrisUrl: zod
+          .string()
+          .nullish()
+          .describe(
+            "URL gambar QRIS (hanya untuk paymentMethod=qris via AutoGoPay)",
+          ),
+        expiresAt: zod.coerce
+          .date()
+          .nullish()
+          .describe("Waktu kedaluwarsa QRIS"),
         createdAt: zod.coerce.date(),
         updatedAt: zod.coerce.date().optional(),
       })
@@ -1204,6 +1258,11 @@ export const AdminConfirmOrderResponse = zod.object({
   vpnAccountId: zod.number().nullish(),
   paymentMethod: zod.string().nullish(),
   notes: zod.string().nullish(),
+  qrisUrl: zod
+    .string()
+    .nullish()
+    .describe("URL gambar QRIS (hanya untuk paymentMethod=qris via AutoGoPay)"),
+  expiresAt: zod.coerce.date().nullish().describe("Waktu kedaluwarsa QRIS"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date().optional(),
 });

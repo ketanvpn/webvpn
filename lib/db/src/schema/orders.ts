@@ -13,6 +13,9 @@ export const ordersTable = pgTable("orders", {
   vpnAccountId: integer("vpn_account_id"),
   paymentMethod: text("payment_method").default("balance"),
   notes: text("notes"),
+  autogopayTransactionId: text("autogopay_transaction_id"),
+  qrisUrl: text("qris_url"),
+  expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

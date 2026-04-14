@@ -1678,6 +1678,15 @@ components:
         notes:
           type: string
           nullable: true
+        qrisUrl:
+          type: string
+          nullable: true
+          description: URL gambar QRIS (hanya untuk paymentMethod=qris via AutoGoPay)
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Waktu kedaluwarsa QRIS
         createdAt:
           type: string
           format: date-time

@@ -8,6 +8,8 @@ import { formatProduct } from "./products";
 import { randomUUID } from "crypto";
 import { createPanelAccount, sanitizeVpnUsername } from "../lib/vpn-panel";
 import { addBalanceLog } from "./balance-logs";
+import { getPaymentSettingsMap } from "./settings";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -28,9 +30,215 @@ async function formatOrder(o: typeof ordersTable.$inferSelect) {
     vpnAccountId: o.vpnAccountId,
     paymentMethod: o.paymentMethod,
     notes: o.notes,
+    qrisUrl: o.qrisUrl ?? null,
+    expiresAt: o.expiresAt ?? null,
     createdAt: o.createdAt,
     updatedAt: o.updatedAt,
   };
+}
+
+/**
+ * Generate a QRIS via AutoGoPay and return the QRIS data.
+ * Returns null if AutoGoPay is not the active gateway or not configured.
+ */
+async function generateAutoGopayQris(amount: number): Promise<{
+  transactionId: string;
+  qrisUrl: string;
+  expiresAt: Date;
+} | null> {
+  const settingsMap = await getPaymentSettingsMap();
+  const activeGateway = settingsMap["activeGateway"] ?? "qris_static";
+
+  if (activeGateway !== "autogopay") return null;
+
+  const apiUrl = (settingsMap["autoGopayApiUrl"] ?? "https://api-gopay.sawargipay.cloud").replace(/\/$/, "");
+  const apiKey = settingsMap["autoGopaySecretKey"];
+
+  if (!apiKey) {
+    logger.warn("AutoGoPay not configured — cannot generate QRIS for order");
+    return null;
+  }
+
+  const resp = await fetch(`${apiUrl}/qris/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({ amount }),
+  });
+
+  const data = await resp.json() as {
+    success: boolean;
+    data?: { transaction_id: string; qr_url: string; expiry_time: string };
+    message?: string;
+  };
+
+  if (!data.success || !data.data) {
+    logger.error({ data }, "AutoGoPay: generate QRIS for order failed");
+    throw new Error(data.message ?? "Gagal membuat QRIS dari AutoGoPay");
+  }
+
+  return {
+    transactionId: data.data.transaction_id,
+    qrisUrl: data.data.qr_url,
+    expiresAt: new Date(data.data.expiry_time.replace(" ", "T") + "+07:00"),
+  };
+}
+
+/**
+ * Fulfill a QRIS/autogopay order: pick server, create VPN account on panel, atomic DB transaction.
+ * Can be called from the webhook (after payment received) or from the pay endpoint (balance payment).
+ * For balance payment, pass `deductBalance: true`.
+ */
+export async function fulfillOrder(orderId: number, opts: { deductBalance?: boolean } = {}): Promise<void> {
+  const [order] = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.id, orderId))
+    .limit(1);
+
+  if (!order || (order.status !== "pending" && order.status !== "processing")) {
+    throw new Error("Order tidak ditemukan atau sudah diproses");
+  }
+
+  const [product] = await db
+    .select()
+    .from(productsTable)
+    .where(eq(productsTable.id, order.productId))
+    .limit(1);
+
+  if (!product) throw new Error("Product not found");
+
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, order.userId))
+    .limit(1);
+
+  if (!user) throw new Error("User not found");
+
+  const amount = Number(order.amount);
+
+  const allServers = await db
+    .select()
+    .from(serversTable)
+    .where(eq(serversTable.isActive, true));
+
+  const supportsProtocol = (s: typeof allServers[0]) =>
+    Array.isArray(s.supportedProtocols) && s.supportedProtocols.includes(product.protocol);
+
+  const server =
+    allServers.find((s) => supportsProtocol(s) && s.apiUrl && s.apiToken) ??
+    allServers.find((s) => supportsProtocol(s)) ??
+    allServers[0];
+
+  if (!server) throw new Error("Tidak ada server yang tersedia saat ini");
+
+  const expiresAt = new Date(Date.now() + product.durationDays * 24 * 60 * 60 * 1000);
+  const remarksBase = order.notes ? sanitizeVpnUsername(order.notes) : null;
+  const rawUsername = remarksBase && remarksBase.length >= 3
+    ? `${remarksBase}${Date.now().toString().slice(-4)}`
+    : `${sanitizeVpnUsername(user.username)}${Date.now()}`;
+  const vpnPassword = randomUUID().replace(/-/g, "").slice(0, 12);
+  const vpnUuid = randomUUID();
+
+  let finalUsername = rawUsername;
+  let finalPassword: string | null = vpnPassword;
+  let finalUuid: string | null = vpnUuid;
+  let configLink: string | null = null;
+  let allLinks: Record<string, string | null> | null = null;
+
+  const hasPanel = server.apiUrl && server.apiToken;
+  logger.info(`[orders:fulfill] Server: "${server.name}", protocol: ${product.protocol}, hasPanel: ${!!hasPanel}`);
+
+  if (hasPanel) {
+    const panelResult = await createPanelAccount({
+      apiUrl: server.apiUrl!,
+      apiToken: server.apiToken!,
+      protocol: product.protocol,
+      username: rawUsername,
+      password: vpnPassword,
+      durationDays: product.durationDays,
+      quota: product.quota ? Number(product.quota) : null,
+      maxConnections: product.maxConnections ?? null,
+      uuid: vpnUuid,
+    });
+    finalUsername = panelResult.username;
+    finalPassword = panelResult.password ?? vpnPassword;
+    finalUuid = panelResult.uuid ?? vpnUuid;
+    configLink = panelResult.configLink ?? null;
+    if (panelResult.allLinks) {
+      const links: Record<string, string | null> = {};
+      for (const [k, v] of Object.entries(panelResult.allLinks)) links[k] = v ?? null;
+      allLinks = links;
+    }
+    logger.info(`[orders:fulfill] Panel account created: ${product.protocol}/${finalUsername}`);
+  } else {
+    logger.warn(`[orders:fulfill] Server "${server.name}" has no apiUrl/apiToken. Using local credential generation.`);
+    if (product.protocol === "vmess") {
+      const config = Buffer.from(JSON.stringify({
+        v: "2", ps: `KETANTECH-${server.name}`,
+        add: server.host, port: 443, id: vpnUuid,
+        aid: 0, net: "ws", type: "none", host: server.host,
+        path: "/vmess", tls: "tls",
+      })).toString("base64");
+      configLink = `vmess://${config}`;
+    } else if (product.protocol === "vless") {
+      configLink = `vless://${vpnUuid}@${server.host}:443?security=tls&type=ws&path=/vless#KETANTECH-${server.name}`;
+    } else if (product.protocol === "trojan") {
+      configLink = `trojan://${vpnPassword}@${server.host}:443?security=tls#KETANTECH-${server.name}`;
+    }
+  }
+
+  // DB Transaction: optionally deduct balance + insert VPN account + update order
+  let balanceBefore: number | null = null;
+  let balanceAfter: number | null = null;
+
+  await db.transaction(async (tx) => {
+    if (opts.deductBalance) {
+      const [updatedUser] = await tx
+        .update(usersTable)
+        .set({ balance: sql`(balance::numeric - ${amount})::text` })
+        .where(and(eq(usersTable.id, order.userId), gte(sql`balance::numeric`, amount)))
+        .returning({ balance: usersTable.balance });
+
+      if (!updatedUser) throw new Error("INSUFFICIENT_BALANCE");
+      balanceAfter = Number(updatedUser.balance);
+      balanceBefore = balanceAfter + amount;
+    }
+
+    const [acc] = await tx
+      .insert(vpnAccountsTable)
+      .values({
+        userId: order.userId,
+        orderId: order.id,
+        protocol: product.protocol,
+        username: finalUsername,
+        password: finalPassword,
+        uuid: finalUuid,
+        serverId: server.id,
+        configLink,
+        allLinks,
+        expiresAt,
+        quota: product.quota ?? null,
+      })
+      .returning();
+
+    await tx
+      .update(ordersTable)
+      .set({ status: "paid", vpnAccountId: acc.id, updatedAt: new Date() })
+      .where(eq(ordersTable.id, orderId));
+  });
+
+  if (opts.deductBalance && balanceBefore !== null && balanceAfter !== null) {
+    addBalanceLog({
+      userId: order.userId,
+      type: "order",
+      amount: -amount,
+      balanceBefore,
+      balanceAfter,
+      description: `Pembelian produk: ${product.name} (Order #${order.id})`,
+      relatedId: order.id,
+    }).catch(() => {});
+  }
 }
 
 router.get("/orders", requireAuth, async (req, res) => {
@@ -83,6 +291,8 @@ router.post("/orders", requireAuth, async (req, res) => {
     return;
   }
 
+  const amount = Number(product.price);
+
   // ─── Deduplication: cegah order duplikat dalam 2 menit terakhir ───────────
   const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
   const [existingPending] = await db
@@ -106,6 +316,22 @@ router.post("/orders", requireAuth, async (req, res) => {
     return;
   }
 
+  // ─── Generate QRIS via AutoGoPay jika paymentMethod = "qris" ─────────────
+  let qrisData: { transactionId: string; qrisUrl: string; expiresAt: Date } | null = null;
+  if (paymentMethod === "qris") {
+    try {
+      qrisData = await generateAutoGopayQris(amount);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(502).json({ error: `Gagal membuat QRIS: ${msg}` });
+      return;
+    }
+    if (!qrisData) {
+      res.status(400).json({ error: "Pembayaran QRIS via AutoGoPay belum dikonfigurasi. Hubungi admin." });
+      return;
+    }
+  }
+
   const [order] = await db
     .insert(ordersTable)
     .values({
@@ -115,6 +341,9 @@ router.post("/orders", requireAuth, async (req, res) => {
       amount: product.price,
       paymentMethod,
       notes: remarks ?? null,
+      autogopayTransactionId: qrisData?.transactionId ?? null,
+      qrisUrl: qrisData?.qrisUrl ?? null,
+      expiresAt: qrisData?.expiresAt ?? null,
     })
     .returning();
 
@@ -143,258 +372,61 @@ router.post("/orders/:id/pay", requireAuth, async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const userId = req.user!.userId;
 
-  // ─── Step 1: Atomic order lock ─────────────────────────────────────────────
-  // Atomically change status from 'pending' → 'processing'.
-  // If 0 rows updated: another request already grabbed this order (race condition).
+  const [order] = await db
+    .select()
+    .from(ordersTable)
+    .where(and(eq(ordersTable.id, id), eq(ordersTable.userId, userId)))
+    .limit(1);
+
+  if (!order) {
+    res.status(404).json({ error: "Order tidak ditemukan" });
+    return;
+  }
+
+  if (order.status === "paid") {
+    res.status(400).json({ error: "Order sudah dibayar" });
+    return;
+  }
+
+  if (order.status !== "pending") {
+    res.status(400).json({ error: `Order tidak dapat dibayar (status: ${order.status})` });
+    return;
+  }
+
+  // QRIS orders: payment is automatic via webhook. Just return current QRIS data.
+  if (order.paymentMethod === "qris") {
+    res.json(await formatOrder(order));
+    return;
+  }
+
+  // Balance payment: lock order then fulfill
   const [lockedOrder] = await db
     .update(ordersTable)
     .set({ status: "processing", updatedAt: new Date() })
-    .where(
-      and(
-        eq(ordersTable.id, id),
-        eq(ordersTable.userId, userId),
-        eq(ordersTable.status, "pending")
-      )
-    )
+    .where(and(eq(ordersTable.id, id), eq(ordersTable.userId, userId), eq(ordersTable.status, "pending")))
     .returning();
 
   if (!lockedOrder) {
-    // Check why it failed
-    const [order] = await db
-      .select()
-      .from(ordersTable)
-      .where(and(eq(ordersTable.id, id), eq(ordersTable.userId, userId)))
-      .limit(1);
-
-    if (!order) {
-      res.status(404).json({ error: "Order not found" });
-    } else if (order.status === "paid") {
-      res.status(400).json({ error: "Order sudah dibayar" });
-    } else if (order.status === "processing") {
-      res.status(409).json({ error: "Order sedang diproses, harap tunggu sebentar" });
-    } else {
-      res.status(400).json({ error: `Order tidak dapat dibayar (status: ${order.status})` });
-    }
+    res.status(409).json({ error: "Order sedang diproses, harap tunggu sebentar" });
     return;
   }
-
-  const order = lockedOrder;
-  const amount = Number(order.amount);
-
-  // Helper to rollback order lock on failure
-  const releaseOrderLock = () =>
-    db.update(ordersTable)
-      .set({ status: "pending", updatedAt: new Date() })
-      .where(eq(ordersTable.id, id))
-      .catch(() => {});
-
-  const [product] = await db
-    .select()
-    .from(productsTable)
-    .where(eq(productsTable.id, order.productId))
-    .limit(1);
-
-  if (!product) {
-    await releaseOrderLock();
-    res.status(400).json({ error: "Product not found" });
-    return;
-  }
-
-  // Fetch user for username generation
-  const [user] = await db
-    .select()
-    .from(usersTable)
-    .where(eq(usersTable.id, userId))
-    .limit(1);
-
-  if (!user) {
-    await releaseOrderLock();
-    res.status(400).json({ error: "User not found" });
-    return;
-  }
-
-  // Pick a server that supports the ordered protocol
-  const allServers = await db
-    .select()
-    .from(serversTable)
-    .where(eq(serversTable.isActive, true));
-
-  // Priority: 1) supports protocol + has panel configured, 2) supports protocol, 3) any active server
-  const supportsProtocol = (s: typeof allServers[0]) =>
-    Array.isArray(s.supportedProtocols) && s.supportedProtocols.includes(product.protocol);
-
-  const server =
-    allServers.find((s) => supportsProtocol(s) && s.apiUrl && s.apiToken) ??
-    allServers.find((s) => supportsProtocol(s)) ??
-    allServers[0];
-
-  if (!server) {
-    await releaseOrderLock();
-    res.status(400).json({ error: "Tidak ada server yang tersedia saat ini" });
-    return;
-  }
-
-  const expiresAt = new Date(Date.now() + product.durationDays * 24 * 60 * 60 * 1000);
-
-  // Use user-specified remarks as the VPN username, or auto-generate
-  const remarksBase = order.notes ? sanitizeVpnUsername(order.notes) : null;
-  const rawUsername = remarksBase && remarksBase.length >= 3
-    ? `${remarksBase}${Date.now().toString().slice(-4)}`
-    : `${sanitizeVpnUsername(user.username)}${Date.now()}`;
-  const vpnPassword = randomUUID().replace(/-/g, "").slice(0, 12);
-  const vpnUuid = randomUUID();
-
-  let finalUsername = rawUsername;
-  let finalPassword: string | null = vpnPassword;
-  let finalUuid: string | null = vpnUuid;
-  let configLink: string | null = null;
-  let allLinks: Record<string, string | null> | null = null;
-
-  // ─── Call VPN Panel API if server is configured ───────────────────────────
-  const hasPanel = server.apiUrl && server.apiToken;
-  console.log(`[orders] Selected server: "${server.name}" (id=${server.id}), protocol=${product.protocol}, hasPanel=${!!hasPanel}`);
-
-  if (hasPanel) {
-    try {
-      const panelResult = await createPanelAccount({
-        apiUrl: server.apiUrl!,
-        apiToken: server.apiToken!,
-        protocol: product.protocol,
-        username: rawUsername,
-        password: vpnPassword,
-        durationDays: product.durationDays,
-        quota: product.quota ? Number(product.quota) : null,
-        maxConnections: product.maxConnections ?? null,
-        uuid: vpnUuid,
-      });
-
-      // Use credentials returned from panel
-      finalUsername = panelResult.username;
-      finalPassword = panelResult.password ?? vpnPassword;
-      finalUuid = panelResult.uuid ?? vpnUuid;
-      configLink = panelResult.configLink ?? null;
-      if (panelResult.allLinks) {
-        const links: Record<string, string | null> = {};
-        for (const [k, v] of Object.entries(panelResult.allLinks)) {
-          links[k] = v ?? null;
-        }
-        allLinks = links;
-      }
-
-      console.log(`[orders] Panel account created: ${product.protocol}/${finalUsername} on ${server.name}`);
-    } catch (panelErr) {
-      const msg = panelErr instanceof Error ? panelErr.message : String(panelErr);
-      console.error(`[orders] Panel API error for ${product.protocol}: ${msg}`);
-      // Reset order to pending so user can retry
-      await releaseOrderLock();
-      res.status(502).json({
-        error: `Gagal membuat akun VPN di server: ${msg}`,
-      });
-      return;
-    }
-  } else {
-    // No panel configured — generate credentials locally (offline mode / testing)
-    console.warn(`[orders] Server "${server.name}" has no apiUrl/apiToken. Using local credential generation.`);
-    if (product.protocol === "vmess") {
-      const config = Buffer.from(
-        JSON.stringify({
-          v: "2", ps: `KETANTECH-${server.name}`,
-          add: server.host, port: 443, id: vpnUuid,
-          aid: 0, net: "ws", type: "none", host: server.host,
-          path: "/vmess", tls: "tls",
-        })
-      ).toString("base64");
-      configLink = `vmess://${config}`;
-    } else if (product.protocol === "vless") {
-      configLink = `vless://${vpnUuid}@${server.host}:443?security=tls&type=ws&path=/vless#KETANTECH-${server.name}`;
-    } else if (product.protocol === "trojan") {
-      configLink = `trojan://${vpnPassword}@${server.host}:443?security=tls#KETANTECH-${server.name}`;
-    }
-  }
-  // ─────────────────────────────────────────────────────────────────────────
-
-  // ─── Step 3: DB Transaction — atomic balance + account + order ───────────
-  let balanceBefore: number;
-  let balanceAfter: number;
 
   try {
-    const result = await db.transaction(async (tx) => {
-      // Atomic balance deduction: only succeeds if balance >= amount at DB level
-      const [updatedUser] = await tx
-        .update(usersTable)
-        .set({ balance: sql`(balance::numeric - ${amount})::text` })
-        .where(
-          and(
-            eq(usersTable.id, userId),
-            gte(sql`balance::numeric`, amount)
-          )
-        )
-        .returning({ balance: usersTable.balance });
-
-      if (!updatedUser) {
-        throw new Error("INSUFFICIENT_BALANCE");
-      }
-
-      const newBalance = Number(updatedUser.balance);
-      const prevBalance = newBalance + amount;
-
-      // Insert VPN account
-      const [acc] = await tx
-        .insert(vpnAccountsTable)
-        .values({
-          userId,
-          orderId: order.id,
-          protocol: product.protocol,
-          username: finalUsername,
-          password: finalPassword,
-          uuid: finalUuid,
-          serverId: server.id,
-          configLink,
-          allLinks,
-          expiresAt,
-          quota: product.quota ?? null,
-        })
-        .returning();
-
-      // Mark order as paid
-      await tx
-        .update(ordersTable)
-        .set({ status: "paid", vpnAccountId: acc.id, updatedAt: new Date() })
-        .where(eq(ordersTable.id, order.id));
-
-      return { acc, prevBalance, newBalance };
-    });
-
-    balanceBefore = result.prevBalance;
-    balanceAfter = result.newBalance;
+    await fulfillOrder(id, { deductBalance: true });
   } catch (err) {
-    await releaseOrderLock();
-    if (err instanceof Error && err.message === "INSUFFICIENT_BALANCE") {
+    // Release lock on failure
+    await db.update(ordersTable).set({ status: "pending", updatedAt: new Date() }).where(eq(ordersTable.id, id)).catch(() => {});
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg === "INSUFFICIENT_BALANCE") {
       res.status(400).json({ error: "Saldo tidak cukup untuk membayar order ini" });
     } else {
-      console.error("[orders] Transaction failed:", err);
-      res.status(500).json({ error: "Gagal memproses pembayaran, silakan coba lagi" });
+      logger.error({ err }, "[orders:pay] fulfillOrder failed");
+      res.status(500).json({ error: `Gagal memproses pembayaran: ${msg}` });
     }
     return;
   }
 
-  // Log balance deduction (fire-and-forget)
-  addBalanceLog({
-    userId,
-    type: "order",
-    amount: -amount,
-    balanceBefore,
-    balanceAfter,
-    description: `Pembelian produk: ${product.name} (Order #${order.id})`,
-    relatedId: order.id,
-  }).catch(() => {});
-
-  const [updatedOrder] = await db
-    .select()
-    .from(ordersTable)
-    .where(eq(ordersTable.id, order.id))
-    .limit(1);
-
+  const [updatedOrder] = await db.select().from(ordersTable).where(eq(ordersTable.id, id)).limit(1);
   res.json(await formatOrder(updatedOrder));
 });
 
