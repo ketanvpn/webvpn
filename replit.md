@@ -32,7 +32,8 @@ Platform penjualan VPN Indonesia berbasis web + bot Telegram. Dibangun sebagai p
 ### VPN Store Web (`artifacts/vpn-web`)
 - React + Vite SPA
 - Preview path: `/`
-- Port: `18678` (via env `PORT`)
+- Port: `5173` (via env `PORT`)
+- Workflow: "VPN Web" — `PORT=5173 BASE_PATH=/ pnpm --filter @workspace/vpn-web run dev`
 
 ### API Server (`artifacts/api-server`)
 - Express 5 REST API
