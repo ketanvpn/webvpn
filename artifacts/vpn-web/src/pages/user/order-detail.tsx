@@ -1,16 +1,31 @@
 import { getApiError } from "@/lib/utils";
-import { useGetOrder, usePayOrder, getGetOrderQueryKey } from "@workspace/api-client-react";
+import { useGetOrder, usePayOrder, getGetOrderQueryKey, useGetAccount, getGetBalanceQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { formatRupiah } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Clock, CreditCard, ShoppingBag, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, Clock, CreditCard, ShoppingBag, AlertCircle, CheckCircle2, Copy, QrCode, Shield } from "lucide-react";
 import { format } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import type { OrderStatus } from "@workspace/api-client-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useState } from "react";
 
 const statusColors: Record<OrderStatus, string> = {
   pending: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
@@ -26,14 +41,33 @@ const statusLabel: Record<OrderStatus, string> = {
   expired: "Kedaluwarsa",
 };
 
+function QrCodeImage({ data, label }: { data: string; label: string }) {
+  const url = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(data)}`;
+  return (
+    <div className="flex flex-col items-center gap-4">
+      <div className="bg-white p-4 rounded-xl border-2 border-muted shadow">
+        <img src={url} alt={`QR ${label}`} width={220} height={220} className="block" />
+      </div>
+      <p className="text-xs text-muted-foreground text-center max-w-xs">
+        Scan menggunakan V2Ray, NekoBox, atau Shadowrocket.
+      </p>
+    </div>
+  );
+}
+
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const orderId = parseInt(id || "0", 10);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [payConfirmOpen, setPayConfirmOpen] = useState(false);
 
   const { data: order, isLoading } = useGetOrder(orderId, {
     query: { enabled: !!orderId }
+  });
+
+  const { data: vpnAccount } = useGetAccount(order?.vpnAccountId ?? 0, {
+    query: { enabled: !!order?.vpnAccountId && order?.status === "paid" }
   });
 
   const payOrder = usePayOrder();
@@ -42,10 +76,11 @@ export default function OrderDetail() {
     payOrder.mutate({ id: orderId }, {
       onSuccess: () => {
         toast({
-          title: "Pembayaran Berhasil",
-          description: "Order kamu sudah dibayar.",
+          title: "Pembayaran Berhasil!",
+          description: "Akun VPN kamu sudah siap digunakan.",
         });
         queryClient.invalidateQueries({ queryKey: getGetOrderQueryKey(orderId) });
+        queryClient.invalidateQueries({ queryKey: getGetBalanceQueryKey() });
       },
       onError: (err) => {
         toast({
@@ -55,6 +90,11 @@ export default function OrderDetail() {
         });
       }
     });
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Disalin!", description: `${label} disalin ke clipboard.` });
   };
 
   if (isLoading) {
@@ -76,6 +116,23 @@ export default function OrderDetail() {
       </div>
     );
   }
+
+  const allLinks = vpnAccount?.allLinks as Record<string, string | null> | null | undefined;
+  const hasAllLinks = allLinks && Object.values(allLinks).some((v) => !!v);
+  const LINK_ORDER = ["tls", "none", "grpc", "uptls", "upntls"];
+  const LINK_LABELS: Record<string, string> = {
+    tls: "WS TLS", none: "WS No TLS", grpc: "gRPC TLS", uptls: "Upgrade TLS", upntls: "Upgrade No TLS",
+  };
+  const linkKeys = allLinks
+    ? [
+        ...LINK_ORDER.filter((k) => !!allLinks[k]),
+        ...Object.keys(allLinks).filter((k) => !LINK_ORDER.includes(k) && !!allLinks[k]),
+      ]
+    : [];
+
+  const daysLeft = vpnAccount
+    ? Math.ceil((new Date(vpnAccount.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : 0;
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
@@ -99,7 +156,7 @@ export default function OrderDetail() {
               </CardTitle>
               <div className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
                 <Clock className="h-3 w-3" />
-                {format(new Date(order.createdAt), "d MMMM yyyy, HH:mm")}
+                {format(new Date(order.createdAt), "d MMMM yyyy, HH:mm", { locale: idLocale })}
               </div>
             </div>
             <Badge variant="outline" className={`text-base px-3 py-1 ${statusColors[order.status]}`}>
@@ -151,14 +208,142 @@ export default function OrderDetail() {
             </div>
           </div>
 
-          {order.status === "paid" && order.vpnAccountId && (
+          {/* Struk Digital – tampil setelah dibayar */}
+          {order.status === "paid" && vpnAccount && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 pt-2">
+                <Shield className="h-5 w-5 text-green-500" />
+                <h3 className="text-base font-bold text-green-700">Akun VPN Siap Digunakan!</h3>
+              </div>
+
+              {/* Info akun */}
+              <div className="rounded-xl border-2 border-green-500/30 bg-green-500/5 overflow-hidden">
+                <div className="bg-green-500/10 px-4 py-3 border-b border-green-500/20 flex justify-between items-center">
+                  <span className="font-mono font-bold text-lg">{vpnAccount.username}</span>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="uppercase">{vpnAccount.protocol}</Badge>
+                    <Badge variant={vpnAccount.isActive ? "default" : "destructive"}>
+                      {vpnAccount.isActive ? "Aktif" : "Nonaktif"}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="p-4 space-y-3 text-sm">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-muted-foreground font-semibold uppercase">Server</p>
+                      <p className="font-medium">{vpnAccount.server?.name ?? "-"}</p>
+                      <p className="text-xs text-muted-foreground">{vpnAccount.server?.location ?? ""}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-muted-foreground font-semibold uppercase">Kedaluwarsa</p>
+                      <p className="font-medium">{format(new Date(vpnAccount.expiresAt), "d MMM yyyy", { locale: idLocale })}</p>
+                      <p className={`text-xs font-medium ${daysLeft <= 3 ? "text-destructive" : daysLeft <= 7 ? "text-yellow-600" : "text-green-600"}`}>
+                        {daysLeft > 0 ? `${daysLeft} hari lagi` : "Segera berakhir"}
+                      </p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-muted-foreground font-semibold uppercase">Kuota</p>
+                      <p className="font-medium">{vpnAccount.quota ? `${vpnAccount.quota} GB` : "Unlimited"}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-muted-foreground font-semibold uppercase">Host</p>
+                      <p className="font-mono text-xs">{vpnAccount.server?.host ?? "-"}</p>
+                    </div>
+                  </div>
+
+                  {vpnAccount.uuid && (
+                    <div className="space-y-1.5 pt-2 border-t">
+                      <Label className="text-xs text-muted-foreground uppercase font-semibold">UUID / Password</Label>
+                      <div className="flex gap-2">
+                        <Input value={vpnAccount.uuid} readOnly className="font-mono text-xs bg-muted/50 h-8" />
+                        <Button variant="outline" size="sm" onClick={() => copyToClipboard(vpnAccount.uuid!, "UUID")} className="h-8 px-2 shrink-0">
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Config / Import Links */}
+              {(hasAllLinks || vpnAccount.configLink) && (
+                <div className="rounded-xl border bg-primary/5 p-4 space-y-3">
+                  <p className="text-sm font-semibold flex items-center gap-2">
+                    <QrCode className="h-4 w-4 text-primary" />
+                    Link Import Config
+                  </p>
+                  {hasAllLinks ? (
+                    <div className="space-y-3">
+                      {linkKeys.map((key) => {
+                        const link = allLinks![key];
+                        if (!link) return null;
+                        const label = LINK_LABELS[key] ?? key.toUpperCase();
+                        return (
+                          <div key={key} className="space-y-1.5">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase">{label}</p>
+                            <div className="flex gap-2">
+                              <Input value={link} readOnly className="font-mono text-xs bg-background h-8" />
+                              <Button variant="outline" size="sm" className="h-8 px-2 shrink-0" onClick={() => copyToClipboard(link, label)}>
+                                <Copy className="h-3.5 w-3.5" />
+                              </Button>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button variant="outline" size="sm" className="h-8 px-2 shrink-0">
+                                    <QrCode className="h-3.5 w-3.5" />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-sm flex flex-col items-center p-8 gap-4">
+                                  <DialogHeader><DialogTitle className="text-center">QR — {label}</DialogTitle></DialogHeader>
+                                  <QrCodeImage data={link} label={label} />
+                                  <Button variant="outline" size="sm" className="gap-2" onClick={() => copyToClipboard(link, label)}>
+                                    <Copy className="h-3.5 w-3.5" /> Salin Link
+                                  </Button>
+                                </DialogContent>
+                              </Dialog>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : vpnAccount.configLink ? (
+                    <div className="flex gap-2">
+                      <Input value={vpnAccount.configLink} readOnly className="font-mono text-xs bg-background h-8" />
+                      <Button variant="outline" size="sm" className="h-8 px-2 shrink-0" onClick={() => copyToClipboard(vpnAccount.configLink!, "Config Link")}>
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-8 px-2 shrink-0">
+                            <QrCode className="h-3.5 w-3.5" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-sm flex flex-col items-center p-8 gap-4">
+                          <DialogHeader><DialogTitle className="text-center">QR Code Config</DialogTitle></DialogHeader>
+                          <QrCodeImage data={vpnAccount.configLink} label="Config" />
+                          <Button variant="outline" size="sm" className="gap-2" onClick={() => copyToClipboard(vpnAccount.configLink!, "Config Link")}>
+                            <Copy className="h-3.5 w-3.5" /> Salin Link
+                          </Button>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+
+              <Button variant="outline" className="w-full gap-2" asChild>
+                <Link href={`/accounts/${order.vpnAccountId}`}>
+                  Lihat Detail Lengkap Akun →
+                </Link>
+              </Button>
+            </div>
+          )}
+
+          {order.status === "paid" && order.vpnAccountId && !vpnAccount && (
             <div className="bg-green-500/10 p-5 rounded-lg border border-green-500/20 flex flex-col items-center justify-center text-center space-y-3">
               <CheckCircle2 className="h-8 w-8 text-green-500" />
               <div className="font-semibold text-green-700">Akun VPN kamu sudah siap!</div>
               <Button asChild className="gap-2">
-                <Link href={`/accounts/${order.vpnAccountId}`}>
-                  Lihat Detail Akun
-                </Link>
+                <Link href={`/accounts/${order.vpnAccountId}`}>Lihat Detail Akun</Link>
               </Button>
             </div>
           )}
@@ -177,12 +362,43 @@ export default function OrderDetail() {
             <Button variant="outline" asChild>
               <Link href="/balance">Topup Saldo</Link>
             </Button>
-            <Button onClick={handlePay} disabled={payOrder.isPending} className="gap-2">
+            <Button onClick={() => setPayConfirmOpen(true)} disabled={payOrder.isPending} className="gap-2">
               {payOrder.isPending ? "Memproses..." : "Bayar Sekarang"}
             </Button>
           </CardFooter>
         )}
       </Card>
+
+      {/* Payment confirmation dialog */}
+      <AlertDialog open={payConfirmOpen} onOpenChange={setPayConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Konfirmasi Pembayaran</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 pt-1">
+                <p>Kamu akan membayar order ini menggunakan saldo akun:</p>
+                <div className="rounded-lg border bg-muted/30 divide-y text-sm">
+                  <div className="flex justify-between px-4 py-2.5">
+                    <span className="text-muted-foreground">Produk</span>
+                    <span className="font-semibold">{order.product?.name}</span>
+                  </div>
+                  <div className="flex justify-between px-4 py-2.5 bg-primary/5">
+                    <span className="font-semibold">Total</span>
+                    <span className="font-bold text-primary">{formatRupiah(order.amount)}</span>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">Saldo akan dipotong dan akun VPN langsung aktif setelah pembayaran berhasil.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={payOrder.isPending}>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={handlePay} disabled={payOrder.isPending}>
+              {payOrder.isPending ? "Memproses..." : "Ya, Bayar Sekarang"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

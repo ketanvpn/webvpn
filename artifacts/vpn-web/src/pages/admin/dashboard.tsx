@@ -2,10 +2,31 @@ import { useGetAdminDashboard } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatRupiah } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, ShoppingCart, Wallet, Server, Activity, ArrowUpRight } from "lucide-react";
+import { Users, ShoppingCart, Wallet, Server, Activity, ArrowUpRight, TrendingUp, BarChart2 } from "lucide-react";
 import { format } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  BarChart,
+  Bar,
+  Legend,
+} from "recharts";
+
+interface ChartDay {
+  date: string;
+  revenue: number;
+  orders: number;
+}
 
 const statusLabel: Record<string, string> = {
   pending: "Menunggu",
@@ -14,9 +35,51 @@ const statusLabel: Record<string, string> = {
   expired: "Kedaluwarsa",
 };
 
+function formatShortDate(dateStr: string) {
+  const d = new Date(dateStr + "T00:00:00");
+  return format(d, "d MMM", { locale: idLocale });
+}
+
+function RevenueTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-background border rounded-lg shadow-lg p-3 text-sm space-y-1">
+      <p className="font-medium text-xs text-muted-foreground">{label}</p>
+      <p className="font-bold text-primary">{formatRupiah(payload[0]?.value ?? 0)}</p>
+      {payload[1] && (
+        <p className="text-muted-foreground">{payload[1].value} order</p>
+      )}
+    </div>
+  );
+}
+
+function OrdersTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-background border rounded-lg shadow-lg p-3 text-sm space-y-1">
+      <p className="font-medium text-xs text-muted-foreground">{label}</p>
+      <p className="font-bold">{payload[0]?.value ?? 0} order</p>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const { data: summary, isLoading } = useGetAdminDashboard({
     query: { refetchInterval: 30_000 },
+  });
+
+  const [chartDays, setChartDays] = useState(14);
+
+  const { data: chartData, isLoading: chartLoading } = useQuery<ChartDay[]>({
+    queryKey: ["admin-revenue-chart", chartDays],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/stats/revenue-chart?days=${chartDays}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Gagal memuat data chart");
+      return res.json();
+    },
+    refetchInterval: 60_000,
   });
 
   if (isLoading || !summary) {
@@ -32,6 +95,12 @@ export default function AdminDashboard() {
     );
   }
 
+  const totalChartRevenue = chartData?.reduce((s, d) => s + d.revenue, 0) ?? 0;
+  const formattedChart = chartData?.map((d) => ({
+    ...d,
+    label: formatShortDate(d.date),
+  })) ?? [];
+
   return (
     <div className="space-y-8">
       <div>
@@ -39,6 +108,7 @@ export default function AdminDashboard() {
         <p className="text-muted-foreground mt-1">Statistik platform dan aktivitas terbaru.</p>
       </div>
 
+      {/* Stat cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-primary text-primary-foreground border-none">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -122,6 +192,135 @@ export default function AdminDashboard() {
         </Link>
       </div>
 
+      {/* Charts */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              Statistik Pendapatan
+            </h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Total {formatRupiah(totalChartRevenue)} dalam {chartDays} hari terakhir
+            </p>
+          </div>
+          <div className="flex gap-1.5">
+            {[7, 14, 30].map((d) => (
+              <button
+                key={d}
+                onClick={() => setChartDays(d)}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  chartDays === d
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                {d}H
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          {/* Revenue area chart */}
+          <Card className="md:col-span-2">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-primary" />
+                Revenue Harian
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {chartLoading ? (
+                <Skeleton className="h-[200px] w-full" />
+              ) : (
+                <ResponsiveContainer width="100%" height={200}>
+                  <AreaChart data={formattedChart} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                    <defs>
+                      <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                      tickLine={false}
+                      axisLine={false}
+                      interval={chartDays <= 7 ? 0 : Math.floor(chartDays / 7) - 1}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(v) => {
+                        if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(0)}jt`;
+                        if (v >= 1_000) return `${(v / 1_000).toFixed(0)}rb`;
+                        return String(v);
+                      }}
+                      width={36}
+                    />
+                    <Tooltip content={<RevenueTooltip />} />
+                    <Area
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      fill="url(#revenueGradient)"
+                      name="Revenue"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Orders bar chart */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <BarChart2 className="h-4 w-4 text-primary" />
+                Order per Hari
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {chartLoading ? (
+                <Skeleton className="h-[200px] w-full" />
+              ) : (
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={formattedChart} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                      tickLine={false}
+                      axisLine={false}
+                      interval={chartDays <= 7 ? 0 : Math.floor(chartDays / 7) - 1}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                      tickLine={false}
+                      axisLine={false}
+                      allowDecimals={false}
+                      width={24}
+                    />
+                    <Tooltip content={<OrdersTooltip />} />
+                    <Bar
+                      dataKey="orders"
+                      fill="hsl(var(--primary))"
+                      radius={[3, 3, 0, 0]}
+                      name="Order"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Recent activity */}
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader className="flex items-center justify-between">

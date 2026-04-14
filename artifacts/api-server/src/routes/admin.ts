@@ -139,6 +139,41 @@ router.get("/admin/dashboard", requireAdmin, async (_req, res) => {
   });
 });
 
+// ─── Admin: Revenue Chart ─────────────────────────────────────────────────────
+
+router.get("/admin/stats/revenue-chart", requireAdmin, async (req, res) => {
+  const days = Math.min(parseInt(String(req.query.days ?? "14"), 10), 30);
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days + 1);
+  startDate.setHours(0, 0, 0, 0);
+
+  const rows = await db
+    .select({
+      date: sql<string>`date_trunc('day', created_at)::date::text`,
+      revenue: sql<string>`coalesce(sum(amount), 0)`,
+      orders: sql<number>`count(*)::int`,
+    })
+    .from(ordersTable)
+    .where(and(eq(ordersTable.status, "paid"), sql`created_at >= ${startDate}`))
+    .groupBy(sql`date_trunc('day', created_at)`)
+    .orderBy(sql`date_trunc('day', created_at)`);
+
+  const result = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().split("T")[0];
+    const found = rows.find((r) => r.date === dateStr);
+    result.push({
+      date: dateStr,
+      revenue: Number(found?.revenue ?? 0),
+      orders: found?.orders ?? 0,
+    });
+  }
+
+  res.json(result);
+});
+
 // ─── Admin: Users ─────────────────────────────────────────────────────────────
 
 router.get("/admin/users", requireAdmin, async (req, res) => {

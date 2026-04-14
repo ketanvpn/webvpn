@@ -255,6 +255,12 @@ Setiap kali mengubah `lib/api-spec/openapi.yaml`:
 
 ## Progress Batch Improvement
 
+### Batch 6 ✅ (April 2026)
+- **Grafik Statistik Admin Dashboard:** Revenue harian (AreaChart) + Order per hari (BarChart) menggunakan Recharts; toggle 7H/14H/30H; endpoint baru `GET /admin/stats/revenue-chart`
+- **Konfirmasi Order:** Dialog review sebelum buat order di `product-detail.tsx` — tampil ringkasan produk, nama akun, metode bayar, saldo sebelum/sesudah
+- **Struk Digital Order:** Setelah bayar, `order-detail.tsx` langsung tampil detail akun VPN inline — UUID, server, expiry, config link + QR Code
+- **Konfirmasi Bayar:** AlertDialog sebelum klik "Bayar Sekarang" di order detail
+
 ### Batch 5b ✅ (April 2026)
 - Pengaturan Notifikasi Kedaluwarsa di admin (`GET/PUT /admin/settings/expiry-notif`)
 - Scheduler sekarang menghormati setting: bisa nonaktifkan H-3/H-1 secara terpisah

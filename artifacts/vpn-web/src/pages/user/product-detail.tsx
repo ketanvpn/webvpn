@@ -6,7 +6,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Clock, HardDrive, Network, ShieldCheck, ArrowLeft, Wifi } from "lucide-react";
+import { Clock, HardDrive, Network, ShieldCheck, ArrowLeft, Wifi, Wallet, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import { useState } from "react";
@@ -14,6 +14,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +33,7 @@ export default function ProductDetail() {
   const queryClient = useQueryClient();
   const [paymentMethod, setPaymentMethod] = useState<"balance" | "qris">("balance");
   const [remarks, setRemarks] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const { data: product, isLoading } = useGetProduct(productId, {
     query: { enabled: !!productId }
@@ -33,7 +44,7 @@ export default function ProductDetail() {
 
   const createOrder = useCreateOrder();
 
-  const handlePurchase = () => {
+  const handleOpenConfirm = () => {
     if (!remarks.trim()) {
       toast({
         title: "Nama akun wajib diisi",
@@ -53,6 +64,10 @@ export default function ProductDetail() {
       return;
     }
 
+    setConfirmOpen(true);
+  };
+
+  const handleConfirmPurchase = () => {
     createOrder.mutate({
       data: {
         productId,
@@ -95,6 +110,8 @@ export default function ProductDetail() {
       </div>
     );
   }
+
+  const balanceAfter = balance - product.price;
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -203,6 +220,27 @@ export default function ProductDetail() {
                 </Select>
               </div>
 
+              {paymentMethod === "balance" && (
+                <div className="rounded-lg bg-muted/50 border p-3 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground flex items-center gap-1.5">
+                      <Wallet className="h-3.5 w-3.5" /> Saldo saat ini
+                    </span>
+                    <span className="font-medium">{formatRupiah(balance)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Harga produk</span>
+                    <span className="font-medium text-destructive">- {formatRupiah(product.price)}</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t font-semibold">
+                    <span>Sisa saldo</span>
+                    <span className={balanceAfter < 0 ? "text-destructive" : "text-green-600"}>
+                      {formatRupiah(Math.max(0, balanceAfter))}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {paymentMethod === "balance" && balance < product.price && (
                 <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md border border-destructive/20">
                   Saldo tidak cukup. Kamu butuh {formatRupiah(product.price - balance)} lagi.
@@ -214,7 +252,7 @@ export default function ProductDetail() {
               <Button
                 size="lg"
                 className="w-full text-lg h-14"
-                onClick={handlePurchase}
+                onClick={handleOpenConfirm}
                 disabled={createOrder.isPending || !remarks.trim() || (paymentMethod === "balance" && balance < product.price)}
               >
                 {createOrder.isPending ? "Memproses..." : "Buat Order"}
@@ -226,6 +264,67 @@ export default function ProductDetail() {
           </Card>
         </div>
       </div>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              Konfirmasi Pembelian
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4 pt-2">
+                <div className="rounded-lg border bg-muted/30 divide-y text-sm">
+                  <div className="flex justify-between px-4 py-2.5">
+                    <span className="text-muted-foreground">Produk</span>
+                    <span className="font-semibold">{product.name}</span>
+                  </div>
+                  <div className="flex justify-between px-4 py-2.5">
+                    <span className="text-muted-foreground">Protokol</span>
+                    <Badge variant="secondary" className="uppercase text-xs">{product.protocol}</Badge>
+                  </div>
+                  <div className="flex justify-between px-4 py-2.5">
+                    <span className="text-muted-foreground">Durasi</span>
+                    <span className="font-medium">{product.durationDays} hari</span>
+                  </div>
+                  <div className="flex justify-between px-4 py-2.5">
+                    <span className="text-muted-foreground">Nama Akun</span>
+                    <span className="font-mono font-medium">{remarks}</span>
+                  </div>
+                  <div className="flex justify-between px-4 py-2.5">
+                    <span className="text-muted-foreground">Metode Bayar</span>
+                    <span className="font-medium">{paymentMethod === "balance" ? "Saldo Akun" : "QRIS"}</span>
+                  </div>
+                  <div className="flex justify-between px-4 py-2.5 bg-primary/5">
+                    <span className="font-semibold">Total Bayar</span>
+                    <span className="font-bold text-primary text-base">{formatRupiah(product.price)}</span>
+                  </div>
+                  {paymentMethod === "balance" && (
+                    <div className="flex justify-between px-4 py-2.5">
+                      <span className="text-muted-foreground">Sisa saldo</span>
+                      <span className="font-medium text-green-600">{formatRupiah(balanceAfter)}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-start gap-2 text-xs text-muted-foreground bg-yellow-500/10 border border-yellow-500/20 rounded-md p-3">
+                  <AlertTriangle className="h-3.5 w-3.5 text-yellow-600 shrink-0 mt-0.5" />
+                  <span>Pastikan nama akun sudah benar. Order yang sudah dibuat tidak dapat diubah.</span>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={createOrder.isPending}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmPurchase}
+              disabled={createOrder.isPending}
+            >
+              {createOrder.isPending ? "Memproses..." : "Ya, Buat Order"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
