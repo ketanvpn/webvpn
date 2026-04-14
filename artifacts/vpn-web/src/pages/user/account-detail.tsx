@@ -49,7 +49,13 @@ function QrCodeImage({ data, label }: { data: string; label: string }) {
   );
 }
 
-function RenewDialog({ accountId, protocol }: { accountId: number; protocol: string }) {
+function RenewDialog({ accountId, protocol, serverName, serverFlag, serverLocation }: {
+  accountId: number;
+  protocol: string;
+  serverName: string;
+  serverFlag: string;
+  serverLocation: string;
+}) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -117,9 +123,19 @@ function RenewDialog({ accountId, protocol }: { accountId: number; protocol: str
         <DialogHeader>
           <DialogTitle>Perpanjang Akun VPN</DialogTitle>
           <DialogDescription>
-            Pilih paket untuk memperpanjang akun ini. Pembayaran otomatis dipotong dari saldo.
+            Pilih durasi perpanjangan. Server dan akun tetap sama, hanya masa aktif yang ditambah.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Info server — tidak berubah */}
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border bg-muted/30 text-sm">
+          <span className="text-2xl leading-none">{serverFlag}</span>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold truncate">{serverName}</div>
+            <div className="text-xs text-muted-foreground">{serverLocation} &bull; {protocol.toUpperCase()}</div>
+          </div>
+          <Badge variant="outline" className="text-xs shrink-0">Server tetap sama</Badge>
+        </div>
 
         {renewed ? (
           <div className="flex flex-col items-center gap-4 py-6">
@@ -144,7 +160,7 @@ function RenewDialog({ accountId, protocol }: { accountId: number; protocol: str
 
             {/* Pilih produk */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Pilih Paket Perpanjangan</Label>
+              <Label className="text-sm font-medium">Pilih Durasi Perpanjangan</Label>
               {loadingProducts ? (
                 <div className="space-y-2">
                   <Skeleton className="h-16 w-full" />
@@ -172,12 +188,10 @@ function RenewDialog({ accountId, protocol }: { accountId: number; protocol: str
                             : "border-muted bg-muted/20 opacity-50 cursor-not-allowed"
                         }`}
                       >
-                        <div className="flex justify-between items-start">
+                        <div className="flex justify-between items-center">
                           <div>
-                            <div className="font-semibold text-sm">{p.name}</div>
-                            <div className="text-xs text-muted-foreground mt-0.5">
-                              {p.durationDays} hari &bull; {p.protocol.toUpperCase()}
-                            </div>
+                            <div className="font-bold text-base">{p.durationDays} hari</div>
+                            <div className="text-xs text-muted-foreground mt-0.5">{p.name}</div>
                           </div>
                           <div className="text-right">
                             <div className={`font-bold text-sm ${isSelected ? "text-primary" : ""}`}>
@@ -547,7 +561,13 @@ export default function AccountDetail() {
               <CardTitle className="text-base">Aksi</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <RenewDialog accountId={accountId} protocol={account.protocol} />
+              <RenewDialog
+                accountId={accountId}
+                protocol={account.protocol}
+                serverName={account.server.name}
+                serverFlag={account.server.flag}
+                serverLocation={account.server.location}
+              />
               <Button variant="outline" className="w-full" asChild>
                 <Link href={`/orders/${account.orderId}`}>Lihat Order Asli</Link>
               </Button>
