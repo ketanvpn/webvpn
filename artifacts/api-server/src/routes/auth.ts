@@ -313,6 +313,11 @@ router.post("/auth/change-password", requireAuth, async (req, res) => {
     .where(eq(usersTable.id, userId))
     .limit(1);
 
+  if (!user) {
+    res.status(404).json({ error: "User tidak ditemukan" });
+    return;
+  }
+
   const valid = await bcrypt.compare(String(currentPassword), user.passwordHash);
   if (!valid) {
     res.status(400).json({ error: "Password saat ini salah" });

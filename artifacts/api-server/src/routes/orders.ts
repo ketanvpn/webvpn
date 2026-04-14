@@ -117,6 +117,19 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
 
   const amount = Number(order.amount);
 
+  // ── Cek saldo SEBELUM buat akun panel — hindari akun "hantu" di server ──────
+  if (opts.deductBalance) {
+    const [userCheck] = await db
+      .select({ balance: usersTable.balance })
+      .from(usersTable)
+      .where(eq(usersTable.id, order.userId))
+      .limit(1);
+
+    if (!userCheck || Number(userCheck.balance) < amount) {
+      throw new Error("INSUFFICIENT_BALANCE");
+    }
+  }
+
   const allServers = await db
     .select()
     .from(serversTable)

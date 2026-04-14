@@ -893,6 +893,11 @@ router.post("/admin/topups/:id/reject", requireAdmin, async (req, res) => {
     return;
   }
 
+  if (topup.status !== "pending") {
+    res.status(400).json({ error: `Topup tidak bisa ditolak (status saat ini: ${topup.status})` });
+    return;
+  }
+
   const [updated] = await db
     .update(topupsTable)
     .set({ status: "rejected", confirmedBy: adminId, rejectionNote, updatedAt: new Date() })
