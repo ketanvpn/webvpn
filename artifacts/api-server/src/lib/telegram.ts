@@ -121,6 +121,25 @@ export async function notifyAdminNewTopup(
   ]);
 }
 
+export async function notifyAdminTopupAutoConfirmed(
+  topupId: number,
+  amount: number,
+  username: string,
+  newBalance: number,
+) {
+  const { adminChatId } = await getTelegramConfig();
+  if (!adminChatId) return;
+
+  const text =
+    `✅ <b>Topup Auto-Konfirmasi (AutoGoPay)</b>\n\n` +
+    `👤 User: <b>${username}</b>\n` +
+    `💰 Nominal: <b>${formatRupiah(amount)}</b>\n` +
+    `💳 Saldo baru: <b>${formatRupiah(newBalance)}</b>\n` +
+    `🆔 ID: #${topupId}`;
+
+  await sendMessage(adminChatId, text);
+}
+
 export async function notifyAdminNewOrder(
   orderId: number,
   amount: number,

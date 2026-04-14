@@ -6,7 +6,7 @@ import { eq, sql, and } from "drizzle-orm";
 import { getPaymentSettingsMap } from "./settings";
 import { logger } from "../lib/logger";
 import { fulfillOrder } from "./orders";
-import { notifyUserTopupConfirmed } from "../lib/telegram";
+import { notifyUserTopupConfirmed, notifyAdminTopupAutoConfirmed } from "../lib/telegram";
 
 const router = Router();
 
@@ -97,16 +97,26 @@ router.post("/webhooks/autogopay", async (req, res) => {
         return;
       }
 
-      const [updatedUser] = await db
-        .update(usersTable)
-        .set({ balance: sql`balance + ${Number(topup.amount)}` })
-        .where(eq(usersTable.id, topup.userId))
-        .returning({ newBalance: usersTable.balance });
+      const [[updatedUser], [userInfo]] = await Promise.all([
+        db
+          .update(usersTable)
+          .set({ balance: sql`balance + ${Number(topup.amount)}` })
+          .where(eq(usersTable.id, topup.userId))
+          .returning({ newBalance: usersTable.balance, username: usersTable.username }),
+        db
+          .select({ username: usersTable.username })
+          .from(usersTable)
+          .where(eq(usersTable.id, topup.userId))
+          .limit(1),
+      ]);
 
       await db
         .update(topupsTable)
         .set({ status: "confirmed", updatedAt: new Date() })
         .where(eq(topupsTable.id, topup.id));
+
+      const newBalance = Number(updatedUser?.newBalance ?? 0);
+      const username = updatedUser?.username ?? userInfo?.username ?? `User#${topup.userId}`;
 
       logger.info({ topupId: topup.id, userId: topup.userId, amount: topup.amount }, "AutoGoPay: topup auto-confirmed");
 
@@ -114,8 +124,16 @@ router.post("/webhooks/autogopay", async (req, res) => {
       notifyUserTopupConfirmed(
         topup.userId,
         Number(topup.amount),
-        Number(updatedUser?.newBalance ?? 0),
+        newBalance,
       ).catch((err) => logger.error({ err }, "notifyUserTopupConfirmed failed"));
+
+      // Kirim notifikasi Telegram ke admin (info saja, tanpa tombol)
+      notifyAdminTopupAutoConfirmed(
+        topup.id,
+        Number(topup.amount),
+        username,
+        newBalance,
+      ).catch((err) => logger.error({ err }, "notifyAdminTopupAutoConfirmed failed"));
 
       res.json({ success: true });
       return;

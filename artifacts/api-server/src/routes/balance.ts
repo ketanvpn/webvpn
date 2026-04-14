@@ -136,13 +136,16 @@ router.post("/balance/topup", requireAuth, async (req, res) => {
     })
     .returning();
 
-  // Notify admin via Telegram (fire and forget)
-  notifyAdminNewTopup(
-    topup.id,
-    amount,
-    userInfo?.username ?? `User#${userId}`,
-    userInfo?.email ?? "",
-  ).catch((err) => logger.error({ err }, "notifyAdminNewTopup failed"));
+  // Untuk QRIS manual, kirim notif ke admin untuk dikonfirmasi manual
+  // Untuk AutoGoPay, notif admin dikirim dari webhook setelah auto-konfirmasi
+  if (activeGateway !== "autogopay") {
+    notifyAdminNewTopup(
+      topup.id,
+      amount,
+      userInfo?.username ?? `User#${userId}`,
+      userInfo?.email ?? "",
+    ).catch((err) => logger.error({ err }, "notifyAdminNewTopup failed"));
+  }
 
   res.status(201).json({
     id: topup.id,
