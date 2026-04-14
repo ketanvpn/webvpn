@@ -18,7 +18,7 @@ import { formatAccount } from "./accounts";
 import { formatTopup } from "./balance";
 import { formatFullServer } from "./servers";
 import { createPanelAccount, sanitizeVpnUsername, renewPanelAccount, deletePanelAccount, checkPanelHealth, syncPanelAccount } from "../lib/vpn-panel";
-import { notifyUserTopupConfirmed, notifyUserTopupRejected } from "../lib/telegram";
+import { notifyUserTopupConfirmed, notifyUserTopupRejected, notifyUserVpnAccountCreated, notifyAdminOrderFulfilled } from "../lib/telegram";
 import { addBalanceLog } from "./balance-logs";
 import { getReferralBonusAmount } from "../lib/scheduler";
 import { getSettingValue } from "./settings";
@@ -721,6 +721,28 @@ router.post("/admin/orders/:id/confirm", requireAdmin, async (req, res) => {
         .returning();
 
       vpnAccountId = vpnAccount.id;
+
+      // Kirim notifikasi ke user & admin setelah akun terbuat
+      notifyUserVpnAccountCreated({
+        userId: user.id,
+        orderId: order.id,
+        productName: product.name,
+        protocol: product.protocol,
+        username: finalUsername,
+        password: finalPassword,
+        configLink,
+        serverName: server.name,
+        expiresAt,
+      }).catch(() => {});
+
+      notifyAdminOrderFulfilled({
+        orderId: order.id,
+        username: user.username,
+        productName: product.name,
+        protocol: product.protocol,
+        amount: Number(order.amount),
+        paymentMethod: order.paymentMethod ?? "balance",
+      }).catch(() => {});
     }
   }
 

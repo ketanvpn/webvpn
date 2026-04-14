@@ -201,6 +201,77 @@ export async function notifyUserTopupRejected(
   await sendMessage(user.telegramId, text);
 }
 
+export async function notifyUserVpnAccountCreated(opts: {
+  userId: number;
+  orderId: number;
+  productName: string;
+  protocol: string;
+  username: string;
+  password: string | null;
+  configLink: string | null;
+  serverName: string;
+  expiresAt: Date;
+}) {
+  const [user] = await db
+    .select({ telegramId: usersTable.telegramId })
+    .from(usersTable)
+    .where(eq(usersTable.id, opts.userId))
+    .limit(1);
+
+  if (!user?.telegramId) return;
+
+  const expiry = opts.expiresAt.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+
+  let text =
+    `🎉 <b>Akun VPN Kamu Sudah Siap!</b>\n\n` +
+    `📦 Produk: <b>${opts.productName}</b>\n` +
+    `🔌 Protokol: <b>${opts.protocol.toUpperCase()}</b>\n` +
+    `🖥️ Server: <b>${opts.serverName}</b>\n` +
+    `👤 Username: <code>${opts.username}</code>\n`;
+
+  if (opts.password) {
+    text += `🔑 Password: <code>${opts.password}</code>\n`;
+  }
+
+  text += `📅 Aktif sampai: <b>${expiry}</b>\n`;
+
+  if (opts.configLink) {
+    text += `\n🔗 <b>Config Link:</b>\n<code>${opts.configLink}</code>\n`;
+  }
+
+  text += `\n🆔 Order #${opts.orderId}`;
+
+  await sendMessage(user.telegramId, text);
+}
+
+export async function notifyAdminOrderFulfilled(opts: {
+  orderId: number;
+  username: string;
+  productName: string;
+  protocol: string;
+  amount: number;
+  paymentMethod: string;
+}) {
+  const { adminChatId } = await getTelegramConfig();
+  if (!adminChatId) return;
+
+  const payLabel = opts.paymentMethod === "qris" ? "QRIS" : "Saldo Akun";
+
+  const text =
+    `✅ <b>Order Selesai!</b>\n\n` +
+    `👤 User: <b>${opts.username}</b>\n` +
+    `📦 Produk: <b>${opts.productName}</b>\n` +
+    `🔌 Protokol: <b>${opts.protocol.toUpperCase()}</b>\n` +
+    `💰 Pembayaran: <b>${formatRupiah(opts.amount)}</b> via ${payLabel}\n` +
+    `🆔 Order #${opts.orderId}`;
+
+  await sendMessage(adminChatId, text);
+}
+
 export async function broadcastMessage(message: string): Promise<{ sent: number; failed: number }> {
   const users = await db
     .select({ telegramId: usersTable.telegramId })

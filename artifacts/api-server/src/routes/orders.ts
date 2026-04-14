@@ -10,6 +10,7 @@ import { createPanelAccount, sanitizeVpnUsername } from "../lib/vpn-panel";
 import { addBalanceLog } from "./balance-logs";
 import { getPaymentSettingsMap } from "./settings";
 import { logger } from "../lib/logger";
+import { notifyUserVpnAccountCreated, notifyAdminOrderFulfilled } from "../lib/telegram";
 
 const router = Router();
 
@@ -252,6 +253,28 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
       relatedId: order.id,
     }).catch(() => {});
   }
+
+  // Kirim notifikasi ke user & admin (fire and forget)
+  notifyUserVpnAccountCreated({
+    userId: order.userId,
+    orderId: order.id,
+    productName: product.name,
+    protocol: product.protocol,
+    username: finalUsername,
+    password: finalPassword,
+    configLink,
+    serverName: server.name,
+    expiresAt,
+  }).catch((err) => logger.error({ err }, "notifyUserVpnAccountCreated failed"));
+
+  notifyAdminOrderFulfilled({
+    orderId: order.id,
+    username: user.username,
+    productName: product.name,
+    protocol: product.protocol,
+    amount,
+    paymentMethod: order.paymentMethod ?? "balance",
+  }).catch((err) => logger.error({ err }, "notifyAdminOrderFulfilled failed"));
 }
 
 router.get("/orders", requireAuth, async (req, res) => {
