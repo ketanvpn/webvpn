@@ -61,6 +61,7 @@ const adminNav: NavItem[] = [
   { title: "Notifikasi Telegram", href: "/admin/settings/telegram", icon: Bell },
   { title: "WhatsApp OTP", href: "/admin/settings/whatsapp", icon: Smartphone },
   { title: "Program Referral", href: "/admin/settings/referral", icon: Gift },
+  { title: "Notifikasi Kedaluwarsa", href: "/admin/settings/expiry-notif", icon: Bell },
   { title: "Broadcast", href: "/admin/broadcast", icon: Send },
 ];
 
@@ -76,6 +77,7 @@ const adminPageTitles: Record<string, string> = {
   "/admin/settings/telegram": "Notifikasi Telegram",
   "/admin/settings/whatsapp": "WhatsApp OTP",
   "/admin/settings/referral": "Program Referral",
+  "/admin/settings/expiry-notif": "Notifikasi Kedaluwarsa",
   "/admin/broadcast": "Broadcast",
 };
 

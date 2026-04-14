@@ -164,6 +164,42 @@ router.put("/admin/settings/whatsapp", requireAdmin, async (req, res) => {
   res.json(buildWhatsappSettingsResponse(map));
 });
 
+// ─── Expiry Notification Settings ────────────────────────────────────────────
+
+const EXPIRY_NOTIF_KEYS = [
+  "expiryNotifEnabled",
+  "expiryNotif3DaysEnabled",
+  "expiryNotif1DayEnabled",
+] as const;
+
+function buildExpiryNotifSettingsResponse(map: Record<string, string | null>) {
+  return {
+    expiryNotifEnabled: parseBoolean(map["expiryNotifEnabled"] ?? "true"),
+    expiryNotif3DaysEnabled: parseBoolean(map["expiryNotif3DaysEnabled"] ?? "true"),
+    expiryNotif1DayEnabled: parseBoolean(map["expiryNotif1DayEnabled"] ?? "true"),
+  };
+}
+
+router.get("/admin/settings/expiry-notif", requireAdmin, async (_req, res) => {
+  const rows = await db.select().from(settingsTable);
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  res.json(buildExpiryNotifSettingsResponse(map));
+});
+
+router.put("/admin/settings/expiry-notif", requireAdmin, async (req, res) => {
+  const body = req.body as Record<string, string | boolean | null>;
+  for (const key of EXPIRY_NOTIF_KEYS) {
+    if (key in body) {
+      const raw = body[key];
+      const value = raw === null || raw === undefined ? null : String(raw);
+      await setSettingValue(key, value);
+    }
+  }
+  const rows = await db.select().from(settingsTable);
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  res.json(buildExpiryNotifSettingsResponse(map));
+});
+
 // ─── Referral Settings ───────────────────────────────────────────────────────
 
 const REFERRAL_KEYS = [

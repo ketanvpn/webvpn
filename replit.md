@@ -255,6 +255,12 @@ Setiap kali mengubah `lib/api-spec/openapi.yaml`:
 
 ## Progress Batch Improvement
 
+### Batch 5b ✅ (April 2026)
+- Pengaturan Notifikasi Kedaluwarsa di admin (`GET/PUT /admin/settings/expiry-notif`)
+- Scheduler sekarang menghormati setting: bisa nonaktifkan H-3/H-1 secara terpisah
+- Halaman admin `expiry-notification-settings.tsx` + route + sidebar nav
+- Scheduler juga membaca config setiap siklus (realtime, tidak perlu restart server)
+
 ### Batch 5 ✅ (April 2026)
 - **Notifikasi Kedaluwarsa VPN:** Scheduler berjalan setiap 6 jam, cek akun H-3 dan H-1 → kirim WA (Fonnte) + Telegram otomatis
 - **Sistem Referral:** Kode referral sudah ada; kini bisa dipakai saat registrasi → bonus saldo otomatis ke referrer saat referral beli pertama kali

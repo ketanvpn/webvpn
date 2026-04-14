@@ -88,10 +88,32 @@ async function notifyExpiring(daysBefore: 1 | 3): Promise<void> {
   }
 }
 
+async function getExpiryNotifSettings(): Promise<{
+  enabled: boolean;
+  notif3Days: boolean;
+  notif1Day: boolean;
+}> {
+  const allRows = await db.select().from(settingsTable);
+  const map = Object.fromEntries(allRows.map((r) => [r.key, r.value]));
+  const parse = (v: string | null | undefined, def = true) =>
+    v === undefined || v === null ? def : v === "true";
+
+  return {
+    enabled: parse(map["expiryNotifEnabled"], true),
+    notif3Days: parse(map["expiryNotif3DaysEnabled"], true),
+    notif1Day: parse(map["expiryNotif1DayEnabled"], true),
+  };
+}
+
 export async function checkExpiringAccounts(): Promise<void> {
   try {
-    await notifyExpiring(3);
-    await notifyExpiring(1);
+    const cfg = await getExpiryNotifSettings();
+    if (!cfg.enabled) {
+      logger.info("Notifikasi kedaluwarsa dinonaktifkan, skip");
+      return;
+    }
+    if (cfg.notif3Days) await notifyExpiring(3);
+    if (cfg.notif1Day) await notifyExpiring(1);
   } catch (err) {
     logger.error({ err }, "Error saat cek akun VPN kedaluwarsa");
   }
