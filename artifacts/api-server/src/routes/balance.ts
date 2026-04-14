@@ -29,6 +29,8 @@ function formatTopup(t: typeof topupsTable.$inferSelect & { username?: string | 
 router.get("/balance", requireAuth, async (req, res) => {
   const userId = req.user!.userId;
 
+  res.setHeader("Cache-Control", "no-store");
+
   const [user] = await db
     .select({ balance: usersTable.balance })
     .from(usersTable)
