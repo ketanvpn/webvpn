@@ -15,7 +15,7 @@ function DaysRemaining({ expiresAt, isActive }: { expiresAt: string; isActive: b
     return (
       <span className="flex items-center gap-2 text-sm font-medium text-red-500">
         <ShieldOff className="h-4 w-4" />
-        Expired
+        Kedaluwarsa
       </span>
     );
   }
@@ -29,7 +29,7 @@ function DaysRemaining({ expiresAt, isActive }: { expiresAt: string; isActive: b
     <span className={`flex items-center gap-2 text-sm font-medium ${colorClass}`}>
       <Server className="h-4 w-4" />
       {days === 0
-        ? "Expired hari ini"
+        ? "Kedaluwarsa hari ini"
         : `${days} hari lagi (${format(expDate, "d MMM")})`}
     </span>
   );

@@ -41,7 +41,7 @@ export default function Dashboard() {
               <div className="text-2xl font-bold">{formatRupiah(summary.balance)}</div>
               {summary.pendingTopup !== undefined && summary.pendingTopup > 0 && (
                 <p className="text-xs mt-1 text-primary-foreground/70">
-                  + {formatRupiah(summary.pendingTopup)} pending
+                  + {formatRupiah(summary.pendingTopup)} menunggu
                 </p>
               )}
               {(!summary.pendingTopup || summary.pendingTopup === 0) && (
@@ -81,7 +81,7 @@ export default function Dashboard() {
           <Card className={`cursor-pointer hover:shadow-md transition-all ${(summary.expiringAccounts?.length ?? 0) > 0 ? "border-destructive/50 bg-destructive/5 hover:border-destructive" : "hover:border-primary/50"}`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className={`text-sm font-medium ${(summary.expiringAccounts?.length ?? 0) > 0 ? "text-destructive" : ""}`}>
-                Segera Expired
+                Segera Kedaluwarsa
               </CardTitle>
               <AlertCircle className={`h-4 w-4 ${(summary.expiringAccounts?.length ?? 0) > 0 ? "text-destructive" : "text-muted-foreground"}`} />
             </CardHeader>
@@ -134,7 +134,7 @@ export default function Dashboard() {
 
         <Card>
           <CardHeader className="flex items-center justify-between">
-            <CardTitle>Akun Segera Expired</CardTitle>
+            <CardTitle>Akun Segera Kedaluwarsa</CardTitle>
             <Link href="/accounts" className="text-xs text-primary hover:underline">Lihat semua →</Link>
           </CardHeader>
           <CardContent>

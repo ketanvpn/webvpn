@@ -217,7 +217,7 @@ export default function AdminAccounts() {
                             variant={isActive ? "default" : "destructive"}
                             className="text-[10px]"
                           >
-                            {expired ? "Expired" : isActive ? "Aktif" : "Nonaktif"}
+                            {expired ? "Kedaluwarsa" : isActive ? "Aktif" : "Nonaktif"}
                           </Badge>
                         </div>
                         <div className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-0.5">

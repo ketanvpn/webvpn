@@ -102,7 +102,7 @@ export default function AccountDetail() {
           variant={account.isActive ? "default" : "destructive"}
           className="text-sm px-3 py-1"
         >
-          {account.isActive ? "Aktif" : "Expired"}
+          {account.isActive ? "Aktif" : "Kedaluwarsa"}
         </Badge>
       </div>
 

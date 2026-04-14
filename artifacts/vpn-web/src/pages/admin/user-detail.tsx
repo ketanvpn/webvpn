@@ -197,8 +197,8 @@ export default function AdminUserDetail() {
                           </div>
                           <div className="text-right">
                             <div className="font-bold text-sm">{formatRupiah(order.amount)}</div>
-                            <Badge className={`mt-1 text-[10px] capitalize ${statusColor[order.status] ?? ""}`} variant="outline">
-                              {order.status}
+                            <Badge className={`mt-1 text-[10px] ${statusColor[order.status] ?? ""}`} variant="outline">
+                              {order.status === "paid" ? "Lunas" : order.status === "pending" ? "Menunggu" : order.status === "failed" ? "Gagal" : "Kedaluwarsa"}
                             </Badge>
                           </div>
                         </div>
@@ -225,7 +225,7 @@ export default function AdminUserDetail() {
                               <span className="font-mono">{acc.username}</span>
                             </div>
                             <div className="text-xs text-muted-foreground mt-1">
-                              Server: {acc.server?.name ?? "-"} &bull; Expired: {format(new Date(acc.expiresAt), "d MMM yyyy")}
+                              Server: {acc.server?.name ?? "-"} &bull; Kedaluarsa: {format(new Date(acc.expiresAt), "d MMM yyyy")}
                             </div>
                           </div>
                           <Badge
@@ -265,7 +265,7 @@ export default function AdminUserDetail() {
                             {t.status === "confirmed" && <CheckCircle className="h-3 w-3 mr-1 inline" />}
                             {t.status === "rejected" && <XCircle className="h-3 w-3 mr-1 inline" />}
                             {t.status === "pending" && <Clock className="h-3 w-3 mr-1 inline" />}
-                            {t.status}
+                            {t.status === "confirmed" ? "Dikonfirmasi" : t.status === "pending" ? "Menunggu" : "Ditolak"}
                           </Badge>
                         </div>
                       ))}
