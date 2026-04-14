@@ -128,7 +128,7 @@ export default function AdminExpiryNotifSettings() {
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Pilih jam" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-60 overflow-y-auto">
                 {HOUR_OPTIONS.map((opt) => (
                   <SelectItem key={opt.value} value={opt.value}>
                     {opt.label}
