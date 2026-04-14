@@ -255,6 +255,13 @@ Setiap kali mengubah `lib/api-spec/openapi.yaml`:
 
 ## Progress Batch Improvement
 
+### Batch 4 ✅ (April 2026)
+- Admin mobile: sticky header bar dengan judul halaman dinamis + indikator notifikasi topup pending
+- Admin users: tombol "Tambah Pengguna" manual via dialog form (username, password, role, email, WA)
+- Backend: `POST /api/admin/users` — buat user manual tanpa OTP, langsung verified
+- Auto-seed admin default: saat startup, jika belum ada admin → otomatis buat `admin/admin123`
+- `artifacts/api-server/src/lib/seed.ts` — fungsi `seedDefaultAdmin()`
+
 ### Batch 3 ✅ (April 2026)
 - Backend: `PATCH /auth/profile` (edit fullName/email) + `POST /auth/change-password` (verifikasi current password)
 - Profile page: form edit profil inline + form ganti password (dengan validasi)
