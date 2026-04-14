@@ -19,6 +19,13 @@ const statusColors: Record<OrderStatus, string> = {
   expired: "bg-gray-500/10 text-gray-600 border-gray-500/20",
 };
 
+const statusLabel: Record<OrderStatus, string> = {
+  pending: "Menunggu Pembayaran",
+  paid: "Lunas",
+  failed: "Gagal",
+  expired: "Kedaluwarsa",
+};
+
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const orderId = parseInt(id || "0", 10);
@@ -35,15 +42,15 @@ export default function OrderDetail() {
     payOrder.mutate({ id: orderId }, {
       onSuccess: () => {
         toast({
-          title: "Payment Successful",
-          description: "Your order has been paid.",
+          title: "Pembayaran Berhasil",
+          description: "Order kamu sudah dibayar.",
         });
         queryClient.invalidateQueries({ queryKey: getGetOrderQueryKey(orderId) });
       },
       onError: (err) => {
         toast({
-          title: "Payment Failed",
-          description: getApiError(err) || "An error occurred during payment",
+          title: "Pembayaran Gagal",
+          description: getApiError(err) || "Terjadi kesalahan saat pembayaran",
           variant: "destructive",
         });
       }
@@ -60,7 +67,14 @@ export default function OrderDetail() {
   }
 
   if (!order) {
-    return <div>Order not found</div>;
+    return (
+      <div className="text-center py-24">
+        <p className="text-muted-foreground">Order tidak ditemukan.</p>
+        <Link href="/orders" className="text-primary hover:underline mt-2 inline-block">
+          Kembali ke riwayat order
+        </Link>
+      </div>
+    );
   }
 
   return (
@@ -69,7 +83,7 @@ export default function OrderDetail() {
         <Button variant="ghost" size="sm" asChild className="mb-4">
           <Link href="/orders" className="flex items-center gap-2">
             <ArrowLeft className="h-4 w-4" />
-            Back to Orders
+            Kembali ke Riwayat Order
           </Link>
         </Button>
       </div>
@@ -85,11 +99,11 @@ export default function OrderDetail() {
               </CardTitle>
               <div className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
                 <Clock className="h-3 w-3" />
-                {format(new Date(order.createdAt), "MMMM d, yyyy HH:mm")}
+                {format(new Date(order.createdAt), "d MMMM yyyy, HH:mm")}
               </div>
             </div>
-            <Badge variant="outline" className={`text-base px-3 py-1 capitalize ${statusColors[order.status]}`}>
-              {order.status}
+            <Badge variant="outline" className={`text-base px-3 py-1 ${statusColors[order.status]}`}>
+              {statusLabel[order.status]}
             </Badge>
           </div>
         </CardHeader>
@@ -97,7 +111,7 @@ export default function OrderDetail() {
         <CardContent className="pt-6 space-y-6">
           {order.product && (
             <div>
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Product Details</h3>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Detail Produk</h3>
               <div className="flex items-start gap-4 p-4 rounded-lg bg-accent/50 border">
                 <div className="h-12 w-12 rounded bg-primary/10 flex items-center justify-center text-primary">
                   <ShoppingBag className="h-6 w-6" />
@@ -106,7 +120,7 @@ export default function OrderDetail() {
                   <div className="font-bold text-lg">{order.product.name}</div>
                   <div className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
                     <Badge variant="secondary" className="uppercase text-[10px]">{order.product.protocol}</Badge>
-                    <span>{order.product.durationDays} Days</span>
+                    <span>{order.product.durationDays} Hari</span>
                   </div>
                 </div>
               </div>
@@ -114,26 +128,37 @@ export default function OrderDetail() {
           )}
 
           <div>
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Payment Summary</h3>
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Ringkasan Pembayaran</h3>
             <div className="p-4 rounded-lg border space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground flex items-center gap-2">
-                  <CreditCard className="h-4 w-4" /> Method
+                  <CreditCard className="h-4 w-4" /> Metode
                 </span>
-                <span className="font-medium capitalize">{order.paymentMethod || "N/A"}</span>
+                <span className="font-medium capitalize">
+                  {order.paymentMethod === "balance" ? "Saldo Akun" : order.paymentMethod === "qris" ? "QRIS" : order.paymentMethod || "-"}
+                </span>
               </div>
+              {order.notes && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Nama Akun</span>
+                  <span className="font-mono font-medium">{order.notes}</span>
+                </div>
+              )}
               <div className="flex justify-between font-bold text-lg pt-3 border-t">
-                <span>Total Amount</span>
+                <span>Total Pembayaran</span>
                 <span className="text-primary">{formatRupiah(order.amount)}</span>
               </div>
             </div>
           </div>
 
           {order.status === "paid" && order.vpnAccountId && (
-            <div className="bg-primary/10 p-4 rounded-lg border border-primary/20 flex flex-col items-center justify-center text-center space-y-3">
-              <div className="font-semibold text-primary">Your VPN account is ready!</div>
-              <Button asChild>
-                <Link href={`/accounts/${order.vpnAccountId}`}>View Account Details</Link>
+            <div className="bg-green-500/10 p-5 rounded-lg border border-green-500/20 flex flex-col items-center justify-center text-center space-y-3">
+              <CheckCircle2 className="h-8 w-8 text-green-500" />
+              <div className="font-semibold text-green-700">Akun VPN kamu sudah siap!</div>
+              <Button asChild className="gap-2">
+                <Link href={`/accounts/${order.vpnAccountId}`}>
+                  Lihat Detail Akun
+                </Link>
               </Button>
             </div>
           )}
@@ -141,9 +166,8 @@ export default function OrderDetail() {
           {order.status === "pending" && order.paymentMethod === "qris" && (
             <div className="bg-yellow-500/10 p-4 rounded-lg border border-yellow-500/20 text-center space-y-2">
               <AlertCircle className="h-8 w-8 text-yellow-600 mx-auto" />
-              <div className="font-semibold text-yellow-700">Waiting for Payment</div>
-              <p className="text-sm text-yellow-600/80">Please complete your QRIS payment.</p>
-              {/* In a real app, you'd show a QR code image here from an API */}
+              <div className="font-semibold text-yellow-700">Menunggu Pembayaran</div>
+              <p className="text-sm text-yellow-600/80">Silakan selesaikan pembayaran QRIS kamu.</p>
             </div>
           )}
         </CardContent>
@@ -151,10 +175,10 @@ export default function OrderDetail() {
         {order.status === "pending" && order.paymentMethod === "balance" && (
           <CardFooter className="bg-muted/20 border-t pt-6 flex justify-end gap-3">
             <Button variant="outline" asChild>
-              <Link href="/balance">Top Up Balance</Link>
+              <Link href="/balance">Topup Saldo</Link>
             </Button>
-            <Button onClick={handlePay} disabled={payOrder.isPending}>
-              {payOrder.isPending ? "Processing..." : "Pay Now"}
+            <Button onClick={handlePay} disabled={payOrder.isPending} className="gap-2">
+              {payOrder.isPending ? "Memproses..." : "Bayar Sekarang"}
             </Button>
           </CardFooter>
         )}

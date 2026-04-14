@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Globe, Clock, HardDrive, Network } from "lucide-react";
+import { Globe, Clock, HardDrive, Network, ShoppingCart } from "lucide-react";
 import type { ListProductsProtocol } from "@workspace/api-client-react";
 
 const protocols: { value: string; label: string }[] = [
-  { value: "all", label: "All Protocols" },
+  { value: "all", label: "Semua Protokol" },
   { value: "ssh", label: "SSH" },
   { value: "vmess", label: "VMess" },
   { value: "vless", label: "VLess" },
@@ -21,7 +21,7 @@ const protocols: { value: string; label: string }[] = [
 
 export default function Products() {
   const [protocol, setProtocol] = useState<string>("all");
-  
+
   const { data: products, isLoading } = useListProducts(
     protocol === "all" ? undefined : { protocol: protocol as ListProductsProtocol }
   );
@@ -29,8 +29,8 @@ export default function Products() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Products</h1>
-        <p className="text-muted-foreground mt-1">Browse and purchase premium VPN accounts.</p>
+        <h1 className="text-3xl font-bold tracking-tight">Produk VPN</h1>
+        <p className="text-muted-foreground mt-1">Pilih dan beli paket VPN premium sesuai kebutuhanmu.</p>
       </div>
 
       <Tabs defaultValue="all" value={protocol} onValueChange={setProtocol} className="w-full">
@@ -66,7 +66,7 @@ export default function Products() {
                 <div className="text-3xl font-bold text-primary mt-4">
                   {formatRupiah(product.price)}
                   <span className="text-sm font-normal text-muted-foreground ml-1">
-                    / {product.durationDays} days
+                    / {product.durationDays} hari
                   </span>
                 </div>
               </CardHeader>
@@ -74,10 +74,10 @@ export default function Products() {
                 {product.description && (
                   <p className="text-muted-foreground">{product.description}</p>
                 )}
-                <div className="grid grid-cols-2 gap-4 mt-4">
+                <div className="grid grid-cols-2 gap-3 mt-4">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Clock className="h-4 w-4 text-primary" />
-                    <span>{product.durationDays} Days</span>
+                    <span>{product.durationDays} Hari</span>
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <HardDrive className="h-4 w-4 text-primary" />
@@ -89,13 +89,16 @@ export default function Products() {
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Globe className="h-4 w-4 text-primary" />
-                    <span>Premium Server</span>
+                    <span>Server Premium</span>
                   </div>
                 </div>
               </CardContent>
               <CardFooter>
-                <Button className="w-full" asChild>
-                  <Link href={`/products/${product.id}`}>Purchase</Link>
+                <Button className="w-full gap-2" asChild>
+                  <Link href={`/products/${product.id}`}>
+                    <ShoppingCart className="h-4 w-4" />
+                    Beli Sekarang
+                  </Link>
                 </Button>
               </CardFooter>
             </Card>
@@ -103,7 +106,7 @@ export default function Products() {
         </div>
       ) : (
         <div className="text-center py-24 border rounded-xl bg-card border-dashed">
-          <p className="text-muted-foreground">No products found for the selected protocol.</p>
+          <p className="text-muted-foreground">Tidak ada produk untuk protokol yang dipilih.</p>
         </div>
       )}
     </div>

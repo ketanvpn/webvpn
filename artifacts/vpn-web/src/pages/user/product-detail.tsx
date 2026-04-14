@@ -6,7 +6,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Clock, HardDrive, Network, ShieldCheck, ArrowLeft, Server } from "lucide-react";
+import { Clock, HardDrive, Network, ShieldCheck, ArrowLeft, Wifi } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import { useState } from "react";
@@ -36,7 +36,7 @@ export default function ProductDetail() {
   const handlePurchase = () => {
     if (!remarks.trim()) {
       toast({
-        title: "Remarks wajib diisi",
+        title: "Nama akun wajib diisi",
         description: "Masukkan nama akun VPN kamu (contoh: lekanto1)",
         variant: "destructive",
       });
@@ -62,7 +62,7 @@ export default function ProductDetail() {
     }, {
       onSuccess: (order) => {
         toast({
-          title: "Order berhasil dibuat",
+          title: "Order berhasil dibuat!",
           description: "Pesananmu telah ditempatkan.",
         });
         queryClient.invalidateQueries({ queryKey: getGetBalanceQueryKey() });
@@ -88,7 +88,12 @@ export default function ProductDetail() {
   }
 
   if (!product) {
-    return <div>Product not found</div>;
+    return (
+      <div className="text-center py-24">
+        <p className="text-muted-foreground">Produk tidak ditemukan.</p>
+        <Link href="/products" className="text-primary hover:underline mt-2 inline-block">Kembali ke produk</Link>
+      </div>
+    );
   }
 
   return (
@@ -97,7 +102,7 @@ export default function ProductDetail() {
         <Button variant="ghost" size="sm" asChild className="mb-4">
           <Link href="/products" className="flex items-center gap-2">
             <ArrowLeft className="h-4 w-4" />
-            Back to Products
+            Kembali ke Produk
           </Link>
         </Button>
       </div>
@@ -110,35 +115,37 @@ export default function ProductDetail() {
               {product.category && <Badge variant="outline">{product.category}</Badge>}
             </div>
             <h1 className="text-4xl font-extrabold tracking-tight">{product.name}</h1>
-            <p className="text-muted-foreground mt-4 text-lg">{product.description}</p>
+            {product.description && (
+              <p className="text-muted-foreground mt-4 text-lg">{product.description}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <Card>
               <CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-2">
                 <Clock className="h-8 w-8 text-primary" />
-                <div className="text-sm font-medium">Duration</div>
-                <div className="text-xl font-bold">{product.durationDays} Days</div>
+                <div className="text-sm font-medium text-muted-foreground">Durasi</div>
+                <div className="text-xl font-bold">{product.durationDays} Hari</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-2">
                 <HardDrive className="h-8 w-8 text-primary" />
-                <div className="text-sm font-medium">Quota</div>
+                <div className="text-sm font-medium text-muted-foreground">Kuota</div>
                 <div className="text-xl font-bold">{product.quota ? `${product.quota} GB` : "Unlimited"}</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-2">
                 <Network className="h-8 w-8 text-primary" />
-                <div className="text-sm font-medium">Max IP</div>
+                <div className="text-sm font-medium text-muted-foreground">Maks. IP</div>
                 <div className="text-xl font-bold">{product.maxConnections || "Unlimited"}</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-2">
-                <Server className="h-8 w-8 text-primary" />
-                <div className="text-sm font-medium">Server</div>
+                <Wifi className="h-8 w-8 text-primary" />
+                <div className="text-sm font-medium text-muted-foreground">Server</div>
                 <div className="text-xl font-bold">Premium</div>
               </CardContent>
             </Card>
@@ -199,7 +206,7 @@ export default function ProductDetail() {
               {paymentMethod === "balance" && balance < product.price && (
                 <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md border border-destructive/20">
                   Saldo tidak cukup. Kamu butuh {formatRupiah(product.price - balance)} lagi.
-                  <Link href="/balance" className="font-semibold underline block mt-1">Top up sekarang</Link>
+                  <Link href="/balance" className="font-semibold underline block mt-1">Top up sekarang →</Link>
                 </div>
               )}
             </CardContent>
