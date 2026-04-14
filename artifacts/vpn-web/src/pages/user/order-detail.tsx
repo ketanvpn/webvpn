@@ -24,7 +24,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const statusColors: Record<string, string> = {
   pending: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
@@ -92,12 +92,14 @@ export default function OrderDetail() {
   }, [order?.status, order?.paymentMethod, order?.expiresAt]);
 
   // Toast notification when QRIS order becomes paid
-  const prevStatus = useState<string | undefined>(order?.status)[0];
+  const prevStatusRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (prevStatus === "pending" && order?.status === "paid") {
+    if (order?.status === undefined) return;
+    if (prevStatusRef.current === "pending" && order.status === "paid") {
       toast({ title: "Pembayaran Diterima!", description: "Akun VPN kamu sudah aktif." });
       queryClient.invalidateQueries({ queryKey: getGetBalanceQueryKey() });
     }
+    prevStatusRef.current = order.status;
   }, [order?.status]);
 
   const { data: vpnAccount } = useGetAccount(order?.vpnAccountId ?? 0, {

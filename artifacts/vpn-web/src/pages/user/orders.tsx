@@ -6,17 +6,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { Link } from "wouter";
 import { ChevronRight, ShoppingBag } from "lucide-react";
-import type { OrderStatus } from "@workspace/api-client-react";
 
-const statusColors: Record<OrderStatus, string> = {
+const statusColors: Record<string, string> = {
   pending: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
+  processing: "bg-blue-500/10 text-blue-600 border-blue-500/20",
   paid: "bg-green-500/10 text-green-600 border-green-500/20",
   failed: "bg-red-500/10 text-red-600 border-red-500/20",
   expired: "bg-gray-500/10 text-gray-600 border-gray-500/20",
 };
 
-const statusLabel: Record<OrderStatus, string> = {
+const statusLabel: Record<string, string> = {
   pending: "Menunggu",
+  processing: "Diproses",
   paid: "Lunas",
   failed: "Gagal",
   expired: "Kedaluwarsa",

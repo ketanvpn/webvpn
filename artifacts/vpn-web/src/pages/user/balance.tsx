@@ -274,9 +274,9 @@ export default function Balance() {
                           </Badge>
                         </div>
                       </div>
-                      {tx.status === 'rejected' && (tx as any).rejectionNote && (
+                      {tx.status === 'rejected' && tx.rejectionNote && (
                         <div className="mt-2 ml-14 text-xs text-red-600/80 italic bg-red-50 dark:bg-red-950/20 px-3 py-1.5 rounded-md border border-red-200/60">
-                          Alasan penolakan: {(tx as any).rejectionNote}
+                          Alasan penolakan: {tx.rejectionNote}
                         </div>
                       )}
                     </div>

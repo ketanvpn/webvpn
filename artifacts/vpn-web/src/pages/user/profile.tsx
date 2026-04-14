@@ -226,7 +226,7 @@ export default function Profile() {
                 <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                   <Mail className="h-3.5 w-3.5" /> Email
                 </div>
-                <div className="font-medium">{user.email}</div>
+                <div className="font-medium">{user.email || <span className="text-muted-foreground italic">Belum diisi</span>}</div>
               </div>
               {user.fullName && (
                 <div className="space-y-1">
@@ -440,7 +440,7 @@ export default function Profile() {
           <CardHeader className="pb-3">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 bg-primary/10 rounded-full flex items-center justify-center">
-                <Gift className="h-4.5 w-4.5 text-primary" />
+                <Gift className="h-5 w-5 text-primary" />
               </div>
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
