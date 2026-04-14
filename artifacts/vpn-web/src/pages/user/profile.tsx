@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { UserCircle, Mail, Key, Shield, Calendar, Edit2, Lock, Send, CheckCircle, ExternalLink, Gift, Copy, Check } from "lucide-react";
+import { UserCircle, Mail, Shield, Calendar, Edit2, Lock, Send, CheckCircle, ExternalLink, Gift, Copy, Check, Phone } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -234,6 +234,14 @@ export default function Profile() {
                     <UserCircle className="h-3.5 w-3.5" /> Nama Lengkap
                   </div>
                   <div className="font-medium">{user.fullName}</div>
+                </div>
+              )}
+              {user.whatsapp && (
+                <div className="space-y-1">
+                  <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5" /> No. WhatsApp (OTP)
+                  </div>
+                  <div className="font-medium">{user.whatsapp}</div>
                 </div>
               )}
               {user.referralCode && (
