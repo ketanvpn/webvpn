@@ -10,27 +10,37 @@ import { fulfillOrder } from "./orders";
 const router = Router();
 
 router.post("/webhooks/autogopay", async (req, res) => {
-  const rawBody: string = (req as any).rawBody ?? JSON.stringify(req.body);
+  const rawBody: string = (req as any).rawBody ?? "";
+  const reserializedBody: string = JSON.stringify(req.body);
   const signature = req.headers["x-signature"] as string | undefined;
 
   const settingsMap = await getPaymentSettingsMap();
   const apiKey = settingsMap["autoGopaySecretKey"];
 
   if (apiKey && signature) {
-    const expectedSig = crypto
-      .createHmac("sha256", apiKey)
-      .update(rawBody)
-      .digest("hex");
-    if (signature !== expectedSig) {
-      logger.warn("AutoGoPay webhook: invalid signature");
+    // Try both raw body (PHP docs) and re-serialized (Node.js docs) for compatibility
+    const sigFromRaw = crypto.createHmac("sha256", apiKey).update(rawBody).digest("hex");
+    const sigFromReserialized = crypto.createHmac("sha256", apiKey).update(reserializedBody).digest("hex");
+
+    const validRaw = signature === sigFromRaw;
+    const validReserialized = signature === sigFromReserialized;
+
+    if (!validRaw && !validReserialized) {
+      logger.warn({
+        receivedSig: signature.substring(0, 16) + "...",
+        expectedRaw: sigFromRaw.substring(0, 16) + "...",
+        expectedReserialized: sigFromReserialized.substring(0, 16) + "...",
+      }, "AutoGoPay webhook: invalid signature — periksa API Key di Admin > Payment Gateway");
       res.status(401).json({ error: "Invalid signature" });
       return;
     }
+
+    logger.info({ method: validRaw ? "rawBody" : "reserialized" }, "AutoGoPay webhook: signature valid");
   }
 
   let body: Record<string, unknown>;
   try {
-    body = typeof req.body === "object" ? req.body : JSON.parse(rawBody);
+    body = typeof req.body === "object" ? req.body : JSON.parse(rawBody || reserializedBody);
   } catch {
     res.status(400).json({ error: "Invalid JSON" });
     return;
