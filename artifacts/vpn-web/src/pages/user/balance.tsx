@@ -15,7 +15,7 @@ import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 function useCountdown(expiresAt: string | null) {
@@ -64,9 +64,41 @@ export default function Balance() {
     setShowQris(true);
   };
   
-  const { data: balanceData, isLoading: isLoadingBalance } = useGetBalance();
-  const { data: historyData, isLoading: isLoadingHistory } = useListTopupHistory();
+  const prevBalanceRef = useRef<number | null>(null);
+
+  // Poll every 3 seconds while QRIS dialog is open
+  const { data: balanceData, isLoading: isLoadingBalance } = useGetBalance({
+    query: { refetchInterval: showQris ? 3000 : false },
+  });
+  const { data: historyData, isLoading: isLoadingHistory } = useListTopupHistory({
+    query: { refetchInterval: showQris ? 3000 : false },
+  });
   const topup = useTopupBalance();
+
+  // Auto-detect payment confirmed: balance naik = sukses
+  useEffect(() => {
+    if (!showQris) {
+      prevBalanceRef.current = null;
+      return;
+    }
+    const currentBalance = balanceData?.balance ?? null;
+    if (currentBalance === null) return;
+    if (prevBalanceRef.current === null) {
+      prevBalanceRef.current = currentBalance;
+      return;
+    }
+    if (currentBalance > prevBalanceRef.current) {
+      const added = currentBalance - prevBalanceRef.current;
+      prevBalanceRef.current = currentBalance;
+      setShowQris(false);
+      toast({
+        title: "Pembayaran Diterima!",
+        description: `Saldo kamu bertambah ${formatRupiah(added)}. Terima kasih!`,
+      });
+      queryClient.invalidateQueries({ queryKey: getListTopupHistoryQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetBalanceQueryKey() });
+    }
+  }, [balanceData?.balance, showQris]);
 
   const form = useForm<z.infer<typeof topupSchema>>({
     resolver: zodResolver(topupSchema),
@@ -135,7 +167,7 @@ export default function Balance() {
               <CardTitle className="flex items-center gap-2">
                 <ArrowUpRight className="h-5 w-5" /> Isi Saldo
               </CardTitle>
-              <CardDescription>Tambah saldo via QRIS. Konfirmasi oleh admin.</CardDescription>
+              <CardDescription>Tambah saldo via QRIS. Saldo otomatis masuk setelah pembayaran.</CardDescription>
             </CardHeader>
             <CardContent>
               <Form {...form}>
