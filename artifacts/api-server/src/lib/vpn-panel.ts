@@ -304,6 +304,58 @@ export async function syncPanelAccount(params: {
 }
 
 /**
+ * Modify (recover) a VPN account on the panel by re-submitting username + UUID.
+ * Used for expired accounts that entered "recovery mode" on the panel.
+ * Calls PATCH /vps/modify{protocol} with { username, pass_uuid }.
+ * SSH accounts don't have a UUID — this is a no-op for them.
+ * Returns true if the panel responded with success, false otherwise.
+ */
+export async function modifyPanelAccount(params: {
+  apiUrl: string;
+  apiToken: string;
+  protocol: string;
+  username: string;
+  uuid?: string | null;
+}): Promise<boolean> {
+  const { apiUrl, apiToken, protocol, username, uuid } = params;
+
+  if (protocol === "ssh" || !uuid) {
+    return false;
+  }
+
+  const baseUrl = apiUrl.replace(/\/+$/, "");
+  const headers = buildHeaders(apiToken);
+
+  const endpointMap: Record<string, string> = {
+    vmess: "vmess",
+    vless: "vless",
+    trojan: "trojan",
+  };
+
+  const endpoint = endpointMap[protocol];
+  if (!endpoint) return false;
+
+  try {
+    const { data } = await axios.patch(
+      `${baseUrl}/vps/modify${endpoint}`,
+      { username, pass_uuid: uuid },
+      { headers, timeout: 15000 }
+    );
+    const ok = data?.meta?.code === 200;
+    if (ok) {
+      console.log(`[vpn-panel] modify${endpoint} success for ${username}`);
+    } else {
+      console.warn(`[vpn-panel] modify${endpoint} returned non-200 for ${username}:`, data?.meta?.message);
+    }
+    return ok;
+  } catch (e) {
+    const err = e as AxiosError;
+    console.warn(`[vpn-panel] Failed to modify ${protocol} account ${username}: ${err.message}`);
+    return false;
+  }
+}
+
+/**
  * Lock a VPN account on the panel (disable without deleting).
  */
 export async function lockPanelAccount(params: {
