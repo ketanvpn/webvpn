@@ -28,7 +28,7 @@ router.post("/webhooks/autogopay", async (req, res) => {
     }
   }
 
-  let body: { event?: string; transaction?: { id?: string; amount?: number; status?: string } };
+  let body: Record<string, unknown>;
   try {
     body = typeof req.body === "object" ? req.body : JSON.parse(rawBody);
   } catch {
@@ -36,7 +36,16 @@ router.post("/webhooks/autogopay", async (req, res) => {
     return;
   }
 
-  const { event, transaction } = body;
+  // Log full payload for diagnosis (masked amount only)
+  logger.info({ webhookBody: body }, "AutoGoPay webhook: payload received");
+
+  const event = body.event as string | undefined;
+  const transaction = (body.transaction ?? body.data ?? body) as {
+    id?: string;
+    transaction_id?: string;
+    amount?: number;
+    status?: string;
+  };
 
   if (event === "verification.challenge") {
     logger.info("AutoGoPay webhook: verification challenge accepted");
@@ -44,8 +53,23 @@ router.post("/webhooks/autogopay", async (req, res) => {
     return;
   }
 
-  if (event === "transaction.received" && transaction?.status === "settlement" && transaction?.id) {
-    const transactionId = transaction.id;
+  // Support multiple event names and status values AutoGoPay might use
+  const isPaidEvent =
+    event === "transaction.received" ||
+    event === "transaction.settlement" ||
+    event === "payment.received" ||
+    event === "payment.success" ||
+    !event; // some gateways send no event field
+
+  const isPaidStatus =
+    transaction?.status === "settlement" ||
+    transaction?.status === "paid" ||
+    transaction?.status === "success" ||
+    transaction?.status === "completed";
+
+  const transactionId = transaction?.id ?? transaction?.transaction_id;
+
+  if ((isPaidEvent || isPaidStatus) && transactionId) {
     logger.info({ transactionId }, "AutoGoPay webhook: settlement received");
 
     // ─── 1. Check if this matches a topup ────────────────────────────────────
