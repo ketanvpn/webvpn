@@ -312,6 +312,17 @@ Setiap kali mengubah `lib/api-spec/openapi.yaml`:
 - Admin topups: tombol "Lihat QRIS" untuk topup pending (dialog preview QRIS image)
 - Admin dashboard: refetchInterval 30 detik ditambahkan
 
+### Batch 8 ✅ (April 2026)
+- **VPN Username overhaul:** Timestamp suffix dihapus. User wajib isi "Remarks" (min 5 karakter, min 1 huruf, min 2 angka, lowercase). Dipakai langsung sebagai username VPN tanpa suffix.
+- **Duplikat akun VPN dicegah:** Cek ke `vpnAccountsTable` (active) + pending orders sebelum buat order baru (case-insensitive via `lower(notes)`)
+- **Auto-cancel QRIS expired:** Scheduler berjalan setiap 5 menit, auto-cancel order QRIS yang sudah melewati `expiresAt`
+- **Notifikasi Telegram diperluas:** `notifyAdminNewUser` (dipanggil saat registrasi, info username/nama/email/WA/referral + total user), `notifyUserVpnAccountCreated` + `notifyAdminOrderFulfilled` dipanggil di `fulfillOrder` dan admin confirm route
+- **Jam pengiriman notifikasi bisa diatur:** Setting baru `expiryNotifSendHour` (default 08:00 WIB). Scheduler jalan setiap jam, kirim notif hanya di jam yang dikonfigurasi. Konversi WIB manual (UTC+7) tidak bergantung timezone VPS.
+- **Perbaikan keamanan CORS:** Dibatasi ke domain via env `CORS_ORIGIN`. Jika tidak diset → fallback `true` (untuk dev)
+- **Vite build tidak butuh PORT:** `vite.config.ts` tidak lagi throw error jika `PORT` tidak ada saat build production
+- **Info user lengkap di admin:** `formatUser` sekarang include `whatsapp`, `telegramId`, `telegramUsername`, `referredBy`. Halaman `user-detail.tsx` menampilkan WA (link klik langsung buka WhatsApp), status Telegram, dan dari referral siapa
+- **Dropdown jam bisa scroll:** Fix komponen Select — `SelectViewport` tidak lagi dibatasi tinggi trigger button (`h-[var(--radix-select-trigger-height)]` dihapus dari mode popper)
+
 ### Batch 2 ✅
 - Topup rejection dialog dengan rejectionNote
 - Pending orders card di admin dashboard

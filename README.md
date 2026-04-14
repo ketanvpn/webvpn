@@ -239,7 +239,7 @@ pnpm --filter @workspace/api-server run build
 Build frontend website:
 
 ```bash
-PORT=3000 BASE_PATH=/ NODE_ENV=production pnpm --filter @workspace/vpn-web run build
+pnpm --filter @workspace/vpn-web run build
 ```
 
 Kedua proses ini akan memakan waktu 1-3 menit. Tunggu sampai kembali ke prompt `#` sebelum melanjutkan.
@@ -282,12 +282,15 @@ module.exports = {
         NODE_ENV: "production",
         PORT: "8080",
         DATABASE_URL: "postgresql://ketantech:PASSWORD_KAMU@localhost:5432/ketantech_db",
-        SESSION_SECRET: "SESSION_SECRET_KAMU"
+        SESSION_SECRET: "SESSION_SECRET_KAMU",
+        CORS_ORIGIN: "https://DOMAIN_ATAU_IP"
       }
     }
   ]
 }
 ```
+
+> **Ganti `DOMAIN_ATAU_IP`** dengan domain atau IP VPS kamu, contoh: `https://vpn.ketanx.com` atau `http://68.183.230.134`. Ini untuk keamanan agar API hanya bisa diakses dari website kamu sendiri.
 
 Simpan dengan **Ctrl+X**, lalu **Y**, lalu **Enter**.
 
@@ -343,7 +346,7 @@ Kalau berhasil, baris-baris **paling bawah** akan terlihat seperti ini:
 ```
 Server listening port: 8080
 Default admin created — username: admin, password: admin123
-Scheduler notifikasi kedaluwarsa aktif (interval: 6 jam)
+Scheduler notifikasi kedaluwarsa aktif (cek setiap jam)
 Scheduler auto-backup aktif (cek setiap jam)
 ```
 
@@ -542,6 +545,14 @@ Menu: **Admin → Notifikasi Telegram**
 - Buat bot via [@BotFather](https://t.me/BotFather)
 - Isi token bot dan Chat ID admin
 
+### Notifikasi Kedaluwarsa Akun VPN
+Menu: **Admin → Notifikasi Kedaluwarsa**
+- Aktifkan notif H-3 dan/atau H-1 sebelum akun VPN habis
+- Pilih jam pengiriman notifikasi — **sistem menggunakan WIB (Waktu Indonesia Barat)**
+- Jika kamu tinggal di zona waktu berbeda, sesuaikan:
+  - **WIT (Waktu Indonesia Timur)** → pilih jam dikurangi 2 (contoh: mau kirim jam 09.00 WIT, pilih 07.00 WIB)
+  - **WITA (Waktu Indonesia Tengah)** → pilih jam dikurangi 1
+
 ### Backup Database Otomatis
 Menu: **Admin → Backup & Restore DB**
 - Aktifkan auto backup dan pilih interval (6/12/24 jam)
@@ -566,7 +577,7 @@ cd /var/www/ketantech-vpn
 git pull origin main
 pnpm install
 pnpm --filter @workspace/api-server run build
-PORT=3000 BASE_PATH=/ NODE_ENV=production pnpm --filter @workspace/vpn-web run build
+pnpm --filter @workspace/vpn-web run build
 pm2 restart ketantech-api
 ```
 
