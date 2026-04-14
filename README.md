@@ -367,13 +367,16 @@ Hapus konfigurasi default:
 rm /etc/nginx/sites-enabled/default
 ```
 
-Buat konfigurasi baru (ganti `DOMAIN_ATAU_IP` dengan domain atau IP VPS kamu):
+Buat konfigurasi baru. Sebelum menjalankan perintah ini, tentukan dulu apakah kamu memakai **domain** atau **IP langsung**:
+
+- Jika pakai domain: ganti `DOMAIN_ATAU_IP` dengan domain kamu, contoh: `vpn.ketanx.com`
+- Jika belum punya domain: ganti `DOMAIN_ATAU_IP` dengan IP VPS kamu, contoh: `68.183.230.134`
 
 ```bash
 nano /etc/nginx/sites-available/ketantech
 ```
 
-Salin dan tempelkan isi berikut:
+Salin dan tempelkan isi berikut, **ganti `DOMAIN_ATAU_IP`** sebelum menyimpan:
 
 ```nginx
 server {
@@ -431,7 +434,11 @@ Ketik `y` dan Enter ketika diminta konfirmasi.
 
 ### Langkah 16 — SSL / HTTPS (Jika Punya Domain)
 
-Jika kamu sudah mengarahkan domain ke IP VPS, aktifkan HTTPS gratis:
+> Langkah ini hanya bisa dilakukan jika kamu **sudah punya domain** dan DNS-nya sudah diarahkan ke IP VPS. Jika belum, lewati langkah ini.
+
+Sebelum menjalankan certbot, pastikan domain kamu sudah bisa diakses (cek dengan `ping namadomain-kamu.com` — harus muncul IP VPS kamu).
+
+Ganti `namadomain-kamu.com` di bawah dengan **domain kamu yang sesungguhnya** (contoh: `vpn.ketanx.com`):
 
 ```bash
 apt install -y certbot python3-certbot-nginx
