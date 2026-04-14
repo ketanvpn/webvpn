@@ -418,6 +418,8 @@ router.patch("/admin/products/:id", requireAdmin, async (req, res) => {
   const updateData: Record<string, unknown> = {};
   if (data.name !== undefined) updateData.name = data.name;
   if (data.description !== undefined) updateData.description = data.description;
+  if (data.protocol !== undefined) updateData.protocol = data.protocol;
+  if (data.durationDays !== undefined) updateData.durationDays = data.durationDays;
   if (data.price !== undefined) updateData.price = String(data.price);
   if (data.quota !== undefined) updateData.quota = data.quota != null ? String(data.quota) : null;
   if (data.maxConnections !== undefined) updateData.maxConnections = data.maxConnections;

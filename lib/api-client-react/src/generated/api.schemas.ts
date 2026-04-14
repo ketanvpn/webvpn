@@ -182,9 +182,22 @@ export interface CreateProductBody {
   sortOrder?: number;
 }
 
+export type UpdateProductBodyProtocol =
+  (typeof UpdateProductBodyProtocol)[keyof typeof UpdateProductBodyProtocol];
+
+export const UpdateProductBodyProtocol = {
+  ssh: "ssh",
+  vmess: "vmess",
+  vless: "vless",
+  trojan: "trojan",
+  shadowsocks: "shadowsocks",
+} as const;
+
 export interface UpdateProductBody {
   name?: string;
   description?: string;
+  protocol?: UpdateProductBodyProtocol;
+  durationDays?: number;
   price?: number;
   quota?: number | null;
   maxConnections?: number | null;

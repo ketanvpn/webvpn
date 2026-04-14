@@ -1630,6 +1630,11 @@ components:
           type: string
         description:
           type: string
+        protocol:
+          type: string
+          enum: [ssh, vmess, vless, trojan, shadowsocks]
+        durationDays:
+          type: integer
         price:
           type: number
         quota:

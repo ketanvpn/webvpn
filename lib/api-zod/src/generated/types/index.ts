@@ -73,6 +73,7 @@ export * from "./topupTransaction";
 export * from "./topupTransactionStatus";
 export * from "./unlinkTelegram200";
 export * from "./updateProductBody";
+export * from "./updateProductBodyProtocol";
 export * from "./updateProfileBody";
 export * from "./updateServerBody";
 export * from "./user";

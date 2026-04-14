@@ -965,6 +965,10 @@ export const AdminUpdateProductParams = zod.object({
 export const AdminUpdateProductBody = zod.object({
   name: zod.string().optional(),
   description: zod.string().optional(),
+  protocol: zod
+    .enum(["ssh", "vmess", "vless", "trojan", "shadowsocks"])
+    .optional(),
+  durationDays: zod.number().optional(),
   price: zod.number().optional(),
   quota: zod.number().nullish(),
   maxConnections: zod.number().nullish(),

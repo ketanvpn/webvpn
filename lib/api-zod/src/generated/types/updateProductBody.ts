@@ -5,10 +5,13 @@
  * KETANTECH VPN Store API
  * OpenAPI spec version: 0.1.0
  */
+import type { UpdateProductBodyProtocol } from "./updateProductBodyProtocol";
 
 export interface UpdateProductBody {
   name?: string;
   description?: string;
+  protocol?: UpdateProductBodyProtocol;
+  durationDays?: number;
   price?: number;
   quota?: number | null;
   maxConnections?: number | null;

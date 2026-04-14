@@ -30,6 +30,16 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -80,6 +90,7 @@ export default function AdminProducts() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
 
   const openCreate = () => {
     setEditingId(null);
@@ -150,19 +161,22 @@ export default function AdminProducts() {
     }
   };
 
-  const handleDelete = (id: number, name: string) => {
-    if (confirm(`Yakin ingin menghapus produk "${name}"?`)) {
-      deleteProduct.mutate(
-        { id },
-        {
-          onSuccess: () => {
-            toast({ title: "Produk dihapus" });
-            queryClient.invalidateQueries({ queryKey: getAdminListProductsQueryKey() });
-          },
-          onError: (err) => toast({ title: "Gagal menghapus produk", description: getApiError(err), variant: "destructive" }),
-        }
-      );
-    }
+  const handleDeleteConfirm = () => {
+    if (!deleteTarget) return;
+    deleteProduct.mutate(
+      { id: deleteTarget.id },
+      {
+        onSuccess: () => {
+          toast({ title: "Produk dihapus" });
+          queryClient.invalidateQueries({ queryKey: getAdminListProductsQueryKey() });
+          setDeleteTarget(null);
+        },
+        onError: (err) => {
+          toast({ title: "Gagal menghapus produk", description: getApiError(err), variant: "destructive" });
+          setDeleteTarget(null);
+        },
+      }
+    );
   };
 
   const isSaving = createProduct.isPending || updateProduct.isPending;
@@ -235,7 +249,7 @@ export default function AdminProducts() {
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="gap-2 cursor-pointer text-destructive focus:text-destructive"
-                          onClick={() => handleDelete(product.id, product.name)}
+                          onClick={() => setDeleteTarget({ id: product.id, name: product.name })}
                         >
                           <Trash2 className="h-4 w-4" /> Hapus
                         </DropdownMenuItem>
@@ -252,6 +266,29 @@ export default function AdminProducts() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Produk?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Produk <span className="font-semibold">"{deleteTarget?.name}"</span> akan dinonaktifkan dan tidak lagi tampil di toko.
+              Akun VPN yang sudah terbeli tidak terpengaruh.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteProduct.isPending}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={deleteProduct.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteProduct.isPending ? "Menghapus..." : "Hapus Produk"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Form Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
