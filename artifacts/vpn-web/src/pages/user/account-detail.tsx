@@ -1,16 +1,20 @@
-import { useGetAccount } from "@workspace/api-client-react";
+import { useGetAccount, useListProducts, useGetBalance, useRenewAccount, getGetAccountQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Copy, QrCode, Clock, Activity, ShieldCheck, ExternalLink } from "lucide-react";
+import { ArrowLeft, Copy, QrCode, Clock, Activity, ShieldCheck, ExternalLink, RefreshCw, CheckCircle2, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { useQueryClient } from "@tanstack/react-query";
+import { formatRupiah } from "@/lib/format";
+import { useState } from "react";
+import { getApiError } from "@/lib/utils";
 
 const LINK_ORDER = ["tls", "none", "grpc", "uptls", "upntls"];
 
@@ -42,6 +46,201 @@ function QrCodeImage({ data, label }: { data: string; label: string }) {
         Scan menggunakan aplikasi VPN seperti V2Ray, NekoBox, atau Shadowrocket.
       </p>
     </div>
+  );
+}
+
+function RenewDialog({ accountId, protocol }: { accountId: number; protocol: string }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+  const [renewed, setRenewed] = useState(false);
+
+  const { data: products, isLoading: loadingProducts } = useListProducts({
+    query: { enabled: open },
+  });
+  const { data: balanceData, isLoading: loadingBalance } = useGetBalance({
+    query: { enabled: open },
+  });
+
+  const renewMutation = useRenewAccount();
+
+  const matchingProducts = products?.filter(
+    (p) => p.isActive && p.protocol === protocol
+  ) ?? [];
+
+  const selectedProduct = matchingProducts.find((p) => p.id === selectedProductId);
+  const balance = balanceData?.balance ?? 0;
+  const canAfford = selectedProduct ? balance >= selectedProduct.price : false;
+
+  const handleRenew = () => {
+    if (!selectedProductId) return;
+    renewMutation.mutate(
+      { id: accountId, data: { productId: selectedProductId } },
+      {
+        onSuccess: () => {
+          setRenewed(true);
+          queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey(accountId) });
+          toast({
+            title: "Renew berhasil!",
+            description: `Akun berhasil diperpanjang. ${selectedProduct ? formatRupiah(selectedProduct.price) + " telah dipotong dari saldo." : ""}`,
+          });
+        },
+        onError: (err) => {
+          toast({
+            title: "Renew gagal",
+            description: getApiError(err),
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
+
+  const handleOpenChange = (val: boolean) => {
+    setOpen(val);
+    if (!val) {
+      setSelectedProductId(null);
+      setRenewed(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button className="w-full gap-2">
+          <RefreshCw className="h-4 w-4" />
+          Renew Akun
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Perpanjang Akun VPN</DialogTitle>
+          <DialogDescription>
+            Pilih paket untuk memperpanjang akun ini. Pembayaran otomatis dipotong dari saldo.
+          </DialogDescription>
+        </DialogHeader>
+
+        {renewed ? (
+          <div className="flex flex-col items-center gap-4 py-6">
+            <CheckCircle2 className="h-16 w-16 text-green-500" />
+            <div className="text-center">
+              <p className="font-semibold text-lg">Renew Berhasil!</p>
+              <p className="text-sm text-muted-foreground mt-1">Akun kamu sudah diperpanjang.</p>
+            </div>
+            <Button onClick={() => handleOpenChange(false)} className="w-full">Tutup</Button>
+          </div>
+        ) : (
+          <>
+            {/* Saldo user */}
+            <div className="flex items-center justify-between px-4 py-3 bg-muted/40 rounded-lg border text-sm">
+              <span className="text-muted-foreground">Saldo kamu</span>
+              {loadingBalance ? (
+                <Skeleton className="h-5 w-24" />
+              ) : (
+                <span className="font-bold text-base">{formatRupiah(balance)}</span>
+              )}
+            </div>
+
+            {/* Pilih produk */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Pilih Paket Perpanjangan</Label>
+              {loadingProducts ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
+                </div>
+              ) : matchingProducts.length === 0 ? (
+                <div className="text-center py-8 text-sm text-muted-foreground border rounded-lg">
+                  Tidak ada paket tersedia untuk protokol {protocol.toUpperCase()}.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {matchingProducts.map((p) => {
+                    const isSelected = selectedProductId === p.id;
+                    const affordable = balance >= p.price;
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => setSelectedProductId(p.id)}
+                        disabled={!affordable}
+                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                          isSelected
+                            ? "border-primary bg-primary/5"
+                            : affordable
+                            ? "border-muted hover:border-primary/40 bg-card"
+                            : "border-muted bg-muted/20 opacity-50 cursor-not-allowed"
+                        }`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-semibold text-sm">{p.name}</div>
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {p.durationDays} hari &bull; {p.protocol.toUpperCase()}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className={`font-bold text-sm ${isSelected ? "text-primary" : ""}`}>
+                              {formatRupiah(p.price)}
+                            </div>
+                            {!affordable && (
+                              <div className="text-xs text-destructive mt-0.5">Saldo kurang</div>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Info produk terpilih */}
+            {selectedProduct && (
+              <div className={`flex items-start gap-2 p-3 rounded-lg text-sm ${canAfford ? "bg-green-50 border border-green-200 text-green-800" : "bg-red-50 border border-red-200 text-red-800"}`}>
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div>
+                  {canAfford ? (
+                    <>
+                      Saldo kamu akan berkurang <strong>{formatRupiah(selectedProduct.price)}</strong>.
+                      Sisa saldo: <strong>{formatRupiah(balance - selectedProduct.price)}</strong>.
+                    </>
+                  ) : (
+                    <>
+                      Saldo tidak cukup. Kamu perlu tambah saldo minimal{" "}
+                      <strong>{formatRupiah(selectedProduct.price - balance)}</strong>.
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => handleOpenChange(false)}>
+                Batal
+              </Button>
+              <Button
+                onClick={handleRenew}
+                disabled={!selectedProductId || !canAfford || renewMutation.isPending}
+                className="gap-2"
+              >
+                {renewMutation.isPending ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Memproses...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" />
+                    Konfirmasi Renew
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -348,9 +547,7 @@ export default function AccountDetail() {
               <CardTitle className="text-base">Aksi</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button className="w-full" asChild>
-                <Link href="/products">Renew / Upgrade</Link>
-              </Button>
+              <RenewDialog accountId={accountId} protocol={account.protocol} />
               <Button variant="outline" className="w-full" asChild>
                 <Link href={`/orders/${account.orderId}`}>Lihat Order Asli</Link>
               </Button>
