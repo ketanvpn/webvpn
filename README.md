@@ -9,7 +9,7 @@ Platform penjualan VPN berbasis web yang lengkap — dengan dashboard user, pane
 ### Untuk Pengguna (Customer)
 - **Registrasi dengan verifikasi WhatsApp** — OTP dikirim via WhatsApp (menggunakan Fonnte)
 - **Dashboard** — Ringkasan saldo, akun VPN aktif, dan riwayat order
-- **Beli VPN** — Pilih produk, bayar pakai saldo
+- **Beli VPN** — Pilih produk, bayar pakai saldo atau **QRIS langsung** (AutoGoPay) — akun VPN aktif otomatis setelah bayar
 - **Kelola Akun VPN** — Lihat detail akun, perpanjang masa aktif
 - **Top Up Saldo** — Via QRIS otomatis (AutoGoPay) atau manual
 - **Riwayat Saldo** — Log semua perubahan saldo
@@ -34,6 +34,8 @@ Platform penjualan VPN berbasis web yang lengkap — dengan dashboard user, pane
 - Mobile-responsive — termasuk panel admin dengan header navigasi mobile
 - Auto-refresh data setiap 30 detik (dashboard, orders, topups)
 - Export data ke CSV (orders & topups)
+- **QRIS order otomatis:** webhook AutoGoPay langsung proses order & aktifkan akun VPN tanpa campur tangan admin
+- **Auto-polling frontend:** halaman order QRIS pending auto-update setiap 5 detik hingga pembayaran terkonfirmasi
 
 ---
 
@@ -326,7 +328,8 @@ Setelah login sebagai admin, lakukan konfigurasi berikut:
 
 ### 4. Konfigurasi Payment QRIS (AutoGoPay) — Opsional
 - Masuk ke **Admin → Payment Gateway**
-- Isi merchant key dari AutoGoPay
+- Isi API URL dan Secret Key dari AutoGoPay, lalu set gateway ke **AutoGoPay**
+- Setelah dikonfigurasi: topup saldo **dan** pembelian VPN langsung via QRIS akan dikonfirmasi otomatis melalui webhook
 
 ### 5. Konfigurasi Telegram Bot — Opsional
 - Masuk ke **Admin → Notifikasi Telegram**

@@ -102,7 +102,7 @@ botvpn-fixed/          — Bot Telegram (Node.js + SQLite, terpisah dari web)
 | `users` | id, username, email, passwordHash, role, balance, isActive, referralCode, **telegramId** (bigint), **telegramLinkToken** (text) |
 | `vpn_servers` | id, name, location, flag, host, apiUrl, apiToken, supportedProtocols, isActive |
 | `products` | id, name, protocol, durationDays, price, quota, serverId |
-| `orders` | id, userId, productId, amount, status (pending/paid/failed/expired), paymentMethod, notes, vpnAccountId |
+| `orders` | id, userId, productId, amount, status (pending/processing/paid/failed/expired), paymentMethod, notes, vpnAccountId, **autogopayTransactionId**, **qrisUrl**, **expiresAt** |
 | `vpn_accounts` | id, userId, protocol, username, password, uuid, serverId, configLink, allLinks, expiresAt, isActive |
 | `topup_transactions` | id, userId, amount, qrisUrl, status (pending/confirmed/rejected), confirmedBy, rejectionNote |
 | `settings` | key, value — menyimpan konfigurasi Telegram bot (telegramBotToken, telegramAdminChatId, telegramEnabled, telegramBotUsername) |
@@ -126,10 +126,10 @@ botvpn-fixed/          — Bot Telegram (Node.js + SQLite, terpisah dari web)
 - `GET /api/products` — daftar produk
 - `GET /api/products/:id` — detail produk
 - `GET /api/servers` — daftar server (publik)
-- `POST /api/orders` — beli produk
+- `POST /api/orders` — beli produk; jika `paymentMethod=qris` dan AutoGoPay aktif → generate QRIS otomatis, simpan `qrisUrl`/`expiresAt`/`autogopayTransactionId`
 - `GET /api/orders` — riwayat order user
-- `GET /api/orders/:id` — detail order
-- `POST /api/orders/:id/pay` — bayar order dengan saldo
+- `GET /api/orders/:id` — detail order (include `qrisUrl`, `expiresAt`)
+- `POST /api/orders/:id/pay` — bayar order dengan saldo (QRIS dikonfirmasi otomatis via webhook)
 - `GET /api/accounts` — daftar akun VPN aktif user
 - `GET /api/accounts/:id` — detail akun VPN
 - `POST /api/accounts/:id/renew` — perpanjang akun VPN
@@ -254,6 +254,17 @@ Setiap kali mengubah `lib/api-spec/openapi.yaml`:
 - Session plan progress dicatat di `.local/` (jangan commit)
 
 ## Progress Batch Improvement
+
+### Batch 7 ✅ (April 2026)
+- **AutoGoPay QRIS untuk Order — end-to-end selesai:**
+  - `ordersTable` ditambah kolom `autogopayTransactionId`, `qrisUrl`, `expiresAt`
+  - `generateAutoGopayQris()` — helper generate QRIS via AutoGoPay API (dipakai saat create order)
+  - `fulfillOrder(orderId, opts)` — fungsi reusable untuk fulfill order (buat akun panel + atomic DB tx + opsional deduct balance); menggantikan logika duplikat di pay endpoint
+  - `POST /orders` dengan `paymentMethod=qris`: langsung generate QRIS → simpan `qrisUrl`/`autogopayTransactionId`/`expiresAt` ke order
+  - `POST /orders/:id/pay`: dipersingkat — untuk QRIS cukup return order (konfirmasi via webhook), untuk balance panggil `fulfillOrder({ deductBalance: true })`
+  - `webhook.ts`: kini menangani **dua jenis settlement** — topup (existing) dan **order QRIS** (baru): atomic lock → `fulfillOrder()` otomatis → akun VPN aktif
+  - OpenAPI spec: tambah field `qrisUrl` dan `expiresAt` ke schema `Order` → codegen dijalankan
+  - Frontend `order-detail.tsx`: tampilkan gambar QRIS dari `order.qrisUrl`, countdown timer `expiresAt`, **auto-poll setiap 5 detik** selama pending, toast otomatis saat bayar diterima, status "Sedang Diproses" ditambahkan
 
 ### Batch 6 ✅ (April 2026)
 - **Grafik Statistik Admin Dashboard:** Revenue harian (AreaChart) + Order per hari (BarChart) menggunakan Recharts; toggle 7H/14H/30H; endpoint baru `GET /admin/stats/revenue-chart`
