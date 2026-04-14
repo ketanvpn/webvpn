@@ -93,8 +93,10 @@ export interface RegisterBody {
   username: string;
   /** @minLength 6 */
   password: string;
-  email: string;
+  email?: string;
   fullName?: string;
+  whatsapp?: string;
+  otpCode?: string;
 }
 
 export interface LoginBody {

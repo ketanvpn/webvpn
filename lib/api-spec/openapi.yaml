@@ -1491,7 +1491,7 @@ components:
     # ─── Auth ─────────────────────────────────────────────────────────────
     RegisterBody:
       type: object
-      required: [username, password, email]
+      required: [username, password]
       properties:
         username:
           type: string
@@ -1503,6 +1503,10 @@ components:
           type: string
           format: email
         fullName:
+          type: string
+        whatsapp:
+          type: string
+        otpCode:
           type: string
 
     LoginBody:

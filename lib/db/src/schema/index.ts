@@ -6,3 +6,4 @@ export * from "./vpn_accounts";
 export * from "./topups";
 export * from "./settings";
 export * from "./balance_logs";
+export * from "./otp";

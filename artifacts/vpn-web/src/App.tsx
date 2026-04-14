@@ -32,6 +32,7 @@ import AdminAccounts from "@/pages/admin/accounts";
 import AdminPaymentSettings from "@/pages/admin/payment-settings";
 import AdminBroadcast from "@/pages/admin/broadcast";
 import AdminTelegramSettings from "@/pages/admin/telegram-settings";
+import AdminWhatsappSettings from "@/pages/admin/whatsapp-settings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -111,6 +112,9 @@ function Router() {
       </Route>
       <Route path="/admin/settings/telegram">
         <Layout requireAdmin><AdminTelegramSettings /></Layout>
+      </Route>
+      <Route path="/admin/settings/whatsapp">
+        <Layout requireAdmin><AdminWhatsappSettings /></Layout>
       </Route>
       <Route path="/admin/broadcast">
         <Layout requireAdmin><AdminBroadcast /></Layout>

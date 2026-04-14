@@ -5,9 +5,11 @@ import { z } from "zod/v4";
 export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
-  email: text("email").notNull().unique(),
+  email: text("email").unique(),
   passwordHash: text("password_hash").notNull(),
   fullName: text("full_name"),
+  whatsapp: text("whatsapp").unique(),
+  isVerified: boolean("is_verified").notNull().default(false),
   role: text("role").notNull().default("user"),
   balance: numeric("balance", { precision: 12, scale: 2 }).notNull().default("0"),
   isActive: boolean("is_active").notNull().default(true),

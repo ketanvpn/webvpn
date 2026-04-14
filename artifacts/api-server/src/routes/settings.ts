@@ -25,6 +25,11 @@ const TELEGRAM_KEYS = [
   "telegramBotUsername",
 ] as const;
 
+const WHATSAPP_KEYS = [
+  "fonnteToken",
+  "whatsappOtpEnabled",
+] as const;
+
 type TelegramKey = (typeof TELEGRAM_KEYS)[number];
 
 type PaymentKey = (typeof PAYMENT_KEYS)[number];
@@ -126,6 +131,37 @@ router.put("/admin/settings/telegram", requireAdmin, async (req, res) => {
   const rows = await db.select().from(settingsTable);
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
   res.json(buildTelegramSettingsResponse(map));
+});
+
+// ─── WhatsApp / Fonnte Settings ────────────────────────────────────────────────
+
+function buildWhatsappSettingsResponse(map: Record<string, string | null>) {
+  return {
+    fonnteToken: map["fonnteToken"] ?? null,
+    whatsappOtpEnabled: parseBoolean(map["whatsappOtpEnabled"] ?? "true"),
+  };
+}
+
+router.get("/admin/settings/whatsapp", requireAdmin, async (_req, res) => {
+  const rows = await db.select().from(settingsTable);
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  res.json(buildWhatsappSettingsResponse(map));
+});
+
+router.put("/admin/settings/whatsapp", requireAdmin, async (req, res) => {
+  const body = req.body as Record<string, string | boolean | null>;
+
+  for (const key of WHATSAPP_KEYS) {
+    if (key in body) {
+      const raw = body[key];
+      const value = raw === null || raw === undefined ? null : String(raw);
+      await setSettingValue(key, value);
+    }
+  }
+
+  const rows = await db.select().from(settingsTable);
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  res.json(buildWhatsappSettingsResponse(map));
 });
 
 export default router;
