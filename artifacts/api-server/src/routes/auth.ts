@@ -268,6 +268,11 @@ router.patch("/auth/profile", requireAuth, async (req, res) => {
   const userId = req.user!.userId;
   const { fullName, email } = req.body ?? {};
 
+  if (fullName === undefined && email === undefined) {
+    res.status(400).json({ error: "Tidak ada data yang diubah" });
+    return;
+  }
+
   if (email !== undefined && email !== null && email !== "") {
     const existing = await db
       .select({ id: usersTable.id })
