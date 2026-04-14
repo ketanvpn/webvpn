@@ -45,6 +45,10 @@ function formatUser(u: typeof usersTable.$inferSelect) {
     balance: Number(u.balance),
     isActive: u.isActive,
     referralCode: u.referralCode,
+    whatsapp: u.whatsapp ?? null,
+    telegramId: u.telegramId ?? null,
+    telegramUsername: u.telegramUsername ?? null,
+    referredBy: u.referredBy ?? null,
     createdAt: u.createdAt,
   };
 }

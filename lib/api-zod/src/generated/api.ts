@@ -48,7 +48,13 @@ export const LoginResponse = zod.object({
     balance: zod.number().describe("Balance in IDR"),
     isActive: zod.boolean(),
     referralCode: zod.string().nullish(),
+    whatsapp: zod.string().nullish().describe("Nomor WhatsApp user"),
     telegramId: zod.number().nullish().describe("Telegram user ID (linked)"),
+    telegramUsername: zod.string().nullish().describe("Username Telegram user"),
+    referredBy: zod
+      .string()
+      .nullish()
+      .describe("Kode referral yang digunakan saat daftar"),
     createdAt: zod.coerce.date(),
   }),
   token: zod.string(),
@@ -73,7 +79,13 @@ export const GetMeResponse = zod.object({
   balance: zod.number().describe("Balance in IDR"),
   isActive: zod.boolean(),
   referralCode: zod.string().nullish(),
+  whatsapp: zod.string().nullish().describe("Nomor WhatsApp user"),
   telegramId: zod.number().nullish().describe("Telegram user ID (linked)"),
+  telegramUsername: zod.string().nullish().describe("Username Telegram user"),
+  referredBy: zod
+    .string()
+    .nullish()
+    .describe("Kode referral yang digunakan saat daftar"),
   createdAt: zod.coerce.date(),
 });
 
@@ -94,7 +106,13 @@ export const UpdateProfileResponse = zod.object({
   balance: zod.number().describe("Balance in IDR"),
   isActive: zod.boolean(),
   referralCode: zod.string().nullish(),
+  whatsapp: zod.string().nullish().describe("Nomor WhatsApp user"),
   telegramId: zod.number().nullish().describe("Telegram user ID (linked)"),
+  telegramUsername: zod.string().nullish().describe("Username Telegram user"),
+  referredBy: zod
+    .string()
+    .nullish()
+    .describe("Kode referral yang digunakan saat daftar"),
   createdAt: zod.coerce.date(),
 });
 
@@ -698,10 +716,19 @@ export const GetAdminDashboardResponse = zod.object({
               balance: zod.number().describe("Balance in IDR"),
               isActive: zod.boolean(),
               referralCode: zod.string().nullish(),
+              whatsapp: zod.string().nullish().describe("Nomor WhatsApp user"),
               telegramId: zod
                 .number()
                 .nullish()
                 .describe("Telegram user ID (linked)"),
+              telegramUsername: zod
+                .string()
+                .nullish()
+                .describe("Username Telegram user"),
+              referredBy: zod
+                .string()
+                .nullish()
+                .describe("Kode referral yang digunakan saat daftar"),
               createdAt: zod.coerce.date(),
             })
             .nullish(),
@@ -751,7 +778,16 @@ export const AdminListUsersResponse = zod.object({
       balance: zod.number().describe("Balance in IDR"),
       isActive: zod.boolean(),
       referralCode: zod.string().nullish(),
+      whatsapp: zod.string().nullish().describe("Nomor WhatsApp user"),
       telegramId: zod.number().nullish().describe("Telegram user ID (linked)"),
+      telegramUsername: zod
+        .string()
+        .nullish()
+        .describe("Username Telegram user"),
+      referredBy: zod
+        .string()
+        .nullish()
+        .describe("Kode referral yang digunakan saat daftar"),
       createdAt: zod.coerce.date(),
     }),
   ),
@@ -775,7 +811,13 @@ export const AdminGetUserResponse = zod
     balance: zod.number().describe("Balance in IDR"),
     isActive: zod.boolean(),
     referralCode: zod.string().nullish(),
+    whatsapp: zod.string().nullish().describe("Nomor WhatsApp user"),
     telegramId: zod.number().nullish().describe("Telegram user ID (linked)"),
+    telegramUsername: zod.string().nullish().describe("Username Telegram user"),
+    referredBy: zod
+      .string()
+      .nullish()
+      .describe("Kode referral yang digunakan saat daftar"),
     createdAt: zod.coerce.date(),
   })
   .and(
@@ -920,7 +962,13 @@ export const AdminUpdateUserResponse = zod.object({
   balance: zod.number().describe("Balance in IDR"),
   isActive: zod.boolean(),
   referralCode: zod.string().nullish(),
+  whatsapp: zod.string().nullish().describe("Nomor WhatsApp user"),
   telegramId: zod.number().nullish().describe("Telegram user ID (linked)"),
+  telegramUsername: zod.string().nullish().describe("Username Telegram user"),
+  referredBy: zod
+    .string()
+    .nullish()
+    .describe("Kode referral yang digunakan saat daftar"),
   createdAt: zod.coerce.date(),
 });
 
@@ -1219,10 +1267,19 @@ export const AdminListOrdersResponse = zod.object({
               balance: zod.number().describe("Balance in IDR"),
               isActive: zod.boolean(),
               referralCode: zod.string().nullish(),
+              whatsapp: zod.string().nullish().describe("Nomor WhatsApp user"),
               telegramId: zod
                 .number()
                 .nullish()
                 .describe("Telegram user ID (linked)"),
+              telegramUsername: zod
+                .string()
+                .nullish()
+                .describe("Username Telegram user"),
+              referredBy: zod
+                .string()
+                .nullish()
+                .describe("Kode referral yang digunakan saat daftar"),
               createdAt: zod.coerce.date(),
             })
             .nullish(),
@@ -1413,10 +1470,19 @@ export const AdminListAccountsResponse = zod.object({
               balance: zod.number().describe("Balance in IDR"),
               isActive: zod.boolean(),
               referralCode: zod.string().nullish(),
+              whatsapp: zod.string().nullish().describe("Nomor WhatsApp user"),
               telegramId: zod
                 .number()
                 .nullish()
                 .describe("Telegram user ID (linked)"),
+              telegramUsername: zod
+                .string()
+                .nullish()
+                .describe("Username Telegram user"),
+              referredBy: zod
+                .string()
+                .nullish()
+                .describe("Kode referral yang digunakan saat daftar"),
               createdAt: zod.coerce.date(),
             })
             .nullish(),

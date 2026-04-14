@@ -11,7 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   ArrowLeft, UserCircle, Wallet, Lock, Unlock, Mail, Calendar,
   ShoppingCart, Server, CreditCard, CheckCircle, XCircle, Clock,
-  History, ArrowUpRight, ArrowDownLeft, Settings2,
+  History, ArrowUpRight, ArrowDownLeft, Settings2, Phone, Send, Users,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -158,6 +158,47 @@ export default function AdminUserDetail() {
                   <div className="text-muted-foreground mb-1">Kode Referral</div>
                   <div className="font-mono font-medium">{user.referralCode ?? "-"}</div>
                 </div>
+                <div>
+                  <div className="text-muted-foreground flex items-center gap-1 mb-1">
+                    <Phone className="h-3.5 w-3.5" /> WhatsApp
+                  </div>
+                  <div className="font-medium">
+                    {user.whatsapp ? (
+                      <a
+                        href={`https://wa.me/${user.whatsapp.replace(/\D/g, "")}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-green-600 hover:underline"
+                      >
+                        {user.whatsapp}
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground italic">Tidak ada</span>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground flex items-center gap-1 mb-1">
+                    <Send className="h-3.5 w-3.5" /> Telegram
+                  </div>
+                  <div className="font-medium">
+                    {user.telegramId ? (
+                      <span className="text-blue-600">
+                        {user.telegramUsername ? `@${user.telegramUsername}` : `ID: ${user.telegramId}`}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground italic">Belum terhubung</span>
+                    )}
+                  </div>
+                </div>
+                {user.referredBy && (
+                  <div className="col-span-2">
+                    <div className="text-muted-foreground flex items-center gap-1 mb-1">
+                      <Users className="h-3.5 w-3.5" /> Didaftarkan via Referral
+                    </div>
+                    <div className="font-mono font-medium text-purple-600">{user.referredBy}</div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

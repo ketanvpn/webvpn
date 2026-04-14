@@ -122,8 +122,14 @@ export interface User {
   balance: number;
   isActive: boolean;
   referralCode?: string | null;
+  /** Nomor WhatsApp user */
+  whatsapp?: string | null;
   /** Telegram user ID (linked) */
   telegramId?: number | null;
+  /** Username Telegram user */
+  telegramUsername?: string | null;
+  /** Kode referral yang digunakan saat daftar */
+  referredBy?: string | null;
   createdAt: string;
 }
 

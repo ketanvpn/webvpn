@@ -1551,10 +1551,22 @@ components:
         referralCode:
           type: string
           nullable: true
+        whatsapp:
+          type: string
+          nullable: true
+          description: Nomor WhatsApp user
         telegramId:
           type: integer
           nullable: true
           description: Telegram user ID (linked)
+        telegramUsername:
+          type: string
+          nullable: true
+          description: Username Telegram user
+        referredBy:
+          type: string
+          nullable: true
+          description: Kode referral yang digunakan saat daftar
         createdAt:
           type: string
           format: date-time
