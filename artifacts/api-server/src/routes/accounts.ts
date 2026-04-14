@@ -129,11 +129,11 @@ router.post("/accounts/:id/renew", requireAuth, async (req, res) => {
     const txResult = await db.transaction(async (tx) => {
       const [updatedUser] = await tx
         .update(usersTable)
-        .set({ balance: sql`(balance::numeric - ${price})::text` })
+        .set({ balance: sql`balance - ${price}` })
         .where(
           and(
             eq(usersTable.id, userId),
-            gte(sql`balance::numeric`, price)
+            gte(usersTable.balance, String(price))
           )
         )
         .returning({ balance: usersTable.balance });
