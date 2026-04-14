@@ -170,13 +170,16 @@ const EXPIRY_NOTIF_KEYS = [
   "expiryNotifEnabled",
   "expiryNotif3DaysEnabled",
   "expiryNotif1DayEnabled",
+  "expiryNotifSendHour",
 ] as const;
 
 function buildExpiryNotifSettingsResponse(map: Record<string, string | null>) {
+  const rawHour = parseInt(map["expiryNotifSendHour"] ?? "8", 10);
   return {
     expiryNotifEnabled: parseBoolean(map["expiryNotifEnabled"] ?? "true"),
     expiryNotif3DaysEnabled: parseBoolean(map["expiryNotif3DaysEnabled"] ?? "true"),
     expiryNotif1DayEnabled: parseBoolean(map["expiryNotif1DayEnabled"] ?? "true"),
+    expiryNotifSendHour: isNaN(rawHour) ? 8 : Math.min(23, Math.max(0, rawHour)),
   };
 }
 

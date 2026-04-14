@@ -92,16 +92,19 @@ async function getExpiryNotifSettings(): Promise<{
   enabled: boolean;
   notif3Days: boolean;
   notif1Day: boolean;
+  sendHour: number;
 }> {
   const allRows = await db.select().from(settingsTable);
   const map = Object.fromEntries(allRows.map((r) => [r.key, r.value]));
   const parse = (v: string | null | undefined, def = true) =>
     v === undefined || v === null ? def : v === "true";
+  const rawHour = parseInt(map["expiryNotifSendHour"] ?? "8", 10);
 
   return {
     enabled: parse(map["expiryNotifEnabled"], true),
     notif3Days: parse(map["expiryNotif3DaysEnabled"], true),
     notif1Day: parse(map["expiryNotif1DayEnabled"], true),
+    sendHour: isNaN(rawHour) ? 8 : Math.min(23, Math.max(0, rawHour)),
   };
 }
 
@@ -109,9 +112,18 @@ export async function checkExpiringAccounts(): Promise<void> {
   try {
     const cfg = await getExpiryNotifSettings();
     if (!cfg.enabled) {
-      logger.info("Notifikasi kedaluwarsa dinonaktifkan, skip");
       return;
     }
+
+    // Cek jam sekarang dalam zona WIB (UTC+7)
+    const nowWIB = new Date(Date.now() + 7 * 60 * 60 * 1000);
+    const currentHourWIB = nowWIB.getUTCHours();
+
+    if (currentHourWIB !== cfg.sendHour) {
+      return; // Belum waktunya kirim
+    }
+
+    logger.info({ sendHour: cfg.sendHour }, "Waktunya kirim notifikasi kedaluwarsa");
     if (cfg.notif3Days) await notifyExpiring(3);
     if (cfg.notif1Day) await notifyExpiring(1);
   } catch (err) {
@@ -155,13 +167,13 @@ export function startScheduler(): void {
 
   setInterval(() => {
     checkExpiringAccounts().catch(() => {});
-  }, 6 * ONE_HOUR);
+  }, ONE_HOUR);
 
   setInterval(() => {
     cancelExpiredQrisOrders().catch(() => {});
   }, FIVE_MIN);
 
-  logger.info("Scheduler notifikasi kedaluwarsa aktif (interval: 6 jam)");
+  logger.info("Scheduler notifikasi kedaluwarsa aktif (cek setiap jam, kirim sesuai jam WIB yang dikonfigurasi)");
   logger.info("Scheduler auto-cancel QRIS expired aktif (interval: 5 menit)");
 
   // Auto-backup: cek setiap jam apakah sudah waktunya backup
