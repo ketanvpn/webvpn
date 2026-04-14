@@ -421,14 +421,58 @@ Perintah `nginx -t` harus menampilkan `syntax is ok` dan `test is successful`. K
 
 ### Langkah 15 — Buka Firewall
 
+> ⚠️ **PERINGATAN PENTING — Baca dulu sebelum menjalankan perintah ini!**
+>
+> Kesalahan di langkah ini adalah **penyebab VPS tidak bisa diakses via SSH**. Wajib dijalankan **berurutan** — jangan langsung `ufw enable` tanpa membuka port SSH terlebih dahulu.
+>
+> Beberapa provider VPS (Hetzner, Hostinger, dll.) sudah memiliki firewall tersendiri di panel kontrol. Cek panel kontrol provider-mu terlebih dahulu dan pastikan port 22, 80, 443 sudah dibuka di sana sebelum mengaktifkan UFW.
+
+Cek apakah UFW sudah aktif sebelumnya:
+
+```bash
+ufw status
+```
+
+Kalau statusnya `Status: inactive`, lanjutkan ke perintah di bawah. Kalau sudah `active`, skip perintah `ufw enable`.
+
+**Jalankan perintah berikut SATU PER SATU — jangan digabung:**
+
 ```bash
 ufw allow 22
+```
+
+```bash
 ufw allow 80
+```
+
+```bash
 ufw allow 443
+```
+
+Pastikan ketiga perintah di atas berhasil (muncul `Rules updated`) **sebelum** menjalankan yang ini:
+
+```bash
 ufw enable
 ```
 
 Ketik `y` dan Enter ketika diminta konfirmasi.
+
+Cek hasilnya:
+
+```bash
+ufw status
+```
+
+Harus muncul:
+```
+To          Action      From
+--          ------      ----
+22          ALLOW       Anywhere
+80          ALLOW       Anywhere
+443         ALLOW       Anywhere
+```
+
+> **Jika VPS terkunci (tidak bisa SSH setelah `ufw enable`):** Gunakan fitur **Console/VNC** dari panel kontrol provider VPS-mu (Hetzner Cloud Console, DigitalOcean Console, Vultr Console, dll.) untuk masuk tanpa SSH. Setelah masuk via console, jalankan: `ufw disable` untuk menonaktifkan firewall sementara, lalu pastikan `ufw allow 22` sudah dijalankan sebelum `ufw enable` lagi.
 
 ---
 
