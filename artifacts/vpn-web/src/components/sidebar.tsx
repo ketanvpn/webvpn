@@ -62,6 +62,20 @@ const adminNav: NavItem[] = [
   { title: "Broadcast", href: "/admin/broadcast", icon: Send },
 ];
 
+const adminPageTitles: Record<string, string> = {
+  "/admin": "Overview",
+  "/admin/users": "Pengguna",
+  "/admin/products": "Produk",
+  "/admin/servers": "Server",
+  "/admin/orders": "Order",
+  "/admin/topups": "Topup",
+  "/admin/accounts": "Akun VPN",
+  "/admin/settings/payment": "Payment Gateway",
+  "/admin/settings/telegram": "Notifikasi Telegram",
+  "/admin/settings/whatsapp": "WhatsApp OTP",
+  "/admin/broadcast": "Broadcast",
+};
+
 const mobileBottomNav: NavItem[] = [
   { title: "Beranda", href: "/dashboard", icon: LayoutDashboard },
   { title: "Produk", href: "/products", icon: Package },
@@ -114,19 +128,23 @@ export function MobileBottomNav() {
   );
 }
 
-export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
-  const [location] = useLocation();
-  const { logout, isAdmin: userIsAdmin } = useAuth();
-  const nav = isAdmin ? adminNav : userNav;
-
-  const { data: dashboardData } = useGetAdminDashboard({
-    query: { enabled: isAdmin, staleTime: 30000 },
-  });
-
-  const pendingTopups = dashboardData?.pendingTopups ?? 0;
-
-  const NavLinks = () => (
-    <nav className="flex flex-col gap-1 p-4 h-full">
+function NavLinks({
+  nav,
+  isAdmin,
+  pendingTopups,
+  userIsAdmin,
+  logout,
+  location,
+}: {
+  nav: NavItem[];
+  isAdmin: boolean;
+  pendingTopups: number;
+  userIsAdmin: boolean;
+  logout: () => void;
+  location: string;
+}) {
+  return (
+    <nav className="flex flex-col gap-1 p-4 h-full overflow-y-auto">
       <div className="mb-6 px-2">
         <h2 className="text-xl font-bold tracking-tight text-primary">
           KETANTECH
@@ -190,34 +208,94 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
       </div>
     </nav>
   );
+}
+
+export function MobileAdminHeader() {
+  const [location] = useLocation();
+  const { logout, isAdmin: userIsAdmin } = useAuth();
+
+  const { data: dashboardData } = useGetAdminDashboard({
+    query: { enabled: true, staleTime: 30000 },
+  });
+  const pendingTopups = dashboardData?.pendingTopups ?? 0;
+
+  const pageTitle =
+    Object.entries(adminPageTitles)
+      .find(([path]) => {
+        if (location === path) return true;
+        if (path !== "/admin") return location.startsWith(path + "/");
+        return false;
+      })?.[1] ?? "Admin Portal";
 
   return (
-    <>
-      {/* Mobile Hamburger — hanya untuk admin */}
-      {isAdmin && (
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="md:hidden absolute top-4 left-4 z-50">
-              <Menu className="h-5 w-5" />
-              <span className="sr-only">Buka menu</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-64">
-            <SheetHeader className="sr-only">
-              <SheetTitle>Menu Navigasi</SheetTitle>
-              <SheetDescription>Navigasi utama aplikasi KETANTECH VPN</SheetDescription>
-            </SheetHeader>
-            <div className="flex h-full flex-col">
-              <NavLinks />
-            </div>
-          </SheetContent>
-        </Sheet>
-      )}
+    <header className="md:hidden sticky top-0 z-40 flex items-center h-14 border-b bg-card/95 backdrop-blur-sm px-2 gap-2 shrink-0">
+      <Sheet>
+        <SheetTrigger asChild>
+          <Button variant="ghost" size="icon" className="shrink-0 relative">
+            <Menu className="h-5 w-5" />
+            {pendingTopups > 0 && (
+              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-yellow-500" />
+            )}
+            <span className="sr-only">Buka menu</span>
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="p-0 w-64">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Menu Navigasi</SheetTitle>
+            <SheetDescription>Navigasi utama admin KETANTECH VPN</SheetDescription>
+          </SheetHeader>
+          <div className="flex h-full flex-col">
+            <NavLinks
+              nav={adminNav}
+              isAdmin={true}
+              pendingTopups={pendingTopups}
+              userIsAdmin={userIsAdmin}
+              logout={logout}
+              location={location}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
 
-      {/* Desktop Sidebar — selalu tampil di layar besar */}
-      <div className="hidden md:flex h-screen w-64 flex-col border-r bg-card/50 backdrop-blur-xl sticky top-0">
-        <NavLinks />
+      <div className="flex-1 min-w-0 text-center">
+        <span className="text-sm font-semibold truncate">{pageTitle}</span>
       </div>
-    </>
+
+      <Button
+        variant="ghost"
+        size="icon"
+        className="shrink-0 text-muted-foreground hover:text-destructive"
+        onClick={logout}
+        title="Keluar"
+      >
+        <LogOut className="h-4 w-4" />
+        <span className="sr-only">Keluar</span>
+      </Button>
+    </header>
+  );
+}
+
+export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
+  const [location] = useLocation();
+  const { logout, isAdmin: userIsAdmin } = useAuth();
+  const nav = isAdmin ? adminNav : userNav;
+
+  const { data: dashboardData } = useGetAdminDashboard({
+    query: { enabled: isAdmin, staleTime: 30000 },
+  });
+
+  const pendingTopups = dashboardData?.pendingTopups ?? 0;
+
+  return (
+    <div className="hidden md:flex h-screen w-64 flex-col border-r bg-card/50 backdrop-blur-xl sticky top-0">
+      <NavLinks
+        nav={nav}
+        isAdmin={isAdmin}
+        pendingTopups={pendingTopups}
+        userIsAdmin={userIsAdmin}
+        logout={logout}
+        location={location}
+      />
+    </div>
   );
 }

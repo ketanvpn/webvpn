@@ -1,5 +1,5 @@
 import React from "react";
-import { Sidebar, MobileBottomNav } from "./sidebar";
+import { Sidebar, MobileBottomNav, MobileAdminHeader } from "./sidebar";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { Skeleton } from "./ui/skeleton";
@@ -42,18 +42,18 @@ export function Layout({
   return (
     <div className="flex min-h-screen w-full bg-background/95">
       <Sidebar isAdmin={requireAdmin} />
-      <main className="flex-1 overflow-y-auto w-full max-w-[100vw]">
-        <div
-          className={`mx-auto max-w-6xl p-4 md:p-8 ${
-            requireAdmin
-              ? "mt-12 md:mt-0"
-              : "mt-0 pb-24 md:pb-8"
-          }`}
-        >
-          {children}
-        </div>
-      </main>
-      {/* Bottom Navigation — hanya untuk pengguna biasa di mobile */}
+      <div className="flex flex-col flex-1 min-w-0">
+        {requireAdmin && <MobileAdminHeader />}
+        <main className="flex-1 overflow-y-auto w-full">
+          <div
+            className={`mx-auto max-w-6xl p-4 md:p-8 ${
+              !requireAdmin ? "pb-24 md:pb-8" : ""
+            }`}
+          >
+            {children}
+          </div>
+        </main>
+      </div>
       {!requireAdmin && <MobileBottomNav />}
     </div>
   );
