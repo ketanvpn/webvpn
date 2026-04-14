@@ -144,8 +144,8 @@ Isi dengan konfigurasi berikut (sesuaikan dengan data kamu):
 # Format: postgresql://USER:PASSWORD@HOST:PORT/DATABASE
 DATABASE_URL=postgresql://ketantech:password_kamu_yang_aman@localhost:5432/ketantech_db
 
-# Kunci rahasia untuk JWT (token login) — buat string acak yang panjang
-JWT_SECRET=ganti_dengan_string_acak_panjang_dan_aman_minimal_32_karakter
+# Kunci rahasia untuk session login — buat string acak yang panjang
+SESSION_SECRET=ganti_dengan_string_acak_panjang_dan_aman_minimal_32_karakter
 
 # Mode environment
 NODE_ENV=production
@@ -154,9 +154,14 @@ NODE_ENV=production
 PORT=8080
 ```
 
-> 💡 Untuk membuat `JWT_SECRET` yang aman, jalankan: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+> 💡 Untuk membuat `SESSION_SECRET` yang aman, jalankan:
+> ```bash
+> node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+> ```
 
 Simpan file dengan **Ctrl+X**, lalu **Y**, lalu **Enter**.
+
+> ⚠️ **Penting:** File `.env` berisi data sensitif. Jangan pernah upload file ini ke GitHub!
 
 ### Langkah 7 — Setup Database
 
@@ -171,12 +176,18 @@ Kalau berhasil, akan muncul: `✓ Changes applied`
 ### Langkah 8 — Build Aplikasi
 
 ```bash
+# Load variabel dari file .env
+export $(grep -v '^#' .env | xargs)
+
 # Build API server
 pnpm --filter @workspace/api-server run build
 
 # Build frontend (website)
-pnpm --filter @workspace/vpn-web run build
+# PORT dan BASE_PATH diperlukan oleh proses build
+PORT=3000 BASE_PATH=/ NODE_ENV=production pnpm --filter @workspace/vpn-web run build
 ```
+
+> 💡 `BASE_PATH=/` artinya website diakses dari root domain (misalnya `http://domain-kamu.com/`). Tidak perlu diubah jika tidak menggunakan subdirectory.
 
 ### Langkah 9 — Coba Jalankan (Test)
 
@@ -329,7 +340,11 @@ Setelah login sebagai admin, lakukan konfigurasi berikut:
 ### 4. Konfigurasi Payment QRIS (AutoGoPay) — Opsional
 - Masuk ke **Admin → Payment Gateway**
 - Isi API URL dan Secret Key dari AutoGoPay, lalu set gateway ke **AutoGoPay**
-- Setelah dikonfigurasi: topup saldo **dan** pembelian VPN langsung via QRIS akan dikonfirmasi otomatis melalui webhook
+- **Webhook URL** — Daftarkan URL ini di dashboard AutoGoPay agar pembayaran dikonfirmasi otomatis:
+  ```
+  https://domain-kamu.com/api/webhooks/autogopay
+  ```
+- Setelah dikonfigurasi: topup saldo **dan** pembelian VPN langsung via QRIS akan dikonfirmasi otomatis tanpa campur tangan admin
 
 ### 5. Konfigurasi Telegram Bot — Opsional
 - Masuk ke **Admin → Notifikasi Telegram**
@@ -350,7 +365,7 @@ pm2 restart ketantech-api
 git pull origin main
 pnpm install
 pnpm --filter @workspace/api-server run build
-pnpm --filter @workspace/vpn-web run build
+PORT=3000 BASE_PATH=/ NODE_ENV=production pnpm --filter @workspace/vpn-web run build
 pm2 restart ketantech-api
 
 # Cek status PM2
@@ -368,15 +383,31 @@ pm2 status
 > Cek apakah PostgreSQL sedang berjalan: `sudo systemctl status postgresql`
 > Pastikan username, password, dan nama database di `.env` sudah benar.
 
+**Q: Muncul error "PORT environment variable is required" saat build frontend**
+> Gunakan perintah yang sudah include PORT dan BASE_PATH:
+> ```bash
+> PORT=3000 BASE_PATH=/ NODE_ENV=production pnpm --filter @workspace/vpn-web run build
+> ```
+
 **Q: Website tidak bisa diakses dari browser**
 > Cek apakah Nginx sudah jalan: `sudo systemctl status nginx`
-> Cek apakah port 80/443 sudah dibuka di firewall VPS.
+> Cek apakah port 80/443 sudah dibuka di firewall VPS:
+> ```bash
+> sudo ufw allow 80
+> sudo ufw allow 443
+> sudo ufw allow 22
+> sudo ufw enable
+> ```
 
 **Q: Login admin gagal terus**
 > Mungkin tabel users kosong. Restart API server, lalu coba login lagi — admin default akan dibuat otomatis.
 
 **Q: OTP WhatsApp tidak terkirim**
 > Pastikan token Fonnte sudah diisi di pengaturan admin. Kalau token kosong, OTP hanya tampil di layar (mode simulasi/testing).
+
+**Q: QRIS dibayar tapi order tidak otomatis terkonfirmasi**
+> Pastikan Webhook URL sudah didaftarkan di dashboard AutoGoPay:
+> `https://domain-kamu.com/api/webhooks/autogopay`
 
 ---
 
