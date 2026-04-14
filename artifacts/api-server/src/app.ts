@@ -26,7 +26,20 @@ app.use(
     },
   }),
 );
-app.use(cors({ origin: true, credentials: true }));
+// Batasi CORS ke domain produksi jika CORS_ORIGIN diset, fallback ke semua domain (untuk dev)
+const allowedOrigin = process.env.CORS_ORIGIN;
+app.use(cors({
+  origin: allowedOrigin
+    ? (origin, callback) => {
+        if (!origin || origin === allowedOrigin) {
+          callback(null, true);
+        } else {
+          callback(new Error("Not allowed by CORS"));
+        }
+      }
+    : true,
+  credentials: true,
+}));
 app.use(
   express.json({
     verify: (req: any, _res, buf) => {
