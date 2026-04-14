@@ -1,257 +1,357 @@
-# 🌐 KETANTECH VPN Store
+# KETANTECH VPN Store
 
-Platform penjualan VPN berbasis web yang lengkap — dengan dashboard user, panel admin, verifikasi WhatsApp, dan integrasi bot Telegram.
-
----
-
-## ✨ Fitur Lengkap
-
-### Untuk Pengguna (Customer)
-- **Registrasi dengan verifikasi WhatsApp** — OTP dikirim via WhatsApp (menggunakan Fonnte)
-- **Dashboard** — Ringkasan saldo, akun VPN aktif, dan riwayat order
-- **Beli VPN** — Pilih produk, bayar pakai saldo atau **QRIS langsung** (AutoGoPay) — akun VPN aktif otomatis setelah bayar
-- **Kelola Akun VPN** — Lihat detail akun, perpanjang masa aktif
-- **Top Up Saldo** — Via QRIS otomatis (AutoGoPay) atau manual
-- **Riwayat Saldo** — Log semua perubahan saldo
-- **Edit Profil** — Ubah nama, email, dan password
-- **Link Akun Telegram** — Untuk notifikasi langsung via Telegram
-
-### Untuk Admin
-- **Dashboard Admin** — Statistik: total revenue, pengguna, akun aktif, topup pending
-- **Manajemen Pengguna** — Lihat, cari, filter, suspend, ubah role, sesuaikan saldo, dan **buat pengguna baru manual**
-- **Manajemen Produk** — Tambah/edit/hapus produk VPN (SSH, VMess, VLess, Trojan, Shadowsocks)
-- **Manajemen Server** — Tambah/edit/hapus server VPN
-- **Manajemen Order** — Konfirmasi order, buat akun VPN otomatis via panel
-- **Manajemen Topup** — Konfirmasi/tolak topup manual, preview QRIS
-- **Manajemen Akun VPN** — Perpanjang, aktif/nonaktif, hapus akun
-- **Pengaturan Payment** — Konfigurasi AutoGoPay untuk QRIS otomatis
-- **Pengaturan WhatsApp OTP** — Konfigurasi token Fonnte, test kirim OTP
-- **Pengaturan Telegram Bot** — Konfigurasi bot untuk notifikasi
-- **Broadcast** — Kirim pesan massal ke semua user yang sudah link Telegram
-
-### Fitur Teknis
-- Auto-seed admin default saat pertama kali install
-- Mobile-responsive — termasuk panel admin dengan header navigasi mobile
-- Auto-refresh data setiap 30 detik (dashboard, orders, topups)
-- Export data ke CSV (orders & topups)
-- **QRIS order otomatis:** webhook AutoGoPay langsung proses order & aktifkan akun VPN tanpa campur tangan admin
-- **Auto-polling frontend:** halaman order QRIS pending auto-update setiap 5 detik hingga pembayaran terkonfirmasi
+Platform penjualan VPN berbasis web lengkap — dashboard user, panel admin, verifikasi WhatsApp, pembayaran QRIS otomatis, dan bot Telegram.
 
 ---
 
-## 📋 Yang Kamu Butuhkan Sebelum Mulai
+## Fitur Unggulan
 
-Sebelum instalasi, pastikan VPS kamu sudah memiliki:
+**Untuk Pengguna:**
+- Registrasi dengan verifikasi WhatsApp (OTP via Fonnte)
+- Beli VPN, perpanjang akun, kelola saldo
+- Pembayaran QRIS otomatis (AutoGoPay) — akun VPN aktif langsung setelah bayar
+- Notifikasi via WhatsApp dan Telegram
 
-| Kebutuhan | Versi Minimal | Cara Cek |
-|---|---|---|
-| Node.js | v20 atau lebih baru | `node --version` |
-| pnpm | v8 atau lebih baru | `pnpm --version` |
-| PostgreSQL | v14 atau lebih baru | `psql --version` |
-| Git | Bebas | `git --version` |
-
-> 💡 **Catatan:** Tutorial ini menggunakan Ubuntu 22.04. Perintahnya kurang lebih sama untuk Debian.
+**Untuk Admin:**
+- Dashboard statistik (revenue, pengguna, order, topup)
+- Kelola pengguna, produk, server, order, topup, akun VPN
+- Konfigurasi payment gateway, WhatsApp OTP, Telegram bot
+- Broadcast pesan ke semua pengguna
+- Backup & restore database otomatis via Telegram
 
 ---
 
-## 🚀 Tutorial Instalasi di VPS
+## Panduan Instalasi di VPS (Ubuntu/Debian)
 
-### Langkah 1 — Install Node.js
+> Panduan ini ditulis untuk pemula. Ikuti setiap langkah secara berurutan dan jangan ada yang dilewati.
+
+---
+
+### Langkah 1 — Siapkan Server
+
+Pastikan VPS kamu menggunakan Ubuntu 20.04 / 22.04 atau Debian 11/12. Login sebagai `root` via SSH.
+
+Update sistem dulu:
 
 ```bash
-# Download dan jalankan script installer Node.js versi 20
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+apt update && apt upgrade -y
+```
 
-# Install Node.js
-sudo apt-get install -y nodejs
+---
 
-# Cek versi (pastikan muncul v20.x.x atau lebih baru)
+### Langkah 2 — Install Node.js
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+apt-get install -y nodejs
+```
+
+Cek apakah berhasil (harus muncul angka `v20.x.x` atau lebih):
+
+```bash
 node --version
 ```
 
-### Langkah 2 — Install pnpm
+---
+
+### Langkah 3 — Install pnpm
 
 ```bash
-# Install pnpm secara global
 npm install -g pnpm
+```
 
-# Cek versi
+Cek versi:
+
+```bash
 pnpm --version
 ```
 
-### Langkah 3 — Install PostgreSQL
+---
+
+### Langkah 4 — Install PostgreSQL
 
 ```bash
-# Update daftar paket
-sudo apt update
-
-# Install PostgreSQL
-sudo apt install -y postgresql postgresql-contrib
-
-# Jalankan PostgreSQL
-sudo systemctl start postgresql
-sudo systemctl enable postgresql
+apt install -y postgresql postgresql-contrib postgresql-client
+systemctl start postgresql
+systemctl enable postgresql
 ```
 
-**Buat database dan user PostgreSQL:**
+Cek apakah PostgreSQL sudah berjalan (harus muncul `active (running)`):
 
 ```bash
-# Masuk ke mode PostgreSQL
-sudo -u postgres psql
+systemctl status postgresql
+```
 
-# Jalankan perintah ini satu per satu di dalam psql:
-CREATE USER ketantech WITH PASSWORD 'password_kamu_yang_aman';
+Tekan `Q` untuk keluar dari tampilan status.
+
+---
+
+### Langkah 5 — Buat Database dan User PostgreSQL
+
+Masuk ke PostgreSQL sebagai user postgres:
+
+```bash
+sudo -u postgres psql
+```
+
+Kamu akan masuk ke mode PostgreSQL yang ditandai dengan prompt `postgres=#`.
+
+Jalankan perintah-perintah berikut **satu per satu**, ganti `PASSWORD_KAMU` dengan password yang kuat:
+
+```sql
+CREATE USER ketantech WITH PASSWORD 'PASSWORD_KAMU';
 CREATE DATABASE ketantech_db OWNER ketantech;
 GRANT ALL PRIVILEGES ON DATABASE ketantech_db TO ketantech;
 \q
 ```
 
-> ⚠️ Ganti `password_kamu_yang_aman` dengan password yang kuat dan unik!
+Tanda `\q` untuk keluar dari PostgreSQL. Kamu akan kembali ke terminal biasa.
 
-### Langkah 4 — Clone Project
+> **Catat baik-baik:** username (`ketantech`), password, dan nama database (`ketantech_db`) — akan digunakan di langkah berikutnya.
+
+---
+
+### Langkah 6 — Install PM2
+
+PM2 adalah aplikasi yang menjaga server tetap berjalan meskipun terminal ditutup atau VPS restart.
 
 ```bash
-# Masuk ke direktori yang kamu inginkan (misalnya /var/www)
+npm install -g pm2
+```
+
+---
+
+### Langkah 7 — Download Project
+
+```bash
 cd /var/www
-
-# Clone repository
 git clone https://github.com/ketanvpn/webvpn.git ketantech-vpn
-
-# Masuk ke folder project
 cd ketantech-vpn
 ```
 
-### Langkah 5 — Install Semua Dependensi
+---
+
+### Langkah 8 — Install Semua Dependensi Project
 
 ```bash
 pnpm install
 ```
 
-> Proses ini mungkin memakan waktu 1-3 menit. Tunggu hingga selesai.
-
-### Langkah 6 — Buat File Konfigurasi (.env)
-
-Buat file `.env` di root project:
-
-```bash
-nano .env
-```
-
-Isi dengan konfigurasi berikut (sesuaikan dengan data kamu):
-
-```env
-# URL koneksi database PostgreSQL
-# Format: postgresql://USER:PASSWORD@HOST:PORT/DATABASE
-DATABASE_URL=postgresql://ketantech:password_kamu_yang_aman@localhost:5432/ketantech_db
-
-# Kunci rahasia untuk session login — buat string acak yang panjang
-SESSION_SECRET=ganti_dengan_string_acak_panjang_dan_aman_minimal_32_karakter
-
-# Mode environment
-NODE_ENV=production
-
-# Port API server (jangan diubah kecuali perlu)
-PORT=8080
-```
-
-> 💡 Untuk membuat `SESSION_SECRET` yang aman, jalankan:
-> ```bash
-> node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-> ```
-
-Simpan file dengan **Ctrl+X**, lalu **Y**, lalu **Enter**.
-
-> ⚠️ **Penting:** File `.env` berisi data sensitif. Jangan pernah upload file ini ke GitHub!
-
-### Langkah 7 — Setup Database
-
-Perintah ini akan membuat semua tabel yang dibutuhkan di database:
-
-```bash
-pnpm --filter @workspace/db run push
-```
-
-Kalau berhasil, akan muncul: `✓ Changes applied`
-
-### Langkah 8 — Build Aplikasi
-
-```bash
-# Load variabel dari file .env
-export $(grep -v '^#' .env | xargs)
-
-# Build API server
-pnpm --filter @workspace/api-server run build
-
-# Build frontend (website)
-# PORT dan BASE_PATH diperlukan oleh proses build
-PORT=3000 BASE_PATH=/ NODE_ENV=production pnpm --filter @workspace/vpn-web run build
-```
-
-> 💡 `BASE_PATH=/` artinya website diakses dari root domain (misalnya `http://domain-kamu.com/`). Tidak perlu diubah jika tidak menggunakan subdirectory.
-
-### Langkah 9 — Coba Jalankan (Test)
-
-```bash
-# Jalankan API server untuk test
-PORT=8080 node --enable-source-maps artifacts/api-server/dist/index.mjs
-```
-
-Kalau muncul:
-```
-INFO: Server listening port: 8080
-INFO: Default admin created — username: admin, password: admin123
-```
-
-Berarti berhasil! Tekan **Ctrl+C** untuk hentikan dulu, lalu lanjut ke langkah berikutnya.
+Proses ini bisa memakan waktu 2-5 menit. Tunggu sampai selesai dan kembali ke prompt normal.
 
 ---
 
-## 🔄 Langkah 10 — Jalankan dengan PM2 (Agar Selalu Online)
+### Langkah 9 — Buat File Konfigurasi (.env)
 
-PM2 adalah tools yang menjaga aplikasi tetap berjalan bahkan setelah server restart.
+File `.env` berisi semua pengaturan penting aplikasi. Buat file ini dengan perintah:
 
 ```bash
-# Install PM2
-npm install -g pm2
+nano /var/www/ketantech-vpn/.env
+```
 
-# Jalankan API server dengan PM2
-PORT=8080 pm2 start "node --enable-source-maps artifacts/api-server/dist/index.mjs" --name ketantech-api
+Salin dan tempelkan isi berikut ke dalam editor (tekan klik kanan untuk paste di terminal):
 
-# Simpan konfigurasi PM2 agar otomatis jalan saat server restart
+```
+DATABASE_URL=postgresql://ketantech:PASSWORD_KAMU@localhost:5432/ketantech_db
+SESSION_SECRET=GANTI_DENGAN_STRING_ACAK_PANJANG
+NODE_ENV=production
+PORT=8080
+```
+
+**Ganti dua bagian ini:**
+
+- `PASSWORD_KAMU` → password PostgreSQL yang kamu buat di Langkah 5
+- `GANTI_DENGAN_STRING_ACAK_PANJANG` → buat string acak dengan perintah ini (buka terminal baru, jalankan, lalu salin hasilnya):
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Contoh hasil yang benar (angka/huruf acak sepanjang ini):
+
+```
+a3f8b2c1d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1
+```
+
+Setelah selesai mengisi, simpan file dengan menekan:
+- **Ctrl + X**
+- Lalu tekan **Y**
+- Lalu tekan **Enter**
+
+Verifikasi isi file sudah benar:
+
+```bash
+cat /var/www/ketantech-vpn/.env
+```
+
+Pastikan `DATABASE_URL` sudah berisi password yang benar dan `SESSION_SECRET` sudah terisi string panjang (bukan kata `GANTI_DENGAN_STRING_ACAK_PANJANG`).
+
+---
+
+### Langkah 10 — Setup Database (Buat Tabel)
+
+> **PENTING:** Langkah ini wajib dilakukan setelah file `.env` sudah benar. Perintah di bawah menyertakan DATABASE_URL secara eksplisit agar tidak bergantung pada cara shell membaca `.env`.
+
+Masuk ke folder project terlebih dahulu:
+
+```bash
+cd /var/www/ketantech-vpn
+```
+
+Ganti `PASSWORD_KAMU` dan `ketantech_db` sesuai yang kamu set di Langkah 5, lalu jalankan:
+
+```bash
+DATABASE_URL="postgresql://ketantech:PASSWORD_KAMU@localhost:5432/ketantech_db" pnpm --filter @workspace/db run push
+```
+
+**Contoh nyata** (dengan password `maduTJ150` dan database `ketantech_db`):
+
+```bash
+DATABASE_URL="postgresql://ketantech:maduTJ150@localhost:5432/ketantech_db" pnpm --filter @workspace/db run push
+```
+
+Kalau berhasil, akan muncul pesan seperti ini:
+
+```
+Reading config file '...'
+Using 'pg' driver for database querying
+[✓] Changes applied
+```
+
+Kalau masih ada error, baca bagian **Troubleshooting** di bawah.
+
+---
+
+### Langkah 11 — Build Aplikasi
+
+Build backend API:
+
+```bash
+pnpm --filter @workspace/api-server run build
+```
+
+Build frontend website:
+
+```bash
+PORT=3000 BASE_PATH=/ NODE_ENV=production pnpm --filter @workspace/vpn-web run build
+```
+
+Kedua proses ini akan memakan waktu 1-3 menit. Tunggu sampai selesai.
+
+---
+
+### Langkah 12 — Jalankan Aplikasi dengan PM2
+
+Buat file konfigurasi PM2 agar semua variabel dari `.env` otomatis terbaca:
+
+```bash
+nano /var/www/ketantech-vpn/ecosystem.config.cjs
+```
+
+Salin dan tempelkan isi berikut **persis seperti ini** (ganti `PASSWORD_KAMU` dan `SESSION_SECRET_KAMU`):
+
+```javascript
+module.exports = {
+  apps: [
+    {
+      name: "ketantech-api",
+      script: "node",
+      args: "--enable-source-maps artifacts/api-server/dist/index.mjs",
+      cwd: "/var/www/ketantech-vpn",
+      env: {
+        NODE_ENV: "production",
+        PORT: "8080",
+        DATABASE_URL: "postgresql://ketantech:PASSWORD_KAMU@localhost:5432/ketantech_db",
+        SESSION_SECRET: "SESSION_SECRET_KAMU"
+      }
+    }
+  ]
+}
+```
+
+Simpan dengan **Ctrl+X**, lalu **Y**, lalu **Enter**.
+
+Jalankan aplikasi:
+
+```bash
+cd /var/www/ketantech-vpn
+pm2 start ecosystem.config.cjs
+```
+
+Simpan konfigurasi PM2 agar otomatis jalan saat VPS restart:
+
+```bash
 pm2 save
 pm2 startup
 ```
 
-Ikuti instruksi yang muncul setelah `pm2 startup`.
+Perintah `pm2 startup` akan menampilkan sebuah perintah panjang yang harus kamu salin dan jalankan. Contohnya terlihat seperti:
 
-**Cek status:**
-```bash
-pm2 status
-pm2 logs ketantech-api
 ```
+[PM2] To setup the startup script, copy/paste the following command:
+sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u root --hp /root
+```
+
+Salin dan jalankan perintah tersebut.
 
 ---
 
-## 🌍 Langkah 11 — Setup Nginx (Agar Bisa Diakses dari Internet)
-
-Install Nginx sebagai reverse proxy:
+### Langkah 13 — Cek Apakah Server Berjalan
 
 ```bash
-sudo apt install -y nginx
+pm2 status
 ```
 
-Buat konfigurasi Nginx:
+Harus muncul tabel dengan `ketantech-api` berstatus `online`.
+
+Lihat log untuk memastikan tidak ada error:
 
 ```bash
-sudo nano /etc/nginx/sites-available/ketantech
+pm2 logs ketantech-api --lines 30
 ```
 
-Isi dengan (ganti `domain-kamu.com` dengan domain atau IP VPS kamu):
+Kalau berhasil, akan muncul:
+
+```
+Server listening port: 8080
+Default admin created — username: admin, password: admin123
+Scheduler notifikasi kedaluwarsa aktif
+Scheduler auto-backup aktif
+```
+
+Kalau muncul error `relation "users" does not exist` → berarti Langkah 10 (setup database) belum berhasil. Ulangi Langkah 10 dengan DATABASE_URL yang benar.
+
+---
+
+### Langkah 14 — Install dan Konfigurasi Nginx
+
+Nginx bertugas meneruskan request dari browser ke aplikasi kamu.
+
+```bash
+apt install -y nginx
+```
+
+Hapus konfigurasi default:
+
+```bash
+rm /etc/nginx/sites-enabled/default
+```
+
+Buat konfigurasi baru (ganti `DOMAIN_ATAU_IP` dengan domain atau IP VPS kamu):
+
+```bash
+nano /etc/nginx/sites-available/ketantech
+```
+
+Salin dan tempelkan isi berikut:
 
 ```nginx
 server {
     listen 80;
-    server_name domain-kamu.com;
+    server_name DOMAIN_ATAU_IP;
+
+    # Ukuran upload file maksimal (untuk fitur restore database)
+    client_max_body_size 100M;
 
     # Frontend (website)
     location / {
@@ -272,165 +372,176 @@ server {
 }
 ```
 
-Aktifkan konfigurasi:
+Simpan dengan **Ctrl+X**, **Y**, **Enter**.
+
+Aktifkan konfigurasi dan restart Nginx:
 
 ```bash
-# Buat symlink untuk mengaktifkan site
-sudo ln -s /etc/nginx/sites-available/ketantech /etc/nginx/sites-enabled/
-
-# Hapus konfigurasi default (opsional)
-sudo rm /etc/nginx/sites-enabled/default
-
-# Test konfigurasi Nginx
-sudo nginx -t
-
-# Reload Nginx
-sudo systemctl reload nginx
+ln -s /etc/nginx/sites-available/ketantech /etc/nginx/sites-enabled/
+nginx -t
+systemctl reload nginx
 ```
+
+Perintah `nginx -t` harus menampilkan `syntax is ok` dan `test is successful`. Kalau ada error, periksa kembali isi file konfigurasi.
 
 ---
 
-## 🔐 Langkah 12 — SSL / HTTPS (Opsional tapi Sangat Dianjurkan)
-
-Jika kamu punya domain, aktifkan HTTPS gratis dengan Certbot:
+### Langkah 15 — Buka Firewall
 
 ```bash
-sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d domain-kamu.com
+ufw allow 22
+ufw allow 80
+ufw allow 443
+ufw enable
 ```
 
-Ikuti instruksi yang muncul. Certbot akan otomatis mengurus konfigurasi SSL.
+Ketik `y` dan Enter ketika diminta konfirmasi.
 
 ---
 
-## 🎉 Selesai! Login Pertama Kali
+### Langkah 16 — SSL / HTTPS (Jika Punya Domain)
+
+Jika kamu sudah mengarahkan domain ke IP VPS, aktifkan HTTPS gratis:
+
+```bash
+apt install -y certbot python3-certbot-nginx
+certbot --nginx -d namadomain-kamu.com
+```
+
+Ikuti instruksi yang muncul (isi email, setujui syarat). Certbot akan otomatis mengurus sertifikat SSL.
+
+---
+
+### Selesai! Cara Login Pertama Kali
 
 Buka browser dan akses:
-- **Website:** `http://domain-kamu.com` atau `http://ip-vps-kamu`
-- **Login Admin:** `http://domain-kamu.com/admin`
 
-**Kredensial default:**
-| Username | Password | Role |
-|---|---|---|
-| `admin` | `admin123` | Admin |
+```
+http://DOMAIN_ATAU_IP_VPS
+```
 
-> ⚠️ **WAJIB:** Segera ganti password admin setelah login pertama! Masuk ke menu Profil untuk menggantinya.
+**Akun admin bawaan:**
+
+| Username | Password |
+|---|---|
+| admin | admin123 |
+
+**WAJIB:** Segera ganti password admin setelah login pertama! Masuk ke menu **Profil** untuk menggantinya.
 
 ---
 
-## ⚙️ Konfigurasi Setelah Install
+## Konfigurasi Setelah Install
 
-Setelah login sebagai admin, lakukan konfigurasi berikut:
+Login sebagai admin dan lakukan pengaturan berikut:
 
-### 1. Tambah Server VPN
-- Masuk ke **Admin → Server**
-- Klik **Tambah Server**
-- Isi URL API panel VPN dan token
+### Tambah Server VPN
+Menu: **Admin → Server → Tambah Server**
+- Isi URL API panel VPN (contoh: `http://152.42.xxx.xxx`)
+- Isi Bearer token dari panel VPN
 
-### 2. Tambah Produk VPN
-- Masuk ke **Admin → Produk**
-- Klik **Tambah Produk**
-- Pilih server, protokol, durasi, harga, dan kuota
+### Tambah Produk VPN
+Menu: **Admin → Produk → Tambah Produk**
+- Pilih server, protokol (SSH/VMess/VLess/Trojan/Shadowsocks), durasi, harga
 
-### 3. Konfigurasi WhatsApp OTP (Fonnte)
-- Masuk ke **Admin → WhatsApp OTP**
-- Daftar di [fonnte.com](https://fonnte.com), hubungkan nomor WA, salin token API
-- Isi token di form dan klik Simpan
+### WhatsApp OTP (Fonnte)
+Menu: **Admin → WhatsApp OTP**
+- Daftar di [fonnte.com](https://fonnte.com), hubungkan nomor WhatsApp
+- Salin token API dan isi di form
 
-### 4. Konfigurasi Payment QRIS (AutoGoPay) — Opsional
-- Masuk ke **Admin → Payment Gateway**
-- Isi API URL dan Secret Key dari AutoGoPay, lalu set gateway ke **AutoGoPay**
-- **Webhook URL** — Daftarkan URL ini di dashboard AutoGoPay agar pembayaran dikonfirmasi otomatis:
+### Payment QRIS (AutoGoPay) — Opsional
+Menu: **Admin → Payment Gateway**
+- Isi API URL dan Secret Key dari AutoGoPay
+- Daftarkan webhook di dashboard AutoGoPay:
   ```
   https://domain-kamu.com/api/webhooks/autogopay
   ```
-- Setelah dikonfigurasi: topup saldo **dan** pembelian VPN langsung via QRIS akan dikonfirmasi otomatis tanpa campur tangan admin
 
-### 5. Konfigurasi Telegram Bot — Opsional
-- Masuk ke **Admin → Notifikasi Telegram**
-- Buat bot via [@BotFather](https://t.me/BotFather), isi token dan Chat ID admin
+### Telegram Bot — Opsional
+Menu: **Admin → Notifikasi Telegram**
+- Buat bot via [@BotFather](https://t.me/BotFather)
+- Isi token bot dan Chat ID admin
+
+### Backup Database Otomatis
+Menu: **Admin → Backup & Restore DB**
+- Aktifkan auto backup dan pilih interval (6/12/24 jam)
+- Backup otomatis dikirim ke Telegram admin
 
 ---
 
-## 🔧 Perintah Berguna
+## Perintah Berguna Sehari-hari
 
 ```bash
-# Lihat log aplikasi
+# Lihat status semua proses
+pm2 status
+
+# Lihat log real-time
 pm2 logs ketantech-api
 
-# Restart aplikasi (setelah update)
+# Restart aplikasi (misalnya setelah update)
 pm2 restart ketantech-api
 
 # Update aplikasi dari GitHub
+cd /var/www/ketantech-vpn
 git pull origin main
 pnpm install
 pnpm --filter @workspace/api-server run build
 PORT=3000 BASE_PATH=/ NODE_ENV=production pnpm --filter @workspace/vpn-web run build
 pm2 restart ketantech-api
-
-# Cek status PM2
-pm2 status
 ```
 
 ---
 
-## ❓ Troubleshooting (Solusi Masalah Umum)
+## Troubleshooting (Solusi Masalah Umum)
 
-**Q: Muncul error "DATABASE_URL not found"**
-> Pastikan file `.env` sudah dibuat dan isinya benar. Coba jalankan `cat .env` untuk memeriksanya.
+**Error: `database "nama_database" does not exist`**
+> Kamu menggunakan nama `nama_database` secara harfiah. Ganti dengan nama database yang benar, yaitu `ketantech_db` (atau nama yang kamu buat di Langkah 5).
 
-**Q: Tidak bisa konek ke database PostgreSQL**
-> Cek apakah PostgreSQL sedang berjalan: `sudo systemctl status postgresql`
-> Pastikan username, password, dan nama database di `.env` sudah benar.
+**Error: `DATABASE_URL, ensure the database is provisioned`**
+> Variabel `DATABASE_URL` tidak terbaca. Saat menjalankan `pnpm --filter @workspace/db run push`, tambahkan `DATABASE_URL=...` di depan perintah seperti yang tertera di Langkah 10.
 
-**Q: Muncul error "PORT environment variable is required" saat build frontend**
-> Gunakan perintah yang sudah include PORT dan BASE_PATH:
-> ```bash
-> PORT=3000 BASE_PATH=/ NODE_ENV=production pnpm --filter @workspace/vpn-web run build
-> ```
+**Error: `relation "users" does not exist`**
+> Tabel database belum dibuat. Jalankan Langkah 10 (Setup Database) dengan benar, pastikan tidak ada error, lalu restart PM2 dengan `pm2 restart ketantech-api`.
 
-**Q: Website tidak bisa diakses dari browser**
-> Cek apakah Nginx sudah jalan: `sudo systemctl status nginx`
-> Cek apakah port 80/443 sudah dibuka di firewall VPS:
-> ```bash
-> sudo ufw allow 80
-> sudo ufw allow 443
-> sudo ufw allow 22
-> sudo ufw enable
-> ```
+**Error: `password authentication failed for user "ketantech"`**
+> Password di `DATABASE_URL` salah. Periksa isi file `.env` dan `ecosystem.config.cjs`. Pastikan password sama dengan yang dibuat di Langkah 5.
 
-**Q: Login admin gagal terus**
-> Mungkin tabel users kosong. Restart API server, lalu coba login lagi — admin default akan dibuat otomatis.
+**Error: `ECONNREFUSED 127.0.0.1:5432`**
+> PostgreSQL tidak berjalan. Jalankan: `systemctl start postgresql`
 
-**Q: OTP WhatsApp tidak terkirim**
-> Pastikan token Fonnte sudah diisi di pengaturan admin. Kalau token kosong, OTP hanya tampil di layar (mode simulasi/testing).
+**Website tidak bisa diakses dari browser**
+> 1. Cek Nginx: `systemctl status nginx`
+> 2. Cek PM2: `pm2 status`
+> 3. Cek firewall: `ufw status`
+> 4. Pastikan nama domain/IP di konfigurasi Nginx sudah benar
 
-**Q: QRIS dibayar tapi order tidak otomatis terkonfirmasi**
-> Pastikan Webhook URL sudah didaftarkan di dashboard AutoGoPay:
+**Login admin gagal terus**
+> Cek log PM2 dengan `pm2 logs ketantech-api`. Kalau ada error database, selesaikan masalah database terlebih dahulu.
+
+**OTP WhatsApp tidak terkirim**
+> Pastikan token Fonnte sudah diisi di menu Admin → WhatsApp OTP. Tanpa token, OTP hanya tampil di layar (mode simulasi).
+
+**QRIS dibayar tapi order tidak terkonfirmasi otomatis**
+> Webhook URL belum didaftarkan di AutoGoPay. Daftarkan:
 > `https://domain-kamu.com/api/webhooks/autogopay`
 
 ---
 
-## 📁 Struktur Folder
+## Struktur Folder
 
 ```
 ketantech-vpn/
 ├── artifacts/
-│   ├── api-server/     → Backend API (Express + Node.js)
-│   └── vpn-web/        → Frontend website (React + Vite)
+│   ├── api-server/       → Backend API (Express + Node.js)
+│   └── vpn-web/          → Frontend website (React + Vite)
+│       └── dist/public/  → Hasil build frontend (diserve Nginx)
 ├── lib/
-│   ├── db/             → Schema database (Drizzle ORM)
-│   ├── api-spec/       → Definisi API (OpenAPI)
+│   ├── db/               → Skema database (Drizzle ORM)
+│   ├── api-spec/         → Definisi API (OpenAPI)
 │   └── api-client-react/ → Hooks React untuk API
-└── botvpn-fixed/       → Bot Telegram (terpisah)
+├── ecosystem.config.cjs  → Konfigurasi PM2
+└── .env                  → Variabel konfigurasi (jangan di-upload ke GitHub!)
 ```
 
 ---
 
-## 📞 Butuh Bantuan?
-
-Jika ada kendala dalam instalasi atau penggunaan, silakan buka issue di GitHub atau hubungi tim KETANTECH.
-
----
-
-*Dibuat dengan ❤️ oleh KETANTECH — Platform VPN Store Indonesia*
+*KETANTECH VPN Store — Platform VPN Store Indonesia*
