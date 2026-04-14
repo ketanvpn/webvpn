@@ -173,7 +173,7 @@ export default function ProductDetail() {
 
               <div className="space-y-3">
                 <Label htmlFor="remarks">
-                  Nama Akun (Remarks) <span className="text-destructive">*</span>
+                  Nama Akun VPN <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="remarks"

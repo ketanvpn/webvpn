@@ -115,7 +115,7 @@ export default function Balance() {
                   </div>
                   {balanceData?.pendingTopup !== undefined && balanceData.pendingTopup > 0 && (
                     <div className="mt-2 text-sm bg-primary-foreground/10 inline-block px-3 py-1 rounded-full font-medium">
-                      + {formatRupiah(balanceData.pendingTopup)} pending
+                      + {formatRupiah(balanceData.pendingTopup)} menunggu konfirmasi
                     </div>
                   )}
                 </div>

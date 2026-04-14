@@ -127,7 +127,7 @@ export default function AccountDetail() {
 
               <div className="grid sm:grid-cols-2 gap-4 p-4 bg-accent/30 rounded-lg border">
                 <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground uppercase font-semibold">Tanggal Expire</div>
+                  <div className="text-xs text-muted-foreground uppercase font-semibold">Tanggal Kedaluwarsa</div>
                   <div className="font-medium flex items-center gap-2">
                     <Clock className="h-4 w-4 text-primary" />
                     {format(new Date(account.expiresAt), "d MMM yyyy, HH:mm", { locale: idLocale })}
