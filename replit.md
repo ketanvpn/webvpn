@@ -255,6 +255,21 @@ Setiap kali mengubah `lib/api-spec/openapi.yaml`:
 
 ## Progress Batch Improvement
 
+### Batch 5 ✅ (April 2026)
+- **Notifikasi Kedaluwarsa VPN:** Scheduler berjalan setiap 6 jam, cek akun H-3 dan H-1 → kirim WA (Fonnte) + Telegram otomatis
+- **Sistem Referral:** Kode referral sudah ada; kini bisa dipakai saat registrasi → bonus saldo otomatis ke referrer saat referral beli pertama kali
+- `artifacts/api-server/src/lib/scheduler.ts` — `checkExpiringAccounts()` + `startScheduler()` + `getReferralBonusAmount()`
+- `artifacts/api-server/src/lib/fonnte.ts` — tambah `sendWhatsapp()` fungsi generik untuk kirim pesan WA
+- `artifacts/api-server/src/routes/settings.ts` — endpoint `GET/PUT /admin/settings/referral` (enable/disable, bonus amount)
+- `artifacts/api-server/src/routes/auth.ts` — register menerima `referralCode` opsional, simpan `referredBy`
+- `artifacts/api-server/src/routes/admin.ts` — konfirmasi order → cek referral → beri bonus ke referrer otomatis
+- `lib/db/src/schema/vpn_accounts.ts` — tambah kolom `notified3Days`, `notified1Day`
+- `lib/db/src/schema/users.ts` — tambah kolom `referredBy`, `referralBonusClaimed`
+- `artifacts/vpn-web/src/pages/auth/register.tsx` — tambah field "Kode Referral" (opsional) di step 3
+- `artifacts/vpn-web/src/pages/user/profile.tsx` — kartu Program Referral dengan tombol salin + penjelasan
+- `artifacts/vpn-web/src/pages/admin/referral-settings.tsx` — halaman pengaturan referral admin (baru)
+- `artifacts/vpn-web/src/App.tsx` + `sidebar.tsx` — route + nav item Program Referral di admin sidebar
+
 ### Batch 4 ✅ (April 2026)
 - Admin mobile: sticky header bar dengan judul halaman dinamis + indikator notifikasi topup pending
 - Admin users: tombol "Tambah Pengguna" manual via dialog form (username, password, role, email, WA)

@@ -14,6 +14,8 @@ export const usersTable = pgTable("users", {
   balance: numeric("balance", { precision: 12, scale: 2 }).notNull().default("0"),
   isActive: boolean("is_active").notNull().default(true),
   referralCode: text("referral_code").unique(),
+  referredBy: text("referred_by"),
+  referralBonusClaimed: boolean("referral_bonus_claimed").notNull().default(false),
   telegramId: bigint("telegram_id", { mode: "number" }),
   telegramLinkToken: text("telegram_link_token"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

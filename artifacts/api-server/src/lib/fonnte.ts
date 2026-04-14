@@ -111,4 +111,22 @@ export async function verifyOtp(rawPhone: string, code: string): Promise<{
   return { valid: true };
 }
 
+export async function sendWhatsapp(rawPhone: string, message: string): Promise<boolean> {
+  const token = await getFonnteToken();
+  if (!token) return false;
+
+  const whatsapp = normalizeWhatsapp(rawPhone);
+  try {
+    const resp = await fetch("https://api.fonnte.com/send", {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "application/json" },
+      body: JSON.stringify({ target: whatsapp, message }),
+    });
+    const data = await resp.json() as { status: boolean };
+    return data.status === true;
+  } catch {
+    return false;
+  }
+}
+
 export { normalizeWhatsapp };

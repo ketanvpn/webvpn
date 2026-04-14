@@ -16,7 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useRef, useEffect } from "react";
-import { Smartphone, MessageCircle, CheckCircle2, ArrowLeft, RefreshCw } from "lucide-react";
+import { Smartphone, MessageCircle, CheckCircle2, ArrowLeft, RefreshCw, Gift } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const waSchema = z.object({
@@ -36,6 +36,7 @@ const accountSchema = z.object({
   password: z.string().min(6, "Password minimal 6 karakter"),
   fullName: z.string().optional(),
   email: z.string().email("Format email tidak valid").optional().or(z.literal("")),
+  referralCode: z.string().optional().or(z.literal("")),
 });
 
 type Step = "whatsapp" | "otp" | "account";
@@ -67,7 +68,7 @@ export default function Register() {
 
   const accountForm = useForm<z.infer<typeof accountSchema>>({
     resolver: zodResolver(accountSchema),
-    defaultValues: { username: "", password: "", fullName: "", email: "" },
+    defaultValues: { username: "", password: "", fullName: "", email: "", referralCode: "" },
   });
 
   const otp = otpInputs.join("");
@@ -178,6 +179,7 @@ export default function Register() {
       email: values.email || undefined,
       whatsapp,
       otpCode: otp,
+      ...(values.referralCode ? { referralCode: values.referralCode.trim().toUpperCase() } : {}),
     };
 
     import("@workspace/api-client-react").then(({ usersApi }) => {}).catch(() => {});
@@ -410,6 +412,28 @@ export default function Register() {
                       <FormLabel>Password <span className="text-destructive">*</span></FormLabel>
                       <FormControl>
                         <Input type="password" placeholder="Min. 6 karakter" autoComplete="new-password" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={accountForm.control}
+                  name="referralCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-1.5">
+                        <Gift className="h-3.5 w-3.5 text-primary" />
+                        Kode Referral <span className="text-muted-foreground text-xs">(Opsional)</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Masukkan kode referral jika punya"
+                          autoComplete="off"
+                          className="uppercase tracking-widest font-mono"
+                          {...field}
+                          onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

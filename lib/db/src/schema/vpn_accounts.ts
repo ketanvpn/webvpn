@@ -19,6 +19,8 @@ export const vpnAccountsTable = pgTable("vpn_accounts", {
   quota: numeric("quota", { precision: 10, scale: 2 }),
   usedQuota: numeric("used_quota", { precision: 10, scale: 2 }).default("0"),
   isActive: boolean("is_active").notNull().default(true),
+  notified3Days: boolean("notified_3_days").notNull().default(false),
+  notified1Day: boolean("notified_1_day").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

@@ -49,7 +49,7 @@ router.post("/auth/register", async (req, res) => {
     return;
   }
   const { username, password, email, fullName } = parsed.data;
-  const { whatsapp: rawWhatsapp, otpCode } = req.body ?? {};
+  const { whatsapp: rawWhatsapp, otpCode, referralCode: inputReferralCode } = req.body ?? {};
 
   if (!rawWhatsapp || typeof rawWhatsapp !== "string") {
     res.status(400).json({ error: "Nomor WhatsApp wajib diisi" });
@@ -103,6 +103,20 @@ router.post("/auth/register", async (req, res) => {
     return;
   }
 
+  let resolvedReferredBy: string | null = null;
+  if (inputReferralCode && typeof inputReferralCode === "string") {
+    const code = inputReferralCode.trim().toUpperCase();
+    const [referrer] = await db
+      .select({ id: usersTable.id, referralCode: usersTable.referralCode })
+      .from(usersTable)
+      .where(eq(usersTable.referralCode, code))
+      .limit(1);
+
+    if (referrer) {
+      resolvedReferredBy = code;
+    }
+  }
+
   const passwordHash = await bcrypt.hash(password, 12);
   const referralCode = randomBytes(4).toString("hex").toUpperCase();
 
@@ -117,6 +131,7 @@ router.post("/auth/register", async (req, res) => {
       isVerified: true,
       role: "user",
       referralCode,
+      referredBy: resolvedReferredBy,
     })
     .returning();
 

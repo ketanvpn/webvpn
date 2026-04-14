@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { UserCircle, Mail, Key, Shield, Calendar, Edit2, Lock, Send, CheckCircle, ExternalLink } from "lucide-react";
+import { UserCircle, Mail, Key, Shield, Calendar, Edit2, Lock, Send, CheckCircle, ExternalLink, Gift, Copy, Check } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -44,6 +44,15 @@ export default function Profile() {
   const [editMode, setEditMode] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [telegramLink, setTelegramLink] = useState<string | null>(null);
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  const copyReferralCode = () => {
+    if (!user?.referralCode) return;
+    navigator.clipboard.writeText(user.referralCode).then(() => {
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
+    });
+  };
 
   const updateProfile = useUpdateProfile();
   const changePassword = useChangePassword();
@@ -230,10 +239,19 @@ export default function Profile() {
               {user.referralCode && (
                 <div className="space-y-1">
                   <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                    <Key className="h-3.5 w-3.5" /> Kode Referral
+                    <Gift className="h-3.5 w-3.5" /> Kode Referral
                   </div>
-                  <div className="font-mono bg-muted px-2 py-0.5 rounded text-sm inline-block">
-                    {user.referralCode}
+                  <div className="flex items-center gap-2">
+                    <div className="font-mono bg-muted px-2 py-0.5 rounded text-sm inline-block tracking-widest">
+                      {user.referralCode}
+                    </div>
+                    <button
+                      onClick={copyReferralCode}
+                      className="text-muted-foreground hover:text-primary transition-colors"
+                      title="Salin kode"
+                    >
+                      {copiedCode ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
                   </div>
                 </div>
               )}
@@ -407,6 +425,58 @@ export default function Profile() {
           )}
         </CardContent>
       </Card>
+
+      {/* Referral Card */}
+      {user.referralCode && (
+        <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 bg-primary/10 rounded-full flex items-center justify-center">
+                <Gift className="h-4.5 w-4.5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Gift className="h-4 w-4" /> Program Referral
+                </CardTitle>
+                <CardDescription className="mt-0.5">
+                  Ajak teman — dapatkan bonus saldo!
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Separator className="mb-4" />
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Bagikan kode referral kamu. Setiap teman yang mendaftar dan melakukan pembelian pertama,
+                kamu akan mendapat bonus saldo otomatis.
+              </p>
+              <div className="flex items-center gap-2 bg-muted/60 rounded-lg p-3 border">
+                <div className="flex-1">
+                  <p className="text-xs text-muted-foreground mb-0.5">Kode Referral kamu</p>
+                  <p className="text-xl font-mono font-bold tracking-[0.2em] text-primary">
+                    {user.referralCode}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 shrink-0"
+                  onClick={copyReferralCode}
+                >
+                  {copiedCode
+                    ? <><Check className="h-3.5 w-3.5 text-green-500" /> Tersalin!</>
+                    : <><Copy className="h-3.5 w-3.5" /> Salin</>
+                  }
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Minta temanmu masukkan kode ini saat mendaftar. Bonus akan otomatis masuk ke saldo kamu setelah temanmu beli produk pertama.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

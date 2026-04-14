@@ -20,6 +20,7 @@ import {
   Bell,
   History,
   Smartphone,
+  Gift,
 } from "lucide-react";
 import {
   Sheet,
@@ -59,6 +60,7 @@ const adminNav: NavItem[] = [
   { title: "Payment Gateway", href: "/admin/settings/payment", icon: QrCode },
   { title: "Notifikasi Telegram", href: "/admin/settings/telegram", icon: Bell },
   { title: "WhatsApp OTP", href: "/admin/settings/whatsapp", icon: Smartphone },
+  { title: "Program Referral", href: "/admin/settings/referral", icon: Gift },
   { title: "Broadcast", href: "/admin/broadcast", icon: Send },
 ];
 
@@ -73,6 +75,7 @@ const adminPageTitles: Record<string, string> = {
   "/admin/settings/payment": "Payment Gateway",
   "/admin/settings/telegram": "Notifikasi Telegram",
   "/admin/settings/whatsapp": "WhatsApp OTP",
+  "/admin/settings/referral": "Program Referral",
   "/admin/broadcast": "Broadcast",
 };
 
