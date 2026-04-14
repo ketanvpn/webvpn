@@ -64,23 +64,32 @@ export default function OrderDetail() {
   const [payConfirmOpen, setPayConfirmOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
 
-  const isQrisPending = (o?: { status: string; paymentMethod?: string | null }) =>
-    o?.status === "pending" && o?.paymentMethod === "qris";
+  const isQrisPending = (o?: { status: string; paymentMethod?: string | null; expiresAt?: string | null }) => {
+    if (o?.status !== "pending" || o?.paymentMethod !== "qris") return false;
+    if (o?.expiresAt && new Date(o.expiresAt) < new Date()) return false;
+    return true;
+  };
 
   const { data: order, isLoading } = useGetOrder(orderId, {
     query: {
       enabled: !!orderId,
-      // Auto-poll every 5s while QRIS payment is pending
+      // Auto-poll every 5s while QRIS payment is pending AND not yet expired
       refetchInterval: (q) => isQrisPending(q.state.data) ? 5000 : false,
     }
   });
 
-  // Countdown tick
+  const qrisExpired =
+    order?.status === "pending" &&
+    order?.paymentMethod === "qris" &&
+    !!order?.expiresAt &&
+    new Date(order.expiresAt) < now;
+
+  // Countdown tick — only while QRIS is active (not expired)
   useEffect(() => {
     if (!isQrisPending(order)) return;
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
-  }, [order?.status, order?.paymentMethod]);
+  }, [order?.status, order?.paymentMethod, order?.expiresAt]);
 
   // Toast notification when QRIS order becomes paid
   const prevStatus = useState<string | undefined>(order?.status)[0];
@@ -374,20 +383,42 @@ export default function OrderDetail() {
           )}
 
           {order.status === "pending" && order.paymentMethod === "qris" && (
-            <div className="rounded-xl border-2 border-yellow-500/30 bg-yellow-500/5 overflow-hidden">
-              <div className="bg-yellow-500/15 px-4 py-3 border-b border-yellow-500/20 flex items-center justify-between">
-                <div className="flex items-center gap-2 font-semibold text-yellow-800">
+            <div className={`rounded-xl border-2 overflow-hidden ${qrisExpired ? "border-red-500/30 bg-red-500/5" : "border-yellow-500/30 bg-yellow-500/5"}`}>
+              <div className={`px-4 py-3 border-b flex items-center justify-between ${qrisExpired ? "bg-red-500/15 border-red-500/20" : "bg-yellow-500/15 border-yellow-500/20"}`}>
+                <div className={`flex items-center gap-2 font-semibold ${qrisExpired ? "text-red-800" : "text-yellow-800"}`}>
                   <ScanLine className="h-4 w-4" />
                   Bayar via QRIS
                 </div>
-                <div className="flex items-center gap-1.5 text-sm text-yellow-700">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Menunggu pembayaran...
+                <div className={`flex items-center gap-1.5 text-sm ${qrisExpired ? "text-red-700" : "text-yellow-700"}`}>
+                  {qrisExpired ? (
+                    <>
+                      <AlertCircle className="h-3.5 w-3.5" />
+                      QRIS Kedaluwarsa
+                    </>
+                  ) : (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Menunggu pembayaran...
+                    </>
+                  )}
                 </div>
               </div>
 
               <div className="p-6 flex flex-col items-center gap-4">
-                {order.qrisUrl ? (
+                {qrisExpired ? (
+                  <div className="text-center py-4 space-y-3">
+                    <AlertCircle className="h-12 w-12 text-red-500 mx-auto" />
+                    <div>
+                      <p className="font-semibold text-red-700">QRIS sudah tidak berlaku</p>
+                      <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
+                        Batas waktu pembayaran telah lewat. Silakan buat order baru atau hubungi admin jika sudah terlanjur membayar.
+                      </p>
+                    </div>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href="/products">Beli VPN Baru</Link>
+                    </Button>
+                  </div>
+                ) : order.qrisUrl ? (
                   <>
                     <div className="bg-white p-3 rounded-xl border-2 border-yellow-500/30 shadow">
                       <img
@@ -410,32 +441,34 @@ export default function OrderDetail() {
                   </div>
                 )}
 
-                <div className="w-full rounded-lg border bg-background divide-y text-sm">
-                  <div className="flex justify-between px-4 py-2.5">
-                    <span className="text-muted-foreground">Total Bayar</span>
-                    <span className="font-bold text-primary">{formatRupiah(order.amount)}</span>
-                  </div>
-                  {order.expiresAt && (
+                {!qrisExpired && (
+                  <div className="w-full rounded-lg border bg-background divide-y text-sm">
                     <div className="flex justify-between px-4 py-2.5">
-                      <span className="text-muted-foreground flex items-center gap-1.5">
-                        <Timer className="h-3.5 w-3.5" />
-                        Berlaku hingga
-                      </span>
-                      <span className={`font-medium text-right ${new Date(order.expiresAt).getTime() - now.getTime() < 5 * 60 * 1000 ? "text-destructive" : ""}`}>
-                        {format(new Date(order.expiresAt), "HH:mm:ss", { locale: idLocale })}
-                        <span className="text-xs text-muted-foreground ml-1">
-                          ({new Date(order.expiresAt).getTime() > now.getTime()
-                            ? formatDistanceToNow(new Date(order.expiresAt), { locale: idLocale, addSuffix: true })
-                            : "Kedaluwarsa"})
-                        </span>
-                      </span>
+                      <span className="text-muted-foreground">Total Bayar</span>
+                      <span className="font-bold text-primary">{formatRupiah(order.amount)}</span>
                     </div>
-                  )}
-                </div>
+                    {order.expiresAt && (
+                      <div className="flex justify-between px-4 py-2.5">
+                        <span className="text-muted-foreground flex items-center gap-1.5">
+                          <Timer className="h-3.5 w-3.5" />
+                          Berlaku hingga
+                        </span>
+                        <span className={`font-medium text-right ${new Date(order.expiresAt).getTime() - now.getTime() < 5 * 60 * 1000 ? "text-destructive" : ""}`}>
+                          {format(new Date(order.expiresAt), "HH:mm:ss", { locale: idLocale })}
+                          <span className="text-xs text-muted-foreground ml-1">
+                            ({formatDistanceToNow(new Date(order.expiresAt), { locale: idLocale, addSuffix: true })})
+                          </span>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-                <p className="text-xs text-muted-foreground text-center">
-                  Halaman ini otomatis terupdate setelah pembayaran berhasil.
-                </p>
+                {!qrisExpired && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Halaman ini otomatis terupdate setelah pembayaran berhasil.
+                  </p>
+                )}
               </div>
             </div>
           )}
