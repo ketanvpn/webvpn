@@ -17,7 +17,7 @@ import { formatOrder } from "./orders";
 import { formatAccount } from "./accounts";
 import { formatTopup } from "./balance";
 import { formatFullServer } from "./servers";
-import { createPanelAccount, sanitizeVpnUsername } from "../lib/vpn-panel";
+import { createPanelAccount, sanitizeVpnUsername, renewPanelAccount, deletePanelAccount } from "../lib/vpn-panel";
 import { notifyUserTopupConfirmed, notifyUserTopupRejected } from "../lib/telegram";
 import { addBalanceLog } from "./balance-logs";
 import { getReferralBonusAmount } from "../lib/scheduler";
@@ -1003,6 +1003,24 @@ router.post("/admin/accounts/:id/extend", requireAdmin, async (req, res) => {
     .where(eq(vpnAccountsTable.id, id))
     .returning();
 
+  // Notify VPS panel to extend account on the actual server (best-effort)
+  const [server] = await db
+    .select({ apiUrl: serversTable.apiUrl, apiToken: serversTable.apiToken })
+    .from(serversTable)
+    .where(eq(serversTable.id, account.serverId))
+    .limit(1);
+
+  if (server?.apiUrl && server?.apiToken) {
+    renewPanelAccount({
+      apiUrl: server.apiUrl,
+      apiToken: server.apiToken,
+      protocol: account.protocol,
+      username: account.username,
+      durationDays: days,
+      quota: account.quota,
+    }).catch(() => {});
+  }
+
   res.json({ id: updated.id, expiresAt: updated.expiresAt, isActive: updated.isActive });
 });
 
@@ -1021,6 +1039,23 @@ router.delete("/admin/accounts/:id", requireAdmin, async (req, res) => {
   }
 
   await db.delete(vpnAccountsTable).where(eq(vpnAccountsTable.id, id));
+
+  // Remove account from VPS panel server (best-effort)
+  const [server] = await db
+    .select({ apiUrl: serversTable.apiUrl, apiToken: serversTable.apiToken })
+    .from(serversTable)
+    .where(eq(serversTable.id, account.serverId))
+    .limit(1);
+
+  if (server?.apiUrl && server?.apiToken) {
+    deletePanelAccount({
+      apiUrl: server.apiUrl,
+      apiToken: server.apiToken,
+      protocol: account.protocol,
+      username: account.username,
+    }).catch(() => {});
+  }
+
   res.json({ success: true });
 });
 

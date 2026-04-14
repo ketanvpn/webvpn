@@ -170,6 +170,48 @@ export async function deletePanelAccount(params: {
 }
 
 /**
+ * Renew (extend) a VPN account on the panel server.
+ * Calls PATCH /vps/renew{protocol}/{username}/{days}
+ * Swallows errors silently (best-effort) — DB is already updated.
+ */
+export async function renewPanelAccount(params: {
+  apiUrl: string;
+  apiToken: string;
+  protocol: string;
+  username: string;
+  durationDays: number;
+  quota?: number | null;
+}): Promise<void> {
+  const { apiUrl, apiToken, protocol, username, durationDays, quota } = params;
+  const baseUrl = apiUrl.replace(/\/+$/, "");
+  const headers = buildHeaders(apiToken);
+
+  const endpointMap: Record<string, string> = {
+    ssh: "sshvpn",
+    vmess: "vmess",
+    vless: "vless",
+    trojan: "trojan",
+  };
+
+  const endpoint = endpointMap[protocol];
+  if (!endpoint) return;
+
+  const body: Record<string, unknown> = {};
+  if (quota != null) body.kuota = Math.round(Number(quota));
+
+  try {
+    await axios.patch(
+      `${baseUrl}/vps/renew${endpoint}/${username}/${durationDays}`,
+      body,
+      { headers, timeout: 15000 }
+    );
+  } catch (e) {
+    const err = e as AxiosError;
+    console.warn(`[vpn-panel] Failed to renew ${protocol} account ${username}: ${err.message}`);
+  }
+}
+
+/**
  * Lock a VPN account on the panel (disable without deleting).
  */
 export async function lockPanelAccount(params: {

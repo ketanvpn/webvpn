@@ -5,6 +5,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { RenewAccountBody } from "@workspace/api-zod";
 import { randomUUID } from "crypto";
+import { renewPanelAccount } from "../lib/vpn-panel";
 
 const router = Router();
 
@@ -150,6 +151,24 @@ router.post("/accounts/:id/renew", requireAuth, async (req, res) => {
     .from(vpnAccountsTable)
     .where(eq(vpnAccountsTable.id, id))
     .limit(1);
+
+  // Notify VPS panel to extend the account on the actual server (best-effort)
+  const [server] = await db
+    .select({ apiUrl: serversTable.apiUrl, apiToken: serversTable.apiToken })
+    .from(serversTable)
+    .where(eq(serversTable.id, account.serverId))
+    .limit(1);
+
+  if (server?.apiUrl && server?.apiToken) {
+    renewPanelAccount({
+      apiUrl: server.apiUrl,
+      apiToken: server.apiToken,
+      protocol: account.protocol,
+      username: account.username,
+      durationDays: product.durationDays,
+      quota: account.quota,
+    }).catch(() => {});
+  }
 
   res.json(await formatAccount(updated));
 });
