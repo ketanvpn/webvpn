@@ -6,6 +6,9 @@ import { requireAuth } from "../lib/auth";
 import { RenewAccountBody } from "@workspace/api-zod";
 import { randomUUID } from "crypto";
 import { renewPanelAccount } from "../lib/vpn-panel";
+import { sendWhatsapp } from "../lib/fonnte";
+import { format } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
 
 const router = Router();
 
@@ -168,6 +171,20 @@ router.post("/accounts/:id/renew", requireAuth, async (req, res) => {
       durationDays: product.durationDays,
       quota: account.quota,
     }).catch(() => {});
+  }
+
+  // Kirim notifikasi WhatsApp kepada user (best-effort)
+  if (user!.whatsapp) {
+    const expiryFormatted = format(newExpiresAt, "d MMM yyyy, HH:mm", { locale: idLocale });
+    const waMsg =
+      `✅ *Renew Akun VPN Berhasil!*\n\n` +
+      `Akun: *${account.username}*\n` +
+      `Protokol: *${account.protocol.toUpperCase()}*\n` +
+      `Paket: *${product.name}* (+${product.durationDays} hari)\n` +
+      `Aktif hingga: *${expiryFormatted}*\n` +
+      `Harga: *Rp ${Number(product.price).toLocaleString("id-ID")}*\n\n` +
+      `Terima kasih telah menggunakan KETANTECH VPN! 🚀`;
+    sendWhatsapp(user!.whatsapp, waMsg).catch(() => {});
   }
 
   res.json(await formatAccount(updated));

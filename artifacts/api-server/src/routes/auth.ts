@@ -7,10 +7,37 @@ import { signToken, requireAuth } from "../lib/auth";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
 import { randomBytes } from "crypto";
 import { sendOtp, verifyOtp, normalizeWhatsapp } from "../lib/fonnte";
+import rateLimit from "express-rate-limit";
 
 const router = Router();
 
-router.post("/auth/send-otp", async (req, res) => {
+// ─── Rate Limiters ────────────────────────────────────────────────────────────
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Terlalu banyak percobaan login. Coba lagi dalam 15 menit." },
+});
+
+const otpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Terlalu banyak permintaan OTP. Coba lagi dalam 15 menit." },
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Terlalu banyak percobaan registrasi. Coba lagi dalam 15 menit." },
+});
+
+router.post("/auth/send-otp", otpLimiter, async (req, res) => {
   const { whatsapp } = req.body ?? {};
   if (!whatsapp || typeof whatsapp !== "string") {
     res.status(400).json({ error: "Nomor WhatsApp wajib diisi" });
@@ -42,7 +69,7 @@ router.post("/auth/send-otp", async (req, res) => {
   });
 });
 
-router.post("/auth/register", async (req, res) => {
+router.post("/auth/register", registerLimiter, async (req, res) => {
   const parsed = RegisterBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Data tidak valid" });
@@ -164,7 +191,7 @@ router.post("/auth/register", async (req, res) => {
     });
 });
 
-router.post("/auth/login", async (req, res) => {
+router.post("/auth/login", loginLimiter, async (req, res) => {
   const parsed = LoginBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid input" });

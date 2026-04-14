@@ -5,6 +5,7 @@ import {
   useAdminUpdateServer,
   useAdminDeleteServer,
   getAdminListServersQueryKey,
+  customFetch,
 } from "@workspace/api-client-react";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,7 +40,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Server, Plus, MoreVertical, Edit, Trash2, Activity, ChevronDown } from "lucide-react";
+import { Server, Plus, MoreVertical, Edit, Trash2, Activity, ChevronDown, Wifi, WifiOff, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import type { VpnServer } from "@workspace/api-client-react";
@@ -218,6 +219,25 @@ export default function AdminServers() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<ServerForm>(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+  const [healthStatus, setHealthStatus] = useState<Record<number, { loading?: boolean; online?: boolean; latencyMs?: number; error?: string }>>({});
+
+  const checkHealth = async (serverId: number) => {
+    setHealthStatus((prev) => ({ ...prev, [serverId]: { loading: true } }));
+    try {
+      const result = await customFetch<{ online: boolean; latencyMs?: number; error?: string }>(
+        `/api/admin/servers/${serverId}/health`
+      );
+      setHealthStatus((prev) => ({ ...prev, [serverId]: result }));
+      toast({
+        title: result.online ? `Server online (${result.latencyMs}ms)` : "Server tidak dapat dijangkau",
+        description: result.error,
+        variant: result.online ? "default" : "destructive",
+      });
+    } catch {
+      setHealthStatus((prev) => ({ ...prev, [serverId]: { online: false, error: "Gagal menghubungi panel" } }));
+      toast({ title: "Gagal memeriksa koneksi server", variant: "destructive" });
+    }
+  };
 
   const openCreate = () => {
     setEditingId(null);
@@ -351,6 +371,18 @@ export default function AdminServers() {
                         <Edit className="h-4 w-4" /> Edit
                       </DropdownMenuItem>
                       <DropdownMenuItem
+                        className="gap-2 cursor-pointer"
+                        onClick={() => checkHealth(server.id)}
+                        disabled={healthStatus[server.id]?.loading}
+                      >
+                        {healthStatus[server.id]?.loading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Wifi className="h-4 w-4" />
+                        )}
+                        Cek Koneksi Panel
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
                         className="gap-2 cursor-pointer text-destructive focus:text-destructive"
                         onClick={() => setDeleteTarget({ id: server.id, name: server.name })}
                       >
@@ -380,6 +412,27 @@ export default function AdminServers() {
                   </span>
                   <span className="font-bold">{server.activeAccounts ?? 0}</span>
                 </div>
+                {healthStatus[server.id] && !healthStatus[server.id]?.loading && (
+                  <div className="pt-2 border-t flex items-center gap-2 text-xs">
+                    {healthStatus[server.id]?.online ? (
+                      <>
+                        <Wifi className="h-3.5 w-3.5 text-green-500" />
+                        <span className="text-green-600 font-medium">Panel Online</span>
+                        {healthStatus[server.id]?.latencyMs != null && (
+                          <span className="text-muted-foreground ml-auto">{healthStatus[server.id]?.latencyMs}ms</span>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <WifiOff className="h-3.5 w-3.5 text-destructive" />
+                        <span className="text-destructive font-medium">Panel Offline</span>
+                        {healthStatus[server.id]?.error && (
+                          <span className="text-muted-foreground truncate ml-1">{healthStatus[server.id]?.error}</span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))

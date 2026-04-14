@@ -5,6 +5,7 @@ import {
   useAdminDeleteAccount,
   useAdminExtendAccount,
   getAdminListAccountsQueryKey,
+  customFetch,
 } from "@workspace/api-client-react";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,7 +41,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Shield, Search, ChevronLeft, ChevronRight, Power, CalendarPlus, Trash2 } from "lucide-react";
+import { Shield, Search, ChevronLeft, ChevronRight, Power, CalendarPlus, Trash2, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -61,6 +62,20 @@ export default function AdminAccounts() {
   const debouncedSearch = useDebounce(searchInput, 400);
   const [extendDays, setExtendDays] = useState("30");
   const [extendDialogId, setExtendDialogId] = useState<number | null>(null);
+  const [syncingIds, setSyncingIds] = useState<Set<number>>(new Set());
+
+  const handleSync = async (id: number, username: string) => {
+    setSyncingIds((prev) => new Set(prev).add(id));
+    try {
+      await customFetch(`/api/admin/accounts/${id}/sync`, { method: "POST" });
+      toast({ title: `Akun "${username}" berhasil disinkron dari panel` });
+      queryClient.invalidateQueries({ queryKey: getAdminListAccountsQueryKey() });
+    } catch {
+      toast({ title: `Gagal sync akun "${username}" dari panel`, variant: "destructive" });
+    } finally {
+      setSyncingIds((prev) => { const s = new Set(prev); s.delete(id); return s; });
+    }
+  };
 
   const { data, isLoading } = useAdminListAccounts({
     limit: LIMIT,
@@ -247,7 +262,20 @@ export default function AdminAccounts() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 sm:justify-end">
+                    <div className="flex items-center gap-2 sm:justify-end flex-wrap">
+                      {/* Sync button */}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5 text-xs h-8 text-violet-600 border-violet-200 hover:bg-violet-50"
+                        onClick={() => handleSync(acc.id, acc.username)}
+                        disabled={syncingIds.has(acc.id)}
+                        title="Sync UUID & config link dari panel VPS"
+                        data-testid={`button-sync-account-${acc.id}`}
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${syncingIds.has(acc.id) ? "animate-spin" : ""}`} />
+                        Sync
+                      </Button>
                       {/* Extend button */}
                       <Dialog open={extendDialogId === acc.id} onOpenChange={(open) => {
                         if (!open) setExtendDialogId(null);

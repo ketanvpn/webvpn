@@ -17,7 +17,7 @@ import { formatOrder } from "./orders";
 import { formatAccount } from "./accounts";
 import { formatTopup } from "./balance";
 import { formatFullServer } from "./servers";
-import { createPanelAccount, sanitizeVpnUsername, renewPanelAccount, deletePanelAccount } from "../lib/vpn-panel";
+import { createPanelAccount, sanitizeVpnUsername, renewPanelAccount, deletePanelAccount, checkPanelHealth, syncPanelAccount } from "../lib/vpn-panel";
 import { notifyUserTopupConfirmed, notifyUserTopupRejected } from "../lib/telegram";
 import { addBalanceLog } from "./balance-logs";
 import { getReferralBonusAmount } from "../lib/scheduler";
@@ -529,6 +529,29 @@ router.delete("/admin/servers/:id", requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id, 10);
   await db.update(serversTable).set({ isActive: false }).where(eq(serversTable.id, id));
   res.json({ message: "Server deleted" });
+});
+
+router.get("/admin/servers/:id/health", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+
+  const [server] = await db
+    .select()
+    .from(serversTable)
+    .where(eq(serversTable.id, id))
+    .limit(1);
+
+  if (!server) {
+    res.status(404).json({ error: "Server not found" });
+    return;
+  }
+
+  if (!server.apiUrl || !server.apiToken) {
+    res.json({ online: false, error: "Server tidak punya API URL atau token" });
+    return;
+  }
+
+  const result = await checkPanelHealth({ apiUrl: server.apiUrl, apiToken: server.apiToken });
+  res.json(result);
 });
 
 // ─── Admin: Orders ────────────────────────────────────────────────────────────
@@ -1127,6 +1150,59 @@ router.post("/admin/accounts/:id/toggle", requireAdmin, async (req, res) => {
     isActive: updated.isActive,
     createdAt: updated.createdAt,
   });
+});
+
+router.post("/admin/accounts/:id/sync", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+
+  const [account] = await db
+    .select()
+    .from(vpnAccountsTable)
+    .where(eq(vpnAccountsTable.id, id))
+    .limit(1);
+
+  if (!account) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+
+  const [server] = await db
+    .select()
+    .from(serversTable)
+    .where(eq(serversTable.id, account.serverId))
+    .limit(1);
+
+  if (!server?.apiUrl || !server?.apiToken) {
+    res.status(400).json({ error: "Server tidak punya API URL atau token" });
+    return;
+  }
+
+  const info = await syncPanelAccount({
+    apiUrl: server.apiUrl,
+    apiToken: server.apiToken,
+    protocol: account.protocol,
+    username: account.username,
+  });
+
+  if (!info) {
+    res.status(502).json({ error: "Gagal mengambil data dari panel VPS (akun mungkin tidak ditemukan)" });
+    return;
+  }
+
+  // Update DB dengan data terbaru dari panel
+  const updateData: Partial<typeof vpnAccountsTable.$inferInsert> = {};
+  if (info.uuid) updateData.uuid = info.uuid;
+  if (info.configLink) updateData.configLink = info.configLink;
+  if (info.allLinks) updateData.allLinks = info.allLinks;
+  updateData.updatedAt = new Date();
+
+  const [updated] = await db
+    .update(vpnAccountsTable)
+    .set(updateData)
+    .where(eq(vpnAccountsTable.id, id))
+    .returning();
+
+  res.json({ success: true, panelInfo: info, account: { id: updated.id, uuid: updated.uuid, configLink: updated.configLink } });
 });
 
 export default router;

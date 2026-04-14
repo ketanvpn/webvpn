@@ -212,6 +212,98 @@ export async function renewPanelAccount(params: {
 }
 
 /**
+ * Check if VPS panel is reachable by hitting the docs endpoint.
+ * Returns latency in ms or null if unreachable.
+ */
+export async function checkPanelHealth(params: {
+  apiUrl: string;
+  apiToken: string;
+}): Promise<{ online: boolean; latencyMs?: number; error?: string }> {
+  const { apiUrl, apiToken } = params;
+  const baseUrl = apiUrl.replace(/\/+$/, "");
+  const headers = buildHeaders(apiToken);
+  const start = Date.now();
+  try {
+    await axios.get(`${baseUrl}/vps/checkconfigvmess/__healthcheck__`, {
+      headers,
+      timeout: 8000,
+      validateStatus: () => true,
+    });
+    return { online: true, latencyMs: Date.now() - start };
+  } catch (e) {
+    const err = e as AxiosError;
+    if (err.code === "ECONNREFUSED" || err.code === "ENOTFOUND" || err.code === "ETIMEDOUT") {
+      return { online: false, error: "Tidak dapat terhubung ke server panel" };
+    }
+    // Got a response (even 401/404) — server is up
+    return { online: true, latencyMs: Date.now() - start };
+  }
+}
+
+export interface PanelAccountInfo {
+  username?: string;
+  uuid?: string;
+  hostname?: string;
+  expired?: string;
+  configLink?: string;
+  allLinks?: Record<string, string | null | undefined>;
+}
+
+/**
+ * Fetch current account details from the VPS panel via checkconfig.
+ * Returns parsed account info or null if not found / unsupported.
+ */
+export async function syncPanelAccount(params: {
+  apiUrl: string;
+  apiToken: string;
+  protocol: string;
+  username: string;
+}): Promise<PanelAccountInfo | null> {
+  const { apiUrl, apiToken, protocol, username } = params;
+  const baseUrl = apiUrl.replace(/\/+$/, "");
+  const headers = buildHeaders(apiToken);
+
+  const endpointMap: Record<string, string> = {
+    ssh: "sshvpn",
+    vmess: "vmess",
+    vless: "vless",
+    trojan: "trojan",
+  };
+
+  const endpoint = endpointMap[protocol];
+  if (!endpoint) return null;
+
+  try {
+    const { data } = await axios.get(
+      `${baseUrl}/vps/checkconfig${endpoint}/${username}`,
+      { headers, timeout: 10000 }
+    );
+
+    if (data?.meta?.code !== 200 || !data.data) return null;
+
+    const s = data.data;
+    return {
+      username: s.username,
+      uuid: s.uuid,
+      hostname: s.hostname,
+      expired: s.expired ?? s.time,
+      configLink: s.link?.tls ?? s.link?.none ?? undefined,
+      allLinks: s.link
+        ? {
+            tls: s.link.tls,
+            none: s.link.none,
+            grpc: s.link.grpc,
+            upntls: s.link.upntls,
+            uptls: s.link.uptls,
+          }
+        : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Lock a VPN account on the panel (disable without deleting).
  */
 export async function lockPanelAccount(params: {
