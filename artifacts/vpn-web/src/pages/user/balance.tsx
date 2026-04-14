@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Wallet, ArrowUpRight, History, Clock, XCircle, Zap, Timer } from "lucide-react";
+import { Wallet, ArrowUpRight, History, Clock, XCircle, Zap, Timer, QrCode } from "lucide-react";
 import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -56,6 +56,13 @@ export default function Balance() {
   const [qrisExpiresAt, setQrisExpiresAt] = useState<string | null>(null);
   const [qrisGateway, setQrisGateway] = useState<string | null>(null);
   const countdown = useCountdown(showQris ? qrisExpiresAt : null);
+
+  const openQrisFromHistory = (tx: { qrisUrl?: string | null; expiresAt?: string | null }) => {
+    setQrisUrl(tx.qrisUrl ?? "");
+    setQrisExpiresAt(tx.expiresAt ?? null);
+    setQrisGateway(null);
+    setShowQris(true);
+  };
   
   const { data: balanceData, isLoading: isLoadingBalance } = useGetBalance();
   const { data: historyData, isLoading: isLoadingHistory } = useListTopupHistory();
@@ -191,7 +198,10 @@ export default function Balance() {
                 </div>
               ) : historyData && historyData.length > 0 ? (
                 <div className="divide-y">
-                  {historyData.map((tx) => (
+                  {historyData.map((tx) => {
+                    const isExpired = tx.expiresAt ? new Date(tx.expiresAt) < new Date() : false;
+                    const canViewQris = tx.status === 'pending' && tx.qrisUrl && !isExpired;
+                    return (
                     <div key={tx.id} className="p-4 sm:p-6 hover:bg-accent/30 transition-colors">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
@@ -211,13 +221,26 @@ export default function Balance() {
                             </div>
                           </div>
                         </div>
-                        <Badge variant="outline" className={`capitalize ${
-                          tx.status === 'confirmed' ? 'border-green-500 text-green-600' :
-                          tx.status === 'pending' ? 'border-yellow-500 text-yellow-600' :
-                          'border-red-500 text-red-600'
-                        }`}>
-                          {tx.status === 'confirmed' ? 'Dikonfirmasi' : tx.status === 'pending' ? 'Menunggu' : 'Ditolak'}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          {canViewQris && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1.5 text-xs border-yellow-500 text-yellow-600 hover:bg-yellow-50"
+                              onClick={() => openQrisFromHistory(tx)}
+                            >
+                              <QrCode className="h-3.5 w-3.5" />
+                              Lihat QRIS
+                            </Button>
+                          )}
+                          <Badge variant="outline" className={`capitalize ${
+                            tx.status === 'confirmed' ? 'border-green-500 text-green-600' :
+                            tx.status === 'pending' ? 'border-yellow-500 text-yellow-600' :
+                            'border-red-500 text-red-600'
+                          }`}>
+                            {tx.status === 'confirmed' ? 'Dikonfirmasi' : tx.status === 'pending' ? 'Menunggu' : 'Ditolak'}
+                          </Badge>
+                        </div>
                       </div>
                       {tx.status === 'rejected' && (tx as any).rejectionNote && (
                         <div className="mt-2 ml-14 text-xs text-red-600/80 italic bg-red-50 dark:bg-red-950/20 px-3 py-1.5 rounded-md border border-red-200/60">
@@ -225,7 +248,8 @@ export default function Balance() {
                         </div>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="p-12 text-center text-muted-foreground">
@@ -238,7 +262,10 @@ export default function Balance() {
       </div>
 
       <Dialog open={showQris} onOpenChange={setShowQris}>
-        <DialogContent className="sm:max-w-md text-center">
+        <DialogContent
+          className="sm:max-w-md text-center"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Scan QRIS untuk Bayar</DialogTitle>
             <DialogDescription>
