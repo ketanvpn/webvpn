@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
 import { usersTable, topupsTable, settingsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, count } from "drizzle-orm";
 import { logger } from "./logger";
 
 function formatRupiah(n: number) {
@@ -268,6 +268,45 @@ export async function notifyAdminOrderFulfilled(opts: {
     `🔌 Protokol: <b>${opts.protocol.toUpperCase()}</b>\n` +
     `💰 Pembayaran: <b>${formatRupiah(opts.amount)}</b> via ${payLabel}\n` +
     `🆔 Order #${opts.orderId}`;
+
+  await sendMessage(adminChatId, text);
+}
+
+export async function notifyAdminNewUser(opts: {
+  username: string;
+  fullName: string | null;
+  email: string | null;
+  whatsapp: string | null;
+  referredBy: string | null;
+  createdAt: Date;
+}): Promise<void> {
+  const { adminChatId } = await getTelegramConfig();
+  if (!adminChatId) return;
+
+  const [totalRow] = await db.select({ total: count() }).from(usersTable);
+  const total = totalRow?.total ?? 0;
+
+  const waktu = opts.createdAt.toLocaleString("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Jakarta",
+  });
+
+  let text =
+    `🆕 <b>User Baru Mendaftar!</b>\n\n` +
+    `👤 Username: <b>${opts.username}</b>\n`;
+
+  if (opts.fullName) text += `📛 Nama: <b>${opts.fullName}</b>\n`;
+  if (opts.email) text += `📧 Email: <b>${opts.email}</b>\n`;
+  if (opts.whatsapp) text += `📱 WA: <b>${opts.whatsapp}</b>\n`;
+  if (opts.referredBy) text += `🔗 Dari referral: <b>${opts.referredBy}</b>\n`;
+
+  text +=
+    `📅 ${waktu} WIB\n\n` +
+    `👥 Total user sekarang: <b>${total}</b>`;
 
   await sendMessage(adminChatId, text);
 }

@@ -7,6 +7,7 @@ import { signToken, requireAuth } from "../lib/auth";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
 import { randomBytes } from "crypto";
 import { sendOtp, verifyOtp, normalizeWhatsapp } from "../lib/fonnte";
+import { notifyAdminNewUser } from "../lib/telegram";
 import rateLimit from "express-rate-limit";
 
 const router = Router();
@@ -163,6 +164,16 @@ router.post("/auth/register", registerLimiter, async (req, res) => {
     .returning();
 
   const token = signToken({ userId: user.id, username: user.username, role: user.role });
+
+  // Notifikasi Telegram ke admin (fire and forget)
+  notifyAdminNewUser({
+    username: user.username,
+    fullName: user.fullName ?? null,
+    email: user.email ?? null,
+    whatsapp: user.whatsapp ?? null,
+    referredBy: user.referredBy ?? null,
+    createdAt: user.createdAt,
+  }).catch(() => {});
 
   res
     .cookie("token", token, {
