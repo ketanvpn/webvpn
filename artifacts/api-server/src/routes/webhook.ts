@@ -6,6 +6,7 @@ import { eq, sql, and } from "drizzle-orm";
 import { getPaymentSettingsMap } from "./settings";
 import { logger } from "../lib/logger";
 import { fulfillOrder } from "./orders";
+import { notifyUserTopupConfirmed } from "../lib/telegram";
 
 const router = Router();
 
@@ -96,10 +97,11 @@ router.post("/webhooks/autogopay", async (req, res) => {
         return;
       }
 
-      await db
+      const [updatedUser] = await db
         .update(usersTable)
         .set({ balance: sql`balance + ${Number(topup.amount)}` })
-        .where(eq(usersTable.id, topup.userId));
+        .where(eq(usersTable.id, topup.userId))
+        .returning({ newBalance: usersTable.balance });
 
       await db
         .update(topupsTable)
@@ -107,6 +109,14 @@ router.post("/webhooks/autogopay", async (req, res) => {
         .where(eq(topupsTable.id, topup.id));
 
       logger.info({ topupId: topup.id, userId: topup.userId, amount: topup.amount }, "AutoGoPay: topup auto-confirmed");
+
+      // Kirim notifikasi Telegram ke user
+      notifyUserTopupConfirmed(
+        topup.userId,
+        Number(topup.amount),
+        Number(updatedUser?.newBalance ?? 0),
+      ).catch((err) => logger.error({ err }, "notifyUserTopupConfirmed failed"));
+
       res.json({ success: true });
       return;
     }
