@@ -15,6 +15,7 @@ import broadcastRouter from "./broadcast";
 import exportRouter from "./export";
 import balanceLogsRouter from "./balance-logs";
 import backupRouter from "./backup";
+import resellerRouter from "./reseller";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(broadcastRouter);
 router.use(exportRouter);
 router.use(balanceLogsRouter);
 router.use(backupRouter);
+router.use(resellerRouter);
 
 export default router;

@@ -13,15 +13,29 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { UserCircle, Mail, Shield, Calendar, Edit2, Lock, Send, CheckCircle, ExternalLink, Gift, Copy, Check, Phone, LogOut } from "lucide-react";
+import { UserCircle, Mail, Shield, Calendar, Edit2, Lock, Send, CheckCircle, ExternalLink, Gift, Copy, Check, Phone, LogOut, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { Progress } from "@/components/ui/progress";
+import { formatRupiah } from "@/lib/format";
+
+const API = import.meta.env.VITE_API_URL ?? "";
+
+type ResellerStatus = {
+  resellerEnabled: boolean;
+  discountPercent: number;
+  targetEnabled: boolean;
+  monthlyTarget: number;
+  currentMonthSales: number;
+  progressPercent: number | null;
+  currentMonth: string;
+};
 
 const profileSchema = z.object({
   fullName: z.string().optional(),
@@ -45,6 +59,16 @@ export default function Profile() {
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [telegramLink, setTelegramLink] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [resellerStatus, setResellerStatus] = useState<ResellerStatus | null>(null);
+
+  useEffect(() => {
+    if (user?.role === "reseller") {
+      fetch(`${API}/api/reseller/status`, { credentials: "include" })
+        .then((r) => r.json())
+        .then(setResellerStatus)
+        .catch(() => {});
+    }
+  }, [user?.role]);
 
   const copyReferralCode = () => {
     if (!user?.referralCode) return;
@@ -481,6 +505,69 @@ export default function Profile() {
               <p className="text-xs text-muted-foreground">
                 Minta temanmu masukkan kode ini saat mendaftar. Bonus akan otomatis masuk ke saldo kamu setelah temanmu beli produk pertama.
               </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Reseller Status Card — hanya tampil jika role reseller */}
+      {user.role === "reseller" && resellerStatus && (
+        <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50/60 to-transparent dark:from-blue-950/20 dark:border-blue-900">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center">
+                <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" /> Status Reseller
+                </CardTitle>
+                <CardDescription className="mt-0.5">
+                  Progres penjualan bulan {resellerStatus.currentMonth}
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Separator className="mb-4" />
+            <div className="space-y-4">
+              {/* Diskon */}
+              <div className="flex items-center justify-between rounded-lg bg-muted/60 border px-4 py-3">
+                <span className="text-sm text-muted-foreground">Diskon harga reseller</span>
+                <span className="font-bold text-green-600 text-lg">{resellerStatus.discountPercent}%</span>
+              </div>
+
+              {/* Progress target */}
+              {resellerStatus.targetEnabled ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Penjualan bulan ini</span>
+                    <span className="font-semibold">{formatRupiah(resellerStatus.currentMonthSales)}</span>
+                  </div>
+                  <Progress
+                    value={resellerStatus.progressPercent ?? 0}
+                    className="h-3"
+                  />
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{resellerStatus.progressPercent ?? 0}% dari target</span>
+                    <span>Target: {formatRupiah(resellerStatus.monthlyTarget)}</span>
+                  </div>
+                  {(resellerStatus.progressPercent ?? 0) >= 100 ? (
+                    <p className="text-xs text-green-600 font-medium flex items-center gap-1">
+                      <CheckCircle className="h-3.5 w-3.5" /> Target bulan ini sudah tercapai!
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Kurang {formatRupiah(resellerStatus.monthlyTarget - resellerStatus.currentMonthSales)} lagi untuk capai target.
+                      Status reseller dievaluasi setiap tanggal 1.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Target bulanan tidak diaktifkan. Status reseller kamu permanen.
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>

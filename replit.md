@@ -135,6 +135,9 @@ botvpn-fixed/          — Bot Telegram (Node.js + SQLite, terpisah dari web)
 - `POST /api/auth/forgot-password/send-otp` — kirim OTP WA untuk reset password (rate limit 3x/15 menit, OTP berlaku 5 menit, purpose `"reset"`)
 - `POST /api/auth/forgot-password/reset` — reset password dengan OTP yang valid (field: whatsapp, otp, newPassword)
 
+### Reseller (requireAuth + role reseller)
+- `GET /api/reseller/status` — status reseller bulan ini: diskon, target, total penjualan, progress %; 403 jika bukan reseller
+
 ### User (requireAuth)
 - `GET /api/balance` — saldo user
 - `POST /api/balance/topup` — buat permintaan topup + QRIS
@@ -358,6 +361,11 @@ Setiap kali mengubah `lib/api-spec/openapi.yaml`:
 - **Sistem Reseller (scheduler):** `checkResellerTargets()` berjalan tiap tanggal 1 pukul 07:00 WIB — cek total order lunas bulan lalu, downgrade + notifikasi WA+Telegram jika tidak capai target
 - **Sistem Reseller (frontend):** Halaman admin `/admin/settings/reseller` (aktif/nonaktif, % diskon, target bulanan); sidebar link "Program Reseller"; halaman produk & detail produk menampilkan harga reseller (strikethrough harga normal + badge hijau "Harga Reseller") jika user adalah reseller; logika balance check menggunakan harga efektif (resellerPrice ?? price)
 - **OpenAPI spec:** `ResellerSettings` schema + `resellerPrice` field pada Product schema; codegen sudah dijalankan ulang
+
+### Batch 13 ✅ (April 2026)
+- **Dashboard Progres Reseller:** Endpoint baru `GET /api/reseller/status` (requireAuth + role check reseller) — mengembalikan `discountPercent`, `targetEnabled`, `monthlyTarget`, `currentMonthSales` (total order lunas bulan berjalan), `progressPercent`, `currentMonth`
+- **Kartu Status Reseller di halaman Profil:** Hanya tampil jika `user.role === "reseller"`. Menampilkan: diskon yang didapat, progress bar penjualan bulan ini vs target, berapa yang masih kurang, serta catatan bahwa evaluasi dilakukan tiap tanggal 1. Jika target dinonaktifkan oleh admin, kartu tetap tampil dengan info "status reseller permanen". Jika target sudah capai → tampil pesan hijau "Target bulan ini sudah tercapai!".
+- File baru: `artifacts/api-server/src/routes/reseller.ts`
 
 ### Batch 12 ✅ (April 2026)
 - **Login via WhatsApp atau Username:** Input login mendeteksi otomatis — jika input berisi angka/+/- dengan ≥9 digit → dianggap nomor WA; selain itu → dianggap username. Normalisasi WA via `normalizeWhatsapp()`.
