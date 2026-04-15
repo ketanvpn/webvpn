@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { UserCircle, Mail, Shield, Calendar, Edit2, Lock, Send, CheckCircle, ExternalLink, Gift, Copy, Check, Phone, LogOut, TrendingUp } from "lucide-react";
+import { UserCircle, Mail, Shield, Calendar, Edit2, Lock, Send, CheckCircle, ExternalLink, Gift, Copy, Check, Phone, LogOut, TrendingUp, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -60,14 +60,23 @@ export default function Profile() {
   const [telegramLink, setTelegramLink] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
   const [resellerStatus, setResellerStatus] = useState<ResellerStatus | null>(null);
+  const [resellerLoading, setResellerLoading] = useState(false);
+
+  const fetchResellerStatus = () => {
+    if (user?.role !== "reseller") return;
+    setResellerLoading(true);
+    fetch(`${API}/api/reseller/status`, { credentials: "include" })
+      .then((r) => r.json())
+      .then(setResellerStatus)
+      .catch(() => {})
+      .finally(() => setResellerLoading(false));
+  };
 
   useEffect(() => {
-    if (user?.role === "reseller") {
-      fetch(`${API}/api/reseller/status`, { credentials: "include" })
-        .then((r) => r.json())
-        .then(setResellerStatus)
-        .catch(() => {});
-    }
+    fetchResellerStatus();
+    if (user?.role !== "reseller") return;
+    const interval = setInterval(fetchResellerStatus, 30_000);
+    return () => clearInterval(interval);
   }, [user?.role]);
 
   const copyReferralCode = () => {
@@ -514,18 +523,30 @@ export default function Profile() {
       {user.role === "reseller" && resellerStatus && (
         <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50/60 to-transparent dark:from-blue-950/20 dark:border-blue-900">
           <CardHeader className="pb-3">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center">
-                <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center">
+                  <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" /> Status Reseller
+                  </CardTitle>
+                  <CardDescription className="mt-0.5">
+                    Progres penjualan bulan {resellerStatus.currentMonth}
+                  </CardDescription>
+                </div>
               </div>
-              <div>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" /> Status Reseller
-                </CardTitle>
-                <CardDescription className="mt-0.5">
-                  Progres penjualan bulan {resellerStatus.currentMonth}
-                </CardDescription>
-              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-blue-600"
+                onClick={fetchResellerStatus}
+                disabled={resellerLoading}
+                title="Refresh"
+              >
+                <RefreshCw className={`h-4 w-4 ${resellerLoading ? "animate-spin" : ""}`} />
+              </Button>
             </div>
           </CardHeader>
           <CardContent>
