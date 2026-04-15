@@ -100,7 +100,15 @@ export default function AdminProducts() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [selectedProtocols, setSelectedProtocols] = useState<string[]>(["vmess"]);
 
+  // Protokol yang didukung server terpilih (null = semua boleh / otomatis)
+  const selectedServer = form.serverId !== "none"
+    ? servers?.find((s) => String(s.id) === form.serverId)
+    : null;
+  const serverSupportedProtocols: string[] | null =
+    selectedServer?.supportedProtocols ?? null;
+
   const toggleProtocol = (proto: string) => {
+    if (serverSupportedProtocols && !serverSupportedProtocols.includes(proto)) return;
     setSelectedProtocols((prev) =>
       prev.includes(proto) ? prev.filter((p) => p !== proto) : [...prev, proto]
     );
@@ -176,31 +184,47 @@ export default function AdminProducts() {
 
       const isMultiple = selectedProtocols.length > 1;
 
-      try {
-        await Promise.all(
-          selectedProtocols.map((proto) => {
-            const name = isMultiple
-              ? `${proto.toUpperCase()} - ${basePayload.name}`
-              : basePayload.name;
-            return createProduct.mutateAsync({
-              data: {
-                ...basePayload,
-                name,
-                protocol: proto as "ssh" | "vmess" | "vless" | "trojan" | "shadowsocks",
-              },
-            });
-          })
-        );
+      const results = await Promise.allSettled(
+        selectedProtocols.map((proto) => {
+          const name = isMultiple
+            ? `${proto.toUpperCase()} - ${basePayload.name}`
+            : basePayload.name;
+          return createProduct.mutateAsync({
+            data: {
+              ...basePayload,
+              name,
+              protocol: proto as "ssh" | "vmess" | "vless" | "trojan" | "shadowsocks",
+            },
+          });
+        })
+      );
 
+      const succeeded = results.filter((r) => r.status === "fulfilled").length;
+      const failedResults = results.filter((r) => r.status === "rejected");
+
+      queryClient.invalidateQueries({ queryKey: getAdminListProductsQueryKey() });
+
+      if (failedResults.length === 0) {
         toast({
           title: isMultiple
-            ? `${selectedProtocols.length} produk berhasil ditambahkan`
+            ? `${succeeded} produk berhasil ditambahkan`
             : "Produk berhasil ditambahkan",
         });
-        queryClient.invalidateQueries({ queryKey: getAdminListProductsQueryKey() });
         setDialogOpen(false);
-      } catch (err) {
-        toast({ title: "Gagal menambah produk", description: getApiError(err), variant: "destructive" });
+      } else if (succeeded > 0) {
+        toast({
+          title: `${succeeded} berhasil, ${failedResults.length} gagal`,
+          description: `${succeeded} produk sudah tersimpan. ${failedResults.length} produk gagal — cek daftar produk dan coba tambah ulang yang kurang.`,
+          variant: "destructive",
+        });
+        setDialogOpen(false);
+      } else {
+        const firstErr = failedResults[0] as PromiseRejectedResult;
+        toast({
+          title: "Semua produk gagal ditambahkan",
+          description: getApiError(firstErr.reason),
+          variant: "destructive",
+        });
       }
     }
   };
@@ -414,23 +438,40 @@ export default function AdminProducts() {
                 // Mode Tambah: centang satu atau lebih protokol
                 <>
                   <div className="grid grid-cols-3 gap-2 p-3 border rounded-lg bg-muted/20">
-                    {protocolOptions.map((proto) => (
-                      <label
-                        key={proto}
-                        className="flex items-center gap-2 cursor-pointer select-none"
-                      >
-                        <Checkbox
-                          checked={selectedProtocols.includes(proto)}
-                          onCheckedChange={() => toggleProtocol(proto)}
-                        />
-                        <span className="uppercase text-sm font-mono font-medium">{proto}</span>
-                      </label>
-                    ))}
+                    {protocolOptions.map((proto) => {
+                      const notSupported =
+                        serverSupportedProtocols !== null &&
+                        !serverSupportedProtocols.includes(proto);
+                      return (
+                        <label
+                          key={proto}
+                          className={`flex items-center gap-2 select-none ${
+                            notSupported ? "opacity-40 cursor-not-allowed" : "cursor-pointer"
+                          }`}
+                          title={notSupported ? `Server ini tidak mendukung ${proto.toUpperCase()}` : undefined}
+                        >
+                          <Checkbox
+                            checked={selectedProtocols.includes(proto)}
+                            onCheckedChange={() => toggleProtocol(proto)}
+                            disabled={notSupported}
+                          />
+                          <span className="uppercase text-sm font-mono font-medium">{proto}</span>
+                          {notSupported && (
+                            <span className="text-[10px] text-muted-foreground">✗</span>
+                          )}
+                        </label>
+                      );
+                    })}
                   </div>
+                  {serverSupportedProtocols && (
+                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+                      Server ini hanya mendukung: <strong>{serverSupportedProtocols.map((p) => p.toUpperCase()).join(", ")}</strong>. Protokol lain dinonaktifkan.
+                    </p>
+                  )}
                   {selectedProtocols.length > 1 && (
                     <p className="text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded px-2 py-1.5">
                       ✓ Akan membuat <strong>{selectedProtocols.length} produk</strong> sekaligus.
-                      Nama otomatis ditambah prefix protokol, contoh: <em>VMESS - {form.name || "Nama Produk"}</em>
+                      Nama otomatis ditambah prefix protokol, contoh: <em>{selectedProtocols[0].toUpperCase()} - {form.name || "Nama Produk"}</em>
                     </p>
                   )}
                 </>
@@ -500,7 +541,18 @@ export default function AdminProducts() {
               <Label>Server VPN</Label>
               <Select
                 value={form.serverId}
-                onValueChange={(v) => setForm((f) => ({ ...f, serverId: v }))}
+                onValueChange={(v) => {
+                  setForm((f) => ({ ...f, serverId: v }));
+                  // Auto-hapus protokol yang tidak didukung server baru
+                  if (v !== "none") {
+                    const srv = servers?.find((s) => String(s.id) === v);
+                    if (srv?.supportedProtocols) {
+                      setSelectedProtocols((prev) =>
+                        prev.filter((p) => srv.supportedProtocols.includes(p))
+                      );
+                    }
+                  }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="— Otomatis (berdasarkan protokol) —" />
