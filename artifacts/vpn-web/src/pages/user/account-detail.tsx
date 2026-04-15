@@ -367,21 +367,11 @@ export default function AccountDetail() {
                   )}
                 </div>
                 <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground uppercase font-semibold">Penggunaan Kuota</div>
+                  <div className="text-xs text-muted-foreground uppercase font-semibold">Kuota</div>
                   <div className="font-medium flex items-center gap-2">
                     <Activity className="h-4 w-4 text-primary" />
-                    {account.quota
-                      ? `${account.usedQuota || 0} GB / ${account.quota} GB`
-                      : "Unlimited"}
+                    {account.quota ? `${account.quota} GB` : "Tidak Terbatas"}
                   </div>
-                  {account.quota && account.usedQuota != null && (
-                    <div className="w-full bg-muted rounded-full h-1.5 mt-1">
-                      <div
-                        className="bg-primary h-1.5 rounded-full transition-all"
-                        style={{ width: `${Math.min(100, ((account.usedQuota || 0) / account.quota) * 100)}%` }}
-                      />
-                    </div>
-                  )}
                 </div>
               </div>
 

@@ -86,7 +86,7 @@ export default function Accounts() {
                   <CardContent className="pt-4 flex-1 space-y-3">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Activity className="h-4 w-4" />
-                      <span>Kuota: {account.quota ? `${account.usedQuota || 0}/${account.quota} GB` : "Tidak Terbatas"}</span>
+                      <span>Kuota: {account.quota ? `${account.quota} GB` : "Tidak Terbatas"}</span>
                     </div>
 
                     <div className="mt-auto pt-4 border-t">
