@@ -32,6 +32,19 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+export function optionalAuth(req: Request, _res: Response, next: NextFunction) {
+  const token = req.cookies?.token as string | undefined;
+  if (token) {
+    try {
+      const payload = verifyToken(token);
+      (req as Request & { user: JwtPayload }).user = payload;
+    } catch {
+      // token invalid, abaikan saja — lanjut sebagai guest
+    }
+  }
+  next();
+}
+
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   const token = req.cookies?.token as string | undefined;
   if (!token) {

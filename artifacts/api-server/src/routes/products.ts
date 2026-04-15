@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { productsTable, ordersTable, vpnAccountsTable } from "@workspace/db";
 import { eq, and, asc, count, gt, inArray } from "drizzle-orm";
 import { getResellerSettings } from "./settings";
+import { optionalAuth } from "../lib/auth";
 
 const router = Router();
 
@@ -43,7 +44,7 @@ async function getActiveCountMap(productIds: number[]): Promise<Map<number, numb
   return new Map(rows.map((r) => [r.productId, Number(r.cnt)]));
 }
 
-router.get("/products", async (req, res) => {
+router.get("/products", optionalAuth, async (req, res) => {
   const { protocol, category } = req.query as Record<string, string | undefined>;
   const userRole = (req as any).user?.role ?? "user";
 
@@ -66,7 +67,7 @@ router.get("/products", async (req, res) => {
   res.json(products.map((p) => formatProduct(p, countMap.get(p.id) ?? 0, resellerDiscount)));
 });
 
-router.get("/products/:id", async (req, res) => {
+router.get("/products/:id", optionalAuth, async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const userRole = (req as any).user?.role ?? "user";
 
