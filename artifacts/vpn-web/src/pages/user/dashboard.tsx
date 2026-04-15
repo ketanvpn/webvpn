@@ -2,7 +2,7 @@ import { useGetDashboardSummary } from "@workspace/api-client-react";
 import { formatRupiah } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { Wallet, Server, ShoppingCart, AlertCircle, ChevronRight, Sparkles, X } from "lucide-react";
+import { Wallet, Server, ShoppingCart, AlertCircle, ChevronRight, Sparkles, X, Zap } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
@@ -17,6 +17,8 @@ type PromoData = {
   promoText: string;
   requestEnabled: boolean;
   discountPercent: number;
+  autoUpgradeEnabled: boolean;
+  autoUpgradeMinTopup: number;
 };
 
 function ReselerPromoBanner({ onRequest }: { onRequest: () => void }) {
@@ -58,12 +60,17 @@ function ReselerPromoBanner({ onRequest }: { onRequest: () => void }) {
   };
 
   const displayText = promo.promoText.replace("{discount}", String(promo.discountPercent));
+  const isAutoUpgrade = promo.autoUpgradeEnabled;
 
   return (
-    <div className="relative rounded-xl border border-primary/25 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4 overflow-hidden">
-      {/* Dekorasi lingkaran latar */}
-      <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-primary/10 blur-xl" />
-      <div className="absolute right-8 bottom-0 h-12 w-12 rounded-full bg-primary/5" />
+    <div className={`relative rounded-xl border p-4 overflow-hidden ${
+      isAutoUpgrade
+        ? "border-green-200 bg-gradient-to-r from-green-50 via-emerald-50/50 to-transparent dark:from-green-950/30 dark:border-green-900"
+        : "border-primary/25 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent"
+    }`}>
+      {/* Dekorasi */}
+      <div className={`absolute -right-6 -top-6 h-24 w-24 rounded-full blur-xl ${isAutoUpgrade ? "bg-green-200/50" : "bg-primary/10"}`} />
+      <div className={`absolute right-8 bottom-0 h-12 w-12 rounded-full ${isAutoUpgrade ? "bg-green-100/50" : "bg-primary/5"}`} />
 
       <button
         onClick={handleDismiss}
@@ -74,19 +81,45 @@ function ReselerPromoBanner({ onRequest }: { onRequest: () => void }) {
       </button>
 
       <div className="flex gap-3 items-start relative">
-        <div className="h-9 w-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-0.5">
-          <Sparkles className="h-4 w-4 text-primary" />
+        <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+          isAutoUpgrade ? "bg-green-100 dark:bg-green-900/40" : "bg-primary/15"
+        }`}>
+          {isAutoUpgrade
+            ? <Zap className="h-4 w-4 text-green-600 dark:text-green-400" />
+            : <Sparkles className="h-4 w-4 text-primary" />
+          }
         </div>
         <div className="flex-1 min-w-0 pr-4">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <p className="font-bold text-sm">{promo.promoTitle}</p>
-            <span className="text-[10px] bg-primary text-primary-foreground font-bold px-2 py-0.5 rounded-full">
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+              isAutoUpgrade
+                ? "bg-green-600 text-white"
+                : "bg-primary text-primary-foreground"
+            }`}>
               Hemat {promo.discountPercent}%
             </span>
           </div>
-          <p className="text-xs text-muted-foreground mb-3">{displayText}</p>
 
-          {requested ? (
+          {/* Teks berbeda: auto-upgrade vs manual */}
+          {isAutoUpgrade ? (
+            <p className="text-xs text-muted-foreground mb-3">
+              Topup minimal{" "}
+              <span className="font-bold text-green-600">{formatRupiah(promo.autoUpgradeMinTopup)}</span>
+              {" "}sekali → langsung otomatis jadi reseller. {displayText}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground mb-3">{displayText}</p>
+          )}
+
+          {/* Tombol CTA */}
+          {isAutoUpgrade ? (
+            <Link href="/balance">
+              <span className="inline-flex items-center gap-1.5 text-xs bg-green-600 text-white font-semibold px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors cursor-pointer">
+                <Zap className="h-3.5 w-3.5" /> Topup Sekarang →
+              </span>
+            </Link>
+          ) : requested ? (
             <p className="text-xs text-green-600 font-semibold">
               ✓ Permintaan terkirim! Admin akan segera menghubungi kamu.
             </p>

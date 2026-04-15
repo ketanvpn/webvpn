@@ -79,7 +79,7 @@ export default function Profile() {
   const [resellerStatus, setResellerStatus] = useState<ResellerStatus | null>(null);
   const [resellerLoading, setResellerLoading] = useState(false);
 
-  type PromoData = { promoEnabled: boolean; promoTitle: string; promoText: string; requestEnabled: boolean; discountPercent: number };
+  type PromoData = { promoEnabled: boolean; promoTitle: string; promoText: string; requestEnabled: boolean; discountPercent: number; autoUpgradeEnabled: boolean; autoUpgradeMinTopup: number };
   const [promo, setPromo] = useState<PromoData | null>(null);
   const [promoRequesting, setPromoRequesting] = useState(false);
   const [promoRequested, setPromoRequested] = useState(false);
@@ -512,23 +512,55 @@ export default function Profile() {
 
       {/* ── Ajakan Reseller — hanya untuk user biasa ── */}
       {user.role === "user" && promo?.promoEnabled && (
-        <Card className="overflow-hidden border shadow-sm bg-gradient-to-br from-primary/8 via-transparent to-transparent">
+        <Card className={`overflow-hidden border shadow-sm ${
+          promo.autoUpgradeEnabled
+            ? "bg-gradient-to-br from-green-50/80 via-transparent to-transparent dark:from-green-950/20 border-green-200 dark:border-green-900"
+            : "bg-gradient-to-br from-primary/8 via-transparent to-transparent"
+        }`}>
           <div className="px-5 py-4">
             <div className="flex items-center gap-3 mb-3">
-              <div className="h-9 w-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-                <Sparkles className="h-4 w-4 text-primary" />
+              <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${
+                promo.autoUpgradeEnabled ? "bg-green-100 dark:bg-green-900/40" : "bg-primary/15"
+              }`}>
+                {promo.autoUpgradeEnabled
+                  ? <Sparkles className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  : <Sparkles className="h-4 w-4 text-primary" />
+                }
               </div>
               <div className="flex-1">
                 <p className="font-bold text-sm">{promo.promoTitle}</p>
-                <span className="text-[10px] bg-primary text-primary-foreground font-bold px-2 py-0.5 rounded-full">
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  promo.autoUpgradeEnabled
+                    ? "bg-green-600 text-white"
+                    : "bg-primary text-primary-foreground"
+                }`}>
                   Hemat {promo.discountPercent}%
                 </span>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground mb-4">
-              {promo.promoText.replace("{discount}", String(promo.discountPercent))}
-            </p>
-            {promoRequested ? (
+
+            {/* Teks berbeda berdasarkan mode */}
+            {promo.autoUpgradeEnabled ? (
+              <p className="text-xs text-muted-foreground mb-4">
+                Topup minimal{" "}
+                <span className="font-bold text-green-600">{formatRupiah(promo.autoUpgradeMinTopup)}</span>
+                {" "}sekali → langsung otomatis jadi reseller.{" "}
+                {promo.promoText.replace("{discount}", String(promo.discountPercent))}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground mb-4">
+                {promo.promoText.replace("{discount}", String(promo.discountPercent))}
+              </p>
+            )}
+
+            {/* CTA */}
+            {promo.autoUpgradeEnabled ? (
+              <a href="/balance">
+                <Button size="sm" className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white">
+                  <Sparkles className="h-3.5 w-3.5" /> Topup Sekarang →
+                </Button>
+              </a>
+            ) : promoRequested ? (
               <div className="flex items-center gap-2 text-green-600 text-sm font-semibold">
                 <CheckCircle className="h-4 w-4" />
                 Permintaan terkirim! Admin akan segera menghubungi kamu.
