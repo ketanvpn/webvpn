@@ -47,7 +47,7 @@ Platform penjualan VPN Indonesia berbasis web + bot Telegram. Dibangun sebagai p
 
 ## Credentials Test
 - **Admin**: `admin` / `admin123` → akses `/admin`
-- **Demo user**: `demo` / `demo123` → akses `/dashboard`
+- **Test user**: `testuser01` / `password` → akses `/dashboard`
 
 ---
 
@@ -88,18 +88,25 @@ cd /var/www/ketantech-vpn && git pull origin main && pnpm install && DATABASE_UR
 artifacts/
   api-server/          — Backend Express API
     src/
-      routes/          — auth, admin, orders, accounts, balance, products, servers, dashboard
-      lib/             — auth middleware, vpn-panel integration
+      routes/          — auth, admin, orders, accounts, balance, products, servers,
+                         dashboard, reseller, settings, webhook, broadcast, backup, export
+      lib/             — auth middleware, vpn-panel, scheduler, fonnte, telegram,
+                         reseller-upgrade (auto-upgrade logic), seed
   vpn-web/             — Frontend React+Vite
     src/
       pages/
-        admin/         — dashboard, users, orders, topups, accounts, servers, products, user-detail
-        user/          — dashboard, orders, accounts, balance, products
-        auth/          — login, register
+        admin/         — dashboard, users, user-detail, orders, topups, accounts,
+                         servers, products, broadcast, backup,
+                         payment-settings, telegram-settings, whatsapp-settings,
+                         referral-settings, reseller-settings, expiry-notification-settings
+        user/          — dashboard, orders, order-detail, accounts, account-detail,
+                         balance, balance-logs, products, product-detail, profile
+        auth/          — login, register, forgot-password
 
 lib/
   db/                  — Drizzle ORM schema + migrations
-    src/schema/        — users, products, servers, orders, vpn_accounts, topups
+    src/schema/        — users, products, servers, orders, vpn_accounts, topup_transactions,
+                         settings, balance_logs
   api-spec/            — openapi.yaml + orval codegen config
   api-client-react/    — Generated TanStack Query hooks (dari codegen)
   api-zod/             — Generated Zod validators (dari codegen)
@@ -119,7 +126,7 @@ botvpn-fixed/          — Bot Telegram (Node.js + SQLite, terpisah dari web)
 | `orders` | id, userId, productId, amount, status (pending/processing/paid/failed/expired), paymentMethod, notes, vpnAccountId, **autogopayTransactionId**, **qrisUrl**, **expiresAt** |
 | `vpn_accounts` | id, userId, protocol, username, password, uuid, serverId, configLink, allLinks, expiresAt, isActive |
 | `topup_transactions` | id, userId, amount, qrisUrl, status (pending/confirmed/rejected), confirmedBy, rejectionNote |
-| `settings` | key, value — menyimpan konfigurasi Telegram bot (telegramBotToken, telegramAdminChatId, telegramEnabled, telegramBotUsername) |
+| `settings` | key, value — menyimpan semua konfigurasi sistem: Telegram, WhatsApp, payment, referral, reseller (termasuk promoEnabled, autoUpgradeEnabled, dll), notifikasi kedaluwarsa, backup |
 | `balance_logs` | id, userId, type, amount, balanceBefore, balanceAfter, description, relatedId, createdAt — log semua perubahan saldo |
 
 ---
@@ -135,8 +142,10 @@ botvpn-fixed/          — Bot Telegram (Node.js + SQLite, terpisah dari web)
 - `POST /api/auth/forgot-password/send-otp` — kirim OTP WA untuk reset password (rate limit 3x/15 menit, OTP berlaku 5 menit, purpose `"reset"`)
 - `POST /api/auth/forgot-password/reset` — reset password dengan OTP yang valid (field: whatsapp, otp, newPassword)
 
-### Reseller (requireAuth + role reseller)
-- `GET /api/reseller/status` — status reseller bulan ini: diskon, target, total penjualan, progress %; 403 jika bukan reseller
+### Reseller (requireAuth)
+- `GET /api/reseller/promo` — info promosi reseller untuk user biasa: `promoEnabled`, `promoTitle`, `promoText`, `requestEnabled`, `discountPercent`, `autoUpgradeEnabled`, `autoUpgradeMinTopup`, `targetEnabled`, `monthlyTarget`
+- `POST /api/reseller/request` — user biasa ajukan permintaan jadi reseller → notifikasi Telegram ke admin; 400 jika sudah reseller/admin atau `requestEnabled=false`
+- `GET /api/reseller/status` — status reseller bulan ini: diskon, target, total penjualan, progress %; **403 jika bukan reseller**
 
 ### User (requireAuth)
 - `GET /api/balance` — saldo user
@@ -179,8 +188,12 @@ botvpn-fixed/          — Bot Telegram (Node.js + SQLite, terpisah dari web)
 - `POST /api/admin/accounts/:id/extend` — perpanjang akun N hari
 - `PATCH /api/admin/accounts/:id/toggle` — aktif/nonaktif akun
 - `DELETE /api/admin/accounts/:id` — hapus akun permanen
-- `GET /api/admin/settings/telegram` — baca konfigurasi Telegram bot
-- `PUT /api/admin/settings/telegram` — update konfigurasi Telegram bot
+- `GET/PUT /api/admin/settings/payment` — konfigurasi AutoGoPay (apiUrl, secretKey, enabled)
+- `GET/PUT /api/admin/settings/telegram` — konfigurasi Telegram bot (token, adminChatId, enabled, botUsername)
+- `GET/PUT /api/admin/settings/whatsapp` — konfigurasi Fonnte WhatsApp OTP (token, enabled)
+- `GET/PUT /api/admin/settings/referral` — konfigurasi program referral (enabled, bonusAmount)
+- `GET/PUT /api/admin/settings/reseller` — konfigurasi sistem reseller (enabled, discountPercent, targetEnabled, monthlyTarget, promoEnabled, promoTitle, promoText, requestEnabled, autoUpgradeEnabled, autoUpgradeMinTopup)
+- `GET/PUT /api/admin/settings/expiry-notif` — konfigurasi notifikasi kedaluwarsa VPN (enabled3Days, enabled1Day, sendHour)
 - `GET /api/admin/export/topups` — export topups ke CSV
 - `GET /api/admin/export/orders` — export orders ke CSV
 - `POST /api/admin/broadcast` — broadcast pesan ke semua user yang sudah link Telegram
@@ -361,6 +374,12 @@ Setiap kali mengubah `lib/api-spec/openapi.yaml`:
 - **Sistem Reseller (scheduler):** `checkResellerTargets()` berjalan tiap tanggal 1 pukul 07:00 WIB — cek total order lunas bulan lalu, downgrade + notifikasi WA+Telegram jika tidak capai target
 - **Sistem Reseller (frontend):** Halaman admin `/admin/settings/reseller` (aktif/nonaktif, % diskon, target bulanan); sidebar link "Program Reseller"; halaman produk & detail produk menampilkan harga reseller (strikethrough harga normal + badge hijau "Harga Reseller") jika user adalah reseller; logika balance check menggunakan harga efektif (resellerPrice ?? price)
 - **OpenAPI spec:** `ResellerSettings` schema + `resellerPrice` field pada Product schema; codegen sudah dijalankan ulang
+
+### Batch 16 ✅ (April 2026)
+- **Integrasi banner promo + auto-upgrade:** Banner di dashboard dan card di profil sekarang adaptif — jika auto-upgrade aktif, tampilan berubah hijau dengan tombol "Topup Sekarang →" ke `/balance`; jika tidak, tetap tampil tombol "Ajukan Jadi Reseller" seperti biasa.
+- **Transparansi penuh ke user:** Banner kini menampilkan 3 bagian jelas: (1) "Yang kamu dapat" — daftar keuntungan jadi reseller, (2) "Syarat masuk" — topup minimum (auto) atau ajukan ke admin (manual), (3) "Syarat aktif" — target penjualan bulanan **hanya muncul jika admin mengaktifkan target**, sehingga tidak ada informasi tersembunyi.
+- **API `/api/reseller/promo` diperluas:** Tambah field `targetEnabled` dan `monthlyTarget` — frontend bisa tampilkan/sembunyikan syarat bulanan sesuai setting admin.
+- **Konsistensi dashboard ↔ profil:** Kedua komponen (banner di dashboard + card di profil) menggunakan logika dan tampilan yang sama persis.
 
 ### Batch 15 ✅ (April 2026)
 - **Auto-upgrade reseller via topup:** User biasa yang topup 1x dengan nominal ≥ minimum langsung otomatis jadi reseller. Notifikasi WA + Telegram ke user ("Selamat jadi reseller!") dan Telegram ke admin.
