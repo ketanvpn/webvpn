@@ -140,7 +140,7 @@ async function cancelExpiredQrisOrders(): Promise<void> {
     const now = new Date();
     const result = await db
       .update(ordersTable)
-      .set({ status: "cancelled", updatedAt: new Date() })
+      .set({ status: "expired", updatedAt: new Date() })
       .where(
         and(
           eq(ordersTable.status, "pending"),
@@ -151,7 +151,7 @@ async function cancelExpiredQrisOrders(): Promise<void> {
       .returning({ id: ordersTable.id });
 
     if (result.length > 0) {
-      logger.info({ count: result.length }, "Auto-cancel: order QRIS expired dibatalkan");
+      logger.info({ count: result.length }, "Auto-expire: order QRIS melewati batas waktu pembayaran");
     }
   } catch (err) {
     logger.error({ err }, "Error saat auto-cancel order QRIS expired");

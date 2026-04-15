@@ -169,12 +169,12 @@ export default function AdminTopups() {
                       </div>
                       {topup.status === "pending" && (
                         <div className="flex gap-2 flex-wrap">
-                          {(topup as any).qrisUrl && (
+                          {topup.qrisUrl && (
                             <Button
                               size="sm"
                               variant="outline"
                               className="gap-1.5 text-blue-600 border-blue-200 hover:bg-blue-50"
-                              onClick={() => setQrisPreviewUrl((topup as any).qrisUrl)}
+                              onClick={() => setQrisPreviewUrl(topup.qrisUrl ?? null)}
                             >
                               <QrCode className="h-4 w-4" /> Lihat QRIS
                             </Button>

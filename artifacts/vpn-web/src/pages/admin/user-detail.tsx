@@ -29,6 +29,7 @@ import { useState } from "react";
 
 const statusColor: Record<string, string> = {
   pending: "bg-yellow-500/10 text-yellow-600 border-yellow-200",
+  processing: "bg-blue-500/10 text-blue-600 border-blue-200",
   paid: "bg-green-500/10 text-green-600 border-green-200",
   failed: "bg-red-500/10 text-red-600 border-red-200",
   expired: "bg-gray-500/10 text-gray-600 border-gray-200",

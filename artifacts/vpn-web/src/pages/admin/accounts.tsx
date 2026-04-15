@@ -249,7 +249,7 @@ export default function AdminAccounts() {
                               `#${acc.userId}`
                             )}
                           </span>
-                          <span>Server: {(acc as any).server?.name ?? "-"}</span>
+                          <span>Server: {acc.server?.name ?? "-"}</span>
                           <span>
                             Expired:{" "}
                             {acc.expiresAt ? format(new Date(acc.expiresAt), "d MMM yyyy") : "-"}
