@@ -70,11 +70,18 @@ export default function OrderDetail() {
     return true;
   };
 
+  // Poll selama pending (QRIS belum bayar) ATAU processing (sedang buat akun VPN)
+  const shouldPoll = (o?: { status: string; paymentMethod?: string | null; expiresAt?: string | null }) => {
+    if (!o) return false;
+    if (o.status === "paid" || o.status === "failed" || o.status === "expired") return false;
+    if (o.status === "processing") return true;
+    return isQrisPending(o);
+  };
+
   const { data: order, isLoading } = useGetOrder(orderId, {
     query: {
       enabled: !!orderId,
-      // Auto-poll every 5s while QRIS payment is pending AND not yet expired
-      refetchInterval: (q) => isQrisPending(q.state.data) ? 5000 : false,
+      refetchInterval: (q) => shouldPoll(q.state.data) ? 3000 : false,
     }
   });
 
@@ -91,11 +98,11 @@ export default function OrderDetail() {
     return () => clearInterval(t);
   }, [order?.status, order?.paymentMethod, order?.expiresAt]);
 
-  // Toast notification when QRIS order becomes paid
+  // Toast notification when order becomes paid (dari status apapun)
   const prevStatusRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (order?.status === undefined) return;
-    if (prevStatusRef.current === "pending" && order.status === "paid") {
+    if (order.status === "paid" && prevStatusRef.current !== "paid" && prevStatusRef.current !== undefined) {
       toast({ title: "Pembayaran Diterima!", description: "Akun VPN kamu sudah aktif." });
       queryClient.invalidateQueries({ queryKey: getGetBalanceQueryKey() });
     }
@@ -381,6 +388,19 @@ export default function OrderDetail() {
               <Button asChild className="gap-2">
                 <Link href={`/accounts/${order.vpnAccountId}`}>Lihat Detail Akun</Link>
               </Button>
+            </div>
+          )}
+
+          {/* Status Processing — tampil animasi loading + info */}
+          {order.status === "processing" && (
+            <div className="rounded-xl border-2 border-blue-500/30 bg-blue-500/5 p-6 flex flex-col items-center gap-3 text-center">
+              <Loader2 className="h-10 w-10 text-blue-500 animate-spin" />
+              <div>
+                <p className="font-semibold text-blue-700">Pembayaran diterima!</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Akun VPN kamu sedang dibuat. Tunggu sebentar, halaman akan otomatis terupdate...
+                </p>
+              </div>
             </div>
           )}
 
