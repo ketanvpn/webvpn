@@ -526,6 +526,8 @@ Menu: **Admin → Server → Tambah Server**
 ### Tambah Produk VPN
 Menu: **Admin → Produk → Tambah Produk**
 - Pilih server, protokol (SSH/VMess/VLess/Trojan/Shadowsocks), durasi, harga
+- Isi **Stok** — jumlah maksimal akun VPN yang bisa aktif bersamaan untuk produk ini
+- Jika stok habis, tombol beli di halaman user otomatis disabled dan tampil "Stok Habis"
 
 ### WhatsApp OTP (Fonnte)
 Menu: **Admin → WhatsApp OTP**
@@ -572,13 +574,8 @@ pm2 logs ketantech-api
 # Restart aplikasi (misalnya setelah update)
 pm2 restart ketantech-api
 
-# Update aplikasi dari GitHub
-cd /var/www/ketantech-vpn
-git pull origin main
-pnpm install
-pnpm --filter @workspace/api-server run build
-pnpm --filter @workspace/vpn-web run build
-pm2 restart ketantech-api
+# Update aplikasi dari GitHub (command lengkap — wajib urut seperti ini)
+cd /var/www/ketantech-vpn && git pull origin main && pnpm install && DATABASE_URL="postgresql://ketantech:PASSWORD_KAMU@localhost:5432/ketantech_db" pnpm --filter @workspace/db run push && pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/vpn-web run build && pm2 restart ketantech-api
 ```
 
 ---
@@ -589,7 +586,11 @@ pm2 restart ketantech-api
 > Kamu menggunakan nama `nama_database` secara harfiah. Ganti dengan nama database yang benar, yaitu `ketantech_db` (atau nama yang kamu buat di Langkah 5).
 
 **Error: `DATABASE_URL, ensure the database is provisioned`**
-> Variabel `DATABASE_URL` tidak terbaca. Saat menjalankan `pnpm --filter @workspace/db run push`, tambahkan `DATABASE_URL=...` di depan perintah seperti yang tertera di Langkah 10.
+> Drizzle Kit tidak membaca file `.env` secara otomatis. Solusi: tambahkan DATABASE_URL secara eksplisit di depan perintah:
+> ```bash
+> DATABASE_URL="postgresql://ketantech:PASSWORD_KAMU@localhost:5432/ketantech_db" pnpm --filter @workspace/db run push
+> ```
+> Gunakan juga command deploy lengkap yang sudah menyertakan DATABASE_URL (lihat bagian Perintah Berguna Sehari-hari).
 
 **Error: `relation "users" does not exist`**
 > Tabel database belum dibuat. Jalankan Langkah 10 (Setup Database) dengan benar, pastikan tidak ada error, lalu restart PM2 dengan `pm2 restart ketantech-api`.

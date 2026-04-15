@@ -57,8 +57,11 @@ Platform penjualan VPN Indonesia berbasis web + bot Telegram. Dibangun sebagai p
 # Regenerate API client dari OpenAPI spec
 pnpm --filter @workspace/api-spec run codegen
 
-# Push perubahan schema ke PostgreSQL
+# Push perubahan schema ke PostgreSQL (di Replit/local — DATABASE_URL sudah di env)
 pnpm --filter @workspace/db run push
+
+# Push perubahan schema ke PostgreSQL (di VPS — DATABASE_URL harus eksplisit)
+DATABASE_URL="postgresql://ketantech:PASSWORD@localhost:5432/ketantech_db" pnpm --filter @workspace/db run push
 
 # Jalankan dev server API
 pnpm --filter @workspace/api-server run dev
@@ -66,6 +69,16 @@ pnpm --filter @workspace/api-server run dev
 # Jalankan dev server frontend
 pnpm --filter @workspace/vpn-web run dev
 ```
+
+## Command Deploy Lengkap di VPS
+
+Gunakan command ini setiap kali ada update (ganti PASSWORD sesuai setup kamu):
+
+```bash
+cd /var/www/ketantech-vpn && git pull origin main && pnpm install && DATABASE_URL="postgresql://ketantech:PASSWORD@localhost:5432/ketantech_db" pnpm --filter @workspace/db run push && pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/vpn-web run build && pm2 restart ketantech-api
+```
+
+> **Kenapa DATABASE_URL harus ditulis eksplisit?** Drizzle Kit (`db push`) tidak otomatis membaca file `.env`. Harus diberikan via env variable saat menjalankan perintah.
 
 ---
 
@@ -102,7 +115,7 @@ botvpn-fixed/          — Bot Telegram (Node.js + SQLite, terpisah dari web)
 |---|---|
 | `users` | id, username, email, passwordHash, role, balance, isActive, referralCode, **telegramId** (bigint), **telegramLinkToken** (text) |
 | `vpn_servers` | id, name, location, flag, host, apiUrl, apiToken, supportedProtocols, isActive |
-| `products` | id, name, protocol, durationDays, price, quota, serverId |
+| `products` | id, name, protocol, durationDays, price, quota, maxConnections, **stock** (INTEGER NOT NULL DEFAULT 100), isActive, category, sortOrder |
 | `orders` | id, userId, productId, amount, status (pending/processing/paid/failed/expired), paymentMethod, notes, vpnAccountId, **autogopayTransactionId**, **qrisUrl**, **expiresAt** |
 | `vpn_accounts` | id, userId, protocol, username, password, uuid, serverId, configLink, allLinks, expiresAt, isActive |
 | `topup_transactions` | id, userId, amount, qrisUrl, status (pending/confirmed/rejected), confirmedBy, rejectionNote |
@@ -142,10 +155,10 @@ botvpn-fixed/          — Bot Telegram (Node.js + SQLite, terpisah dari web)
 - `GET /api/admin/users/:id` — detail user beserta orders dan akun
 - `PATCH /api/admin/users/:id` — update role/status user
 - `POST /api/admin/users/:id/adjust-balance` — adjust saldo manual
-- `GET /api/admin/products` — list produk
-- `POST /api/admin/products` — buat produk baru
-- `PUT /api/admin/products/:id` — update produk
-- `DELETE /api/admin/products/:id` — hapus produk
+- `GET /api/admin/products` — list produk (termasuk `stock` dan `availableStock`)
+- `POST /api/admin/products` — buat produk baru (wajib isi `stock`)
+- `PATCH /api/admin/products/:id` — update produk
+- `DELETE /api/admin/products/:id` — hapus/nonaktifkan produk
 - `GET /api/admin/servers` — list server
 - `POST /api/admin/servers` — tambah server
 - `PUT /api/admin/servers/:id` — update server
@@ -322,6 +335,15 @@ Setiap kali mengubah `lib/api-spec/openapi.yaml`:
 - **Vite build tidak butuh PORT:** `vite.config.ts` tidak lagi throw error jika `PORT` tidak ada saat build production
 - **Info user lengkap di admin:** `formatUser` sekarang include `whatsapp`, `telegramId`, `telegramUsername`, `referredBy`. Halaman `user-detail.tsx` menampilkan WA (link klik langsung buka WhatsApp), status Telegram, dan dari referral siapa
 - **Dropdown jam bisa scroll:** Fix komponen Select — `SelectViewport` tidak lagi dibatasi tinggi trigger button (`h-[var(--radix-select-trigger-height)]` dihapus dari mode popper)
+
+### Batch 9 ✅ (April 2026)
+- **Sistem Stok Produk:** Kolom `stock` (INTEGER NOT NULL DEFAULT 100) ditambahkan ke tabel `products`
+- `availableStock` = `stock - jumlah akun VPN aktif (expiresAt > sekarang)` — dihitung real-time di API
+- Admin: form tambah/edit produk ada field **Stok** (angka, wajib diisi, min 1), list produk tampil "Stok: tersedia/total" merah jika habis
+- User: halaman daftar produk tampil badge slot tersedia, tombol beli disabled + label "Stok Habis" jika availableStock = 0
+- User: halaman detail produk juga blokir tombol beli jika stok habis
+- **Perbaikan deploy command VPS:** `db run push` gagal tanpa DATABASE_URL eksplisit — command deploy lengkap kini menyertakan `DATABASE_URL="..."` di depan perintah push schema
+- **Troubleshooting DATABASE_URL di VPS:** Diketahui bahwa `drizzle-kit` tidak membaca file `.env` otomatis — solusi: selalu berikan DATABASE_URL via env variable eksplisit saat menjalankan `db push`
 
 ### Batch 2 ✅
 - Topup rejection dialog dengan rejectionNote
