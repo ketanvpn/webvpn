@@ -1030,6 +1030,23 @@ export const AdminUpdateUserResponse = zod.object({
 });
 
 /**
+ * @summary Reset password user (admin)
+ */
+export const AdminResetUserPasswordParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const adminResetUserPasswordBodyNewPasswordMin = 6;
+
+export const AdminResetUserPasswordBody = zod.object({
+  newPassword: zod.string().min(adminResetUserPasswordBodyNewPasswordMin),
+});
+
+export const AdminResetUserPasswordResponse = zod.object({
+  success: zod.boolean().optional(),
+});
+
+/**
  * @summary Get balance logs for a specific user (admin)
  */
 export const AdminGetUserBalanceLogsParams = zod.object({

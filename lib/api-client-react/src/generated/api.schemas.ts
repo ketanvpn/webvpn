@@ -557,6 +557,15 @@ export const AdminListUsersRole = {
   admin: "admin",
 } as const;
 
+export type AdminResetUserPasswordBody = {
+  /** @minLength 6 */
+  newPassword: string;
+};
+
+export type AdminResetUserPassword200 = {
+  success?: boolean;
+};
+
 export type AdminGetUserBalanceLogsParams = {
   limit?: number;
   offset?: number;

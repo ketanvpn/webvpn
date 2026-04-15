@@ -374,6 +374,27 @@ router.patch("/admin/users/:id", requireAdmin, async (req, res) => {
   res.json(formatUser(updated));
 });
 
+router.post("/admin/users/:id/reset-password", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const { newPassword } = req.body ?? {};
+
+  if (!newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
+    res.status(400).json({ error: "Password baru minimal 6 karakter" });
+    return;
+  }
+
+  const [existing] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
+  if (!existing) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+  await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, id));
+
+  res.json({ success: true });
+});
+
 // ─── Admin: Products ──────────────────────────────────────────────────────────
 
 router.get("/admin/products", requireAdmin, async (_req, res) => {

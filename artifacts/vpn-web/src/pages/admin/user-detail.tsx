@@ -1,5 +1,5 @@
 import { getApiError } from "@/lib/utils";
-import { useAdminGetUser, useAdminUpdateUser, getAdminGetUserQueryKey, useAdminGetUserBalanceLogs } from "@workspace/api-client-react";
+import { useAdminGetUser, useAdminUpdateUser, getAdminGetUserQueryKey, useAdminGetUserBalanceLogs, useAdminResetUserPassword } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,7 @@ export default function AdminUserDetail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [balanceAdjustment, setBalanceAdjustment] = useState("");
+  const [newPassword, setNewPassword] = useState("");
 
   const { data: user, isLoading } = useAdminGetUser(userId, {
     query: { enabled: !!userId, queryKey: getAdminGetUserQueryKey(userId) },
@@ -53,6 +54,7 @@ export default function AdminUserDetail() {
   });
 
   const updateUser = useAdminUpdateUser();
+  const resetPassword = useAdminResetUserPassword();
 
   const handleUpdateRole = (role: AdminUpdateUserBodyRole) => {
     updateUser.mutate(
@@ -96,6 +98,22 @@ export default function AdminUserDetail() {
         },
         onError: (err) =>
           toast({ title: "Gagal menyesuaikan saldo", description: getApiError(err), variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleResetPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) return;
+    resetPassword.mutate(
+      { id: userId, data: { newPassword } },
+      {
+        onSuccess: () => {
+          toast({ title: "Password berhasil direset", description: `Password user ${user?.username} telah diubah.` });
+          setNewPassword("");
+        },
+        onError: (err) =>
+          toast({ title: "Gagal reset password", description: getApiError(err), variant: "destructive" }),
       }
     );
   };
@@ -378,22 +396,29 @@ export default function AdminUserDetail() {
                 <div className="text-3xl font-bold text-primary">{formatRupiah(user.balance)}</div>
               </div>
 
-              <form onSubmit={handleAdjustBalance} className="space-y-3 pt-4 border-t">
-                <Label className="text-xs text-muted-foreground">Sesuaikan Saldo (+/-)</Label>
-                <p className="text-xs text-muted-foreground">Positif = tambah, negatif = kurangi</p>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    placeholder="Contoh: 50000 atau -10000"
-                    value={balanceAdjustment}
-                    onChange={(e) => setBalanceAdjustment(e.target.value)}
-                    data-testid="input-balance-adjust"
-                  />
-                  <Button type="submit" size="sm" disabled={updateUser.isPending || !balanceAdjustment}>
-                    Terapkan
-                  </Button>
-                </div>
-              </form>
+              {user.role !== "admin" && (
+                <form onSubmit={handleAdjustBalance} className="space-y-3 pt-4 border-t">
+                  <Label className="text-xs text-muted-foreground">Sesuaikan Saldo (+/-)</Label>
+                  <p className="text-xs text-muted-foreground">Positif = tambah, negatif = kurangi</p>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      placeholder="Contoh: 50000 atau -10000"
+                      value={balanceAdjustment}
+                      onChange={(e) => setBalanceAdjustment(e.target.value)}
+                      data-testid="input-balance-adjust"
+                    />
+                    <Button type="submit" size="sm" disabled={updateUser.isPending || !balanceAdjustment}>
+                      Terapkan
+                    </Button>
+                  </div>
+                </form>
+              )}
+              {user.role === "admin" && (
+                <p className="text-xs text-muted-foreground pt-4 border-t italic">
+                  Saldo tidak berlaku untuk akun Administrator.
+                </p>
+              )}
             </CardContent>
           </Card>
 
@@ -421,26 +446,44 @@ export default function AdminUserDetail() {
                 </Select>
               </div>
 
-              <div className="pt-4 border-t">
-                <Button
-                  variant={user.isActive ? "destructive" : "default"}
-                  className="w-full gap-2"
-                  onClick={handleToggleLock}
-                  disabled={updateUser.isPending}
-                  data-testid="button-toggle-lock"
-                >
-                  {user.isActive ? (
-                    <><Lock className="h-4 w-4" /> Suspend Akun</>
-                  ) : (
-                    <><Unlock className="h-4 w-4" /> Aktifkan Kembali</>
-                  )}
-                </Button>
-                <p className="text-xs text-muted-foreground text-center mt-2">
-                  {user.isActive
-                    ? "User yang disuspend tidak bisa login atau membeli."
-                    : "User akan mendapatkan akses penuh kembali."}
-                </p>
-              </div>
+              <form onSubmit={handleResetPassword} className="space-y-3">
+                <Label className="text-xs text-muted-foreground">Reset Password</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="password"
+                    placeholder="Password baru (min. 6 karakter)"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    minLength={6}
+                  />
+                  <Button type="submit" size="sm" variant="outline" disabled={resetPassword.isPending || newPassword.length < 6}>
+                    Reset
+                  </Button>
+                </div>
+              </form>
+
+              {user.role !== "admin" && (
+                <div className="pt-4 border-t">
+                  <Button
+                    variant={user.isActive ? "destructive" : "default"}
+                    className="w-full gap-2"
+                    onClick={handleToggleLock}
+                    disabled={updateUser.isPending}
+                    data-testid="button-toggle-lock"
+                  >
+                    {user.isActive ? (
+                      <><Lock className="h-4 w-4" /> Suspend Akun</>
+                    ) : (
+                      <><Unlock className="h-4 w-4" /> Aktifkan Kembali</>
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-center mt-2">
+                    {user.isActive
+                      ? "User yang disuspend tidak bisa login atau membeli."
+                      : "User akan mendapatkan akses penuh kembali."}
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

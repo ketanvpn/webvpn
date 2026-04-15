@@ -634,6 +634,41 @@ paths:
               schema:
                 $ref: "#/components/schemas/User"
 
+  /admin/users/{id}/reset-password:
+    post:
+      operationId: adminResetUserPassword
+      tags: [admin]
+      summary: Reset password user (admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [newPassword]
+              properties:
+                newPassword:
+                  type: string
+                  minLength: 6
+      responses:
+        "200":
+          description: Password berhasil direset
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
   /admin/users/{id}/balance-logs:
     get:
       operationId: adminGetUserBalanceLogs

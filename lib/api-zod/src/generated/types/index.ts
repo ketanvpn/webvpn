@@ -27,6 +27,8 @@ export * from "./adminOrderListResponse";
 export * from "./adminRegisterTelegramWebhook200";
 export * from "./adminRegisterTelegramWebhookBody";
 export * from "./adminRejectTopupBody";
+export * from "./adminResetUserPassword200";
+export * from "./adminResetUserPasswordBody";
 export * from "./adminUpdateUserBody";
 export * from "./adminUpdateUserBodyRole";
 export * from "./adminUserDetail";
