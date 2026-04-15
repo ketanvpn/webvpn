@@ -345,6 +345,12 @@ Setiap kali mengubah `lib/api-spec/openapi.yaml`:
 - **Perbaikan deploy command VPS:** `db run push` gagal tanpa DATABASE_URL eksplisit — command deploy lengkap kini menyertakan `DATABASE_URL="..."` di depan perintah push schema
 - **Troubleshooting DATABASE_URL di VPS:** Diketahui bahwa `drizzle-kit` tidak membaca file `.env` otomatis — solusi: selalu berikan DATABASE_URL via env variable eksplisit saat menjalankan `db push`
 
+### Batch 10 ✅ (April 2026)
+- **Sistem Reseller (backend):** `getResellerSettings()` helper + GET/PUT `/admin/settings/reseller` endpoints; `formatProduct()` menerima param `resellerDiscount` dan mengembalikan `resellerPrice`; routes produk & orders mendeteksi role reseller dan menerapkan diskon otomatis
+- **Sistem Reseller (scheduler):** `checkResellerTargets()` berjalan tiap tanggal 1 pukul 07:00 WIB — cek total order lunas bulan lalu, downgrade + notifikasi WA+Telegram jika tidak capai target
+- **Sistem Reseller (frontend):** Halaman admin `/admin/settings/reseller` (aktif/nonaktif, % diskon, target bulanan); sidebar link "Program Reseller"; halaman produk & detail produk menampilkan harga reseller (strikethrough harga normal + badge hijau "Harga Reseller") jika user adalah reseller; logika balance check menggunakan harga efektif (resellerPrice ?? price)
+- **OpenAPI spec:** `ResellerSettings` schema + `resellerPrice` field pada Product schema; codegen sudah dijalankan ulang
+
 ### Batch 2 ✅
 - Topup rejection dialog dengan rejectionNote
 - Pending orders card di admin dashboard

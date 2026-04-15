@@ -8,7 +8,7 @@ import { formatProduct } from "./products";
 import { randomUUID } from "crypto";
 import { createPanelAccount, sanitizeVpnUsername } from "../lib/vpn-panel";
 import { addBalanceLog } from "./balance-logs";
-import { getPaymentSettingsMap } from "./settings";
+import { getPaymentSettingsMap, getResellerSettings } from "./settings";
 import { logger } from "../lib/logger";
 import { notifyUserVpnAccountCreated, notifyAdminOrderFulfilled } from "../lib/telegram";
 
@@ -343,7 +343,13 @@ router.post("/orders", requireAuth, async (req, res) => {
     return;
   }
 
-  const amount = Number(product.price);
+  let amount = Number(product.price);
+  if (req.user!.role === "reseller") {
+    const resellerSettings = await getResellerSettings();
+    if (resellerSettings.resellerEnabled && resellerSettings.resellerDiscountPercent > 0) {
+      amount = Math.floor(amount * (1 - resellerSettings.resellerDiscountPercent / 100));
+    }
+  }
 
   // ─── Cek duplikat nama akun: cegah bentrok username di server VPN ─────────
   const [existingAccount] = await db

@@ -156,6 +156,12 @@ export const ListProductsResponseItem = zod.object({
   availableStock: zod
     .number()
     .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
+  resellerPrice: zod
+    .number()
+    .nullish()
+    .describe(
+      "Harga khusus reseller (null jika user bukan reseller atau fitur reseller nonaktif)",
+    ),
   isActive: zod.boolean(),
   category: zod.string().nullish(),
   sortOrder: zod.number().optional(),
@@ -185,6 +191,12 @@ export const GetProductResponse = zod.object({
   availableStock: zod
     .number()
     .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
+  resellerPrice: zod
+    .number()
+    .nullish()
+    .describe(
+      "Harga khusus reseller (null jika user bukan reseller atau fitur reseller nonaktif)",
+    ),
   isActive: zod.boolean(),
   category: zod.string().nullish(),
   sortOrder: zod.number().optional(),
@@ -233,6 +245,12 @@ export const ListOrdersResponse = zod.object({
           availableStock: zod
             .number()
             .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
+          resellerPrice: zod
+            .number()
+            .nullish()
+            .describe(
+              "Harga khusus reseller (null jika user bukan reseller atau fitur reseller nonaktif)",
+            ),
           isActive: zod.boolean(),
           category: zod.string().nullish(),
           sortOrder: zod.number().optional(),
@@ -312,6 +330,12 @@ export const GetOrderResponse = zod.object({
       availableStock: zod
         .number()
         .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
+      resellerPrice: zod
+        .number()
+        .nullish()
+        .describe(
+          "Harga khusus reseller (null jika user bukan reseller atau fitur reseller nonaktif)",
+        ),
       isActive: zod.boolean(),
       category: zod.string().nullish(),
       sortOrder: zod.number().optional(),
@@ -361,6 +385,12 @@ export const PayOrderResponse = zod.object({
       availableStock: zod
         .number()
         .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
+      resellerPrice: zod
+        .number()
+        .nullish()
+        .describe(
+          "Harga khusus reseller (null jika user bukan reseller atau fitur reseller nonaktif)",
+        ),
       isActive: zod.boolean(),
       category: zod.string().nullish(),
       sortOrder: zod.number().optional(),
@@ -610,6 +640,12 @@ export const GetDashboardSummaryResponse = zod.object({
           availableStock: zod
             .number()
             .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
+          resellerPrice: zod
+            .number()
+            .nullish()
+            .describe(
+              "Harga khusus reseller (null jika user bukan reseller atau fitur reseller nonaktif)",
+            ),
           isActive: zod.boolean(),
           category: zod.string().nullish(),
           sortOrder: zod.number().optional(),
@@ -726,6 +762,12 @@ export const GetAdminDashboardResponse = zod.object({
             availableStock: zod
               .number()
               .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
+            resellerPrice: zod
+              .number()
+              .nullish()
+              .describe(
+                "Harga khusus reseller (null jika user bukan reseller atau fitur reseller nonaktif)",
+              ),
             isActive: zod.boolean(),
             category: zod.string().nullish(),
             sortOrder: zod.number().optional(),
@@ -899,6 +941,12 @@ export const AdminGetUserResponse = zod
                   .number()
                   .describe(
                     "Sisa stok yang masih tersedia (stock - akun aktif)",
+                  ),
+                resellerPrice: zod
+                  .number()
+                  .nullish()
+                  .describe(
+                    "Harga khusus reseller (null jika user bukan reseller atau fitur reseller nonaktif)",
                   ),
                 isActive: zod.boolean(),
                 category: zod.string().nullish(),
@@ -1117,6 +1165,12 @@ export const AdminListProductsResponseItem = zod.object({
   availableStock: zod
     .number()
     .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
+  resellerPrice: zod
+    .number()
+    .nullish()
+    .describe(
+      "Harga khusus reseller (null jika user bukan reseller atau fitur reseller nonaktif)",
+    ),
   isActive: zod.boolean(),
   category: zod.string().nullish(),
   sortOrder: zod.number().optional(),
@@ -1184,6 +1238,12 @@ export const AdminUpdateProductResponse = zod.object({
   availableStock: zod
     .number()
     .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
+  resellerPrice: zod
+    .number()
+    .nullish()
+    .describe(
+      "Harga khusus reseller (null jika user bukan reseller atau fitur reseller nonaktif)",
+    ),
   isActive: zod.boolean(),
   category: zod.string().nullish(),
   sortOrder: zod.number().optional(),
@@ -1333,6 +1393,12 @@ export const AdminListOrdersResponse = zod.object({
             availableStock: zod
               .number()
               .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
+            resellerPrice: zod
+              .number()
+              .nullish()
+              .describe(
+                "Harga khusus reseller (null jika user bukan reseller atau fitur reseller nonaktif)",
+              ),
             isActive: zod.boolean(),
             category: zod.string().nullish(),
             sortOrder: zod.number().optional(),
@@ -1420,6 +1486,12 @@ export const AdminConfirmOrderResponse = zod.object({
       availableStock: zod
         .number()
         .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
+      resellerPrice: zod
+        .number()
+        .nullish()
+        .describe(
+          "Harga khusus reseller (null jika user bukan reseller atau fitur reseller nonaktif)",
+        ),
       isActive: zod.boolean(),
       category: zod.string().nullish(),
       sortOrder: zod.number().optional(),
@@ -1838,6 +1910,69 @@ export const AdminUpdateTelegramSettingsResponse = zod.object({
     .string()
     .nullish()
     .describe("Username bot (auto-detect)"),
+});
+
+/**
+ * @summary Get reseller program settings
+ */
+export const AdminGetResellerSettingsResponse = zod.object({
+  resellerEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan fitur harga khusus reseller"),
+  resellerDiscountPercent: zod
+    .number()
+    .optional()
+    .describe("Persentase diskon untuk reseller (0-100)"),
+  resellerTargetEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan sistem target penjualan bulanan"),
+  resellerMonthlyTarget: zod
+    .number()
+    .optional()
+    .describe("Target penjualan bulanan dalam rupiah"),
+});
+
+/**
+ * @summary Update reseller program settings
+ */
+export const AdminUpdateResellerSettingsBody = zod.object({
+  resellerEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan fitur harga khusus reseller"),
+  resellerDiscountPercent: zod
+    .number()
+    .optional()
+    .describe("Persentase diskon untuk reseller (0-100)"),
+  resellerTargetEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan sistem target penjualan bulanan"),
+  resellerMonthlyTarget: zod
+    .number()
+    .optional()
+    .describe("Target penjualan bulanan dalam rupiah"),
+});
+
+export const AdminUpdateResellerSettingsResponse = zod.object({
+  resellerEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan fitur harga khusus reseller"),
+  resellerDiscountPercent: zod
+    .number()
+    .optional()
+    .describe("Persentase diskon untuk reseller (0-100)"),
+  resellerTargetEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan sistem target penjualan bulanan"),
+  resellerMonthlyTarget: zod
+    .number()
+    .optional()
+    .describe("Target penjualan bulanan dalam rupiah"),
 });
 
 /**

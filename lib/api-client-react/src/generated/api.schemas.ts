@@ -72,6 +72,17 @@ export interface TelegramSettings {
   telegramBotUsername?: string | null;
 }
 
+export interface ResellerSettings {
+  /** Aktifkan fitur harga khusus reseller */
+  resellerEnabled?: boolean;
+  /** Persentase diskon untuk reseller (0-100) */
+  resellerDiscountPercent?: number;
+  /** Aktifkan sistem target penjualan bulanan */
+  resellerTargetEnabled?: boolean;
+  /** Target penjualan bulanan dalam rupiah */
+  resellerMonthlyTarget?: number;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -163,6 +174,8 @@ export interface Product {
   stock: number;
   /** Sisa stok yang masih tersedia (stock - akun aktif) */
   availableStock: number;
+  /** Harga khusus reseller (null jika user bukan reseller atau fitur reseller nonaktif) */
+  resellerPrice?: number | null;
   isActive: boolean;
   category?: string | null;
   sortOrder?: number;

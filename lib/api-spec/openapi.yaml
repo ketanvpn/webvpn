@@ -1285,6 +1285,40 @@ paths:
               schema:
                 $ref: "#/components/schemas/TelegramSettings"
 
+  /admin/settings/reseller:
+    get:
+      operationId: adminGetResellerSettings
+      tags: [admin]
+      summary: Get reseller program settings
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Reseller settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResellerSettings"
+    put:
+      operationId: adminUpdateResellerSettings
+      tags: [admin]
+      summary: Update reseller program settings
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResellerSettings"
+      responses:
+        "200":
+          description: Updated reseller settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResellerSettings"
+
   /admin/broadcast:
     post:
       operationId: adminBroadcast
@@ -1517,6 +1551,22 @@ components:
           nullable: true
           description: Username bot (auto-detect)
 
+    ResellerSettings:
+      type: object
+      properties:
+        resellerEnabled:
+          type: boolean
+          description: Aktifkan fitur harga khusus reseller
+        resellerDiscountPercent:
+          type: integer
+          description: Persentase diskon untuk reseller (0-100)
+        resellerTargetEnabled:
+          type: boolean
+          description: Aktifkan sistem target penjualan bulanan
+        resellerMonthlyTarget:
+          type: integer
+          description: Target penjualan bulanan dalam rupiah
+
     HealthStatus:
       type: object
       required: [status]
@@ -1660,6 +1710,10 @@ components:
         availableStock:
           type: integer
           description: Sisa stok yang masih tersedia (stock - akun aktif)
+        resellerPrice:
+          type: number
+          nullable: true
+          description: Harga khusus reseller (null jika user bukan reseller atau fitur reseller nonaktif)
         isActive:
           type: boolean
         category:

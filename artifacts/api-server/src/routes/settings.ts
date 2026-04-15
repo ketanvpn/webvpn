@@ -240,5 +240,44 @@ router.put("/admin/settings/referral", requireAdmin, async (req, res) => {
   res.json(buildReferralSettingsResponse(map));
 });
 
+// ─── Reseller Settings ────────────────────────────────────────────────────────
+
+const RESELLER_KEYS = ["resellerEnabled", "resellerDiscountPercent", "resellerTargetEnabled", "resellerMonthlyTarget"];
+
+function buildResellerSettingsResponse(map: Record<string, string | null>) {
+  return {
+    resellerEnabled: parseBoolean(map["resellerEnabled"] ?? "false"),
+    resellerDiscountPercent: map["resellerDiscountPercent"] ? parseInt(map["resellerDiscountPercent"], 10) : 20,
+    resellerTargetEnabled: parseBoolean(map["resellerTargetEnabled"] ?? "false"),
+    resellerMonthlyTarget: map["resellerMonthlyTarget"] ? parseInt(map["resellerMonthlyTarget"], 10) : 500000,
+  };
+}
+
+export async function getResellerSettings() {
+  const rows = await db.select().from(settingsTable);
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  return buildResellerSettingsResponse(map);
+}
+
+router.get("/admin/settings/reseller", requireAdmin, async (_req, res) => {
+  const rows = await db.select().from(settingsTable);
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  res.json(buildResellerSettingsResponse(map));
+});
+
+router.put("/admin/settings/reseller", requireAdmin, async (req, res) => {
+  const body = req.body ?? {};
+  for (const key of RESELLER_KEYS) {
+    if (key in body) {
+      const raw = body[key];
+      const value = raw === null || raw === undefined ? null : String(raw);
+      await setSettingValue(key, value);
+    }
+  }
+  const rows = await db.select().from(settingsTable);
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  res.json(buildResellerSettingsResponse(map));
+});
+
 export { getSettingValue, setSettingValue };
 export default router;

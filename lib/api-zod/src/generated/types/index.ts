@@ -67,6 +67,7 @@ export * from "./productProtocol";
 export * from "./publicServer";
 export * from "./registerBody";
 export * from "./renewAccountBody";
+export * from "./resellerSettings";
 export * from "./successResponse";
 export * from "./telegramSettings";
 export * from "./topupBody";

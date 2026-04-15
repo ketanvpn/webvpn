@@ -21,6 +21,8 @@ export interface Product {
   stock: number;
   /** Sisa stok yang masih tersedia (stock - akun aktif) */
   availableStock: number;
+  /** Harga khusus reseller (null jika user bukan reseller atau fitur reseller nonaktif) */
+  resellerPrice?: number | null;
   isActive: boolean;
   category?: string | null;
   sortOrder?: number;

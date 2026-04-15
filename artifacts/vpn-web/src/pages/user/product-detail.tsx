@@ -69,7 +69,8 @@ export default function ProductDetail() {
       return;
     }
 
-    if (paymentMethod === "balance" && balance < (product?.price || 0)) {
+    const effectivePrice = product?.resellerPrice ?? product?.price ?? 0;
+    if (paymentMethod === "balance" && balance < effectivePrice) {
       toast({
         title: "Saldo tidak cukup",
         description: "Silakan top up saldo terlebih dahulu.",
@@ -126,7 +127,8 @@ export default function ProductDetail() {
     );
   }
 
-  const balanceAfter = balance - product.price;
+  const effectivePrice = product.resellerPrice ?? product.price;
+  const balanceAfter = balance - effectivePrice;
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -200,7 +202,17 @@ export default function ProductDetail() {
             <CardContent className="pt-6 space-y-6">
               <div className="flex justify-between items-center pb-4 border-b">
                 <span className="text-muted-foreground">Harga</span>
-                <span className="text-2xl font-bold">{formatRupiah(product.price)}</span>
+                <div className="text-right">
+                  {product.resellerPrice != null ? (
+                    <>
+                      <div className="text-sm text-muted-foreground line-through">{formatRupiah(product.price)}</div>
+                      <div className="text-2xl font-bold text-green-600">{formatRupiah(product.resellerPrice)}</div>
+                      <Badge className="mt-1 bg-green-100 text-green-700 border-green-300 text-xs">Harga Reseller</Badge>
+                    </>
+                  ) : (
+                    <span className="text-2xl font-bold">{formatRupiah(product.price)}</span>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-3">
@@ -254,7 +266,7 @@ export default function ProductDetail() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Harga produk</span>
-                    <span className="font-medium text-destructive">- {formatRupiah(product.price)}</span>
+                    <span className="font-medium text-destructive">- {formatRupiah(effectivePrice)}</span>
                   </div>
                   <div className="flex justify-between pt-2 border-t font-semibold">
                     <span>Sisa saldo</span>
@@ -265,9 +277,9 @@ export default function ProductDetail() {
                 </div>
               )}
 
-              {paymentMethod === "balance" && balance < product.price && (
+              {paymentMethod === "balance" && balance < effectivePrice && (
                 <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md border border-destructive/20">
-                  Saldo tidak cukup. Kamu butuh {formatRupiah(product.price - balance)} lagi.
+                  Saldo tidak cukup. Kamu butuh {formatRupiah(effectivePrice - balance)} lagi.
                   <Link href="/balance" className="font-semibold underline block mt-1">Top up sekarang →</Link>
                 </div>
               )}
@@ -289,7 +301,7 @@ export default function ProductDetail() {
                     size="lg"
                     className="w-full text-lg h-14"
                     onClick={handleOpenConfirm}
-                    disabled={createOrder.isPending || !isRemarksValid(remarks) || (paymentMethod === "balance" && balance < product.price)}
+                    disabled={createOrder.isPending || !isRemarksValid(remarks) || (paymentMethod === "balance" && balance < effectivePrice)}
                   >
                     {createOrder.isPending ? "Memproses..." : "Buat Order"}
                   </Button>
@@ -341,7 +353,7 @@ export default function ProductDetail() {
                   </div>
                   <div className="flex justify-between px-4 py-2.5 bg-primary/5">
                     <span className="font-semibold">Total Bayar</span>
-                    <span className="font-bold text-primary text-base">{formatRupiah(product.price)}</span>
+                    <span className="font-bold text-primary text-base">{formatRupiah(effectivePrice)}</span>
                   </div>
                   {paymentMethod === "balance" && (
                     <div className="flex justify-between px-4 py-2.5">

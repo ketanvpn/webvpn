@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
 import { vpnAccountsTable, usersTable, settingsTable, ordersTable } from "@workspace/db";
-import { eq, and, lte, gte, lt } from "drizzle-orm";
+import { eq, and, lte, gte, lt, sql, sum } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendWhatsapp } from "./fonnte";
 import { sendMessage } from "./telegram";
@@ -158,12 +158,61 @@ async function cancelExpiredQrisOrders(): Promise<void> {
   }
 }
 
+async function checkResellerTargets(): Promise<void> {
+  try {
+    const nowWib = new Date(Date.now() + 7 * 60 * 60 * 1000);
+    const dateWib = nowWib.getUTCDate();
+    const hourWib = nowWib.getUTCHours();
+
+    if (dateWib !== 1 || hourWib !== 7) return;
+
+    const [enabledRow] = await db.select({ value: settingsTable.value }).from(settingsTable).where(eq(settingsTable.key, "resellerTargetEnabled")).limit(1);
+    if (enabledRow?.value !== "true") return;
+
+    const [targetRow] = await db.select({ value: settingsTable.value }).from(settingsTable).where(eq(settingsTable.key, "resellerMonthlyTarget")).limit(1);
+    const target = targetRow?.value ? parseInt(targetRow.value, 10) : 500000;
+
+    const now = new Date();
+    const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const resellers = await db.select({ id: usersTable.id, username: usersTable.username, whatsapp: usersTable.whatsapp, telegramId: usersTable.telegramId }).from(usersTable).where(eq(usersTable.role, "reseller"));
+
+    for (const reseller of resellers) {
+      const [result] = await db
+        .select({ total: sum(ordersTable.amount) })
+        .from(ordersTable)
+        .where(and(
+          eq(ordersTable.userId, reseller.id),
+          eq(ordersTable.status, "paid"),
+          gte(ordersTable.createdAt, prevMonthStart),
+          lt(ordersTable.createdAt, prevMonthEnd),
+        ));
+
+      const totalSales = Number(result?.total ?? 0);
+
+      if (totalSales < target) {
+        await db.update(usersTable).set({ role: "user" }).where(eq(usersTable.id, reseller.id));
+        logger.info({ resellerId: reseller.id, totalSales, target }, "Reseller didowngrade karena tidak capai target bulanan");
+
+        const msg = `⚠️ *Status Reseller Dinonaktifkan*\n\nHai *${reseller.username}*, status reseller kamu bulan ini telah dinonaktifkan karena total penjualan (Rp ${totalSales.toLocaleString("id-ID")}) belum mencapai target minimum (Rp ${target.toLocaleString("id-ID")}).\n\nHubungi admin untuk mengaktifkan kembali.`;
+
+        if (reseller.whatsapp) sendWhatsapp(reseller.whatsapp, msg).catch(() => {});
+        if (reseller.telegramId) sendMessage(String(reseller.telegramId), msg).catch(() => {});
+      }
+    }
+  } catch (err) {
+    logger.error({ err }, "Error saat cek target reseller bulanan");
+  }
+}
+
 export function startScheduler(): void {
   const ONE_HOUR = 60 * 60 * 1000;
   const FIVE_MIN = 5 * 60 * 1000;
 
   checkExpiringAccounts().catch(() => {});
   cancelExpiredQrisOrders().catch(() => {});
+  checkResellerTargets().catch(() => {});
 
   setInterval(() => {
     checkExpiringAccounts().catch(() => {});
@@ -173,8 +222,13 @@ export function startScheduler(): void {
     cancelExpiredQrisOrders().catch(() => {});
   }, FIVE_MIN);
 
+  setInterval(() => {
+    checkResellerTargets().catch(() => {});
+  }, ONE_HOUR);
+
   logger.info("Scheduler notifikasi kedaluwarsa aktif (cek setiap jam, kirim sesuai jam WIB yang dikonfigurasi)");
   logger.info("Scheduler auto-cancel QRIS expired aktif (interval: 5 menit)");
+  logger.info("Scheduler cek target reseller aktif (cek setiap jam, eksekusi tanggal 1 jam 07.00 WIB)");
 
   // Auto-backup: cek setiap jam apakah sudah waktunya backup
   import("./backup").then(({ isBackupDue, performBackup }) => {

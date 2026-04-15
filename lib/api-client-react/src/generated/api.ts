@@ -62,6 +62,7 @@ import type {
   PublicServer,
   RegisterBody,
   RenewAccountBody,
+  ResellerSettings,
   SuccessResponse,
   TelegramSettings,
   TopupBody,
@@ -4361,6 +4362,169 @@ export const useAdminUpdateTelegramSettings = <
   TContext
 > => {
   return useMutation(getAdminUpdateTelegramSettingsMutationOptions(options));
+};
+
+/**
+ * @summary Get reseller program settings
+ */
+export const getAdminGetResellerSettingsUrl = () => {
+  return `/api/admin/settings/reseller`;
+};
+
+export const adminGetResellerSettings = async (
+  options?: RequestInit,
+): Promise<ResellerSettings> => {
+  return customFetch<ResellerSettings>(getAdminGetResellerSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminGetResellerSettingsQueryKey = () => {
+  return [`/api/admin/settings/reseller`] as const;
+};
+
+export const getAdminGetResellerSettingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminGetResellerSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetResellerSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminGetResellerSettingsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminGetResellerSettings>>
+  > = ({ signal }) => adminGetResellerSettings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetResellerSettings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminGetResellerSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetResellerSettings>>
+>;
+export type AdminGetResellerSettingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get reseller program settings
+ */
+
+export function useAdminGetResellerSettings<
+  TData = Awaited<ReturnType<typeof adminGetResellerSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetResellerSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminGetResellerSettingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update reseller program settings
+ */
+export const getAdminUpdateResellerSettingsUrl = () => {
+  return `/api/admin/settings/reseller`;
+};
+
+export const adminUpdateResellerSettings = async (
+  resellerSettings: ResellerSettings,
+  options?: RequestInit,
+): Promise<ResellerSettings> => {
+  return customFetch<ResellerSettings>(getAdminUpdateResellerSettingsUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(resellerSettings),
+  });
+};
+
+export const getAdminUpdateResellerSettingsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateResellerSettings>>,
+    TError,
+    { data: BodyType<ResellerSettings> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateResellerSettings>>,
+  TError,
+  { data: BodyType<ResellerSettings> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateResellerSettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateResellerSettings>>,
+    { data: BodyType<ResellerSettings> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminUpdateResellerSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateResellerSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateResellerSettings>>
+>;
+export type AdminUpdateResellerSettingsMutationBody =
+  BodyType<ResellerSettings>;
+export type AdminUpdateResellerSettingsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update reseller program settings
+ */
+export const useAdminUpdateResellerSettings = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateResellerSettings>>,
+    TError,
+    { data: BodyType<ResellerSettings> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateResellerSettings>>,
+  TError,
+  { data: BodyType<ResellerSettings> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateResellerSettingsMutationOptions(options));
 };
 
 /**

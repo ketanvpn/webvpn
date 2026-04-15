@@ -34,6 +34,7 @@ import AdminBroadcast from "@/pages/admin/broadcast";
 import AdminTelegramSettings from "@/pages/admin/telegram-settings";
 import AdminWhatsappSettings from "@/pages/admin/whatsapp-settings";
 import AdminReferralSettings from "@/pages/admin/referral-settings";
+import AdminResellerSettings from "@/pages/admin/reseller-settings";
 import AdminExpiryNotifSettings from "@/pages/admin/expiry-notification-settings";
 import AdminBackup from "@/pages/admin/backup";
 
@@ -121,6 +122,9 @@ function Router() {
       </Route>
       <Route path="/admin/settings/referral">
         <Layout requireAdmin><AdminReferralSettings /></Layout>
+      </Route>
+      <Route path="/admin/settings/reseller">
+        <Layout requireAdmin><AdminResellerSettings /></Layout>
       </Route>
       <Route path="/admin/settings/expiry-notif">
         <Layout requireAdmin><AdminExpiryNotifSettings /></Layout>

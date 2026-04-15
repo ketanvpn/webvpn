@@ -2,17 +2,21 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { productsTable, ordersTable, vpnAccountsTable } from "@workspace/db";
 import { eq, and, asc, count, gt, inArray } from "drizzle-orm";
+import { getResellerSettings } from "./settings";
 
 const router = Router();
 
-export function formatProduct(p: typeof productsTable.$inferSelect, activeCount = 0) {
+export function formatProduct(p: typeof productsTable.$inferSelect, activeCount = 0, resellerDiscount = 0) {
+  const price = Number(p.price);
+  const resellerPrice = resellerDiscount > 0 ? Math.floor(price * (1 - resellerDiscount / 100)) : null;
   return {
     id: p.id,
     name: p.name,
     description: p.description,
     protocol: p.protocol,
     durationDays: p.durationDays,
-    price: Number(p.price),
+    price,
+    resellerPrice,
     quota: p.quota != null ? Number(p.quota) : null,
     maxConnections: p.maxConnections,
     stock: p.stock,
@@ -41,6 +45,7 @@ async function getActiveCountMap(productIds: number[]): Promise<Map<number, numb
 
 router.get("/products", async (req, res) => {
   const { protocol, category } = req.query as Record<string, string | undefined>;
+  const userRole = (req as any).user?.role ?? "user";
 
   const conditions = [eq(productsTable.isActive, true)];
   if (protocol) conditions.push(eq(productsTable.protocol, protocol));
@@ -53,11 +58,18 @@ router.get("/products", async (req, res) => {
     .orderBy(asc(productsTable.sortOrder), asc(productsTable.id));
 
   const countMap = await getActiveCountMap(products.map((p) => p.id));
-  res.json(products.map((p) => formatProduct(p, countMap.get(p.id) ?? 0)));
+  let resellerDiscount = 0;
+  if (userRole === "reseller") {
+    const settings = await getResellerSettings();
+    if (settings.resellerEnabled) resellerDiscount = settings.resellerDiscountPercent;
+  }
+  res.json(products.map((p) => formatProduct(p, countMap.get(p.id) ?? 0, resellerDiscount)));
 });
 
 router.get("/products/:id", async (req, res) => {
   const id = parseInt(req.params.id, 10);
+  const userRole = (req as any).user?.role ?? "user";
+
   const [product] = await db
     .select()
     .from(productsTable)
@@ -70,7 +82,12 @@ router.get("/products/:id", async (req, res) => {
   }
 
   const countMap = await getActiveCountMap([product.id]);
-  res.json(formatProduct(product, countMap.get(product.id) ?? 0));
+  let resellerDiscount = 0;
+  if (userRole === "reseller") {
+    const settings = await getResellerSettings();
+    if (settings.resellerEnabled) resellerDiscount = settings.resellerDiscountPercent;
+  }
+  res.json(formatProduct(product, countMap.get(product.id) ?? 0, resellerDiscount));
 });
 
 export { getActiveCountMap };

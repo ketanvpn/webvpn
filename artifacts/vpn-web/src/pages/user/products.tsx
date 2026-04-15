@@ -63,12 +63,21 @@ export default function Products() {
                   )}
                 </div>
                 <CardTitle className="text-xl">{product.name}</CardTitle>
-                <div className="text-3xl font-bold text-primary mt-4">
-                  {formatRupiah(product.price)}
-                  <span className="text-sm font-normal text-muted-foreground ml-1">
-                    / {product.durationDays} hari
-                  </span>
-                </div>
+                {product.resellerPrice != null ? (
+                  <div className="mt-4">
+                    <div className="text-sm text-muted-foreground line-through">{formatRupiah(product.price)}</div>
+                    <div className="flex items-baseline gap-2">
+                      <div className="text-3xl font-bold text-green-600">{formatRupiah(product.resellerPrice)}</div>
+                      <span className="text-sm font-normal text-muted-foreground">/ {product.durationDays} hari</span>
+                    </div>
+                    <Badge className="mt-1 bg-green-100 text-green-700 border-green-300 text-xs">Harga Reseller</Badge>
+                  </div>
+                ) : (
+                  <div className="text-3xl font-bold text-primary mt-4">
+                    {formatRupiah(product.price)}
+                    <span className="text-sm font-normal text-muted-foreground ml-1">/ {product.durationDays} hari</span>
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="flex-1 space-y-4 text-sm">
                 {product.description && (
