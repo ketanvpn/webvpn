@@ -378,4 +378,89 @@ router.get("/auth/me", requireAuth, async (req, res) => {
   });
 });
 
+// ─── Forgot Password: Send OTP ────────────────────────────────────────────────
+
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Terlalu banyak permintaan. Coba lagi dalam 15 menit." },
+});
+
+router.post("/auth/forgot-password/send-otp", forgotPasswordLimiter, async (req, res) => {
+  const { whatsapp } = req.body ?? {};
+  if (!whatsapp || typeof whatsapp !== "string") {
+    res.status(400).json({ error: "Nomor WhatsApp wajib diisi" });
+    return;
+  }
+
+  const normalized = normalizeWhatsapp(whatsapp);
+  const [user] = await db
+    .select({ id: usersTable.id, whatsapp: usersTable.whatsapp })
+    .from(usersTable)
+    .where(eq(usersTable.whatsapp, normalized))
+    .limit(1);
+
+  if (!user) {
+    // Jangan bocorkan apakah nomor terdaftar atau tidak (keamanan)
+    res.json({ message: "Jika nomor terdaftar, OTP akan dikirim ke WhatsApp kamu." });
+    return;
+  }
+
+  const result = await sendOtp(whatsapp, "reset");
+  if (!result.success) {
+    res.status(500).json({ error: result.error ?? "Gagal mengirim OTP" });
+    return;
+  }
+
+  res.json({
+    message: "OTP dikirim ke WhatsApp kamu",
+    simulateMode: result.simulateMode,
+    ...(result.simulateMode ? { otp: result.otp } : {}),
+  });
+});
+
+// ─── Forgot Password: Reset with OTP ──────────────────────────────────────────
+
+router.post("/auth/forgot-password/reset", async (req, res) => {
+  const { whatsapp, otpCode, newPassword } = req.body ?? {};
+
+  if (!whatsapp || typeof whatsapp !== "string") {
+    res.status(400).json({ error: "Nomor WhatsApp wajib diisi" });
+    return;
+  }
+  if (!otpCode || typeof otpCode !== "string") {
+    res.status(400).json({ error: "Kode OTP wajib diisi" });
+    return;
+  }
+  if (!newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
+    res.status(400).json({ error: "Password baru minimal 6 karakter" });
+    return;
+  }
+
+  const otpResult = await verifyOtp(whatsapp, otpCode, "reset");
+  if (!otpResult.valid) {
+    res.status(400).json({ error: otpResult.reason ?? "OTP tidak valid" });
+    return;
+  }
+
+  const normalized = normalizeWhatsapp(whatsapp);
+  const [user] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.whatsapp, normalized))
+    .limit(1);
+
+  if (!user) {
+    res.status(404).json({ error: "Akun tidak ditemukan" });
+    return;
+  }
+
+  const hashed = await bcrypt.hash(newPassword, 10);
+  await db.update(usersTable).set({ password: hashed }).where(eq(usersTable.id, user.id));
+
+  res.json({ message: "Password berhasil direset. Silakan login dengan password baru." });
+});
+
 export default router;

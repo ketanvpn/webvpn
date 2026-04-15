@@ -517,6 +517,23 @@ export type ChangePasswordBody = {
   newPassword: string;
 };
 
+export type ForgotPasswordSendOtpBody = {
+  whatsapp: string;
+};
+
+export type ForgotPasswordSendOtp200 = {
+  message?: string;
+  simulateMode?: boolean;
+  otp?: string | null;
+};
+
+export type ForgotPasswordResetBody = {
+  whatsapp: string;
+  otpCode: string;
+  /** @minLength 6 */
+  newPassword: string;
+};
+
 export type ListProductsParams = {
   protocol?: ListProductsProtocol;
   category?: string;

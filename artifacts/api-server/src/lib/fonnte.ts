@@ -22,7 +22,10 @@ function normalizeWhatsapp(phone: string): string {
   return p;
 }
 
-export async function sendOtp(rawPhone: string): Promise<{
+export async function sendOtp(
+  rawPhone: string,
+  purpose: "register" | "reset" = "register"
+): Promise<{
   success: boolean;
   simulateMode: boolean;
   otp?: string;
@@ -35,13 +38,13 @@ export async function sendOtp(rawPhone: string): Promise<{
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
   await db.delete(otpTable).where(
-    and(eq(otpTable.whatsapp, whatsapp), eq(otpTable.purpose, "register"))
+    and(eq(otpTable.whatsapp, whatsapp), eq(otpTable.purpose, purpose))
   );
 
   await db.insert(otpTable).values({
     whatsapp,
     code: otp,
-    purpose: "register",
+    purpose,
     expiresAt,
   });
 
@@ -49,7 +52,8 @@ export async function sendOtp(rawPhone: string): Promise<{
     return { success: true, simulateMode: true, otp };
   }
 
-  const message = `Kode OTP KETANTECH VPN kamu adalah: *${otp}*\n\nKode berlaku 5 menit. Jangan bagikan ke siapapun.`;
+  const actionLabel = purpose === "reset" ? "reset password" : "registrasi";
+  const message = `Kode OTP ${actionLabel} KETANTECH VPN kamu adalah: *${otp}*\n\nKode berlaku 5 menit. Jangan bagikan ke siapapun.`;
 
   try {
     const resp = await fetch("https://api.fonnte.com/send", {
@@ -71,7 +75,11 @@ export async function sendOtp(rawPhone: string): Promise<{
   }
 }
 
-export async function verifyOtp(rawPhone: string, code: string): Promise<{
+export async function verifyOtp(
+  rawPhone: string,
+  code: string,
+  purpose: "register" | "reset" = "register"
+): Promise<{
   valid: boolean;
   reason?: string;
 }> {
@@ -84,7 +92,7 @@ export async function verifyOtp(rawPhone: string, code: string): Promise<{
     .where(
       and(
         eq(otpTable.whatsapp, whatsapp),
-        eq(otpTable.purpose, "register"),
+        eq(otpTable.purpose, purpose),
         eq(otpTable.used, false),
         gt(otpTable.expiresAt, now)
       )

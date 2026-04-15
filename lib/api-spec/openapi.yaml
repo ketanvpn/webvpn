@@ -188,6 +188,89 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /auth/forgot-password/send-otp:
+    post:
+      operationId: forgotPasswordSendOtp
+      tags: [auth]
+      summary: Kirim OTP ke WhatsApp untuk reset password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [whatsapp]
+              properties:
+                whatsapp:
+                  type: string
+      responses:
+        "200":
+          description: OTP dikirim
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  simulateMode:
+                    type: boolean
+                  otp:
+                    type: string
+                    nullable: true
+        "400":
+          description: Validasi gagal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Gagal kirim OTP
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/forgot-password/reset:
+    post:
+      operationId: forgotPasswordReset
+      tags: [auth]
+      summary: Reset password dengan kode OTP dari WhatsApp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [whatsapp, otpCode, newPassword]
+              properties:
+                whatsapp:
+                  type: string
+                otpCode:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 6
+      responses:
+        "200":
+          description: Password berhasil direset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: OTP tidak valid atau validasi gagal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Akun tidak ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # ─── Products ──────────────────────────────────────────────────────────
   /products:
     get:

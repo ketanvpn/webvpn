@@ -131,6 +131,14 @@ export default function Login() {
                 </FormItem>
               )}
             />
+            <div className="flex items-center justify-end">
+              <Link
+                href="/forgot-password"
+                className="text-xs text-muted-foreground hover:text-primary transition-colors"
+              >
+                Lupa password?
+              </Link>
+            </div>
             <Button
               type="submit"
               className="w-full h-11 text-base"

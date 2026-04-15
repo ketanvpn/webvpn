@@ -131,6 +131,34 @@ export const ChangePasswordResponse = zod.object({
 });
 
 /**
+ * @summary Kirim OTP ke WhatsApp untuk reset password
+ */
+export const ForgotPasswordSendOtpBody = zod.object({
+  whatsapp: zod.string(),
+});
+
+export const ForgotPasswordSendOtpResponse = zod.object({
+  message: zod.string().optional(),
+  simulateMode: zod.boolean().optional(),
+  otp: zod.string().nullish(),
+});
+
+/**
+ * @summary Reset password dengan kode OTP dari WhatsApp
+ */
+export const forgotPasswordResetBodyNewPasswordMin = 6;
+
+export const ForgotPasswordResetBody = zod.object({
+  whatsapp: zod.string(),
+  otpCode: zod.string(),
+  newPassword: zod.string().min(forgotPasswordResetBodyNewPasswordMin),
+});
+
+export const ForgotPasswordResetResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
  * @summary List all active VPN packages
  */
 export const ListProductsQueryParams = zod.object({

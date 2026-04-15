@@ -10,6 +10,7 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Login from "@/pages/auth/login";
 import Register from "@/pages/auth/register";
+import ForgotPassword from "@/pages/auth/forgot-password";
 import Dashboard from "@/pages/user/dashboard";
 import Products from "@/pages/user/products";
 import ProductDetail from "@/pages/user/product-detail";
@@ -53,6 +54,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
+      <Route path="/forgot-password" component={ForgotPassword} />
 
       {/* Authenticated User Routes */}
       <Route path="/dashboard">

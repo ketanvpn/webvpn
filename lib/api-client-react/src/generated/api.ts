@@ -47,6 +47,9 @@ import type {
   CreateServerBody,
   DashboardSummary,
   ErrorResponse,
+  ForgotPasswordResetBody,
+  ForgotPasswordSendOtp200,
+  ForgotPasswordSendOtpBody,
   GetTelegramLink200,
   HealthStatus,
   ListBalanceLogsParams,
@@ -647,6 +650,179 @@ export const useChangePassword = <
   TContext
 > => {
   return useMutation(getChangePasswordMutationOptions(options));
+};
+
+/**
+ * @summary Kirim OTP ke WhatsApp untuk reset password
+ */
+export const getForgotPasswordSendOtpUrl = () => {
+  return `/api/auth/forgot-password/send-otp`;
+};
+
+export const forgotPasswordSendOtp = async (
+  forgotPasswordSendOtpBody: ForgotPasswordSendOtpBody,
+  options?: RequestInit,
+): Promise<ForgotPasswordSendOtp200> => {
+  return customFetch<ForgotPasswordSendOtp200>(getForgotPasswordSendOtpUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(forgotPasswordSendOtpBody),
+  });
+};
+
+export const getForgotPasswordSendOtpMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof forgotPasswordSendOtp>>,
+    TError,
+    { data: BodyType<ForgotPasswordSendOtpBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof forgotPasswordSendOtp>>,
+  TError,
+  { data: BodyType<ForgotPasswordSendOtpBody> },
+  TContext
+> => {
+  const mutationKey = ["forgotPasswordSendOtp"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof forgotPasswordSendOtp>>,
+    { data: BodyType<ForgotPasswordSendOtpBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return forgotPasswordSendOtp(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ForgotPasswordSendOtpMutationResult = NonNullable<
+  Awaited<ReturnType<typeof forgotPasswordSendOtp>>
+>;
+export type ForgotPasswordSendOtpMutationBody =
+  BodyType<ForgotPasswordSendOtpBody>;
+export type ForgotPasswordSendOtpMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Kirim OTP ke WhatsApp untuk reset password
+ */
+export const useForgotPasswordSendOtp = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof forgotPasswordSendOtp>>,
+    TError,
+    { data: BodyType<ForgotPasswordSendOtpBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof forgotPasswordSendOtp>>,
+  TError,
+  { data: BodyType<ForgotPasswordSendOtpBody> },
+  TContext
+> => {
+  return useMutation(getForgotPasswordSendOtpMutationOptions(options));
+};
+
+/**
+ * @summary Reset password dengan kode OTP dari WhatsApp
+ */
+export const getForgotPasswordResetUrl = () => {
+  return `/api/auth/forgot-password/reset`;
+};
+
+export const forgotPasswordReset = async (
+  forgotPasswordResetBody: ForgotPasswordResetBody,
+  options?: RequestInit,
+): Promise<MessageResponse> => {
+  return customFetch<MessageResponse>(getForgotPasswordResetUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(forgotPasswordResetBody),
+  });
+};
+
+export const getForgotPasswordResetMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof forgotPasswordReset>>,
+    TError,
+    { data: BodyType<ForgotPasswordResetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof forgotPasswordReset>>,
+  TError,
+  { data: BodyType<ForgotPasswordResetBody> },
+  TContext
+> => {
+  const mutationKey = ["forgotPasswordReset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof forgotPasswordReset>>,
+    { data: BodyType<ForgotPasswordResetBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return forgotPasswordReset(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ForgotPasswordResetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof forgotPasswordReset>>
+>;
+export type ForgotPasswordResetMutationBody = BodyType<ForgotPasswordResetBody>;
+export type ForgotPasswordResetMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Reset password dengan kode OTP dari WhatsApp
+ */
+export const useForgotPasswordReset = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof forgotPasswordReset>>,
+    TError,
+    { data: BodyType<ForgotPasswordResetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof forgotPasswordReset>>,
+  TError,
+  { data: BodyType<ForgotPasswordResetBody> },
+  TContext
+> => {
+  return useMutation(getForgotPasswordResetMutationOptions(options));
 };
 
 /**
