@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Copy, QrCode, Clock, Activity, ShieldCheck, ExternalLink, RefreshCw, CheckCircle2, AlertCircle, RotateCcw } from "lucide-react";
-import { format } from "date-fns";
+import { format, differenceInCalendarDays } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
@@ -315,9 +315,7 @@ export default function AccountDetail() {
   const allLinks = account.allLinks as Record<string, string | null> | null | undefined;
   const hasAllLinks = allLinks && Object.values(allLinks).some(v => !!v);
 
-  const daysLeft = Math.ceil(
-    (new Date(account.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-  );
+  const daysLeft = differenceInCalendarDays(new Date(account.expiresAt), new Date());
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -364,7 +362,7 @@ export default function AccountDetail() {
                   </div>
                   {account.isActive && (
                     <div className={`text-xs font-medium ${daysLeft <= 3 ? "text-destructive" : daysLeft <= 7 ? "text-yellow-600" : "text-green-600"}`}>
-                      {daysLeft > 0 ? `${daysLeft} hari lagi` : "Segera berakhir"}
+                      {daysLeft > 0 ? `${daysLeft} hari lagi` : "Kedaluwarsa hari ini"}
                     </div>
                   )}
                 </div>

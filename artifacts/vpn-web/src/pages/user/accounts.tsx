@@ -7,16 +7,24 @@ import { Link } from "wouter";
 import { Server, Activity, ShieldOff } from "lucide-react";
 
 function DaysRemaining({ expiresAt, isActive }: { expiresAt: string; isActive: boolean }) {
-  const now = new Date();
+  const today = new Date();
   const expDate = new Date(expiresAt);
-  const msLeft = expDate.getTime() - now.getTime();
-  const days = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+  const days = differenceInCalendarDays(expDate, today);
 
-  if (!isActive || days <= 0) {
+  if (!isActive || days < 0) {
     return (
       <span className="flex items-center gap-2 text-sm font-medium text-red-500">
         <ShieldOff className="h-4 w-4" />
         Kedaluwarsa
+      </span>
+    );
+  }
+
+  if (days === 0) {
+    return (
+      <span className="flex items-center gap-2 text-sm font-medium text-red-500">
+        <ShieldOff className="h-4 w-4" />
+        Kedaluwarsa hari ini
       </span>
     );
   }
@@ -51,8 +59,7 @@ export default function Accounts() {
       ) : data && data.length > 0 ? (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {data.map((account) => {
-            const msLeft = new Date(account.expiresAt).getTime() - Date.now();
-            const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+            const daysLeft = differenceInCalendarDays(new Date(account.expiresAt), new Date());
             const isExpiringSoon = account.isActive && daysLeft <= 3;
             const cardBorder = isExpiringSoon
               ? "border-red-300 hover:border-red-400"

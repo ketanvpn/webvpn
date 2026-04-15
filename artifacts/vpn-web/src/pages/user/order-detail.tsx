@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Clock, CreditCard, ShoppingBag, AlertCircle, CheckCircle2, Copy, QrCode, Shield, Loader2, ScanLine, Timer } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow, differenceInCalendarDays } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -167,7 +167,7 @@ export default function OrderDetail() {
     : [];
 
   const daysLeft = vpnAccount
-    ? Math.ceil((new Date(vpnAccount.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    ? differenceInCalendarDays(new Date(vpnAccount.expiresAt), new Date())
     : 0;
 
   return (
@@ -274,7 +274,7 @@ export default function OrderDetail() {
                       <p className="text-xs text-muted-foreground font-semibold uppercase">Kedaluwarsa</p>
                       <p className="font-medium">{format(new Date(vpnAccount.expiresAt), "d MMM yyyy", { locale: idLocale })}</p>
                       <p className={`text-xs font-medium ${daysLeft <= 3 ? "text-destructive" : daysLeft <= 7 ? "text-yellow-600" : "text-green-600"}`}>
-                        {daysLeft > 0 ? `${daysLeft} hari lagi` : "Segera berakhir"}
+                        {daysLeft > 0 ? `${daysLeft} hari lagi` : "Kedaluwarsa hari ini"}
                       </p>
                     </div>
                     <div className="space-y-0.5">
