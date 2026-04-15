@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { UserCircle, Mail, Shield, Calendar, Edit2, Lock, Send, CheckCircle, ExternalLink, Gift, Copy, Check, Phone } from "lucide-react";
+import { UserCircle, Mail, Shield, Calendar, Edit2, Lock, Send, CheckCircle, ExternalLink, Gift, Copy, Check, Phone, LogOut } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -38,7 +38,7 @@ const passwordSchema = z.object({
 });
 
 export default function Profile() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [editMode, setEditMode] = useState(false);
@@ -131,8 +131,8 @@ export default function Profile() {
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Profil</h1>
-        <p className="text-muted-foreground mt-1">Kelola informasi akun kamu.</p>
+        <h1 className="text-2xl font-bold tracking-tight">Profil</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Kelola informasi akun kamu.</p>
       </div>
 
       {/* Profile Card */}
@@ -485,6 +485,18 @@ export default function Profile() {
           </CardContent>
         </Card>
       )}
+
+      {/* Tombol Keluar — hanya tampil di HP, desktop pakai sidebar */}
+      <div className="md:hidden pb-2">
+        <Button
+          variant="outline"
+          className="w-full gap-2 border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+          onClick={logout}
+        >
+          <LogOut className="h-4 w-4" />
+          Keluar dari Akun
+        </Button>
+      </div>
     </div>
   );
 }
