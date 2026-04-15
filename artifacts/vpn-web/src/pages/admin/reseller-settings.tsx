@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { Users, Info, Target, Megaphone } from "lucide-react";
+import { Users, Info, Target, Megaphone, Zap } from "lucide-react";
 import { useState, useEffect } from "react";
 import { formatRupiah } from "@/lib/format";
 
@@ -19,6 +19,8 @@ interface ResellerSettings {
   resellerPromoTitle: string;
   resellerPromoText: string;
   resellerRequestEnabled: boolean;
+  resellerAutoUpgradeEnabled: boolean;
+  resellerAutoUpgradeMinTopup: number;
 }
 
 export default function AdminResellerSettings() {
@@ -32,6 +34,8 @@ export default function AdminResellerSettings() {
     resellerPromoTitle: "Jadi Reseller KETANTECH!",
     resellerPromoText: "Dapatkan harga spesial dan hemat lebih banyak setiap transaksi. Cocok buat kamu yang sering beli VPN!",
     resellerRequestEnabled: true,
+    resellerAutoUpgradeEnabled: false,
+    resellerAutoUpgradeMinTopup: 50000,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -49,6 +53,8 @@ export default function AdminResellerSettings() {
           resellerPromoTitle: data.resellerPromoTitle ?? "Jadi Reseller KETANTECH!",
           resellerPromoText: data.resellerPromoText ?? "Dapatkan harga spesial dan hemat lebih banyak setiap transaksi. Cocok buat kamu yang sering beli VPN!",
           resellerRequestEnabled: data.resellerRequestEnabled ?? true,
+          resellerAutoUpgradeEnabled: data.resellerAutoUpgradeEnabled ?? false,
+          resellerAutoUpgradeMinTopup: data.resellerAutoUpgradeMinTopup ?? 50000,
         });
       })
       .catch(() => toast({ title: "Gagal memuat pengaturan", variant: "destructive" }))
@@ -331,6 +337,83 @@ export default function AdminResellerSettings() {
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* ── Auto-Upgrade via Topup ── */}
+      <Card className="border-2 border-green-200 dark:border-green-900">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Zap className="h-4 w-4 text-green-600" /> Auto-Upgrade Reseller via Topup
+          </CardTitle>
+          <CardDescription>
+            User biasa yang topup dengan nominal tertentu langsung otomatis jadi reseller.
+            Mereka langsung dapat notifikasi WA & Telegram. Kamu juga dapat notifikasi Telegram.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <Separator />
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">Aktifkan Auto-Upgrade</Label>
+              <p className="text-xs text-muted-foreground">
+                Jika aktif, sistem otomatis upgrade user ke reseller saat topup memenuhi syarat.
+              </p>
+            </div>
+            <Switch
+              checked={settings.resellerAutoUpgradeEnabled}
+              onCheckedChange={(v) => setSettings((s) => ({ ...s, resellerAutoUpgradeEnabled: v }))}
+            />
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <Label htmlFor="min-topup" className="text-sm font-medium">
+              Minimal Nominal Topup (Rp)
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              User yang topup sebesar ini atau lebih akan otomatis jadi reseller dalam 1 transaksi.
+            </p>
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1 max-w-xs">
+                <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">Rp</span>
+                <Input
+                  id="min-topup"
+                  type="number"
+                  min={0}
+                  step={10000}
+                  className="pl-10"
+                  value={settings.resellerAutoUpgradeMinTopup}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      resellerAutoUpgradeMinTopup: parseInt(e.target.value, 10) || 0,
+                    }))
+                  }
+                  disabled={!settings.resellerAutoUpgradeEnabled}
+                />
+              </div>
+              <span className="text-sm text-muted-foreground font-medium">
+                = {formatRupiah(settings.resellerAutoUpgradeMinTopup)}
+              </span>
+            </div>
+          </div>
+
+          <div className="rounded-lg bg-green-500/10 border border-green-500/20 p-3 flex gap-2">
+            <Info className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
+            <div className="text-xs text-green-700 space-y-1">
+              <p className="font-medium">Alur otomatis saat topup dikonfirmasi:</p>
+              <ol className="list-decimal list-inside space-y-0.5">
+                <li>User topup 1x dengan nominal ≥ {formatRupiah(settings.resellerAutoUpgradeMinTopup)}.</li>
+                <li>Sistem otomatis upgrade role ke Reseller.</li>
+                <li>User dapat notifikasi WA + Telegram selamat jadi reseller.</li>
+                <li>Kamu (admin) dapat notifikasi Telegram.</li>
+                <li>User langsung bisa beli dengan harga reseller.</li>
+              </ol>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

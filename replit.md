@@ -362,6 +362,13 @@ Setiap kali mengubah `lib/api-spec/openapi.yaml`:
 - **Sistem Reseller (frontend):** Halaman admin `/admin/settings/reseller` (aktif/nonaktif, % diskon, target bulanan); sidebar link "Program Reseller"; halaman produk & detail produk menampilkan harga reseller (strikethrough harga normal + badge hijau "Harga Reseller") jika user adalah reseller; logika balance check menggunakan harga efektif (resellerPrice ?? price)
 - **OpenAPI spec:** `ResellerSettings` schema + `resellerPrice` field pada Product schema; codegen sudah dijalankan ulang
 
+### Batch 15 ✅ (April 2026)
+- **Auto-upgrade reseller via topup:** User biasa yang topup 1x dengan nominal ≥ minimum langsung otomatis jadi reseller. Notifikasi WA + Telegram ke user ("Selamat jadi reseller!") dan Telegram ke admin.
+- **Trigger di dua titik:** Auto-upgrade dipanggil saat topup confirmed via AutoGoPay webhook DAN saat admin konfirmasi manual.
+- **File baru:** `artifacts/api-server/src/lib/reseller-upgrade.ts` — fungsi `tryAutoUpgradeReseller(userId, amount)`.
+- **Settings baru:** `resellerAutoUpgradeEnabled` (bool, default false), `resellerAutoUpgradeMinTopup` (int, default 50000).
+- **Admin panel:** Section baru "Auto-Upgrade Reseller via Topup" di halaman Pengaturan Reseller — toggle aktif/nonaktif + input minimal topup + preview alur otomatis.
+
 ### Batch 14 ✅ (April 2026)
 - **Promosi Reseller di Panel User:** Banner ajakan jadi reseller tampil di dashboard user biasa (bisa di-dismiss, tidak muncul lagi setelah dismiss). Card ajakan juga tampil di halaman Profil. Keduanya hanya tampil jika admin mengaktifkannya.
 - **Admin bisa atur isi banner:** Di halaman "Pengaturan Reseller" admin, ada section baru "Promosi di Panel User" dengan: toggle aktif/nonaktif, input judul, textarea teks (mendukung `{discount}` placeholder), toggle izinkan request via panel, dan preview banner langsung.

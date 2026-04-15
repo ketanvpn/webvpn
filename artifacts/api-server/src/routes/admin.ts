@@ -20,6 +20,7 @@ import { formatFullServer } from "./servers";
 import { createPanelAccount, sanitizeVpnUsername, renewPanelAccount, deletePanelAccount, checkPanelHealth, syncPanelAccount } from "../lib/vpn-panel";
 import { notifyUserTopupConfirmed, notifyUserTopupRejected, notifyUserVpnAccountCreated, notifyAdminOrderFulfilled } from "../lib/telegram";
 import { addBalanceLog } from "./balance-logs";
+import { tryAutoUpgradeReseller } from "../lib/reseller-upgrade";
 import { getReferralBonusAmount } from "../lib/scheduler";
 import { getSettingValue } from "./settings";
 import {
@@ -993,6 +994,9 @@ router.post("/admin/topups/:id/confirm", requireAdmin, async (req, res) => {
 
   // Notify user via Telegram (fire and forget)
   notifyUserTopupConfirmed(topup.userId, Number(topup.amount), balanceAfter).catch(() => {});
+
+  // Cek apakah user layak auto-upgrade jadi reseller
+  tryAutoUpgradeReseller(topup.userId, Number(topup.amount)).catch(() => {});
 
   res.json(formatTopup(updated));
 });

@@ -2,6 +2,7 @@ import { Router } from "express";
 import crypto from "crypto";
 import { db } from "@workspace/db";
 import { usersTable, topupsTable, ordersTable } from "@workspace/db";
+import { tryAutoUpgradeReseller } from "../lib/reseller-upgrade";
 import { eq, sql, and } from "drizzle-orm";
 import { getPaymentSettingsMap } from "./settings";
 import { logger } from "../lib/logger";
@@ -134,6 +135,9 @@ router.post("/webhooks/autogopay", async (req, res) => {
         username,
         newBalance,
       ).catch((err) => logger.error({ err }, "notifyAdminTopupAutoConfirmed failed"));
+
+      // Cek apakah user layak auto-upgrade jadi reseller
+      tryAutoUpgradeReseller(topup.userId, Number(topup.amount)).catch(() => {});
 
       res.json({ success: true });
       return;
