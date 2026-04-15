@@ -140,7 +140,7 @@ export async function sendBackupToTelegram(
       `🗄️ <b>Database Backup KETANTECH VPN</b>\n` +
       `📅 ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })} WIB\n` +
       `📦 Ukuran: ${sizeKb} KB\n` +
-      `🔒 Format: .sql.gz (terenkripsi gzip)\n\n` +
+      `📂 Format: .sql.gz (dikompresi dengan gzip, BUKAN dienkripsi — simpan di tempat aman)\n\n` +
       `Untuk restore:\n` +
       `<code>gunzip -c backup.sql.gz | psql "$DATABASE_URL"</code>`;
 

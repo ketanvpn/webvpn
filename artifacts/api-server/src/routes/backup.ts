@@ -53,10 +53,23 @@ router.post("/admin/backup/now", requireAdmin, async (_req, res) => {
 });
 
 // GET /api/admin/backup/download — download last backup file
-router.get("/admin/backup/download", requireAdmin, (_req, res) => {
-  const filePath = getLastBackupFilePath();
+router.get("/admin/backup/download", requireAdmin, async (_req, res) => {
+  // Coba ambil dari in-memory path dulu (tersedia selama server tidak restart)
+  let filePath = getLastBackupFilePath();
+
+  // Fallback: coba rekonstruksi dari nama file yang tersimpan di database
   if (!filePath || !fs.existsSync(filePath)) {
-    res.status(404).json({ error: "Tidak ada backup yang tersedia. Lakukan backup terlebih dahulu." });
+    const settings = await getBackupSettings();
+    if (settings.backupLastFilename) {
+      const fallbackPath = `/tmp/${settings.backupLastFilename}`;
+      if (fs.existsSync(fallbackPath)) {
+        filePath = fallbackPath;
+      }
+    }
+  }
+
+  if (!filePath || !fs.existsSync(filePath)) {
+    res.status(404).json({ error: "File backup tidak ditemukan di server. Lakukan backup baru terlebih dahulu." });
     return;
   }
   const filename = filePath.split("/").pop() ?? "backup.sql.gz";
