@@ -22,10 +22,7 @@ function useCountdown(expiresAt: string | null) {
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!expiresAt) {
-      setSecondsLeft(null);
-      return;
-    }
+    if (!expiresAt) { setSecondsLeft(null); return; }
     const target = new Date(expiresAt).getTime();
     const update = () => {
       const diff = Math.max(0, Math.floor((target - Date.now()) / 1000));
@@ -63,10 +60,9 @@ export default function Balance() {
     setQrisGateway(null);
     setShowQris(true);
   };
-  
+
   const prevBalanceRef = useRef<number | null>(null);
 
-  // Poll every 3 seconds while QRIS dialog is open
   const { data: balanceData, isLoading: isLoadingBalance } = useGetBalance({
     query: { refetchInterval: showQris ? 3000 : false },
   });
@@ -75,18 +71,11 @@ export default function Balance() {
   });
   const topup = useTopupBalance();
 
-  // Auto-detect payment confirmed: balance naik = sukses
   useEffect(() => {
-    if (!showQris) {
-      prevBalanceRef.current = null;
-      return;
-    }
+    if (!showQris) { prevBalanceRef.current = null; return; }
     const currentBalance = balanceData?.balance ?? null;
     if (currentBalance === null) return;
-    if (prevBalanceRef.current === null) {
-      prevBalanceRef.current = currentBalance;
-      return;
-    }
+    if (prevBalanceRef.current === null) { prevBalanceRef.current = currentBalance; return; }
     if (currentBalance > prevBalanceRef.current) {
       const added = currentBalance - prevBalanceRef.current;
       prevBalanceRef.current = currentBalance;
@@ -126,61 +115,59 @@ export default function Balance() {
   };
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
+    <div className="space-y-5 max-w-5xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Saldo & Top Up</h1>
-        <p className="text-muted-foreground mt-1">Kelola saldo dan lihat riwayat transaksi kamu.</p>
+        <h1 className="text-2xl font-bold tracking-tight">Saldo & Top Up</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Kelola saldo dan lihat riwayat transaksi kamu.</p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-8">
-        {/* Left Col: Balance & Form */}
-        <div className="space-y-6">
-          <Card className="bg-primary text-primary-foreground overflow-hidden relative">
+      <div className="grid md:grid-cols-2 gap-5">
+        {/* Kiri: Saldo + Form */}
+        <div className="space-y-4">
+          {/* Kartu Saldo */}
+          <div className="rounded-xl bg-primary text-primary-foreground p-4 relative overflow-hidden">
             <div className="absolute right-0 top-0 opacity-10 pointer-events-none">
-              <Wallet className="h-48 w-48 -mr-10 -mt-10" />
+              <Wallet className="h-32 w-32 -mr-6 -mt-6" />
             </div>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-primary-foreground/80 font-medium text-lg flex items-center gap-2">
-                <Wallet className="h-5 w-5" /> Saldo Saat Ini
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoadingBalance ? (
-                <Skeleton className="h-12 w-48 bg-primary-foreground/20" />
-              ) : (
-                <div>
-                  <div className="text-4xl md:text-5xl font-bold tracking-tight">
-                    {formatRupiah(balanceData?.balance || 0)}
-                  </div>
-                  {balanceData?.pendingTopup !== undefined && balanceData.pendingTopup > 0 && (
-                    <div className="mt-2 text-sm bg-primary-foreground/10 inline-block px-3 py-1 rounded-full font-medium">
-                      + {formatRupiah(balanceData.pendingTopup)} menunggu konfirmasi
-                    </div>
-                  )}
+            <div className="flex items-center gap-2 text-primary-foreground/70 text-sm mb-2">
+              <Wallet className="h-4 w-4" /> Saldo Saat Ini
+            </div>
+            {isLoadingBalance ? (
+              <Skeleton className="h-9 w-40 bg-primary-foreground/20" />
+            ) : (
+              <div>
+                <div className="text-3xl font-bold tracking-tight">
+                  {formatRupiah(balanceData?.balance || 0)}
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                {balanceData?.pendingTopup !== undefined && balanceData.pendingTopup > 0 && (
+                  <div className="mt-2 text-xs bg-primary-foreground/10 inline-block px-2.5 py-1 rounded-full font-medium">
+                    + {formatRupiah(balanceData.pendingTopup)} menunggu konfirmasi
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
+          {/* Form Topup */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ArrowUpRight className="h-5 w-5" /> Isi Saldo
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <ArrowUpRight className="h-4 w-4" /> Isi Saldo
               </CardTitle>
-              <CardDescription>Tambah saldo via QRIS. Saldo otomatis masuk setelah pembayaran.</CardDescription>
+              <CardDescription className="text-xs">Tambah saldo via QRIS. Saldo otomatis masuk setelah pembayaran.</CardDescription>
             </CardHeader>
             <CardContent>
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                  <div className="space-y-4">
-                    <Label>Pilih Nominal</Label>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs">Pilih Nominal</Label>
                     <div className="grid grid-cols-3 gap-2">
                       {presetAmounts.map((amt) => (
                         <Button
                           key={amt}
                           type="button"
                           variant={form.watch("amount") === amt ? "default" : "outline"}
-                          className="w-full text-xs sm:text-sm"
+                          className="w-full text-xs h-8"
                           onClick={() => form.setValue("amount", amt, { shouldValidate: true })}
                         >
                           {formatRupiah(amt)}
@@ -194,11 +181,11 @@ export default function Balance() {
                     name="amount"
                     render={({ field }) => (
                       <FormItem>
-                        <Label>Nominal Lain (Min. Rp 10.000)</Label>
+                        <Label className="text-xs">Nominal Lain (Min. Rp 10.000)</Label>
                         <FormControl>
                           <div className="relative">
-                            <span className="absolute left-3 top-2.5 text-muted-foreground font-medium">Rp</span>
-                            <Input type="number" className="pl-9 text-lg font-medium" {...field} />
+                            <span className="absolute left-3 top-2.5 text-muted-foreground text-sm font-medium">Rp</span>
+                            <Input type="number" className="pl-9 font-medium" {...field} />
                           </div>
                         </FormControl>
                         <FormMessage />
@@ -206,7 +193,7 @@ export default function Balance() {
                     )}
                   />
 
-                  <Button type="submit" className="w-full h-12 text-lg" disabled={topup.isPending}>
+                  <Button type="submit" className="w-full" disabled={topup.isPending}>
                     {topup.isPending ? "Membuat QRIS..." : "Buat QRIS"}
                   </Button>
                 </form>
@@ -215,57 +202,55 @@ export default function Balance() {
           </Card>
         </div>
 
-        {/* Right Col: History */}
-        <div>
-          <Card className="h-full flex flex-col border-2">
-            <CardHeader className="border-b bg-muted/20">
-              <CardTitle className="flex items-center gap-2">
-                <History className="h-5 w-5" /> Riwayat Topup
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0 flex-1">
-              {isLoadingHistory ? (
-                <div className="p-6 space-y-4">
-                  {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-16 w-full" />)}
-                </div>
-              ) : historyData && historyData.length > 0 ? (
-                <div className="divide-y">
-                  {historyData.map((tx) => {
-                    const isExpired = tx.expiresAt ? new Date(tx.expiresAt) < new Date() : false;
-                    const canViewQris = tx.status === 'pending' && tx.qrisUrl && !isExpired;
-                    return (
-                    <div key={tx.id} className="p-4 sm:p-6 hover:bg-accent/30 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className={`p-2 rounded-full ${
-                            tx.status === 'confirmed' ? 'bg-green-500/10 text-green-500' :
-                            tx.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' :
+        {/* Kanan: Riwayat Topup */}
+        <div className="rounded-xl border-2 overflow-hidden flex flex-col">
+          <div className="flex items-center gap-2 px-4 py-3 border-b bg-muted/20">
+            <History className="h-4 w-4" />
+            <span className="font-semibold text-sm">Riwayat Topup</span>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {isLoadingHistory ? (
+              <div className="p-4 space-y-3">
+                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}
+              </div>
+            ) : historyData && historyData.length > 0 ? (
+              <div className="divide-y">
+                {historyData.map((tx) => {
+                  const isExpired = tx.expiresAt ? new Date(tx.expiresAt) < new Date() : false;
+                  const canViewQris = tx.status === 'pending' && tx.qrisUrl && !isExpired;
+                  return (
+                    <div key={tx.id} className="px-4 py-3 hover:bg-accent/20 transition-colors">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className={`p-1.5 rounded-full shrink-0 ${
+                            tx.status === 'confirmed' ? 'bg-green-500/10 text-green-600' :
+                            tx.status === 'pending' ? 'bg-yellow-500/10 text-yellow-600' :
                             'bg-red-500/10 text-red-500'
                           }`}>
-                            {tx.status === 'confirmed' ? <ArrowUpRight className="h-5 w-5" /> :
-                             tx.status === 'pending' ? <Clock className="h-5 w-5" /> :
-                             <XCircle className="h-5 w-5" />}
+                            {tx.status === 'confirmed' ? <ArrowUpRight className="h-4 w-4" /> :
+                             tx.status === 'pending' ? <Clock className="h-4 w-4" /> :
+                             <XCircle className="h-4 w-4" />}
                           </div>
                           <div>
-                            <div className="font-semibold text-lg">{formatRupiah(tx.amount)}</div>
-                            <div className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <div className="font-semibold text-sm">{formatRupiah(tx.amount)}</div>
+                            <div className="text-[11px] text-muted-foreground">
                               {format(new Date(tx.createdAt), "d MMM yyyy HH:mm")}
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 shrink-0">
                           {canViewQris && (
                             <Button
                               size="sm"
                               variant="outline"
-                              className="gap-1.5 text-xs border-yellow-500 text-yellow-600 hover:bg-yellow-50"
+                              className="h-7 gap-1 text-[11px] px-2 border-yellow-500 text-yellow-600 hover:bg-yellow-50"
                               onClick={() => openQrisFromHistory(tx)}
                             >
-                              <QrCode className="h-3.5 w-3.5" />
-                              Lihat QRIS
+                              <QrCode className="h-3 w-3" />
+                              QRIS
                             </Button>
                           )}
-                          <Badge variant="outline" className={`capitalize ${
+                          <Badge variant="outline" className={`text-[10px] h-5 px-1.5 capitalize ${
                             tx.status === 'confirmed' ? 'border-green-500 text-green-600' :
                             tx.status === 'pending' ? 'border-yellow-500 text-yellow-600' :
                             'border-red-500 text-red-600'
@@ -275,24 +260,24 @@ export default function Balance() {
                         </div>
                       </div>
                       {tx.status === 'rejected' && tx.rejectionNote && (
-                        <div className="mt-2 ml-14 text-xs text-red-600/80 italic bg-red-50 dark:bg-red-950/20 px-3 py-1.5 rounded-md border border-red-200/60">
-                          Alasan penolakan: {tx.rejectionNote}
+                        <div className="mt-1.5 ml-9 text-[11px] text-red-600/80 italic bg-red-50 px-2.5 py-1 rounded border border-red-200/60">
+                          Alasan: {tx.rejectionNote}
                         </div>
                       )}
                     </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="p-12 text-center text-muted-foreground">
-                  Belum ada riwayat topup.
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="py-12 text-center text-sm text-muted-foreground">
+                Belum ada riwayat topup.
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
+      {/* Dialog QRIS */}
       <Dialog open={showQris} onOpenChange={setShowQris}>
         <DialogContent
           className="sm:max-w-md text-center"
@@ -301,11 +286,10 @@ export default function Balance() {
           <DialogHeader>
             <DialogTitle>Scan QRIS untuk Bayar</DialogTitle>
             <DialogDescription>
-              Buka aplikasi bank atau e-wallet kamu dan scan QR berikut untuk menyelesaikan topup.
+              Buka aplikasi bank atau e-wallet dan scan QR berikut untuk menyelesaikan topup.
             </DialogDescription>
           </DialogHeader>
 
-          {/* Countdown timer */}
           {countdown && (
             <div className={`flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-semibold border mx-auto w-fit ${
               countdown.expired
@@ -315,11 +299,11 @@ export default function Balance() {
                 : "bg-muted border-border text-foreground"
             }`}>
               <Timer className="h-4 w-4" />
-              {countdown.expired ? "QRIS sudah kadaluarsa" : `QRIS berlaku: ${countdown.display}`}
+              {countdown.expired ? "QRIS sudah kadaluarsa" : `Berlaku: ${countdown.display}`}
             </div>
           )}
 
-          <div className="flex justify-center p-6 bg-white rounded-lg my-2 relative">
+          <div className="flex justify-center p-4 bg-white rounded-lg my-2 relative">
             {countdown?.expired && (
               <div className="absolute inset-0 bg-white/90 rounded-lg flex flex-col items-center justify-center z-10 gap-2">
                 <XCircle className="h-10 w-10 text-red-500" />
@@ -344,7 +328,6 @@ export default function Balance() {
             )}
           </div>
 
-          {/* Gateway info */}
           {qrisGateway === "autogopay" ? (
             <div className="bg-green-500/10 text-green-700 p-3 rounded-md text-sm border border-green-500/20 text-left flex items-start gap-2">
               <Zap className="h-4 w-4 mt-0.5 shrink-0" />
