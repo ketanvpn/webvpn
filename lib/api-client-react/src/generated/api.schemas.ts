@@ -557,6 +557,10 @@ export const AdminListUsersRole = {
   admin: "admin",
 } as const;
 
+export type AdminDeleteUser200 = {
+  success?: boolean;
+};
+
 export type AdminResetUserPasswordBody = {
   /** @minLength 6 */
   newPassword: string;

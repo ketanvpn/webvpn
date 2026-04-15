@@ -11,6 +11,7 @@ export * from "./adminBroadcast200";
 export * from "./adminBroadcastBody";
 export * from "./adminDashboard";
 export * from "./adminDashboardOrdersByProtocolItem";
+export * from "./adminDeleteUser200";
 export * from "./adminExtendAccount200";
 export * from "./adminExtendAccountBody";
 export * from "./adminGetUserBalanceLogsParams";

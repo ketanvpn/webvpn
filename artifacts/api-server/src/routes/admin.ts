@@ -374,6 +374,34 @@ router.patch("/admin/users/:id", requireAdmin, async (req, res) => {
   res.json(formatUser(updated));
 });
 
+router.delete("/admin/users/:id", requireAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const currentUser = (req as any).user;
+
+  if (currentUser?.id === id) {
+    res.status(400).json({ error: "Tidak bisa menghapus akun sendiri" });
+    return;
+  }
+
+  const [existing] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
+  if (!existing) {
+    res.status(404).json({ error: "User tidak ditemukan" });
+    return;
+  }
+
+  if (existing.role === "admin") {
+    res.status(400).json({ error: "Tidak bisa menghapus akun Administrator" });
+    return;
+  }
+
+  await db.delete(vpnAccountsTable).where(eq(vpnAccountsTable.userId, id));
+  await db.delete(ordersTable).where(eq(ordersTable.userId, id));
+  await db.delete(topupsTable).where(eq(topupsTable.userId, id));
+  await db.delete(usersTable).where(eq(usersTable.id, id));
+
+  res.json({ success: true });
+});
+
 router.post("/admin/users/:id/reset-password", requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const { newPassword } = req.body ?? {};

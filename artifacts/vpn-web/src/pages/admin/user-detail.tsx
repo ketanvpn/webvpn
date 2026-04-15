@@ -1,6 +1,6 @@
 import { getApiError } from "@/lib/utils";
-import { useAdminGetUser, useAdminUpdateUser, getAdminGetUserQueryKey, useAdminGetUserBalanceLogs, useAdminResetUserPassword } from "@workspace/api-client-react";
-import { useParams, Link } from "wouter";
+import { useAdminGetUser, useAdminUpdateUser, getAdminGetUserQueryKey, useAdminGetUserBalanceLogs, useAdminResetUserPassword, useAdminDeleteUser } from "@workspace/api-client-react";
+import { useParams, Link, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,8 +11,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   ArrowLeft, UserCircle, Wallet, Lock, Unlock, Mail, Calendar,
   ShoppingCart, Server, CreditCard, CheckCircle, XCircle, Clock,
-  History, ArrowUpRight, ArrowDownLeft, Settings2, Phone, Send, Users,
+  History, ArrowUpRight, ArrowDownLeft, Settings2, Phone, Send, Users, Trash2,
 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -44,6 +48,8 @@ export default function AdminUserDetail() {
   const queryClient = useQueryClient();
   const [balanceAdjustment, setBalanceAdjustment] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [showDeleteDialog1, setShowDeleteDialog1] = useState(false);
+  const [showDeleteDialog2, setShowDeleteDialog2] = useState(false);
 
   const { data: user, isLoading } = useAdminGetUser(userId, {
     query: { enabled: !!userId, queryKey: getAdminGetUserQueryKey(userId) },
@@ -55,6 +61,8 @@ export default function AdminUserDetail() {
 
   const updateUser = useAdminUpdateUser();
   const resetPassword = useAdminResetUserPassword();
+  const deleteUser = useAdminDeleteUser();
+  const [, navigate] = useLocation();
 
   const handleUpdateRole = (role: AdminUpdateUserBodyRole) => {
     updateUser.mutate(
@@ -98,6 +106,22 @@ export default function AdminUserDetail() {
         },
         onError: (err) =>
           toast({ title: "Gagal menyesuaikan saldo", description: getApiError(err), variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleConfirmDelete = () => {
+    deleteUser.mutate(
+      { id: userId },
+      {
+        onSuccess: () => {
+          toast({ title: "Pengguna berhasil dihapus", description: `Akun ${user?.username} dan semua datanya telah dihapus permanen.` });
+          navigate("/admin/users");
+        },
+        onError: (err) => {
+          setShowDeleteDialog2(false);
+          toast({ title: "Gagal menghapus pengguna", description: getApiError(err), variant: "destructive" });
+        },
       }
     );
   };
@@ -463,7 +487,7 @@ export default function AdminUserDetail() {
               </form>
 
               {user.role !== "admin" && (
-                <div className="pt-4 border-t">
+                <div className="pt-4 border-t space-y-3">
                   <Button
                     variant={user.isActive ? "destructive" : "default"}
                     className="w-full gap-2"
@@ -477,13 +501,79 @@ export default function AdminUserDetail() {
                       <><Unlock className="h-4 w-4" /> Aktifkan Kembali</>
                     )}
                   </Button>
-                  <p className="text-xs text-muted-foreground text-center mt-2">
+                  <p className="text-xs text-muted-foreground text-center">
                     {user.isActive
                       ? "User yang disuspend tidak bisa login atau membeli."
                       : "User akan mendapatkan akses penuh kembali."}
                   </p>
+
+                  <div className="pt-2 border-t">
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2 text-destructive border-destructive/40 hover:bg-destructive/10"
+                      onClick={() => setShowDeleteDialog1(true)}
+                    >
+                      <Trash2 className="h-4 w-4" /> Hapus Pengguna
+                    </Button>
+                  </div>
                 </div>
               )}
+
+              {/* Dialog Peringatan 1 */}
+              <AlertDialog open={showDeleteDialog1} onOpenChange={setShowDeleteDialog1}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                      <Trash2 className="h-5 w-5" /> Hapus Pengguna?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription asChild>
+                      <div className="space-y-3 text-sm">
+                        <p>Kamu akan menghapus akun <strong>{user.username}</strong> beserta seluruh data berikut secara permanen:</p>
+                        <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                          <li>Semua riwayat pesanan</li>
+                          <li>Semua akun VPN milik user ini</li>
+                          <li>Semua riwayat topup</li>
+                          <li>Saldo dan log saldo</li>
+                        </ul>
+                        <p className="font-semibold text-destructive">Data yang dihapus tidak bisa dikembalikan!</p>
+                      </div>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Batal</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive hover:bg-destructive/90"
+                      onClick={() => { setShowDeleteDialog1(false); setShowDeleteDialog2(true); }}
+                    >
+                      Lanjutkan
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              {/* Dialog Peringatan 2 — Konfirmasi Final */}
+              <AlertDialog open={showDeleteDialog2} onOpenChange={setShowDeleteDialog2}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="text-destructive flex items-center gap-2">
+                      ⚠️ Konfirmasi Terakhir
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Ini adalah langkah terakhir. Setelah dikonfirmasi, akun <strong>{user.username}</strong> dan semua datanya akan terhapus permanen dan tidak bisa dipulihkan.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setShowDeleteDialog2(false)}>Batal, Jangan Hapus</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive hover:bg-destructive/90"
+                      onClick={handleConfirmDelete}
+                      disabled={deleteUser.isPending}
+                    >
+                      {deleteUser.isPending ? "Menghapus..." : "Ya, Hapus Permanen"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </CardContent>
           </Card>
         </div>

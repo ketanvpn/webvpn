@@ -608,6 +608,28 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminUserDetail"
+    delete:
+      operationId: adminDeleteUser
+      tags: [admin]
+      summary: Hapus user beserta semua data terkait (admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User berhasil dihapus
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
     patch:
       operationId: adminUpdateUser
       tags: [admin]

@@ -992,6 +992,17 @@ export const AdminGetUserResponse = zod
   );
 
 /**
+ * @summary Hapus user beserta semua data terkait (admin)
+ */
+export const AdminDeleteUserParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminDeleteUserResponse = zod.object({
+  success: zod.boolean().optional(),
+});
+
+/**
  * @summary Update user (admin) — adjust balance, lock/unlock, set role
  */
 export const AdminUpdateUserParams = zod.object({
