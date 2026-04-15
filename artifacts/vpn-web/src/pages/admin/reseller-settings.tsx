@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Users, Info, Target } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Users, Info, Target, Megaphone } from "lucide-react";
 import { useState, useEffect } from "react";
 import { formatRupiah } from "@/lib/format";
 
@@ -14,6 +15,10 @@ interface ResellerSettings {
   resellerDiscountPercent: number;
   resellerTargetEnabled: boolean;
   resellerMonthlyTarget: number;
+  resellerPromoEnabled: boolean;
+  resellerPromoTitle: string;
+  resellerPromoText: string;
+  resellerRequestEnabled: boolean;
 }
 
 export default function AdminResellerSettings() {
@@ -23,6 +28,10 @@ export default function AdminResellerSettings() {
     resellerDiscountPercent: 20,
     resellerTargetEnabled: false,
     resellerMonthlyTarget: 500000,
+    resellerPromoEnabled: false,
+    resellerPromoTitle: "Jadi Reseller KETANTECH!",
+    resellerPromoText: "Dapatkan harga spesial dan hemat lebih banyak setiap transaksi. Cocok buat kamu yang sering beli VPN!",
+    resellerRequestEnabled: true,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -36,6 +45,10 @@ export default function AdminResellerSettings() {
           resellerDiscountPercent: data.resellerDiscountPercent ?? 20,
           resellerTargetEnabled: data.resellerTargetEnabled ?? false,
           resellerMonthlyTarget: data.resellerMonthlyTarget ?? 500000,
+          resellerPromoEnabled: data.resellerPromoEnabled ?? false,
+          resellerPromoTitle: data.resellerPromoTitle ?? "Jadi Reseller KETANTECH!",
+          resellerPromoText: data.resellerPromoText ?? "Dapatkan harga spesial dan hemat lebih banyak setiap transaksi. Cocok buat kamu yang sering beli VPN!",
+          resellerRequestEnabled: data.resellerRequestEnabled ?? true,
         });
       })
       .catch(() => toast({ title: "Gagal memuat pengaturan", variant: "destructive" }))
@@ -72,9 +85,10 @@ export default function AdminResellerSettings() {
     <div className="space-y-6 max-w-2xl mx-auto">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Pengaturan Reseller</h1>
-        <p className="text-muted-foreground mt-1">Kelola program reseller dan target penjualan bulanan.</p>
+        <p className="text-muted-foreground mt-1">Kelola program reseller, target penjualan, dan promosi.</p>
       </div>
 
+      {/* ── Harga Khusus Reseller ── */}
       <Card className="border-2">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -150,6 +164,7 @@ export default function AdminResellerSettings() {
         </CardContent>
       </Card>
 
+      {/* ── Target Penjualan ── */}
       <Card className="border-2">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -221,6 +236,101 @@ export default function AdminResellerSettings() {
               </ol>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Promosi Reseller di Panel User ── */}
+      <Card className="border-2 border-primary/20">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Megaphone className="h-4 w-4 text-primary" /> Promosi di Panel User
+          </CardTitle>
+          <CardDescription>
+            Tampilkan banner ajakan jadi reseller di dashboard dan halaman profil user biasa.
+            User bisa langsung kirim permintaan dari panel — kamu akan dapat notifikasi Telegram.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <Separator />
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">Tampilkan Banner Promosi</Label>
+              <p className="text-xs text-muted-foreground">
+                Banner akan muncul di dashboard user biasa (bukan reseller/admin).
+              </p>
+            </div>
+            <Switch
+              checked={settings.resellerPromoEnabled}
+              onCheckedChange={(v) => setSettings((s) => ({ ...s, resellerPromoEnabled: v }))}
+            />
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <Label htmlFor="promo-title" className="text-sm font-medium">Judul Banner</Label>
+            <Input
+              id="promo-title"
+              value={settings.resellerPromoTitle}
+              onChange={(e) => setSettings((s) => ({ ...s, resellerPromoTitle: e.target.value }))}
+              placeholder="Jadi Reseller KETANTECH!"
+              disabled={!settings.resellerPromoEnabled}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="promo-text" className="text-sm font-medium">Teks Deskripsi</Label>
+            <Textarea
+              id="promo-text"
+              value={settings.resellerPromoText}
+              onChange={(e) => setSettings((s) => ({ ...s, resellerPromoText: e.target.value }))}
+              placeholder="Tuliskan keuntungan jadi reseller..."
+              rows={3}
+              disabled={!settings.resellerPromoEnabled}
+            />
+            <p className="text-xs text-muted-foreground">
+              Gunakan {"{discount}"} untuk menampilkan persentase diskon secara otomatis.
+            </p>
+          </div>
+
+          <Separator />
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">Izinkan Request via Panel</Label>
+              <p className="text-xs text-muted-foreground">
+                User bisa klik "Ajukan Jadi Reseller" langsung dari panel.
+                Kamu akan dapat notifikasi Telegram saat ada yang mengajukan.
+              </p>
+            </div>
+            <Switch
+              checked={settings.resellerRequestEnabled}
+              onCheckedChange={(v) => setSettings((s) => ({ ...s, resellerRequestEnabled: v }))}
+              disabled={!settings.resellerPromoEnabled}
+            />
+          </div>
+
+          {/* Preview banner */}
+          {settings.resellerPromoEnabled && (
+            <div className="rounded-xl border border-primary/30 bg-gradient-to-r from-primary/10 to-primary/5 p-4 space-y-2">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Preview Banner</p>
+              <p className="font-bold text-sm">{settings.resellerPromoTitle}</p>
+              <p className="text-xs text-muted-foreground">
+                {settings.resellerPromoText.replace("{discount}", String(settings.resellerDiscountPercent))}
+              </p>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] bg-primary/10 text-primary font-semibold px-2 py-0.5 rounded-full">
+                  Hemat {settings.resellerDiscountPercent}%
+                </span>
+                {settings.resellerRequestEnabled && (
+                  <span className="text-[10px] border rounded-full px-2 py-0.5 text-muted-foreground">
+                    Ajukan Jadi Reseller →
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

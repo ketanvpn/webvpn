@@ -15,7 +15,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   UserCircle, Mail, Shield, Calendar, Edit2, Lock, Send,
   CheckCircle, ExternalLink, Gift, Copy, Check, Phone,
-  LogOut, TrendingUp, RefreshCw, ChevronRight, X, KeyRound,
+  LogOut, TrendingUp, RefreshCw, ChevronRight, X, KeyRound, Sparkles,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
@@ -79,6 +79,11 @@ export default function Profile() {
   const [resellerStatus, setResellerStatus] = useState<ResellerStatus | null>(null);
   const [resellerLoading, setResellerLoading] = useState(false);
 
+  type PromoData = { promoEnabled: boolean; promoTitle: string; promoText: string; requestEnabled: boolean; discountPercent: number };
+  const [promo, setPromo] = useState<PromoData | null>(null);
+  const [promoRequesting, setPromoRequesting] = useState(false);
+  const [promoRequested, setPromoRequested] = useState(false);
+
   const fetchResellerStatus = () => {
     if (user?.role !== "reseller") return;
     setResellerLoading(true);
@@ -95,6 +100,32 @@ export default function Profile() {
     const interval = setInterval(fetchResellerStatus, 30_000);
     return () => clearInterval(interval);
   }, [user?.role]);
+
+  useEffect(() => {
+    if (user?.role !== "user") return;
+    fetch(`${API}/api/reseller/promo`, { credentials: "include" })
+      .then((r) => r.json())
+      .then(setPromo)
+      .catch(() => {});
+  }, [user?.role]);
+
+  const handlePromoRequest = async () => {
+    setPromoRequesting(true);
+    try {
+      const r = await fetch(`${API}/api/reseller/request`, { method: "POST", credentials: "include" });
+      const data = await r.json();
+      if (r.ok) {
+        setPromoRequested(true);
+        toast({ title: "Permintaan terkirim!", description: data.message });
+      } else {
+        toast({ title: "Gagal", description: data.error, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Gagal mengirim permintaan.", variant: "destructive" });
+    } finally {
+      setPromoRequesting(false);
+    }
+  };
 
   const copyReferralCode = () => {
     if (!user?.referralCode) return;
@@ -474,6 +505,45 @@ export default function Profile() {
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Target bulanan tidak diaktifkan. Status reseller kamu permanen.</p>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* ── Ajakan Reseller — hanya untuk user biasa ── */}
+      {user.role === "user" && promo?.promoEnabled && (
+        <Card className="overflow-hidden border shadow-sm bg-gradient-to-br from-primary/8 via-transparent to-transparent">
+          <div className="px-5 py-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-9 w-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                <Sparkles className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-sm">{promo.promoTitle}</p>
+                <span className="text-[10px] bg-primary text-primary-foreground font-bold px-2 py-0.5 rounded-full">
+                  Hemat {promo.discountPercent}%
+                </span>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              {promo.promoText.replace("{discount}", String(promo.discountPercent))}
+            </p>
+            {promoRequested ? (
+              <div className="flex items-center gap-2 text-green-600 text-sm font-semibold">
+                <CheckCircle className="h-4 w-4" />
+                Permintaan terkirim! Admin akan segera menghubungi kamu.
+              </div>
+            ) : promo.requestEnabled ? (
+              <Button
+                onClick={handlePromoRequest}
+                disabled={promoRequesting}
+                size="sm"
+                className="w-full gap-2"
+              >
+                {promoRequesting ? "Mengirim..." : "Ajukan Jadi Reseller →"}
+              </Button>
+            ) : (
+              <p className="text-xs text-muted-foreground">Hubungi admin untuk bergabung sebagai reseller.</p>
             )}
           </div>
         </Card>

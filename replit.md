@@ -362,6 +362,13 @@ Setiap kali mengubah `lib/api-spec/openapi.yaml`:
 - **Sistem Reseller (frontend):** Halaman admin `/admin/settings/reseller` (aktif/nonaktif, % diskon, target bulanan); sidebar link "Program Reseller"; halaman produk & detail produk menampilkan harga reseller (strikethrough harga normal + badge hijau "Harga Reseller") jika user adalah reseller; logika balance check menggunakan harga efektif (resellerPrice ?? price)
 - **OpenAPI spec:** `ResellerSettings` schema + `resellerPrice` field pada Product schema; codegen sudah dijalankan ulang
 
+### Batch 14 ✅ (April 2026)
+- **Promosi Reseller di Panel User:** Banner ajakan jadi reseller tampil di dashboard user biasa (bisa di-dismiss, tidak muncul lagi setelah dismiss). Card ajakan juga tampil di halaman Profil. Keduanya hanya tampil jika admin mengaktifkannya.
+- **Admin bisa atur isi banner:** Di halaman "Pengaturan Reseller" admin, ada section baru "Promosi di Panel User" dengan: toggle aktif/nonaktif, input judul, textarea teks (mendukung `{discount}` placeholder), toggle izinkan request via panel, dan preview banner langsung.
+- **Request jadi reseller via panel:** User klik "Ajukan Jadi Reseller" → API `POST /api/reseller/request` → kirim notifikasi Telegram ke admin → user dapat konfirmasi. Admin assign role secara manual dari panel.
+- **Endpoint baru:** `GET /api/reseller/promo` (requireAuth) — info promo untuk frontend user. `POST /api/reseller/request` (requireAuth, role user only) — proses pengajuan.
+- **Settings baru di tabel settings:** `resellerPromoEnabled`, `resellerPromoTitle`, `resellerPromoText`, `resellerRequestEnabled` — disimpan sebagai key-value di tabel settings yang sudah ada, tidak ada perubahan schema DB.
+
 ### Batch 13 ✅ (April 2026)
 - **Dashboard Progres Reseller:** Endpoint baru `GET /api/reseller/status` (requireAuth + role check reseller) — mengembalikan `discountPercent`, `targetEnabled`, `monthlyTarget`, `currentMonthSales` (total order lunas bulan berjalan), `progressPercent`, `currentMonth`
 - **Kartu Status Reseller di halaman Profil:** Hanya tampil jika `user.role === "reseller"`. Menampilkan: diskon yang didapat, progress bar penjualan bulan ini vs target, berapa yang masih kurang, serta catatan bahwa evaluasi dilakukan tiap tanggal 1. Jika target dinonaktifkan oleh admin, kartu tetap tampil dengan info "status reseller permanen". Jika target sudah capai → tampil pesan hijau "Target bulan ini sudah tercapai!".

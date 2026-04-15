@@ -2,12 +2,118 @@ import { useGetDashboardSummary } from "@workspace/api-client-react";
 import { formatRupiah } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { Wallet, Server, ShoppingCart, AlertCircle, ChevronRight } from "lucide-react";
+import { Wallet, Server, ShoppingCart, AlertCircle, ChevronRight, Sparkles, X } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/use-auth";
+import { useState, useEffect } from "react";
+
+const API = import.meta.env.VITE_API_URL ?? "";
+const PROMO_DISMISSED_KEY = "reseller_promo_dismissed";
+
+type PromoData = {
+  promoEnabled: boolean;
+  promoTitle: string;
+  promoText: string;
+  requestEnabled: boolean;
+  discountPercent: number;
+};
+
+function ReselerPromoBanner({ onRequest }: { onRequest: () => void }) {
+  const [promo, setPromo] = useState<PromoData | null>(null);
+  const [dismissed, setDismissed] = useState(() => !!localStorage.getItem(PROMO_DISMISSED_KEY));
+  const [requesting, setRequesting] = useState(false);
+  const [requested, setRequested] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API}/api/reseller/promo`, { credentials: "include" })
+      .then((r) => r.json())
+      .then(setPromo)
+      .catch(() => {});
+  }, []);
+
+  if (!promo?.promoEnabled || dismissed) return null;
+
+  const handleDismiss = () => {
+    localStorage.setItem(PROMO_DISMISSED_KEY, "1");
+    setDismissed(true);
+  };
+
+  const handleRequest = async () => {
+    setRequesting(true);
+    try {
+      const r = await fetch(`${API}/api/reseller/request`, { method: "POST", credentials: "include" });
+      const data = await r.json();
+      if (r.ok) {
+        setRequested(true);
+        onRequest();
+      } else {
+        alert(data.error ?? "Gagal mengirim permintaan.");
+      }
+    } catch {
+      alert("Gagal mengirim permintaan. Coba lagi nanti.");
+    } finally {
+      setRequesting(false);
+    }
+  };
+
+  const displayText = promo.promoText.replace("{discount}", String(promo.discountPercent));
+
+  return (
+    <div className="relative rounded-xl border border-primary/25 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4 overflow-hidden">
+      {/* Dekorasi lingkaran latar */}
+      <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-primary/10 blur-xl" />
+      <div className="absolute right-8 bottom-0 h-12 w-12 rounded-full bg-primary/5" />
+
+      <button
+        onClick={handleDismiss}
+        className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors"
+        aria-label="Tutup"
+      >
+        <X className="h-4 w-4" />
+      </button>
+
+      <div className="flex gap-3 items-start relative">
+        <div className="h-9 w-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-0.5">
+          <Sparkles className="h-4 w-4 text-primary" />
+        </div>
+        <div className="flex-1 min-w-0 pr-4">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <p className="font-bold text-sm">{promo.promoTitle}</p>
+            <span className="text-[10px] bg-primary text-primary-foreground font-bold px-2 py-0.5 rounded-full">
+              Hemat {promo.discountPercent}%
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">{displayText}</p>
+
+          {requested ? (
+            <p className="text-xs text-green-600 font-semibold">
+              ✓ Permintaan terkirim! Admin akan segera menghubungi kamu.
+            </p>
+          ) : promo.requestEnabled ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={handleRequest}
+                disabled={requesting}
+                className="text-xs bg-primary text-primary-foreground font-semibold px-3 py-1.5 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-60"
+              >
+                {requesting ? "Mengirim..." : "Ajukan Jadi Reseller →"}
+              </button>
+              <span className="text-[10px] text-muted-foreground">Gratis, langsung ke admin</span>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">Hubungi admin untuk bergabung.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const { data: summary, isLoading } = useGetDashboardSummary();
+  const { user } = useAuth();
+  const [promoRequested, setPromoRequested] = useState(false);
 
   if (isLoading || !summary) {
     return (
@@ -28,6 +134,11 @@ export default function Dashboard() {
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Ringkasan akun dan aktivitas kamu.</p>
       </div>
+
+      {/* Banner promosi reseller — hanya untuk user biasa */}
+      {user?.role === "user" && !promoRequested && (
+        <ReselerPromoBanner onRequest={() => setPromoRequested(true)} />
+      )}
 
       {/* Stat Cards — 2 kolom di mobile, 4 di desktop */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

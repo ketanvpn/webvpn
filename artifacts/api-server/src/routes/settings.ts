@@ -242,7 +242,10 @@ router.put("/admin/settings/referral", requireAdmin, async (req, res) => {
 
 // ─── Reseller Settings ────────────────────────────────────────────────────────
 
-const RESELLER_KEYS = ["resellerEnabled", "resellerDiscountPercent", "resellerTargetEnabled", "resellerMonthlyTarget"];
+const RESELLER_KEYS = [
+  "resellerEnabled", "resellerDiscountPercent", "resellerTargetEnabled", "resellerMonthlyTarget",
+  "resellerPromoEnabled", "resellerPromoTitle", "resellerPromoText", "resellerRequestEnabled",
+];
 
 function buildResellerSettingsResponse(map: Record<string, string | null>) {
   return {
@@ -250,6 +253,10 @@ function buildResellerSettingsResponse(map: Record<string, string | null>) {
     resellerDiscountPercent: map["resellerDiscountPercent"] ? parseInt(map["resellerDiscountPercent"], 10) : 20,
     resellerTargetEnabled: parseBoolean(map["resellerTargetEnabled"] ?? "false"),
     resellerMonthlyTarget: map["resellerMonthlyTarget"] ? parseInt(map["resellerMonthlyTarget"], 10) : 500000,
+    resellerPromoEnabled: parseBoolean(map["resellerPromoEnabled"] ?? "false"),
+    resellerPromoTitle: map["resellerPromoTitle"] ?? "Jadi Reseller KETANTECH!",
+    resellerPromoText: map["resellerPromoText"] ?? "Dapatkan harga spesial dan hemat lebih banyak setiap transaksi. Cocok buat kamu yang sering beli VPN!",
+    resellerRequestEnabled: parseBoolean(map["resellerRequestEnabled"] ?? "true"),
   };
 }
 
