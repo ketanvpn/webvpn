@@ -358,7 +358,7 @@ export default function AccountDetail() {
                   <div className="text-xs text-muted-foreground uppercase font-semibold">Tanggal Kedaluwarsa</div>
                   <div className="font-medium flex items-center gap-2">
                     <Clock className="h-4 w-4 text-primary" />
-                    {format(new Date(account.expiresAt), "d MMM yyyy, HH:mm", { locale: idLocale })}
+                    {format(new Date(account.expiresAt), "d MMM yyyy", { locale: idLocale })}
                   </div>
                   {account.isActive && (
                     <div className={`text-xs font-medium ${daysLeft <= 3 ? "text-destructive" : daysLeft <= 7 ? "text-yellow-600" : "text-green-600"}`}>
