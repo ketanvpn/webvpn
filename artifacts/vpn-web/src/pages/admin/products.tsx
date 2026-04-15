@@ -51,6 +51,7 @@ import { Package, Plus, MoreVertical, Edit, Trash2, Server } from "lucide-react"
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Product } from "@workspace/api-client-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type ProductForm = {
   name: string;
@@ -97,10 +98,18 @@ export default function AdminProducts() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+  const [selectedProtocols, setSelectedProtocols] = useState<string[]>(["vmess"]);
+
+  const toggleProtocol = (proto: string) => {
+    setSelectedProtocols((prev) =>
+      prev.includes(proto) ? prev.filter((p) => p !== proto) : [...prev, proto]
+    );
+  };
 
   const openCreate = () => {
     setEditingId(null);
     setForm(emptyForm);
+    setSelectedProtocols(["vmess"]);
     setDialogOpen(true);
   };
 
@@ -123,12 +132,11 @@ export default function AdminProducts() {
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const stock = parseInt(form.stock, 10);
-    const payload = {
+    const basePayload = {
       name: form.name,
       description: form.description || undefined,
-      protocol: form.protocol as "ssh" | "vmess" | "vless" | "trojan" | "shadowsocks",
       durationDays: parseInt(form.durationDays, 10),
       price: parseFloat(form.price),
       quota: form.quota ? parseFloat(form.quota) : null,
@@ -140,12 +148,14 @@ export default function AdminProducts() {
       serverId: form.serverId && form.serverId !== "none" ? parseInt(form.serverId, 10) : null,
     };
 
-    if (!payload.name || isNaN(payload.price) || isNaN(payload.durationDays) || isNaN(stock) || stock < 1) {
+    if (!basePayload.name || isNaN(basePayload.price) || isNaN(basePayload.durationDays) || isNaN(stock) || stock < 1) {
       toast({ title: "Isi semua field yang diperlukan (termasuk Stok, minimal 1)", variant: "destructive" });
       return;
     }
 
     if (editingId) {
+      // Mode edit: protokol tidak berubah, pakai form.protocol
+      const payload = { ...basePayload, protocol: form.protocol as "ssh" | "vmess" | "vless" | "trojan" | "shadowsocks" };
       updateProduct.mutate(
         { id: editingId, data: payload },
         {
@@ -158,17 +168,40 @@ export default function AdminProducts() {
         }
       );
     } else {
-      createProduct.mutate(
-        { data: payload },
-        {
-          onSuccess: () => {
-            toast({ title: "Produk berhasil ditambahkan" });
-            queryClient.invalidateQueries({ queryKey: getAdminListProductsQueryKey() });
-            setDialogOpen(false);
-          },
-          onError: (err) => toast({ title: "Gagal menambah produk", description: getApiError(err), variant: "destructive" }),
-        }
-      );
+      // Mode buat: centang bisa lebih dari satu protokol
+      if (selectedProtocols.length === 0) {
+        toast({ title: "Pilih minimal satu protokol", variant: "destructive" });
+        return;
+      }
+
+      const isMultiple = selectedProtocols.length > 1;
+
+      try {
+        await Promise.all(
+          selectedProtocols.map((proto) => {
+            const name = isMultiple
+              ? `${proto.toUpperCase()} - ${basePayload.name}`
+              : basePayload.name;
+            return createProduct.mutateAsync({
+              data: {
+                ...basePayload,
+                name,
+                protocol: proto as "ssh" | "vmess" | "vless" | "trojan" | "shadowsocks",
+              },
+            });
+          })
+        );
+
+        toast({
+          title: isMultiple
+            ? `${selectedProtocols.length} produk berhasil ditambahkan`
+            : "Produk berhasil ditambahkan",
+        });
+        queryClient.invalidateQueries({ queryKey: getAdminListProductsQueryKey() });
+        setDialogOpen(false);
+      } catch (err) {
+        toast({ title: "Gagal menambah produk", description: getApiError(err), variant: "destructive" });
+      }
     }
   };
 
@@ -369,31 +402,51 @@ export default function AdminProducts() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label>Protokol *</Label>
-                <Select value={form.protocol} onValueChange={(v) => setForm((f) => ({ ...f, protocol: v }))}>
-                  <SelectTrigger data-testid="select-protocol">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {protocolOptions.map((p) => (
-                      <SelectItem key={p} value={p} className="uppercase">{p.toUpperCase()}</SelectItem>
+            <div className="grid gap-2">
+              <Label>Protokol *</Label>
+              {editingId ? (
+                // Mode Edit: protokol tidak bisa diubah
+                <div className="flex items-center gap-2 px-3 py-2 rounded-md border bg-muted/40">
+                  <span className="uppercase font-mono font-semibold text-sm">{form.protocol}</span>
+                  <span className="text-xs text-muted-foreground">— tidak dapat diubah setelah dibuat</span>
+                </div>
+              ) : (
+                // Mode Tambah: centang satu atau lebih protokol
+                <>
+                  <div className="grid grid-cols-3 gap-2 p-3 border rounded-lg bg-muted/20">
+                    {protocolOptions.map((proto) => (
+                      <label
+                        key={proto}
+                        className="flex items-center gap-2 cursor-pointer select-none"
+                      >
+                        <Checkbox
+                          checked={selectedProtocols.includes(proto)}
+                          onCheckedChange={() => toggleProtocol(proto)}
+                        />
+                        <span className="uppercase text-sm font-mono font-medium">{proto}</span>
+                      </label>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="prod-duration">Durasi (hari) *</Label>
-                <Input
-                  id="prod-duration"
-                  type="number"
-                  min={1}
-                  placeholder="30"
-                  value={form.durationDays}
-                  onChange={(e) => { const v = e.target.value; setForm((f) => ({ ...f, durationDays: v })); }}
-                />
-              </div>
+                  </div>
+                  {selectedProtocols.length > 1 && (
+                    <p className="text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded px-2 py-1.5">
+                      ✓ Akan membuat <strong>{selectedProtocols.length} produk</strong> sekaligus.
+                      Nama otomatis ditambah prefix protokol, contoh: <em>VMESS - {form.name || "Nama Produk"}</em>
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="prod-duration">Durasi (hari) *</Label>
+              <Input
+                id="prod-duration"
+                type="number"
+                min={1}
+                placeholder="30"
+                value={form.durationDays}
+                onChange={(e) => { const v = e.target.value; setForm((f) => ({ ...f, durationDays: v })); }}
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -480,7 +533,13 @@ export default function AdminProducts() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Batal</Button>
             <Button onClick={handleSave} disabled={isSaving} data-testid="button-save-product">
-              {isSaving ? "Menyimpan..." : editingId ? "Simpan Perubahan" : "Tambah Produk"}
+              {isSaving
+                ? "Menyimpan..."
+                : editingId
+                ? "Simpan Perubahan"
+                : selectedProtocols.length > 1
+                ? `Tambah ${selectedProtocols.length} Produk Sekaligus`
+                : "Tambah Produk"}
             </Button>
           </DialogFooter>
         </DialogContent>
