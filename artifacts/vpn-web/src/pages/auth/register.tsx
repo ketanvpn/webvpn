@@ -209,7 +209,7 @@ export default function Register() {
   const stepIndex = steps.indexOf(step);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/5 via-background to-primary/10 p-4">
       <div className="w-full max-w-sm space-y-6 rounded-xl border bg-card p-8 shadow-xl">
         <div className="text-center">
           <h1 className="text-3xl font-bold tracking-tight text-primary">KETANTECH</h1>

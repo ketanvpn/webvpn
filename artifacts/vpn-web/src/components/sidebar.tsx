@@ -88,7 +88,7 @@ const mobileBottomNav: NavItem[] = [
   { title: "Beranda", href: "/dashboard", icon: LayoutDashboard },
   { title: "Produk", href: "/products", icon: Package },
   { title: "Akun", href: "/accounts", icon: Server },
-  { title: "Order", href: "/orders", icon: ShoppingCart },
+  { title: "Saldo", href: "/balance", icon: Wallet },
   { title: "Profil", href: "/profile", icon: Settings },
 ];
 
@@ -97,8 +97,7 @@ function isNavActive(location: string, href: string): boolean {
   if (
     href !== "/admin" &&
     href !== "/dashboard" &&
-    href !== "/" &&
-    href !== "/balance"
+    href !== "/"
   ) {
     return location.startsWith(href + "/");
   }
@@ -117,7 +116,7 @@ export function MobileBottomNav() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center justify-center flex-1 gap-1 text-[10px] font-medium transition-colors min-w-0 px-1 ${
+              className={`relative flex flex-col items-center justify-center flex-1 gap-1 text-[10px] font-medium transition-colors min-w-0 px-1 ${
                 active
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"
@@ -126,7 +125,7 @@ export function MobileBottomNav() {
               <item.icon className={`h-5 w-5 shrink-0 ${active ? "text-primary" : ""}`} />
               <span className="truncate w-full text-center">{item.title}</span>
               {active && (
-                <span className="absolute bottom-0 h-0.5 w-8 bg-primary rounded-full" />
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-0.5 w-8 bg-primary rounded-full" />
               )}
             </Link>
           );
