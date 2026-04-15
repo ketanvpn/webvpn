@@ -392,7 +392,7 @@ export default function OrderDetail() {
           )}
 
           {/* Status Processing — tampil animasi loading + info */}
-          {order.status === "processing" && (
+          {(order.status as string) === "processing" && (
             <div className="rounded-xl border-2 border-blue-500/30 bg-blue-500/5 p-6 flex flex-col items-center gap-3 text-center">
               <Loader2 className="h-10 w-10 text-blue-500 animate-spin" />
               <div>

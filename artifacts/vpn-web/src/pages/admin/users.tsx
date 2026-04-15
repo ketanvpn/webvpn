@@ -71,7 +71,7 @@ export default function AdminUsers() {
 
   const { data, isLoading } = useAdminListUsers({
     search: debouncedSearch || undefined,
-    role: roleFilter === "all" ? undefined : roleFilter,
+    role: roleFilter === "all" ? undefined : (roleFilter as any),
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   });

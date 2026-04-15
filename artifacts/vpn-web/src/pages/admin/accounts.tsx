@@ -80,7 +80,7 @@ export default function AdminAccounts() {
   const { data, isLoading } = useAdminListAccounts({
     limit: LIMIT,
     offset,
-    protocol: protocol === "semua" ? undefined : protocol,
+    protocol: protocol === "semua" ? undefined : (protocol as any),
     isActive: isActiveFilter === "semua" ? undefined : isActiveFilter === "aktif",
     search: debouncedSearch || undefined,
   });

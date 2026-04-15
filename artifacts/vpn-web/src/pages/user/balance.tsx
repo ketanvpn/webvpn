@@ -66,9 +66,10 @@ export default function Balance() {
   const { data: balanceData, isLoading: isLoadingBalance } = useGetBalance({
     query: { refetchInterval: showQris ? 3000 : false },
   });
-  const { data: historyData, isLoading: isLoadingHistory } = useListTopupHistory({
-    query: { refetchInterval: showQris ? 3000 : false },
-  });
+  const { data: historyData, isLoading: isLoadingHistory } = useListTopupHistory(
+    undefined,
+    { query: { refetchInterval: showQris ? 3000 : false } as any },
+  );
   const topup = useTopupBalance();
 
   useEffect(() => {
@@ -216,7 +217,7 @@ export default function Balance() {
             ) : historyData && historyData.length > 0 ? (
               <div className="divide-y">
                 {historyData.map((tx) => {
-                  const isExpired = tx.expiresAt ? new Date(tx.expiresAt) < new Date() : false;
+                  const isExpired = (tx as any).expiresAt ? new Date((tx as any).expiresAt) < new Date() : false;
                   const canViewQris = tx.status === 'pending' && tx.qrisUrl && !isExpired;
                   return (
                     <div key={tx.id} className="px-4 py-3 hover:bg-accent/20 transition-colors">

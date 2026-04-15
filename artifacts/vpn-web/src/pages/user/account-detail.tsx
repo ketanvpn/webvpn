@@ -64,9 +64,10 @@ function RenewDialog({ accountId, serverId, protocol, serverName, serverFlag, se
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [renewed, setRenewed] = useState(false);
 
-  const { data: products, isLoading: loadingProducts } = useListProducts({
-    query: { enabled: open },
-  });
+  const { data: products, isLoading: loadingProducts } = useListProducts(
+    undefined,
+    { query: { enabled: open } as any },
+  );
   const { data: balanceData, isLoading: loadingBalance } = useGetBalance({
     query: { enabled: open },
   });
@@ -589,7 +590,7 @@ export default function AccountDetail() {
             <CardContent className="space-y-3">
               <RenewDialog
                 accountId={accountId}
-                serverId={account.serverId}
+                serverId={account.serverId!}
                 protocol={account.protocol}
                 serverName={account.server.name}
                 serverFlag={account.server.flag}
