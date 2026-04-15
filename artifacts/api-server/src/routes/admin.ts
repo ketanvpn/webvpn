@@ -12,7 +12,7 @@ import { eq, and, or, ilike, desc, asc, sql } from "drizzle-orm";
 import { randomUUID, randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { requireAdmin } from "../lib/auth";
-import { formatProduct } from "./products";
+import { formatProduct, getActiveCountMap } from "./products";
 import { formatOrder } from "./orders";
 import { formatAccount } from "./accounts";
 import { formatTopup } from "./balance";
@@ -381,7 +381,8 @@ router.get("/admin/products", requireAdmin, async (_req, res) => {
     .select()
     .from(productsTable)
     .orderBy(asc(productsTable.sortOrder), asc(productsTable.id));
-  res.json(products.map(formatProduct));
+  const countMap = await getActiveCountMap(products.map((p) => p.id));
+  res.json(products.map((p) => formatProduct(p, countMap.get(p.id) ?? 0)));
 });
 
 router.post("/admin/products", requireAdmin, async (req, res) => {
@@ -401,12 +402,13 @@ router.post("/admin/products", requireAdmin, async (req, res) => {
       price: String(data.price),
       quota: data.quota != null ? String(data.quota) : null,
       maxConnections: data.maxConnections ?? null,
+      stock: data.stock ?? 100,
       isActive: data.isActive ?? true,
       category: data.category ?? null,
       sortOrder: data.sortOrder ?? 0,
     })
     .returning();
-  res.status(201).json(formatProduct(product));
+  res.status(201).json(formatProduct(product, 0));
 });
 
 router.patch("/admin/products/:id", requireAdmin, async (req, res) => {
@@ -427,6 +429,7 @@ router.patch("/admin/products/:id", requireAdmin, async (req, res) => {
   if (data.price !== undefined) updateData.price = String(data.price);
   if (data.quota !== undefined) updateData.quota = data.quota != null ? String(data.quota) : null;
   if (data.maxConnections !== undefined) updateData.maxConnections = data.maxConnections;
+  if (data.stock !== undefined) updateData.stock = data.stock;
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
   if (data.category !== undefined) updateData.category = data.category;
   if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
@@ -442,7 +445,8 @@ router.patch("/admin/products/:id", requireAdmin, async (req, res) => {
     return;
   }
 
-  res.json(formatProduct(product));
+  const countMap = await getActiveCountMap([product.id]);
+  res.json(formatProduct(product, countMap.get(product.id) ?? 0));
 });
 
 router.delete("/admin/products/:id", requireAdmin, async (req, res) => {

@@ -1574,7 +1574,7 @@ components:
     # ─── Products ─────────────────────────────────────────────────────────
     Product:
       type: object
-      required: [id, name, protocol, durationDays, price, isActive]
+      required: [id, name, protocol, durationDays, price, isActive, stock, availableStock]
       properties:
         id:
           type: integer
@@ -1597,6 +1597,12 @@ components:
         maxConnections:
           type: integer
           nullable: true
+        stock:
+          type: integer
+          description: Batas maksimal akun aktif untuk produk ini
+        availableStock:
+          type: integer
+          description: Sisa stok yang masih tersedia (stock - akun aktif)
         isActive:
           type: boolean
         category:
@@ -1607,7 +1613,7 @@ components:
 
     CreateProductBody:
       type: object
-      required: [name, protocol, durationDays, price]
+      required: [name, protocol, durationDays, price, stock]
       properties:
         name:
           type: string
@@ -1626,6 +1632,9 @@ components:
         maxConnections:
           type: integer
           nullable: true
+        stock:
+          type: integer
+          description: Batas maksimal akun aktif
         isActive:
           type: boolean
           default: true
@@ -1655,6 +1664,9 @@ components:
         maxConnections:
           type: integer
           nullable: true
+        stock:
+          type: integer
+          description: Batas maksimal akun aktif
         isActive:
           type: boolean
         category:

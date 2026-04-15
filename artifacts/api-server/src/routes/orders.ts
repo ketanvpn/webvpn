@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { ordersTable, productsTable, usersTable, vpnAccountsTable, serversTable } from "@workspace/db";
-import { eq, and, desc, sql, gte } from "drizzle-orm";
+import { eq, and, desc, sql, gte, count, gt } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { CreateOrderBody } from "@workspace/api-zod";
 import { formatProduct } from "./products";
@@ -328,6 +328,18 @@ router.post("/orders", requireAuth, async (req, res) => {
 
   if (!product) {
     res.status(400).json({ error: "Product not found or not active" });
+    return;
+  }
+
+  // ─── Cek ketersediaan stok ─────────────────────────────────────────────────
+  const [{ activeCount }] = await db
+    .select({ activeCount: count(vpnAccountsTable.id) })
+    .from(vpnAccountsTable)
+    .innerJoin(ordersTable, eq(ordersTable.id, vpnAccountsTable.orderId))
+    .where(and(eq(ordersTable.productId, productId), gt(vpnAccountsTable.expiresAt, new Date())));
+
+  if (Number(activeCount) >= product.stock) {
+    res.status(400).json({ error: "Stok produk ini sudah habis. Coba lagi nanti atau pilih produk lain." });
     return;
   }
 

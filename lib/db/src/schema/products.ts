@@ -11,6 +11,7 @@ export const productsTable = pgTable("products", {
   price: numeric("price", { precision: 12, scale: 2 }).notNull(),
   quota: numeric("quota", { precision: 10, scale: 2 }),
   maxConnections: integer("max_connections"),
+  stock: integer("stock").notNull().default(100),
   isActive: boolean("is_active").notNull().default(true),
   category: text("category"),
   sortOrder: integer("sort_order").notNull().default(0),

@@ -1,11 +1,11 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { productsTable } from "@workspace/db";
-import { eq, and, asc } from "drizzle-orm";
+import { productsTable, ordersTable, vpnAccountsTable } from "@workspace/db";
+import { eq, and, asc, count, gt, inArray } from "drizzle-orm";
 
 const router = Router();
 
-function formatProduct(p: typeof productsTable.$inferSelect) {
+export function formatProduct(p: typeof productsTable.$inferSelect, activeCount = 0) {
   return {
     id: p.id,
     name: p.name,
@@ -15,10 +15,28 @@ function formatProduct(p: typeof productsTable.$inferSelect) {
     price: Number(p.price),
     quota: p.quota != null ? Number(p.quota) : null,
     maxConnections: p.maxConnections,
+    stock: p.stock,
+    availableStock: Math.max(0, p.stock - activeCount),
     isActive: p.isActive,
     category: p.category,
     sortOrder: p.sortOrder,
   };
+}
+
+async function getActiveCountMap(productIds: number[]): Promise<Map<number, number>> {
+  if (productIds.length === 0) return new Map();
+  const rows = await db
+    .select({ productId: ordersTable.productId, cnt: count(vpnAccountsTable.id) })
+    .from(vpnAccountsTable)
+    .innerJoin(ordersTable, eq(ordersTable.id, vpnAccountsTable.orderId))
+    .where(
+      and(
+        inArray(ordersTable.productId, productIds),
+        gt(vpnAccountsTable.expiresAt, new Date())
+      )
+    )
+    .groupBy(ordersTable.productId);
+  return new Map(rows.map((r) => [r.productId, Number(r.cnt)]));
 }
 
 router.get("/products", async (req, res) => {
@@ -34,7 +52,8 @@ router.get("/products", async (req, res) => {
     .where(and(...conditions))
     .orderBy(asc(productsTable.sortOrder), asc(productsTable.id));
 
-  res.json(products.map(formatProduct));
+  const countMap = await getActiveCountMap(products.map((p) => p.id));
+  res.json(products.map((p) => formatProduct(p, countMap.get(p.id) ?? 0)));
 });
 
 router.get("/products/:id", async (req, res) => {
@@ -50,8 +69,9 @@ router.get("/products/:id", async (req, res) => {
     return;
   }
 
-  res.json(formatProduct(product));
+  const countMap = await getActiveCountMap([product.id]);
+  res.json(formatProduct(product, countMap.get(product.id) ?? 0));
 });
 
-export { formatProduct };
+export { getActiveCountMap };
 export default router;

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Globe, Clock, HardDrive, Network, ShoppingCart } from "lucide-react";
+import { Globe, Clock, HardDrive, Network, ShoppingCart, PackageX } from "lucide-react";
 import type { ListProductsProtocol } from "@workspace/api-client-react";
 
 const protocols: { value: string; label: string }[] = [
@@ -93,13 +93,27 @@ export default function Products() {
                   </div>
                 </div>
               </CardContent>
-              <CardFooter>
-                <Button className="w-full gap-2" asChild>
-                  <Link href={`/products/${product.id}`}>
-                    <ShoppingCart className="h-4 w-4" />
-                    Beli Sekarang
-                  </Link>
-                </Button>
+              <CardFooter className="flex flex-col gap-2">
+                {product.availableStock > 0 ? (
+                  <Button className="w-full gap-2" asChild>
+                    <Link href={`/products/${product.id}`}>
+                      <ShoppingCart className="h-4 w-4" />
+                      Beli Sekarang
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button className="w-full gap-2" disabled variant="secondary">
+                    <PackageX className="h-4 w-4" />
+                    Stok Habis
+                  </Button>
+                )}
+                <p className={`text-xs text-center font-medium ${product.availableStock === 0 ? "text-destructive" : product.availableStock <= 3 ? "text-yellow-600" : "text-muted-foreground"}`}>
+                  {product.availableStock === 0
+                    ? "Saat ini tidak tersedia"
+                    : product.availableStock <= 3
+                    ? `⚡ Hampir habis — sisa ${product.availableStock} slot`
+                    : `Tersedia ${product.availableStock} slot`}
+                </p>
               </CardFooter>
             </Card>
           ))}

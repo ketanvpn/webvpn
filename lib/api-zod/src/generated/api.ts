@@ -152,6 +152,10 @@ export const ListProductsResponseItem = zod.object({
     .nullish()
     .describe("Bandwidth quota in GB, null = unlimited"),
   maxConnections: zod.number().nullish(),
+  stock: zod.number().describe("Batas maksimal akun aktif untuk produk ini"),
+  availableStock: zod
+    .number()
+    .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
   isActive: zod.boolean(),
   category: zod.string().nullish(),
   sortOrder: zod.number().optional(),
@@ -177,6 +181,10 @@ export const GetProductResponse = zod.object({
     .nullish()
     .describe("Bandwidth quota in GB, null = unlimited"),
   maxConnections: zod.number().nullish(),
+  stock: zod.number().describe("Batas maksimal akun aktif untuk produk ini"),
+  availableStock: zod
+    .number()
+    .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
   isActive: zod.boolean(),
   category: zod.string().nullish(),
   sortOrder: zod.number().optional(),
@@ -219,6 +227,12 @@ export const ListOrdersResponse = zod.object({
             .nullish()
             .describe("Bandwidth quota in GB, null = unlimited"),
           maxConnections: zod.number().nullish(),
+          stock: zod
+            .number()
+            .describe("Batas maksimal akun aktif untuk produk ini"),
+          availableStock: zod
+            .number()
+            .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
           isActive: zod.boolean(),
           category: zod.string().nullish(),
           sortOrder: zod.number().optional(),
@@ -292,6 +306,12 @@ export const GetOrderResponse = zod.object({
         .nullish()
         .describe("Bandwidth quota in GB, null = unlimited"),
       maxConnections: zod.number().nullish(),
+      stock: zod
+        .number()
+        .describe("Batas maksimal akun aktif untuk produk ini"),
+      availableStock: zod
+        .number()
+        .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
       isActive: zod.boolean(),
       category: zod.string().nullish(),
       sortOrder: zod.number().optional(),
@@ -335,6 +355,12 @@ export const PayOrderResponse = zod.object({
         .nullish()
         .describe("Bandwidth quota in GB, null = unlimited"),
       maxConnections: zod.number().nullish(),
+      stock: zod
+        .number()
+        .describe("Batas maksimal akun aktif untuk produk ini"),
+      availableStock: zod
+        .number()
+        .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
       isActive: zod.boolean(),
       category: zod.string().nullish(),
       sortOrder: zod.number().optional(),
@@ -578,6 +604,12 @@ export const GetDashboardSummaryResponse = zod.object({
             .nullish()
             .describe("Bandwidth quota in GB, null = unlimited"),
           maxConnections: zod.number().nullish(),
+          stock: zod
+            .number()
+            .describe("Batas maksimal akun aktif untuk produk ini"),
+          availableStock: zod
+            .number()
+            .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
           isActive: zod.boolean(),
           category: zod.string().nullish(),
           sortOrder: zod.number().optional(),
@@ -688,6 +720,12 @@ export const GetAdminDashboardResponse = zod.object({
               .nullish()
               .describe("Bandwidth quota in GB, null = unlimited"),
             maxConnections: zod.number().nullish(),
+            stock: zod
+              .number()
+              .describe("Batas maksimal akun aktif untuk produk ini"),
+            availableStock: zod
+              .number()
+              .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
             isActive: zod.boolean(),
             category: zod.string().nullish(),
             sortOrder: zod.number().optional(),
@@ -854,6 +892,14 @@ export const AdminGetUserResponse = zod
                   .nullish()
                   .describe("Bandwidth quota in GB, null = unlimited"),
                 maxConnections: zod.number().nullish(),
+                stock: zod
+                  .number()
+                  .describe("Batas maksimal akun aktif untuk produk ini"),
+                availableStock: zod
+                  .number()
+                  .describe(
+                    "Sisa stok yang masih tersedia (stock - akun aktif)",
+                  ),
                 isActive: zod.boolean(),
                 category: zod.string().nullish(),
                 sortOrder: zod.number().optional(),
@@ -1039,6 +1085,10 @@ export const AdminListProductsResponseItem = zod.object({
     .nullish()
     .describe("Bandwidth quota in GB, null = unlimited"),
   maxConnections: zod.number().nullish(),
+  stock: zod.number().describe("Batas maksimal akun aktif untuk produk ini"),
+  availableStock: zod
+    .number()
+    .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
   isActive: zod.boolean(),
   category: zod.string().nullish(),
   sortOrder: zod.number().optional(),
@@ -1061,6 +1111,7 @@ export const AdminCreateProductBody = zod.object({
   price: zod.number(),
   quota: zod.number().nullish(),
   maxConnections: zod.number().nullish(),
+  stock: zod.number().describe("Batas maksimal akun aktif"),
   isActive: zod.boolean().default(adminCreateProductBodyIsActiveDefault),
   category: zod.string().optional(),
   sortOrder: zod.number().default(adminCreateProductBodySortOrderDefault),
@@ -1083,6 +1134,7 @@ export const AdminUpdateProductBody = zod.object({
   price: zod.number().optional(),
   quota: zod.number().nullish(),
   maxConnections: zod.number().nullish(),
+  stock: zod.number().optional().describe("Batas maksimal akun aktif"),
   isActive: zod.boolean().optional(),
   category: zod.string().optional(),
   sortOrder: zod.number().optional(),
@@ -1100,6 +1152,10 @@ export const AdminUpdateProductResponse = zod.object({
     .nullish()
     .describe("Bandwidth quota in GB, null = unlimited"),
   maxConnections: zod.number().nullish(),
+  stock: zod.number().describe("Batas maksimal akun aktif untuk produk ini"),
+  availableStock: zod
+    .number()
+    .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
   isActive: zod.boolean(),
   category: zod.string().nullish(),
   sortOrder: zod.number().optional(),
@@ -1243,6 +1299,12 @@ export const AdminListOrdersResponse = zod.object({
               .nullish()
               .describe("Bandwidth quota in GB, null = unlimited"),
             maxConnections: zod.number().nullish(),
+            stock: zod
+              .number()
+              .describe("Batas maksimal akun aktif untuk produk ini"),
+            availableStock: zod
+              .number()
+              .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
             isActive: zod.boolean(),
             category: zod.string().nullish(),
             sortOrder: zod.number().optional(),
@@ -1324,6 +1386,12 @@ export const AdminConfirmOrderResponse = zod.object({
         .nullish()
         .describe("Bandwidth quota in GB, null = unlimited"),
       maxConnections: zod.number().nullish(),
+      stock: zod
+        .number()
+        .describe("Batas maksimal akun aktif untuk produk ini"),
+      availableStock: zod
+        .number()
+        .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
       isActive: zod.boolean(),
       category: zod.string().nullish(),
       sortOrder: zod.number().optional(),

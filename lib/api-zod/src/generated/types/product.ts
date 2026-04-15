@@ -17,6 +17,10 @@ export interface Product {
   /** Bandwidth quota in GB, null = unlimited */
   quota?: number | null;
   maxConnections?: number | null;
+  /** Batas maksimal akun aktif untuk produk ini */
+  stock: number;
+  /** Sisa stok yang masih tersedia (stock - akun aktif) */
+  availableStock: number;
   isActive: boolean;
   category?: string | null;
   sortOrder?: number;

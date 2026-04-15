@@ -59,6 +59,7 @@ type ProductForm = {
   price: string;
   quota: string;
   maxConnections: string;
+  stock: string;
   category: string;
   sortOrder: string;
   isActive: boolean;
@@ -72,6 +73,7 @@ const emptyForm: ProductForm = {
   price: "",
   quota: "",
   maxConnections: "",
+  stock: "",
   category: "",
   sortOrder: "0",
   isActive: true,
@@ -108,6 +110,7 @@ export default function AdminProducts() {
       price: String(p.price),
       quota: p.quota != null ? String(p.quota) : "",
       maxConnections: p.maxConnections != null ? String(p.maxConnections) : "",
+      stock: String(p.stock),
       category: p.category ?? "",
       sortOrder: String(p.sortOrder),
       isActive: p.isActive,
@@ -116,6 +119,7 @@ export default function AdminProducts() {
   };
 
   const handleSave = () => {
+    const stock = parseInt(form.stock, 10);
     const payload = {
       name: form.name,
       description: form.description || undefined,
@@ -124,13 +128,14 @@ export default function AdminProducts() {
       price: parseFloat(form.price),
       quota: form.quota ? parseFloat(form.quota) : null,
       maxConnections: form.maxConnections ? parseInt(form.maxConnections, 10) : null,
+      stock,
       category: form.category || undefined,
       sortOrder: parseInt(form.sortOrder, 10),
       isActive: form.isActive,
     };
 
-    if (!payload.name || isNaN(payload.price) || isNaN(payload.durationDays)) {
-      toast({ title: "Isi semua field yang diperlukan", variant: "destructive" });
+    if (!payload.name || isNaN(payload.price) || isNaN(payload.durationDays) || isNaN(stock) || stock < 1) {
+      toast({ title: "Isi semua field yang diperlukan (termasuk Stok, minimal 1)", variant: "destructive" });
       return;
     }
 
@@ -229,6 +234,10 @@ export default function AdminProducts() {
                         <span>{product.quota ? `${product.quota} GB` : "Unlimited"}</span>
                         <span>&bull;</span>
                         <span>{product.maxConnections ? `${product.maxConnections} IP` : "Unlimited IP"}</span>
+                        <span>&bull;</span>
+                        <span className={product.availableStock === 0 ? "text-destructive font-medium" : ""}>
+                          Stok: {product.availableStock}/{product.stock}
+                        </span>
                         {product.category && <><span>&bull;</span><span>{product.category}</span></>}
                       </div>
                     </div>
@@ -398,6 +407,18 @@ export default function AdminProducts() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
+                <Label htmlFor="prod-stock">Stok Maksimal *</Label>
+                <Input
+                  id="prod-stock"
+                  type="number"
+                  min={1}
+                  placeholder="10"
+                  value={form.stock}
+                  onChange={(e) => setForm({ ...form, stock: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">Batas maks. akun aktif sekaligus</p>
+              </div>
+              <div className="grid gap-2">
                 <Label htmlFor="prod-sort">Urutan Tampil</Label>
                 <Input
                   id="prod-sort"
@@ -407,15 +428,16 @@ export default function AdminProducts() {
                   onChange={(e) => setForm({ ...form, sortOrder: e.target.value })}
                 />
               </div>
-              <div className="flex items-center gap-3 pt-6">
-                <Switch
-                  checked={form.isActive}
-                  onCheckedChange={(v) => setForm({ ...form, isActive: v })}
-                  id="prod-active"
-                  data-testid="switch-product-active"
-                />
-                <Label htmlFor="prod-active">Aktif (tampil di toko)</Label>
-              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={form.isActive}
+                onCheckedChange={(v) => setForm({ ...form, isActive: v })}
+                id="prod-active"
+                data-testid="switch-product-active"
+              />
+              <Label htmlFor="prod-active">Aktif (tampil di toko)</Label>
             </div>
           </div>
 

@@ -15,6 +15,8 @@ export interface UpdateProductBody {
   price?: number;
   quota?: number | null;
   maxConnections?: number | null;
+  /** Batas maksimal akun aktif */
+  stock?: number;
   isActive?: boolean;
   category?: string;
   sortOrder?: number;

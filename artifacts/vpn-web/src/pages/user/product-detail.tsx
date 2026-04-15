@@ -6,7 +6,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Clock, HardDrive, Network, ShieldCheck, ArrowLeft, Wifi, Wallet, AlertTriangle } from "lucide-react";
+import { Clock, HardDrive, Network, ShieldCheck, ArrowLeft, Wifi, Wallet, AlertTriangle, PackageX } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import { useState } from "react";
@@ -273,17 +273,36 @@ export default function ProductDetail() {
               )}
             </CardContent>
             <CardFooter className="bg-muted/50 border-t flex flex-col gap-3 pt-6">
-              <Button
-                size="lg"
-                className="w-full text-lg h-14"
-                onClick={handleOpenConfirm}
-                disabled={createOrder.isPending || !isRemarksValid(remarks) || (paymentMethod === "balance" && balance < product.price)}
-              >
-                {createOrder.isPending ? "Memproses..." : "Buat Order"}
-              </Button>
-              <p className="text-xs text-center text-muted-foreground">
-                Dengan melakukan pembelian, kamu menyetujui Syarat & Ketentuan kami.
-              </p>
+              {product.availableStock === 0 ? (
+                <div className="w-full flex flex-col items-center gap-2">
+                  <Button size="lg" className="w-full text-lg h-14" disabled variant="secondary">
+                    <PackageX className="h-5 w-5 mr-2" />
+                    Stok Habis
+                  </Button>
+                  <p className="text-sm text-destructive text-center">
+                    Produk ini sedang tidak tersedia. Coba lagi nanti.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <Button
+                    size="lg"
+                    className="w-full text-lg h-14"
+                    onClick={handleOpenConfirm}
+                    disabled={createOrder.isPending || !isRemarksValid(remarks) || (paymentMethod === "balance" && balance < product.price)}
+                  >
+                    {createOrder.isPending ? "Memproses..." : "Buat Order"}
+                  </Button>
+                  <p className={`text-xs text-center font-medium ${product.availableStock <= 3 ? "text-yellow-600" : "text-muted-foreground"}`}>
+                    {product.availableStock <= 3
+                      ? `⚡ Hampir habis — sisa ${product.availableStock} slot`
+                      : `Tersedia ${product.availableStock} slot`}
+                  </p>
+                  <p className="text-xs text-center text-muted-foreground">
+                    Dengan melakukan pembelian, kamu menyetujui Syarat & Ketentuan kami.
+                  </p>
+                </>
+              )}
             </CardFooter>
           </Card>
         </div>
