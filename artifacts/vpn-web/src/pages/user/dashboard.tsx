@@ -118,9 +118,12 @@ export default function Dashboard() {
                       <div className="font-medium text-sm">{formatRupiah(order.amount)}</div>
                       <Badge variant={
                         order.status === "paid" ? "default" :
-                        order.status === "pending" ? "secondary" : "destructive"
+                        order.status === "pending" || order.status === "processing" ? "secondary" : "destructive"
                       } className="text-[10px]">
-                        {order.status === "paid" ? "Lunas" : order.status === "pending" ? "Menunggu" : order.status === "failed" ? "Gagal" : "Kedaluwarsa"}
+                        {order.status === "paid" ? "Lunas" :
+                         order.status === "pending" ? "Menunggu" :
+                         order.status === "processing" ? "Diproses" :
+                         order.status === "failed" ? "Gagal" : "Kedaluwarsa"}
                       </Badge>
                     </div>
                   </div>
