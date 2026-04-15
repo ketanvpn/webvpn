@@ -49,8 +49,9 @@ function QrCodeImage({ data, label }: { data: string; label: string }) {
   );
 }
 
-function RenewDialog({ accountId, protocol, serverName, serverFlag, serverLocation, isExpired }: {
+function RenewDialog({ accountId, serverId, protocol, serverName, serverFlag, serverLocation, isExpired }: {
   accountId: number;
+  serverId: number;
   protocol: string;
   serverName: string;
   serverFlag: string;
@@ -72,13 +73,19 @@ function RenewDialog({ accountId, protocol, serverName, serverFlag, serverLocati
 
   const renewMutation = useRenewAccount();
 
+  const effectivePrice = (p: { price: number; resellerPrice?: number | null }) =>
+    p.resellerPrice ?? p.price;
+
   const matchingProducts = products?.filter(
-    (p) => p.isActive && p.protocol === protocol
+    (p) =>
+      p.isActive &&
+      p.protocol === protocol &&
+      (!p.serverId || p.serverId === serverId)
   ) ?? [];
 
   const selectedProduct = matchingProducts.find((p) => p.id === selectedProductId);
   const balance = balanceData?.balance ?? 0;
-  const canAfford = selectedProduct ? balance >= selectedProduct.price : false;
+  const canAfford = selectedProduct ? balance >= effectivePrice(selectedProduct) : false;
 
   const handleRenew = () => {
     if (!selectedProductId) return;
@@ -90,7 +97,7 @@ function RenewDialog({ accountId, protocol, serverName, serverFlag, serverLocati
           queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey(accountId) });
           toast({
             title: isExpired ? "Pemulihan berhasil!" : "Renew berhasil!",
-            description: `Akun berhasil ${isExpired ? "dipulihkan" : "diperpanjang"}. ${selectedProduct ? formatRupiah(selectedProduct.price) + " telah dipotong dari saldo." : ""}`,
+            description: `Akun berhasil ${isExpired ? "dipulihkan" : "diperpanjang"}. ${selectedProduct ? formatRupiah(effectivePrice(selectedProduct)) + " telah dipotong dari saldo." : ""}`,
           });
         },
         onError: (err) => {
@@ -186,7 +193,9 @@ function RenewDialog({ accountId, protocol, serverName, serverFlag, serverLocati
                 <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                   {matchingProducts.map((p) => {
                     const isSelected = selectedProductId === p.id;
-                    const affordable = balance >= p.price;
+                    const eprice = effectivePrice(p);
+                    const affordable = balance >= eprice;
+                    const hasDiscount = p.resellerPrice != null && p.resellerPrice < p.price;
                     return (
                       <button
                         key={p.id}
@@ -206,8 +215,11 @@ function RenewDialog({ accountId, protocol, serverName, serverFlag, serverLocati
                             <div className="text-xs text-muted-foreground mt-0.5">{p.name}</div>
                           </div>
                           <div className="text-right">
-                            <div className={`font-bold text-sm ${isSelected ? "text-primary" : ""}`}>
-                              {formatRupiah(p.price)}
+                            {hasDiscount && (
+                              <div className="text-xs text-muted-foreground line-through">{formatRupiah(p.price)}</div>
+                            )}
+                            <div className={`font-bold text-sm ${hasDiscount ? "text-green-600" : ""} ${isSelected ? "text-primary" : ""}`}>
+                              {formatRupiah(eprice)}
                             </div>
                             {!affordable && (
                               <div className="text-xs text-destructive mt-0.5">Saldo kurang</div>
@@ -228,13 +240,13 @@ function RenewDialog({ accountId, protocol, serverName, serverFlag, serverLocati
                 <div>
                   {canAfford ? (
                     <>
-                      Saldo kamu akan berkurang <strong>{formatRupiah(selectedProduct.price)}</strong>.
-                      Sisa saldo: <strong>{formatRupiah(balance - selectedProduct.price)}</strong>.
+                      Saldo kamu akan berkurang <strong>{formatRupiah(effectivePrice(selectedProduct))}</strong>.
+                      Sisa saldo: <strong>{formatRupiah(balance - effectivePrice(selectedProduct))}</strong>.
                     </>
                   ) : (
                     <>
                       Saldo tidak cukup. Kamu perlu tambah saldo minimal{" "}
-                      <strong>{formatRupiah(selectedProduct.price - balance)}</strong>.
+                      <strong>{formatRupiah(effectivePrice(selectedProduct) - balance)}</strong>.
                     </>
                   )}
                 </div>
@@ -577,6 +589,7 @@ export default function AccountDetail() {
             <CardContent className="space-y-3">
               <RenewDialog
                 accountId={accountId}
+                serverId={account.serverId}
                 protocol={account.protocol}
                 serverName={account.server.name}
                 serverFlag={account.server.flag}
