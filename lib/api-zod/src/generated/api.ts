@@ -462,6 +462,7 @@ export const ListAccountsResponseItem = zod.object({
   expiresAt: zod.coerce.date(),
   quota: zod.number().nullish(),
   usedQuota: zod.number().nullish(),
+  productName: zod.string().nullish().describe("Nama paket produk yang dibeli"),
   isActive: zod.boolean(),
   createdAt: zod.coerce.date(),
 });
@@ -499,6 +500,7 @@ export const GetAccountResponse = zod.object({
   expiresAt: zod.coerce.date(),
   quota: zod.number().nullish(),
   usedQuota: zod.number().nullish(),
+  productName: zod.string().nullish().describe("Nama paket produk yang dibeli"),
   isActive: zod.boolean(),
   createdAt: zod.coerce.date(),
 });
@@ -539,6 +541,7 @@ export const RenewAccountResponse = zod.object({
   expiresAt: zod.coerce.date(),
   quota: zod.number().nullish(),
   usedQuota: zod.number().nullish(),
+  productName: zod.string().nullish().describe("Nama paket produk yang dibeli"),
   isActive: zod.boolean(),
   createdAt: zod.coerce.date(),
 });
@@ -628,6 +631,10 @@ export const GetDashboardSummaryResponse = zod.object({
         expiresAt: zod.coerce.date(),
         quota: zod.number().nullish(),
         usedQuota: zod.number().nullish(),
+        productName: zod
+          .string()
+          .nullish()
+          .describe("Nama paket produk yang dibeli"),
         isActive: zod.boolean(),
         createdAt: zod.coerce.date(),
       }),
@@ -910,6 +917,10 @@ export const AdminGetUserResponse = zod
             expiresAt: zod.coerce.date(),
             quota: zod.number().nullish(),
             usedQuota: zod.number().nullish(),
+            productName: zod
+              .string()
+              .nullish()
+              .describe("Nama paket produk yang dibeli"),
             isActive: zod.boolean(),
             createdAt: zod.coerce.date(),
           }),
@@ -1455,6 +1466,10 @@ export const AdminListAccountsResponse = zod.object({
         expiresAt: zod.coerce.date(),
         quota: zod.number().nullish(),
         usedQuota: zod.number().nullish(),
+        productName: zod
+          .string()
+          .nullish()
+          .describe("Nama paket produk yang dibeli"),
         isActive: zod.boolean(),
         createdAt: zod.coerce.date(),
       })
@@ -1565,6 +1580,7 @@ export const AdminToggleAccountResponse = zod.object({
   expiresAt: zod.coerce.date(),
   quota: zod.number().nullish(),
   usedQuota: zod.number().nullish(),
+  productName: zod.string().nullish().describe("Nama paket produk yang dibeli"),
   isActive: zod.boolean(),
   createdAt: zod.coerce.date(),
 });

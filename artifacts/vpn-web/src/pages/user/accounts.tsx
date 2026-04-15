@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, differenceInCalendarDays } from "date-fns";
 import { Link } from "wouter";
-import { Server, Activity, ShieldOff } from "lucide-react";
+import { Server, Activity, ShieldOff, Tag } from "lucide-react";
 
 function DaysRemaining({ expiresAt, isActive }: { expiresAt: string; isActive: boolean }) {
   const today = new Date();
@@ -81,7 +81,15 @@ export default function Accounts() {
                     <CardTitle className="text-lg font-mono truncate mt-1" title={account.username}>
                       {account.username}
                     </CardTitle>
-                    <p className="text-xs text-muted-foreground">{account.server.name} &bull; {account.server.location}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">{account.server.name} &bull; {account.server.location}</p>
+                      {account.productName && (
+                        <span className="flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full shrink-0">
+                          <Tag className="h-3 w-3" />
+                          {account.productName}
+                        </span>
+                      )}
+                    </div>
                   </CardHeader>
                   <CardContent className="pt-4 flex-1 space-y-3">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">

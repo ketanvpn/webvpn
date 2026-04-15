@@ -1878,6 +1878,10 @@ components:
         usedQuota:
           type: number
           nullable: true
+        productName:
+          type: string
+          nullable: true
+          description: Nama paket produk yang dibeli
         isActive:
           type: boolean
         createdAt:

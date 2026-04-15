@@ -20,6 +20,17 @@ async function formatAccount(a: typeof vpnAccountsTable.$inferSelect) {
     .where(eq(serversTable.id, a.serverId))
     .limit(1);
 
+  let productName: string | null = null;
+  if (a.orderId) {
+    const [row] = await db
+      .select({ productName: productsTable.name })
+      .from(ordersTable)
+      .innerJoin(productsTable, eq(productsTable.id, ordersTable.productId))
+      .where(eq(ordersTable.id, a.orderId))
+      .limit(1);
+    productName = row?.productName ?? null;
+  }
+
   return {
     id: a.id,
     userId: a.userId,
@@ -37,6 +48,7 @@ async function formatAccount(a: typeof vpnAccountsTable.$inferSelect) {
     expiresAt: a.expiresAt,
     quota: a.quota != null ? Number(a.quota) : null,
     usedQuota: a.usedQuota != null ? Number(a.usedQuota) : null,
+    productName,
     isActive: a.isActive,
     createdAt: a.createdAt,
   };

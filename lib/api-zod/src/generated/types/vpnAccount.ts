@@ -26,6 +26,8 @@ export interface VpnAccount {
   expiresAt: Date;
   quota?: number | null;
   usedQuota?: number | null;
+  /** Nama paket produk yang dibeli */
+  productName?: string | null;
   isActive: boolean;
   createdAt: Date;
 }

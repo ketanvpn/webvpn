@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Copy, QrCode, Clock, Activity, ShieldCheck, ExternalLink, RefreshCw, CheckCircle2, AlertCircle, RotateCcw } from "lucide-react";
+import { ArrowLeft, Copy, QrCode, Clock, Activity, ShieldCheck, ExternalLink, RefreshCw, CheckCircle2, AlertCircle, RotateCcw, Tag } from "lucide-react";
 import { format, differenceInCalendarDays } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -353,7 +353,7 @@ export default function AccountDetail() {
             </CardHeader>
             <CardContent className="pt-6 space-y-6">
 
-              <div className="grid sm:grid-cols-2 gap-4 p-4 bg-accent/30 rounded-lg border">
+              <div className={`grid gap-4 p-4 bg-accent/30 rounded-lg border ${account.productName ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
                 <div className="space-y-1">
                   <div className="text-xs text-muted-foreground uppercase font-semibold">Tanggal Kedaluwarsa</div>
                   <div className="font-medium flex items-center gap-2">
@@ -373,6 +373,15 @@ export default function AccountDetail() {
                     {account.quota ? `${account.quota} GB` : "Tidak Terbatas"}
                   </div>
                 </div>
+                {account.productName && (
+                  <div className="space-y-1">
+                    <div className="text-xs text-muted-foreground uppercase font-semibold">Paket</div>
+                    <div className="font-medium flex items-center gap-2">
+                      <Tag className="h-4 w-4 text-primary" />
+                      {account.productName}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Detail Koneksi */}
