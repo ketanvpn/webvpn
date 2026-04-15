@@ -127,10 +127,13 @@ botvpn-fixed/          — Bot Telegram (Node.js + SQLite, terpisah dari web)
 ## API Routes (`artifacts/api-server/src/routes/`)
 
 ### Public / Auth
-- `POST /api/auth/register` — daftar user baru
-- `POST /api/auth/login` — login, set JWT cookie
+- `POST /api/auth/register` — daftar user baru (field: username, password, fullName, email, whatsapp, referralCode opsional)
+- `POST /api/auth/login` — login via username **atau** nomor WhatsApp; set JWT httpOnly cookie
 - `POST /api/auth/logout` — hapus cookie
 - `GET /api/auth/me` — info user yang login
+- `GET /api/auth/check-username?username=xxx` — cek ketersediaan username saat register (min 3 karakter); response: `{ available: bool, suggestions: string[] }` (maks 3 saran)
+- `POST /api/auth/forgot-password/send-otp` — kirim OTP WA untuk reset password (rate limit 3x/15 menit, OTP berlaku 5 menit, purpose `"reset"`)
+- `POST /api/auth/forgot-password/reset` — reset password dengan OTP yang valid (field: whatsapp, otp, newPassword)
 
 ### User (requireAuth)
 - `GET /api/balance` — saldo user
@@ -355,6 +358,15 @@ Setiap kali mengubah `lib/api-spec/openapi.yaml`:
 - **Sistem Reseller (scheduler):** `checkResellerTargets()` berjalan tiap tanggal 1 pukul 07:00 WIB — cek total order lunas bulan lalu, downgrade + notifikasi WA+Telegram jika tidak capai target
 - **Sistem Reseller (frontend):** Halaman admin `/admin/settings/reseller` (aktif/nonaktif, % diskon, target bulanan); sidebar link "Program Reseller"; halaman produk & detail produk menampilkan harga reseller (strikethrough harga normal + badge hijau "Harga Reseller") jika user adalah reseller; logika balance check menggunakan harga efektif (resellerPrice ?? price)
 - **OpenAPI spec:** `ResellerSettings` schema + `resellerPrice` field pada Product schema; codegen sudah dijalankan ulang
+
+### Batch 12 ✅ (April 2026)
+- **Login via WhatsApp atau Username:** Input login mendeteksi otomatis — jika input berisi angka/+/- dengan ≥9 digit → dianggap nomor WA; selain itu → dianggap username. Normalisasi WA via `normalizeWhatsapp()`.
+- **Cek ketersediaan username real-time saat daftar:** Input username di form register punya debounce 600ms → panggil `GET /api/auth/check-username`; tampil ikon ✅/❌; jika tidak tersedia tampil chip saran username alternatif (maks 3).
+- **Lupa Password dengan OTP WhatsApp:** Halaman `/forgot-password` — user isi nomor WA, terima OTP via WhatsApp (Fonnte), lalu reset password baru. Rate limit 3x/15 menit. OTP berlaku 5 menit.
+- **Bug kritis diperbaiki:** `POST /api/auth/forgot-password/reset` sebelumnya memakai `.set({ password: hashed })` → kolom salah (kolom DB adalah `passwordHash`/`password_hash`). Diperbaiki ke `.set({ passwordHash: hashed })` — tanpa fix ini reset password selalu gagal diam-diam.
+- **95 TypeScript error dihapus:** TS6305 (stale `references` di tsconfig) → dihapus; TS7006 (implicit any) → `"noImplicitAny": false`; 9 bug logika nyata di halaman balance, account-detail, dashboard, order-detail, admin/accounts, admin/users → diperbaiki dengan cast/prop yang benar.
+- **Dead code dibersihkan:** Fungsi `onSubmitAccount`, `useRegister` import, dan orphaned dynamic import dihapus dari `register.tsx`.
+- **Catatan TS2741 (15 sisa):** Ketidakcocokan Orval v8 + TanStack Query v5 — `queryKey` required di `UseQueryOptions` tapi disuplai internal oleh hooks. Tidak mempengaruhi runtime, hanya cosmetic. Fix butuh perubahan config orval.
 
 ### Batch 2 ✅
 - Topup rejection dialog dengan rejectionNote

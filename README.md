@@ -7,7 +7,9 @@ Platform penjualan VPN berbasis web lengkap — dashboard user, panel admin, ver
 ## Fitur Unggulan
 
 **Untuk Pengguna:**
-- Registrasi dengan verifikasi WhatsApp (OTP via Fonnte)
+- Registrasi dengan verifikasi WhatsApp (OTP via Fonnte); cek ketersediaan username real-time saat daftar
+- Login menggunakan **username atau nomor WhatsApp** (terdeteksi otomatis)
+- Lupa password? Reset via OTP WhatsApp langsung dari halaman login
 - Beli VPN, perpanjang akun, kelola saldo
 - Pembayaran QRIS otomatis (AutoGoPay) — akun VPN aktif langsung setelah bayar
 - Notifikasi via WhatsApp dan Telegram
@@ -609,6 +611,9 @@ cd /var/www/ketantech-vpn && git pull origin main && pnpm install && DATABASE_UR
 
 **Login admin gagal terus**
 > Cek log PM2 dengan `pm2 logs ketantech-api`. Kalau ada error database, selesaikan masalah database terlebih dahulu.
+
+**Lupa password admin**
+> Gunakan fitur "Lupa Password" di halaman login — masukkan nomor WhatsApp yang terdaftar untuk menerima OTP reset password. Pastikan token Fonnte sudah diisi di menu Admin → WhatsApp OTP agar OTP bisa terkirim.
 
 **OTP WhatsApp tidak terkirim**
 > Pastikan token Fonnte sudah diisi di menu Admin → WhatsApp OTP. Tanpa token, OTP hanya tampil di layar (mode simulasi).
