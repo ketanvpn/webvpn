@@ -293,10 +293,10 @@ export default function AdminProducts() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Produk?</AlertDialogTitle>
+            <AlertDialogTitle>Hapus Produk Permanen?</AlertDialogTitle>
             <AlertDialogDescription>
-              Produk <span className="font-semibold">"{deleteTarget?.name}"</span> akan dinonaktifkan dan tidak lagi tampil di toko.
-              Akun VPN yang sudah terbeli tidak terpengaruh.
+              Produk <span className="font-semibold">"{deleteTarget?.name}"</span> akan dihapus secara permanen dan tidak bisa dikembalikan.
+              Jika produk ini punya riwayat order, hapus akan ditolak — nonaktifkan saja lewat tombol Edit.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -306,7 +306,7 @@ export default function AdminProducts() {
               disabled={deleteProduct.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleteProduct.isPending ? "Menghapus..." : "Hapus Produk"}
+              {deleteProduct.isPending ? "Menghapus..." : "Hapus Permanen"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

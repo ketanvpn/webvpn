@@ -514,8 +514,35 @@ router.patch("/admin/products/:id", requireAdmin, async (req, res) => {
 
 router.delete("/admin/products/:id", requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id, 10);
-  await db.update(productsTable).set({ isActive: false }).where(eq(productsTable.id, id));
-  res.json({ message: "Product deleted" });
+
+  // Cek apakah produk ada
+  const [product] = await db
+    .select({ id: productsTable.id, name: productsTable.name })
+    .from(productsTable)
+    .where(eq(productsTable.id, id))
+    .limit(1);
+
+  if (!product) {
+    res.status(404).json({ error: "Produk tidak ditemukan" });
+    return;
+  }
+
+  // Cek apakah ada order yang menggunakan produk ini
+  const [orderCount] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(ordersTable)
+    .where(eq(ordersTable.productId, id));
+
+  if (orderCount.count > 0) {
+    res.status(409).json({
+      error: `Produk tidak dapat dihapus karena memiliki ${orderCount.count} order terkait. Nonaktifkan produk jika tidak ingin ditampilkan di toko.`,
+    });
+    return;
+  }
+
+  // Tidak ada order → hard delete
+  await db.delete(productsTable).where(eq(productsTable.id, id));
+  res.json({ success: true, message: "Produk berhasil dihapus" });
 });
 
 // ─── Admin: Servers ───────────────────────────────────────────────────────────
