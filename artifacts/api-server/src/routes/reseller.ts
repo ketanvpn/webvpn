@@ -61,6 +61,8 @@ router.get("/reseller/promo", requireAuth, async (req, res) => {
     discountPercent: settings.resellerDiscountPercent,
     autoUpgradeEnabled: settings.resellerAutoUpgradeEnabled,
     autoUpgradeMinTopup: settings.resellerAutoUpgradeMinTopup,
+    targetEnabled: settings.resellerTargetEnabled,
+    monthlyTarget: settings.resellerMonthlyTarget,
   });
 });
 
