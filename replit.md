@@ -366,6 +366,7 @@ Setiap kali mengubah `lib/api-spec/openapi.yaml`:
 - **Dashboard Progres Reseller:** Endpoint baru `GET /api/reseller/status` (requireAuth + role check reseller) — mengembalikan `discountPercent`, `targetEnabled`, `monthlyTarget`, `currentMonthSales` (total order lunas bulan berjalan), `progressPercent`, `currentMonth`
 - **Kartu Status Reseller di halaman Profil:** Hanya tampil jika `user.role === "reseller"`. Menampilkan: diskon yang didapat, progress bar penjualan bulan ini vs target, berapa yang masih kurang, serta catatan bahwa evaluasi dilakukan tiap tanggal 1. Jika target dinonaktifkan oleh admin, kartu tetap tampil dengan info "status reseller permanen". Jika target sudah capai → tampil pesan hijau "Target bulan ini sudah tercapai!".
 - File baru: `artifacts/api-server/src/routes/reseller.ts`
+- **Bug fix:** `req.user!.id` → `req.user!.userId` — JWT payload memakai field `userId` bukan `id`. Sebelum fix, query selalu menghasilkan 0 karena filter `userId = undefined` tidak cocok dengan record apapun.
 
 ### Batch 12 ✅ (April 2026)
 - **Login via WhatsApp atau Username:** Input login mendeteksi otomatis — jika input berisi angka/+/- dengan ≥9 digit → dianggap nomor WA; selain itu → dianggap username. Normalisasi WA via `normalizeWhatsapp()`.

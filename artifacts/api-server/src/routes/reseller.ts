@@ -24,7 +24,7 @@ router.get("/reseller/status", requireAuth, async (req, res) => {
     .from(ordersTable)
     .where(
       and(
-        eq(ordersTable.userId, req.user!.id),
+        eq(ordersTable.userId, req.user!.userId),
         eq(ordersTable.status, "paid"),
         gte(ordersTable.createdAt, monthStart),
         lt(ordersTable.createdAt, monthEnd),
