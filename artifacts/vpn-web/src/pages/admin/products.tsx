@@ -79,7 +79,7 @@ const emptyForm: ProductForm = {
   category: "",
   sortOrder: "0",
   isActive: true,
-  serverId: "",
+  serverId: "none",
 };
 
 const protocolOptions = ["ssh", "vmess", "vless", "trojan", "shadowsocks"];
@@ -118,7 +118,7 @@ export default function AdminProducts() {
       category: p.category ?? "",
       sortOrder: String(p.sortOrder),
       isActive: p.isActive,
-      serverId: p.serverId != null ? String(p.serverId) : "",
+      serverId: p.serverId != null ? String(p.serverId) : "none",
     });
     setDialogOpen(true);
   };
@@ -137,7 +137,7 @@ export default function AdminProducts() {
       category: form.category || undefined,
       sortOrder: parseInt(form.sortOrder, 10),
       isActive: form.isActive,
-      serverId: form.serverId ? parseInt(form.serverId, 10) : null,
+      serverId: form.serverId && form.serverId !== "none" ? parseInt(form.serverId, 10) : null,
     };
 
     if (!payload.name || isNaN(payload.price) || isNaN(payload.durationDays) || isNaN(stock) || stock < 1) {
@@ -453,7 +453,7 @@ export default function AdminProducts() {
                   <SelectValue placeholder="— Otomatis (berdasarkan protokol) —" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">— Otomatis (berdasarkan protokol) —</SelectItem>
+                  <SelectItem value="none">— Otomatis (berdasarkan protokol) —</SelectItem>
                   {servers?.map((s) => (
                     <SelectItem key={s.id} value={String(s.id)}>
                       {s.flag} {s.name} ({s.location})
