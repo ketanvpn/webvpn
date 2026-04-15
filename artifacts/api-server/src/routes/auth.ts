@@ -504,8 +504,8 @@ router.post("/auth/forgot-password/reset", async (req, res) => {
     return;
   }
 
-  const hashed = await bcrypt.hash(newPassword, 10);
-  await db.update(usersTable).set({ password: hashed }).where(eq(usersTable.id, user.id));
+  const hashed = await bcrypt.hash(newPassword, 12);
+  await db.update(usersTable).set({ passwordHash: hashed }).where(eq(usersTable.id, user.id));
 
   res.json({ message: "Password berhasil direset. Silakan login dengan password baru." });
 });

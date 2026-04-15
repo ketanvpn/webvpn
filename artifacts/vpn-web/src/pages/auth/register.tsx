@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link, useLocation } from "wouter";
-import { useRegister, checkUsername } from "@workspace/api-client-react";
+import { checkUsername } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -44,7 +44,6 @@ type Step = "whatsapp" | "otp" | "account";
 export default function Register() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const register = useRegister();
 
   const [step, setStep] = useState<Step>("whatsapp");
   const [whatsapp, setWhatsapp] = useState("");
@@ -59,10 +58,9 @@ export default function Register() {
   const usernameDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (resendCooldown > 0) {
-      const t = setTimeout(() => setResendCooldown((v) => v - 1), 1000);
-      return () => clearTimeout(t);
-    }
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown((v) => v - 1), 1000);
+    return () => clearTimeout(t);
   }, [resendCooldown]);
 
   const waForm = useForm<z.infer<typeof waSchema>>({
@@ -165,34 +163,6 @@ export default function Register() {
     setStep("account");
   }
 
-  function onSubmitAccount(values: z.infer<typeof accountSchema>) {
-    register.mutate(
-      {
-        data: {
-          username: values.username,
-          password: values.password,
-          fullName: values.fullName || undefined,
-          email: values.email || undefined,
-        } as any,
-        ...(({ whatsapp, otpCode: otp } as any)),
-      },
-      {
-        onSuccess: () => {
-          toast({ title: "Registrasi berhasil!", description: "Selamat datang di KETANTECH VPN" });
-          setLocation("/dashboard");
-          window.location.reload();
-        },
-        onError: (error) => {
-          toast({
-            title: "Registrasi gagal",
-            description: getApiError(error) || "Coba lagi",
-            variant: "destructive",
-          });
-        },
-      }
-    );
-  }
-
   function handleAccountSubmit(values: z.infer<typeof accountSchema>) {
     const payload: any = {
       username: values.username,
@@ -203,8 +173,6 @@ export default function Register() {
       otpCode: otp,
       ...(values.referralCode ? { referralCode: values.referralCode.trim().toUpperCase() } : {}),
     };
-
-    import("@workspace/api-client-react").then(({ usersApi }) => {}).catch(() => {});
 
     fetch("/api/auth/register", {
       method: "POST",
@@ -401,23 +369,22 @@ export default function Register() {
                             {...field}
                             onChange={(e) => handleUsernameChange(e.target.value)}
                             className={
-                              usernameStatus === "checking" ? "" :
-                              typeof usernameStatus === "object" && usernameStatus?.available === true ? "border-green-500 pr-9" :
-                              typeof usernameStatus === "object" && usernameStatus?.available === false ? "border-red-400 pr-9" : ""
+                              usernameStatus === null || usernameStatus === "checking" ? "" :
+                              usernameStatus.available ? "border-green-500 pr-9" : "border-red-400 pr-9"
                             }
                           />
                           <div className="absolute right-3 top-1/2 -translate-y-1/2">
                             {usernameStatus === "checking" && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                            {typeof usernameStatus === "object" && usernameStatus?.available === true && <Check className="h-4 w-4 text-green-500" />}
-                            {typeof usernameStatus === "object" && usernameStatus?.available === false && <X className="h-4 w-4 text-red-400" />}
+                            {usernameStatus !== null && usernameStatus !== "checking" && usernameStatus.available === true && <Check className="h-4 w-4 text-green-500" />}
+                            {usernameStatus !== null && usernameStatus !== "checking" && usernameStatus.available === false && <X className="h-4 w-4 text-red-400" />}
                           </div>
                         </div>
                       </FormControl>
                       {/* Status pesan */}
-                      {typeof usernameStatus === "object" && usernameStatus.available === true && (
+                      {usernameStatus !== null && usernameStatus !== "checking" && usernameStatus.available === true && (
                         <p className="text-xs text-green-600 flex items-center gap-1"><Check className="h-3 w-3" /> Username tersedia</p>
                       )}
-                      {typeof usernameStatus === "object" && usernameStatus.available === false && (
+                      {usernameStatus !== null && usernameStatus !== "checking" && usernameStatus.available === false && (
                         <div className="space-y-1.5">
                           <p className="text-xs text-red-500 flex items-center gap-1"><X className="h-3 w-3" /> Username sudah dipakai</p>
                           {usernameStatus.suggestions.length > 0 && (
