@@ -12,13 +12,18 @@ Platform penjualan VPN berbasis web lengkap — dashboard user, panel admin, ver
 - Lupa password? Reset via OTP WhatsApp langsung dari halaman login
 - Beli VPN, perpanjang akun, kelola saldo
 - Pembayaran QRIS otomatis (AutoGoPay) — akun VPN aktif langsung setelah bayar
-- Notifikasi via WhatsApp dan Telegram
+- Notifikasi kedaluwarsa akun VPN via WhatsApp dan Telegram (H-3 dan H-1)
+- **Program Referral** — bagikan kode referral, dapat bonus saldo setiap ada yang daftar dan beli via kode kamu
+- **Program Reseller** — beli VPN dengan harga lebih murah (diskon khusus reseller), jual ke siapa saja dengan harga markup sendiri; bisa jadi reseller otomatis cukup dengan topup sekali
 
 **Untuk Admin:**
-- Dashboard statistik (revenue, pengguna, order, topup)
+- Dashboard statistik lengkap (revenue harian/bulanan, pengguna, order, topup) dengan grafik
 - Kelola pengguna, produk, server, order, topup, akun VPN
-- Konfigurasi payment gateway, WhatsApp OTP, Telegram bot
-- Broadcast pesan ke semua pengguna
+- Konfigurasi payment gateway (AutoGoPay QRIS), WhatsApp OTP (Fonnte), Telegram bot
+- **Program Referral** — aktifkan/nonaktifkan, atur nominal bonus referral
+- **Program Reseller** — atur diskon harga beli, target penjualan bulanan, banner promosi di panel user, auto-upgrade reseller via topup otomatis
+- Notifikasi kedaluwarsa VPN otomatis (WhatsApp + Telegram, jam kirim bisa diatur)
+- Broadcast pesan ke semua pengguna yang sudah sambungkan Telegram
 - Backup & restore database otomatis via Telegram
 
 ---
@@ -556,6 +561,22 @@ Menu: **Admin → Notifikasi Kedaluwarsa**
 - Jika kamu tinggal di zona waktu berbeda, sesuaikan:
   - **WIT (Waktu Indonesia Timur)** → pilih jam dikurangi 2 (contoh: mau kirim jam 09.00 WIT, pilih 07.00 WIB)
   - **WITA (Waktu Indonesia Tengah)** → pilih jam dikurangi 1
+
+### Program Referral — Opsional
+Menu: **Admin → Program Referral**
+- Aktifkan toggle "Program Referral Aktif"
+- Atur nominal bonus saldo yang diterima referrer saat referral-nya pertama kali beli
+- Setiap user punya kode referral unik di halaman Profil mereka
+- Kode referral bisa diisi saat registrasi di kolom "Kode Referral" (opsional)
+
+### Program Reseller — Opsional
+Menu: **Admin → Program Reseller**
+- Aktifkan toggle "Sistem Reseller Aktif" dan atur **% diskon** harga beli reseller
+- **Target Penjualan Bulanan** *(opsional)*: aktifkan dan atur nominal minimum penjualan per bulan — reseller yang tidak capai target di evaluasi tiap tanggal 1 akan otomatis diturunkan
+- **Auto-Upgrade via Topup** *(opsional)*: user biasa yang topup sekali dengan nominal ≥ minimum langsung otomatis jadi reseller, tanpa perlu ajukan manual
+- **Promosi di Panel User** *(opsional)*: aktifkan banner promosi di dashboard dan profil user biasa — tampilkan keuntungan, syarat masuk, dan syarat aktif secara transparan; user bisa klik ajukan langsung dari panel
+
+> **Catatan:** Semua fitur reseller bersifat opsional dan bisa diaktifkan/nonaktifkan secara terpisah sesuai kebutuhan bisnis kamu.
 
 ### Backup Database Otomatis
 Menu: **Admin → Backup & Restore DB**
