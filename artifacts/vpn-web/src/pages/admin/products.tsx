@@ -313,7 +313,7 @@ export default function AdminProducts() {
                 id="prod-name"
                 placeholder="Contoh: VMess 30 Hari"
                 value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                onChange={(e) => { const v = e.target.value; setForm((f) => ({ ...f, name: v })); }}
                 data-testid="input-product-name"
               />
             </div>
@@ -324,15 +324,42 @@ export default function AdminProducts() {
                 id="prod-desc"
                 placeholder="Deskripsi singkat paket..."
                 value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                onChange={(e) => { const v = e.target.value; setForm((f) => ({ ...f, description: v })); }}
                 rows={2}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
+                <Label htmlFor="prod-price">Harga (Rp) *</Label>
+                <Input
+                  id="prod-price"
+                  type="number"
+                  min={0}
+                  placeholder="25000"
+                  value={form.price}
+                  onChange={(e) => { const v = e.target.value; setForm((f) => ({ ...f, price: v })); }}
+                  data-testid="input-product-price"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="prod-stock">Stok Maksimal *</Label>
+                <Input
+                  id="prod-stock"
+                  type="number"
+                  min={1}
+                  placeholder="10"
+                  value={form.stock}
+                  onChange={(e) => { const v = e.target.value; setForm((f) => ({ ...f, stock: v })); }}
+                />
+                <p className="text-xs text-muted-foreground">Maks. akun aktif sekaligus</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
                 <Label>Protokol *</Label>
-                <Select value={form.protocol} onValueChange={(v) => setForm({ ...form, protocol: v })}>
+                <Select value={form.protocol} onValueChange={(v) => setForm((f) => ({ ...f, protocol: v }))}>
                   <SelectTrigger data-testid="select-protocol">
                     <SelectValue />
                   </SelectTrigger>
@@ -351,24 +378,12 @@ export default function AdminProducts() {
                   min={1}
                   placeholder="30"
                   value={form.durationDays}
-                  onChange={(e) => setForm({ ...form, durationDays: e.target.value })}
+                  onChange={(e) => { const v = e.target.value; setForm((f) => ({ ...f, durationDays: v })); }}
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="prod-price">Harga (Rp) *</Label>
-                <Input
-                  id="prod-price"
-                  type="number"
-                  min={0}
-                  placeholder="25000"
-                  value={form.price}
-                  onChange={(e) => setForm({ ...form, price: e.target.value })}
-                  data-testid="input-product-price"
-                />
-              </div>
               <div className="grid gap-2">
                 <Label htmlFor="prod-quota">Kuota (GB, kosong = unlimited)</Label>
                 <Input
@@ -377,12 +392,9 @@ export default function AdminProducts() {
                   min={0}
                   placeholder="100"
                   value={form.quota}
-                  onChange={(e) => setForm({ ...form, quota: e.target.value })}
+                  onChange={(e) => { const v = e.target.value; setForm((f) => ({ ...f, quota: v })); }}
                 />
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="prod-conn">Maks. Koneksi (kosong = unlimited)</Label>
                 <Input
@@ -391,32 +403,20 @@ export default function AdminProducts() {
                   min={1}
                   placeholder="3"
                   value={form.maxConnections}
-                  onChange={(e) => setForm({ ...form, maxConnections: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="prod-category">Kategori</Label>
-                <Input
-                  id="prod-category"
-                  placeholder="Contoh: V2Ray, SSH"
-                  value={form.category}
-                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  onChange={(e) => { const v = e.target.value; setForm((f) => ({ ...f, maxConnections: v })); }}
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="prod-stock">Stok Maksimal *</Label>
+                <Label htmlFor="prod-category">Kategori</Label>
                 <Input
-                  id="prod-stock"
-                  type="number"
-                  min={1}
-                  placeholder="10"
-                  value={form.stock}
-                  onChange={(e) => setForm({ ...form, stock: e.target.value })}
+                  id="prod-category"
+                  placeholder="Contoh: V2Ray, SSH"
+                  value={form.category}
+                  onChange={(e) => { const v = e.target.value; setForm((f) => ({ ...f, category: v })); }}
                 />
-                <p className="text-xs text-muted-foreground">Batas maks. akun aktif sekaligus</p>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="prod-sort">Urutan Tampil</Label>
@@ -425,7 +425,7 @@ export default function AdminProducts() {
                   type="number"
                   placeholder="0"
                   value={form.sortOrder}
-                  onChange={(e) => setForm({ ...form, sortOrder: e.target.value })}
+                  onChange={(e) => { const v = e.target.value; setForm((f) => ({ ...f, sortOrder: v })); }}
                 />
               </div>
             </div>
@@ -433,7 +433,7 @@ export default function AdminProducts() {
             <div className="flex items-center gap-3">
               <Switch
                 checked={form.isActive}
-                onCheckedChange={(v) => setForm({ ...form, isActive: v })}
+                onCheckedChange={(v) => setForm((f) => ({ ...f, isActive: v }))}
                 id="prod-active"
                 data-testid="switch-product-active"
               />
