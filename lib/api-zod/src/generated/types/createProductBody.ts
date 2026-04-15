@@ -20,4 +20,6 @@ export interface CreateProductBody {
   isActive?: boolean;
   category?: string;
   sortOrder?: number;
+  /** ID server yang di-pin untuk produk ini (null = pilih otomatis) */
+  serverId?: number | null;
 }

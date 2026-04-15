@@ -165,6 +165,14 @@ export const ListProductsResponseItem = zod.object({
   isActive: zod.boolean(),
   category: zod.string().nullish(),
   sortOrder: zod.number().optional(),
+  serverId: zod
+    .number()
+    .nullish()
+    .describe("ID server yang di-pin untuk produk ini (null = pilih otomatis)"),
+  serverName: zod
+    .string()
+    .nullish()
+    .describe("Nama server yang di-pin (null jika tidak di-pin)"),
 });
 export const ListProductsResponse = zod.array(ListProductsResponseItem);
 
@@ -200,6 +208,14 @@ export const GetProductResponse = zod.object({
   isActive: zod.boolean(),
   category: zod.string().nullish(),
   sortOrder: zod.number().optional(),
+  serverId: zod
+    .number()
+    .nullish()
+    .describe("ID server yang di-pin untuk produk ini (null = pilih otomatis)"),
+  serverName: zod
+    .string()
+    .nullish()
+    .describe("Nama server yang di-pin (null jika tidak di-pin)"),
 });
 
 /**
@@ -254,6 +270,16 @@ export const ListOrdersResponse = zod.object({
           isActive: zod.boolean(),
           category: zod.string().nullish(),
           sortOrder: zod.number().optional(),
+          serverId: zod
+            .number()
+            .nullish()
+            .describe(
+              "ID server yang di-pin untuk produk ini (null = pilih otomatis)",
+            ),
+          serverName: zod
+            .string()
+            .nullish()
+            .describe("Nama server yang di-pin (null jika tidak di-pin)"),
         })
         .nullish(),
       status: zod.enum(["pending", "paid", "failed", "expired"]),
@@ -339,6 +365,16 @@ export const GetOrderResponse = zod.object({
       isActive: zod.boolean(),
       category: zod.string().nullish(),
       sortOrder: zod.number().optional(),
+      serverId: zod
+        .number()
+        .nullish()
+        .describe(
+          "ID server yang di-pin untuk produk ini (null = pilih otomatis)",
+        ),
+      serverName: zod
+        .string()
+        .nullish()
+        .describe("Nama server yang di-pin (null jika tidak di-pin)"),
     })
     .nullish(),
   status: zod.enum(["pending", "paid", "failed", "expired"]),
@@ -394,6 +430,16 @@ export const PayOrderResponse = zod.object({
       isActive: zod.boolean(),
       category: zod.string().nullish(),
       sortOrder: zod.number().optional(),
+      serverId: zod
+        .number()
+        .nullish()
+        .describe(
+          "ID server yang di-pin untuk produk ini (null = pilih otomatis)",
+        ),
+      serverName: zod
+        .string()
+        .nullish()
+        .describe("Nama server yang di-pin (null jika tidak di-pin)"),
     })
     .nullish(),
   status: zod.enum(["pending", "paid", "failed", "expired"]),
@@ -649,6 +695,16 @@ export const GetDashboardSummaryResponse = zod.object({
           isActive: zod.boolean(),
           category: zod.string().nullish(),
           sortOrder: zod.number().optional(),
+          serverId: zod
+            .number()
+            .nullish()
+            .describe(
+              "ID server yang di-pin untuk produk ini (null = pilih otomatis)",
+            ),
+          serverName: zod
+            .string()
+            .nullish()
+            .describe("Nama server yang di-pin (null jika tidak di-pin)"),
         })
         .nullish(),
       status: zod.enum(["pending", "paid", "failed", "expired"]),
@@ -771,6 +827,16 @@ export const GetAdminDashboardResponse = zod.object({
             isActive: zod.boolean(),
             category: zod.string().nullish(),
             sortOrder: zod.number().optional(),
+            serverId: zod
+              .number()
+              .nullish()
+              .describe(
+                "ID server yang di-pin untuk produk ini (null = pilih otomatis)",
+              ),
+            serverName: zod
+              .string()
+              .nullish()
+              .describe("Nama server yang di-pin (null jika tidak di-pin)"),
           })
           .nullish(),
         status: zod.enum(["pending", "paid", "failed", "expired"]),
@@ -951,6 +1017,16 @@ export const AdminGetUserResponse = zod
                 isActive: zod.boolean(),
                 category: zod.string().nullish(),
                 sortOrder: zod.number().optional(),
+                serverId: zod
+                  .number()
+                  .nullish()
+                  .describe(
+                    "ID server yang di-pin untuk produk ini (null = pilih otomatis)",
+                  ),
+                serverName: zod
+                  .string()
+                  .nullish()
+                  .describe("Nama server yang di-pin (null jika tidak di-pin)"),
               })
               .nullish(),
             status: zod.enum(["pending", "paid", "failed", "expired"]),
@@ -1174,6 +1250,14 @@ export const AdminListProductsResponseItem = zod.object({
   isActive: zod.boolean(),
   category: zod.string().nullish(),
   sortOrder: zod.number().optional(),
+  serverId: zod
+    .number()
+    .nullish()
+    .describe("ID server yang di-pin untuk produk ini (null = pilih otomatis)"),
+  serverName: zod
+    .string()
+    .nullish()
+    .describe("Nama server yang di-pin (null jika tidak di-pin)"),
 });
 export const AdminListProductsResponse = zod.array(
   AdminListProductsResponseItem,
@@ -1197,6 +1281,10 @@ export const AdminCreateProductBody = zod.object({
   isActive: zod.boolean().default(adminCreateProductBodyIsActiveDefault),
   category: zod.string().optional(),
   sortOrder: zod.number().default(adminCreateProductBodySortOrderDefault),
+  serverId: zod
+    .number()
+    .nullish()
+    .describe("ID server yang di-pin untuk produk ini (null = pilih otomatis)"),
 });
 
 /**
@@ -1220,6 +1308,10 @@ export const AdminUpdateProductBody = zod.object({
   isActive: zod.boolean().optional(),
   category: zod.string().optional(),
   sortOrder: zod.number().optional(),
+  serverId: zod
+    .number()
+    .nullish()
+    .describe("ID server yang di-pin untuk produk ini (null = pilih otomatis)"),
 });
 
 export const AdminUpdateProductResponse = zod.object({
@@ -1247,6 +1339,14 @@ export const AdminUpdateProductResponse = zod.object({
   isActive: zod.boolean(),
   category: zod.string().nullish(),
   sortOrder: zod.number().optional(),
+  serverId: zod
+    .number()
+    .nullish()
+    .describe("ID server yang di-pin untuk produk ini (null = pilih otomatis)"),
+  serverName: zod
+    .string()
+    .nullish()
+    .describe("Nama server yang di-pin (null jika tidak di-pin)"),
 });
 
 /**
@@ -1402,6 +1502,16 @@ export const AdminListOrdersResponse = zod.object({
             isActive: zod.boolean(),
             category: zod.string().nullish(),
             sortOrder: zod.number().optional(),
+            serverId: zod
+              .number()
+              .nullish()
+              .describe(
+                "ID server yang di-pin untuk produk ini (null = pilih otomatis)",
+              ),
+            serverName: zod
+              .string()
+              .nullish()
+              .describe("Nama server yang di-pin (null jika tidak di-pin)"),
           })
           .nullish(),
         status: zod.enum(["pending", "paid", "failed", "expired"]),
@@ -1495,6 +1605,16 @@ export const AdminConfirmOrderResponse = zod.object({
       isActive: zod.boolean(),
       category: zod.string().nullish(),
       sortOrder: zod.number().optional(),
+      serverId: zod
+        .number()
+        .nullish()
+        .describe(
+          "ID server yang di-pin untuk produk ini (null = pilih otomatis)",
+        ),
+      serverName: zod
+        .string()
+        .nullish()
+        .describe("Nama server yang di-pin (null jika tidak di-pin)"),
     })
     .nullish(),
   status: zod.enum(["pending", "paid", "failed", "expired"]),

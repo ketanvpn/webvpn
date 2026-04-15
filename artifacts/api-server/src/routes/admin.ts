@@ -426,12 +426,14 @@ router.post("/admin/users/:id/reset-password", requireAdmin, async (req, res) =>
 // ─── Admin: Products ──────────────────────────────────────────────────────────
 
 router.get("/admin/products", requireAdmin, async (_req, res) => {
-  const products = await db
-    .select()
+  const rows = await db
+    .select({ product: productsTable, serverName: serversTable.name })
     .from(productsTable)
+    .leftJoin(serversTable, eq(productsTable.serverId, serversTable.id))
     .orderBy(asc(productsTable.sortOrder), asc(productsTable.id));
+  const products = rows.map((r) => r.product);
   const countMap = await getActiveCountMap(products.map((p) => p.id));
-  res.json(products.map((p) => formatProduct(p, countMap.get(p.id) ?? 0)));
+  res.json(rows.map((r) => formatProduct(r.product, countMap.get(r.product.id) ?? 0, 0, r.serverName ?? null)));
 });
 
 router.post("/admin/products", requireAdmin, async (req, res) => {
@@ -455,9 +457,15 @@ router.post("/admin/products", requireAdmin, async (req, res) => {
       isActive: data.isActive ?? true,
       category: data.category ?? null,
       sortOrder: data.sortOrder ?? 0,
+      serverId: data.serverId ?? null,
     })
     .returning();
-  res.status(201).json(formatProduct(product, 0));
+  let serverName: string | null = null;
+  if (product.serverId) {
+    const [srv] = await db.select({ name: serversTable.name }).from(serversTable).where(eq(serversTable.id, product.serverId)).limit(1);
+    serverName = srv?.name ?? null;
+  }
+  res.status(201).json(formatProduct(product, 0, 0, serverName));
 });
 
 router.patch("/admin/products/:id", requireAdmin, async (req, res) => {
@@ -482,6 +490,7 @@ router.patch("/admin/products/:id", requireAdmin, async (req, res) => {
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
   if (data.category !== undefined) updateData.category = data.category;
   if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
+  if (data.serverId !== undefined) updateData.serverId = data.serverId ?? null;
 
   const [product] = await db
     .update(productsTable)
@@ -494,8 +503,13 @@ router.patch("/admin/products/:id", requireAdmin, async (req, res) => {
     return;
   }
 
+  let serverName: string | null = null;
+  if (product.serverId) {
+    const [srv] = await db.select({ name: serversTable.name }).from(serversTable).where(eq(serversTable.id, product.serverId)).limit(1);
+    serverName = srv?.name ?? null;
+  }
   const countMap = await getActiveCountMap([product.id]);
-  res.json(formatProduct(product, countMap.get(product.id) ?? 0));
+  res.json(formatProduct(product, countMap.get(product.id) ?? 0, 0, serverName));
 });
 
 router.delete("/admin/products/:id", requireAdmin, async (req, res) => {

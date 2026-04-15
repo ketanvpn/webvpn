@@ -26,4 +26,8 @@ export interface Product {
   isActive: boolean;
   category?: string | null;
   sortOrder?: number;
+  /** ID server yang di-pin untuk produk ini (null = pilih otomatis) */
+  serverId?: number | null;
+  /** Nama server yang di-pin (null jika tidak di-pin) */
+  serverName?: string | null;
 }

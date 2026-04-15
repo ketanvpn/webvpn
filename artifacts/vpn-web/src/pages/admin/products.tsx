@@ -5,6 +5,7 @@ import {
   useAdminUpdateProduct,
   useAdminDeleteProduct,
   getAdminListProductsQueryKey,
+  useAdminListServers,
 } from "@workspace/api-client-react";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,7 +47,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatRupiah } from "@/lib/format";
-import { Package, Plus, MoreVertical, Edit, Trash2 } from "lucide-react";
+import { Package, Plus, MoreVertical, Edit, Trash2, Server } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Product } from "@workspace/api-client-react";
@@ -63,6 +64,7 @@ type ProductForm = {
   category: string;
   sortOrder: string;
   isActive: boolean;
+  serverId: string;
 };
 
 const emptyForm: ProductForm = {
@@ -77,12 +79,14 @@ const emptyForm: ProductForm = {
   category: "",
   sortOrder: "0",
   isActive: true,
+  serverId: "",
 };
 
 const protocolOptions = ["ssh", "vmess", "vless", "trojan", "shadowsocks"];
 
 export default function AdminProducts() {
   const { data: products, isLoading } = useAdminListProducts();
+  const { data: servers } = useAdminListServers();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createProduct = useAdminCreateProduct();
@@ -114,6 +118,7 @@ export default function AdminProducts() {
       category: p.category ?? "",
       sortOrder: String(p.sortOrder),
       isActive: p.isActive,
+      serverId: p.serverId != null ? String(p.serverId) : "",
     });
     setDialogOpen(true);
   };
@@ -132,6 +137,7 @@ export default function AdminProducts() {
       category: form.category || undefined,
       sortOrder: parseInt(form.sortOrder, 10),
       isActive: form.isActive,
+      serverId: form.serverId ? parseInt(form.serverId, 10) : null,
     };
 
     if (!payload.name || isNaN(payload.price) || isNaN(payload.durationDays) || isNaN(stock) || stock < 1) {
@@ -239,6 +245,13 @@ export default function AdminProducts() {
                           Stok: {product.availableStock}/{product.stock}
                         </span>
                         {product.category && <><span>&bull;</span><span>{product.category}</span></>}
+                      {product.serverName && (
+                        <><span>&bull;</span>
+                        <span className="flex items-center gap-1"><Server className="h-3 w-3" />{product.serverName}</span></>
+                      )}
+                      {!product.serverName && (
+                        <><span>&bull;</span><span className="text-yellow-600">Server: Otomatis</span></>
+                      )}
                       </div>
                     </div>
                   </div>
@@ -428,6 +441,29 @@ export default function AdminProducts() {
                   onChange={(e) => { const v = e.target.value; setForm((f) => ({ ...f, sortOrder: v })); }}
                 />
               </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Server VPN</Label>
+              <Select
+                value={form.serverId}
+                onValueChange={(v) => setForm((f) => ({ ...f, serverId: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="— Otomatis (berdasarkan protokol) —" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">— Otomatis (berdasarkan protokol) —</SelectItem>
+                  {servers?.map((s) => (
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      {s.flag} {s.name} ({s.location})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Pin produk ini ke server tertentu. Biarkan kosong agar sistem pilih server otomatis berdasarkan protokol.
+              </p>
             </div>
 
             <div className="flex items-center gap-3">

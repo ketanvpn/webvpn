@@ -1721,6 +1721,14 @@ components:
           nullable: true
         sortOrder:
           type: integer
+        serverId:
+          type: integer
+          nullable: true
+          description: ID server yang di-pin untuk produk ini (null = pilih otomatis)
+        serverName:
+          type: string
+          nullable: true
+          description: Nama server yang di-pin (null jika tidak di-pin)
 
     CreateProductBody:
       type: object
@@ -1754,6 +1762,10 @@ components:
         sortOrder:
           type: integer
           default: 0
+        serverId:
+          type: integer
+          nullable: true
+          description: ID server yang di-pin untuk produk ini (null = pilih otomatis)
 
     UpdateProductBody:
       type: object
@@ -1784,6 +1796,10 @@ components:
           type: string
         sortOrder:
           type: integer
+        serverId:
+          type: integer
+          nullable: true
+          description: ID server yang di-pin untuk produk ini (null = pilih otomatis)
 
     # ─── Orders ───────────────────────────────────────────────────────────
     Order:

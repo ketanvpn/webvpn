@@ -179,6 +179,10 @@ export interface Product {
   isActive: boolean;
   category?: string | null;
   sortOrder?: number;
+  /** ID server yang di-pin untuk produk ini (null = pilih otomatis) */
+  serverId?: number | null;
+  /** Nama server yang di-pin (null jika tidak di-pin) */
+  serverName?: string | null;
 }
 
 export type CreateProductBodyProtocol =
@@ -205,6 +209,8 @@ export interface CreateProductBody {
   isActive?: boolean;
   category?: string;
   sortOrder?: number;
+  /** ID server yang di-pin untuk produk ini (null = pilih otomatis) */
+  serverId?: number | null;
 }
 
 export type UpdateProductBodyProtocol =
@@ -231,6 +237,8 @@ export interface UpdateProductBody {
   isActive?: boolean;
   category?: string;
   sortOrder?: number;
+  /** ID server yang di-pin untuk produk ini (null = pilih otomatis) */
+  serverId?: number | null;
 }
 
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];

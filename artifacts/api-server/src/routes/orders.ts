@@ -139,7 +139,12 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
   const supportsProtocol = (s: typeof allServers[0]) =>
     Array.isArray(s.supportedProtocols) && s.supportedProtocols.includes(product.protocol);
 
-  const server =
+  // Prioritaskan server yang di-pin ke produk, jika ada dan aktif
+  const pinnedServer = product.serverId
+    ? allServers.find((s) => s.id === product.serverId)
+    : undefined;
+
+  const server = pinnedServer ??
     allServers.find((s) => supportsProtocol(s) && s.apiUrl && s.apiToken) ??
     allServers.find((s) => supportsProtocol(s)) ??
     allServers[0];

@@ -345,6 +345,11 @@ Setiap kali mengubah `lib/api-spec/openapi.yaml`:
 - **Perbaikan deploy command VPS:** `db run push` gagal tanpa DATABASE_URL eksplisit — command deploy lengkap kini menyertakan `DATABASE_URL="..."` di depan perintah push schema
 - **Troubleshooting DATABASE_URL di VPS:** Diketahui bahwa `drizzle-kit` tidak membaca file `.env` otomatis — solusi: selalu berikan DATABASE_URL via env variable eksplisit saat menjalankan `db push`
 
+### Batch 11 ✅ (April 2026)
+- **Pin Produk ke Server:** Kolom `server_id` (nullable FK) ditambahkan ke tabel `products`; saat order masuk, sistem prioritaskan server yang di-pin; fallback ke logika lama (cari berdasarkan protokol) jika tidak di-pin
+- **Admin produk:** Form tambah/edit produk ada dropdown pilih server (atau "Otomatis"); list produk tampil nama server yang di-pin atau label "Server: Otomatis" (kuning)
+- **optionalAuth middleware:** Middleware baru yang membaca token cookie tanpa reject jika tidak ada — dipakai di route publik `/products` agar role reseller bisa terdeteksi
+
 ### Batch 10 ✅ (April 2026)
 - **Sistem Reseller (backend):** `getResellerSettings()` helper + GET/PUT `/admin/settings/reseller` endpoints; `formatProduct()` menerima param `resellerDiscount` dan mengembalikan `resellerPrice`; routes produk & orders mendeteksi role reseller dan menerapkan diskon otomatis
 - **Sistem Reseller (scheduler):** `checkResellerTargets()` berjalan tiap tanggal 1 pukul 07:00 WIB — cek total order lunas bulan lalu, downgrade + notifikasi WA+Telegram jika tidak capai target

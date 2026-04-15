@@ -1,6 +1,7 @@
 import { pgTable, serial, text, boolean, numeric, integer, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { serversTable } from "./servers";
 
 export const productsTable = pgTable("products", {
   id: serial("id").primaryKey(),
@@ -15,6 +16,7 @@ export const productsTable = pgTable("products", {
   isActive: boolean("is_active").notNull().default(true),
   category: text("category"),
   sortOrder: integer("sort_order").notNull().default(0),
+  serverId: integer("server_id").references(() => serversTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
