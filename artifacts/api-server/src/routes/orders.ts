@@ -434,7 +434,7 @@ router.post("/orders", requireAuth, async (req, res) => {
       userId,
       productId,
       status: "pending",
-      amount: product.price,
+      amount: String(amount),
       paymentMethod,
       notes: normalizedRemarks,
       autogopayTransactionId: qrisData?.transactionId ?? null,
