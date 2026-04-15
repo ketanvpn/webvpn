@@ -42,6 +42,8 @@ import type {
   BalanceLogList,
   BalanceResponse,
   ChangePasswordBody,
+  CheckUsername200,
+  CheckUsernameParams,
   CreateOrderBody,
   CreateProductBody,
   CreateServerBody,
@@ -651,6 +653,100 @@ export const useChangePassword = <
 > => {
   return useMutation(getChangePasswordMutationOptions(options));
 };
+
+/**
+ * @summary Cek ketersediaan username, kembalikan saran jika sudah dipakai
+ */
+export const getCheckUsernameUrl = (params: CheckUsernameParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/auth/check-username?${stringifiedParams}`
+    : `/api/auth/check-username`;
+};
+
+export const checkUsername = async (
+  params: CheckUsernameParams,
+  options?: RequestInit,
+): Promise<CheckUsername200> => {
+  return customFetch<CheckUsername200>(getCheckUsernameUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getCheckUsernameQueryKey = (params?: CheckUsernameParams) => {
+  return [`/api/auth/check-username`, ...(params ? [params] : [])] as const;
+};
+
+export const getCheckUsernameQueryOptions = <
+  TData = Awaited<ReturnType<typeof checkUsername>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: CheckUsernameParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof checkUsername>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getCheckUsernameQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof checkUsername>>> = ({
+    signal,
+  }) => checkUsername(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof checkUsername>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type CheckUsernameQueryResult = NonNullable<
+  Awaited<ReturnType<typeof checkUsername>>
+>;
+export type CheckUsernameQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Cek ketersediaan username, kembalikan saran jika sudah dipakai
+ */
+
+export function useCheckUsername<
+  TData = Awaited<ReturnType<typeof checkUsername>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params: CheckUsernameParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof checkUsername>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getCheckUsernameQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Kirim OTP ke WhatsApp untuk reset password

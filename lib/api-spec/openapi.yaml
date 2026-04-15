@@ -188,6 +188,39 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /auth/check-username:
+    get:
+      operationId: checkUsername
+      tags: [auth]
+      summary: Cek ketersediaan username, kembalikan saran jika sudah dipakai
+      parameters:
+        - name: username
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Hasil cek username
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [available, suggestions]
+                properties:
+                  available:
+                    type: boolean
+                  suggestions:
+                    type: array
+                    items:
+                      type: string
+        "400":
+          description: Username tidak valid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /auth/forgot-password/send-otp:
     post:
       operationId: forgotPasswordSendOtp

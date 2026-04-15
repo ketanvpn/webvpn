@@ -202,22 +202,69 @@ router.post("/auth/register", registerLimiter, async (req, res) => {
     });
 });
 
+router.get("/auth/check-username", async (req, res) => {
+  const username = (req.query.username as string ?? "").trim().toLowerCase();
+  if (!username || username.length < 3) {
+    res.status(400).json({ error: "Username terlalu pendek" });
+    return;
+  }
+
+  const [existing] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.username, username))
+    .limit(1);
+
+  if (!existing) {
+    res.json({ available: true, suggestions: [] });
+    return;
+  }
+
+  // Generate saran username alternatif yang belum dipakai
+  const candidates = [
+    `${username}1`, `${username}12`, `${username}99`,
+    `${username}_id`, `${username}123`, `${username}2025`,
+    `${username}_vpn`, `${username}88`,
+  ];
+
+  const checks = await Promise.all(
+    candidates.map(async (c) => {
+      const [row] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.username, c)).limit(1);
+      return { name: c, taken: !!row };
+    })
+  );
+  const suggestions = checks.filter((r) => !r.taken).slice(0, 3).map((r) => r.name);
+
+  res.json({ available: false, suggestions });
+});
+
 router.post("/auth/login", loginLimiter, async (req, res) => {
   const parsed = LoginBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid input" });
     return;
   }
-  const { username, password } = parsed.data;
+  const { username: identifier, password } = parsed.data;
 
-  const [user] = await db
+  // Coba cari sebagai username dulu
+  let [user] = await db
     .select()
     .from(usersTable)
-    .where(eq(usersTable.username, username))
+    .where(eq(usersTable.username, identifier))
     .limit(1);
 
+  // Kalau tidak ketemu dan input mirip nomor HP → coba cari sebagai WhatsApp
+  if (!user && /^[0-9+\-\s]+$/.test(identifier) && identifier.replace(/\D/g, "").length >= 9) {
+    const normalized = normalizeWhatsapp(identifier);
+    [user] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.whatsapp, normalized))
+      .limit(1);
+  }
+
   if (!user) {
-    res.status(401).json({ error: "Username atau password salah" });
+    res.status(401).json({ error: "Username/nomor WA atau password salah" });
     return;
   }
 

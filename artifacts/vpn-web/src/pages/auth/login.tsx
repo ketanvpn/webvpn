@@ -85,10 +85,10 @@ export default function Login() {
               name="username"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Username</FormLabel>
+                  <FormLabel>Username / No. WhatsApp</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="Masukkan username"
+                      placeholder="Username atau 08xxxx..."
                       autoComplete="username"
                       {...field}
                     />

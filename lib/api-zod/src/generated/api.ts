@@ -131,6 +131,18 @@ export const ChangePasswordResponse = zod.object({
 });
 
 /**
+ * @summary Cek ketersediaan username, kembalikan saran jika sudah dipakai
+ */
+export const CheckUsernameQueryParams = zod.object({
+  username: zod.coerce.string(),
+});
+
+export const CheckUsernameResponse = zod.object({
+  available: zod.boolean(),
+  suggestions: zod.array(zod.string()),
+});
+
+/**
  * @summary Kirim OTP ke WhatsApp untuk reset password
  */
 export const ForgotPasswordSendOtpBody = zod.object({

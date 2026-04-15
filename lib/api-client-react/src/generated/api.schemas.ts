@@ -517,6 +517,15 @@ export type ChangePasswordBody = {
   newPassword: string;
 };
 
+export type CheckUsernameParams = {
+  username: string;
+};
+
+export type CheckUsername200 = {
+  available: boolean;
+  suggestions: string[];
+};
+
 export type ForgotPasswordSendOtpBody = {
   whatsapp: string;
 };

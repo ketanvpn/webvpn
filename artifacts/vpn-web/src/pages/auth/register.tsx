@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link, useLocation } from "wouter";
-import { useRegister } from "@workspace/api-client-react";
+import { useRegister, checkUsername } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -16,7 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useRef, useEffect } from "react";
-import { Smartphone, MessageCircle, CheckCircle2, ArrowLeft, RefreshCw, Gift } from "lucide-react";
+import { Smartphone, MessageCircle, CheckCircle2, ArrowLeft, RefreshCw, Gift, Check, X, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const waSchema = z.object({
@@ -53,6 +53,10 @@ export default function Register() {
   const [simulateOtp, setSimulateOtp] = useState<string | null>(null);
   const [otpInputs, setOtpInputs] = useState(["", "", "", "", "", ""]);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  type UsernameStatus = null | "checking" | { available: boolean; suggestions: string[] };
+  const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>(null);
+  const usernameDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (resendCooldown > 0) {
@@ -133,6 +137,24 @@ export default function Register() {
       setOtpInputs(text.split(""));
       e.preventDefault();
     }
+  }
+
+  function handleUsernameChange(value: string) {
+    accountForm.setValue("username", value);
+    if (usernameDebounce.current) clearTimeout(usernameDebounce.current);
+    if (value.length < 3) {
+      setUsernameStatus(null);
+      return;
+    }
+    setUsernameStatus("checking");
+    usernameDebounce.current = setTimeout(async () => {
+      try {
+        const result = await checkUsername({ username: value });
+        setUsernameStatus(result);
+      } catch {
+        setUsernameStatus(null);
+      }
+    }, 600);
   }
 
   function onVerifyOtp() {
@@ -372,8 +394,52 @@ export default function Register() {
                     <FormItem>
                       <FormLabel>Username <span className="text-destructive">*</span></FormLabel>
                       <FormControl>
-                        <Input placeholder="Pilih username unik" autoComplete="username" {...field} />
+                        <div className="relative">
+                          <Input
+                            placeholder="Pilih username unik"
+                            autoComplete="username"
+                            {...field}
+                            onChange={(e) => handleUsernameChange(e.target.value)}
+                            className={
+                              usernameStatus === "checking" ? "" :
+                              typeof usernameStatus === "object" && usernameStatus?.available === true ? "border-green-500 pr-9" :
+                              typeof usernameStatus === "object" && usernameStatus?.available === false ? "border-red-400 pr-9" : ""
+                            }
+                          />
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            {usernameStatus === "checking" && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                            {typeof usernameStatus === "object" && usernameStatus?.available === true && <Check className="h-4 w-4 text-green-500" />}
+                            {typeof usernameStatus === "object" && usernameStatus?.available === false && <X className="h-4 w-4 text-red-400" />}
+                          </div>
+                        </div>
                       </FormControl>
+                      {/* Status pesan */}
+                      {typeof usernameStatus === "object" && usernameStatus.available === true && (
+                        <p className="text-xs text-green-600 flex items-center gap-1"><Check className="h-3 w-3" /> Username tersedia</p>
+                      )}
+                      {typeof usernameStatus === "object" && usernameStatus.available === false && (
+                        <div className="space-y-1.5">
+                          <p className="text-xs text-red-500 flex items-center gap-1"><X className="h-3 w-3" /> Username sudah dipakai</p>
+                          {usernameStatus.suggestions.length > 0 && (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs text-muted-foreground">Coba:</span>
+                              {usernameStatus.suggestions.map((s) => (
+                                <button
+                                  key={s}
+                                  type="button"
+                                  onClick={() => {
+                                    accountForm.setValue("username", s);
+                                    handleUsernameChange(s);
+                                  }}
+                                  className="text-xs font-mono bg-primary/10 text-primary px-2 py-0.5 rounded hover:bg-primary/20 transition-colors"
+                                >
+                                  {s}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}

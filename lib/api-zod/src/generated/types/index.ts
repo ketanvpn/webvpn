@@ -40,6 +40,8 @@ export * from "./balanceLog";
 export * from "./balanceLogList";
 export * from "./balanceResponse";
 export * from "./changePasswordBody";
+export * from "./checkUsername200";
+export * from "./checkUsernameParams";
 export * from "./createOrderBody";
 export * from "./createOrderBodyPaymentMethod";
 export * from "./createProductBody";
