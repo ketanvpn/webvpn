@@ -48,12 +48,14 @@ apt update && apt upgrade -y
 
 ### Langkah 2 — Install Node.js
 
+> Project ini membutuhkan **Node.js versi 22 ke atas**. Jangan gunakan versi lama seperti v18 atau v20 karena bisa menyebabkan error.
+
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 apt-get install -y nodejs
 ```
 
-Cek apakah berhasil (harus muncul angka `v20.x.x` atau lebih):
+Cek apakah berhasil (harus muncul angka `v22.x.x` atau lebih):
 
 ```bash
 node --version
@@ -130,9 +132,11 @@ npm install -g pm2
 
 ### Langkah 7 — Download Project
 
+> **Ganti URL di bawah** dengan URL repository GitHub project kamu yang sesungguhnya. Buka GitHub-mu, klik tombol hijau "Code", salin HTTPS URL-nya, lalu tempelkan di sini.
+
 ```bash
 cd /var/www
-git clone https://github.com/ketanvpn/webvpn.git ketantech-vpn
+git clone https://github.com/USERNAME_KAMU/NAMA_REPO_KAMU.git ketantech-vpn
 cd ketantech-vpn
 ```
 
