@@ -2,7 +2,7 @@ import { useListAccounts } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format } from "date-fns";
+import { format, differenceInCalendarDays } from "date-fns";
 import { Link } from "wouter";
 import { Server, Activity, ShieldOff } from "lucide-react";
 
