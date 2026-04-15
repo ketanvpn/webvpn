@@ -5,7 +5,6 @@ import { eq, and, desc, sql, gte } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { RenewAccountBody } from "@workspace/api-zod";
 import { getResellerSettings } from "./settings";
-import { randomUUID } from "crypto";
 import { renewPanelAccount, modifyPanelAccount } from "../lib/vpn-panel";
 import { sendWhatsapp } from "../lib/fonnte";
 import { addBalanceLog } from "./balance-logs";
