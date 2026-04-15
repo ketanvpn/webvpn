@@ -4,6 +4,7 @@ import { vpnAccountsTable, serversTable, ordersTable, productsTable, usersTable 
 import { eq, and, desc, sql, gte } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { RenewAccountBody } from "@workspace/api-zod";
+import { getResellerSettings } from "./settings";
 import { randomUUID } from "crypto";
 import { renewPanelAccount, modifyPanelAccount } from "../lib/vpn-panel";
 import { sendWhatsapp } from "../lib/fonnte";
@@ -118,7 +119,13 @@ router.post("/accounts/:id/renew", requireAuth, async (req, res) => {
   }
 
   if (product.protocol !== account.protocol) {
-    res.status(400).json({ error: "Product protocol does not match account protocol" });
+    res.status(400).json({ error: "Protokol produk tidak cocok dengan akun ini." });
+    return;
+  }
+
+  // Validasi server: produk yang di-pin ke server tertentu harus cocok dengan server akun
+  if (product.serverId !== null && product.serverId !== account.serverId) {
+    res.status(400).json({ error: "Produk ini tidak tersedia untuk server akun kamu." });
     return;
   }
 
@@ -128,7 +135,14 @@ router.post("/accounts/:id/renew", requireAuth, async (req, res) => {
     .where(eq(usersTable.id, userId))
     .limit(1);
 
-  const price = Number(product.price);
+  // Hitung harga efektif (reseller mendapat diskon jika fitur aktif)
+  let price = Number(product.price);
+  if (user!.role === "reseller") {
+    const resellerSettings = await getResellerSettings();
+    if (resellerSettings.resellerEnabled && resellerSettings.resellerDiscountPercent > 0) {
+      price = Math.floor(price * (1 - resellerSettings.resellerDiscountPercent / 100));
+    }
+  }
 
   const baseDate = account.expiresAt > new Date() ? account.expiresAt : new Date();
   const newExpiresAt = new Date(baseDate.getTime() + product.durationDays * 24 * 60 * 60 * 1000);
@@ -168,7 +182,7 @@ router.post("/accounts/:id/renew", requireAuth, async (req, res) => {
           userId,
           productId: product.id,
           status: "paid",
-          amount: product.price,
+          amount: String(price),
           vpnAccountId: account.id,
           paymentMethod: "balance",
           notes: "renewal",
@@ -253,7 +267,7 @@ router.post("/accounts/:id/renew", requireAuth, async (req, res) => {
       `Protokol: *${account.protocol.toUpperCase()}*\n` +
       `Paket: *${product.name}* (+${product.durationDays} hari)\n` +
       `Aktif hingga: *${expiryFormatted}*\n` +
-      `Harga: *Rp ${Number(product.price).toLocaleString("id-ID")}*\n\n` +
+      `Harga: *Rp ${price.toLocaleString("id-ID")}*\n\n` +
       `Terima kasih telah menggunakan KETANTECH VPN! 🚀`;
     sendWhatsapp(user!.whatsapp, waMsg).catch(() => {});
   }
