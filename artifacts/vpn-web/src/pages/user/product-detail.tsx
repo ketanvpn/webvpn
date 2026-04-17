@@ -155,48 +155,48 @@ export default function ProductDetail() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <Card>
+            <Card className="glass-card border-white/5 border-none shadow-none">
               <CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-2">
-                <Clock className="h-8 w-8 text-primary" />
+                <Clock className="h-8 w-8 text-primary drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                 <div className="text-sm font-medium text-muted-foreground">Durasi</div>
                 <div className="text-xl font-bold">{product.durationDays} Hari</div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="glass-card border-white/5 border-none shadow-none">
               <CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-2">
-                <HardDrive className="h-8 w-8 text-primary" />
+                <HardDrive className="h-8 w-8 text-primary drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                 <div className="text-sm font-medium text-muted-foreground">Kuota</div>
                 <div className="text-xl font-bold">{product.quota ? `${product.quota} GB` : "Unlimited"}</div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="glass-card border-white/5 border-none shadow-none">
               <CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-2">
-                <Network className="h-8 w-8 text-primary" />
+                <Network className="h-8 w-8 text-primary drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                 <div className="text-sm font-medium text-muted-foreground">Maks. IP</div>
                 <div className="text-xl font-bold">{product.maxConnections || "Unlimited"}</div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="glass-card border-white/5 border-none shadow-none">
               <CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-2">
-                <Wifi className="h-8 w-8 text-primary" />
+                <Wifi className="h-8 w-8 text-primary drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                 <div className="text-sm font-medium text-muted-foreground">Server</div>
                 <div className="text-xl font-bold">Premium</div>
               </CardContent>
             </Card>
           </div>
 
-          <div className="bg-accent/50 p-4 rounded-xl border flex items-start gap-4">
-            <ShieldCheck className="h-6 w-6 text-primary mt-1 flex-shrink-0" />
+          <div className="glass-panel p-4 rounded-xl border border-white/5 flex items-start gap-4">
+            <ShieldCheck className="h-6 w-6 text-primary mt-1 flex-shrink-0 drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
             <div className="text-sm">
-              <span className="font-semibold block mb-1">Jaminan Kualitas</span>
+              <span className="font-semibold block mb-1 text-primary">Jaminan Kualitas</span>
               Server performa tinggi dengan SLA uptime 99.9%. Cocok untuk gaming, streaming, dan browsing aman.
             </div>
           </div>
         </div>
 
         <div>
-          <Card className="border-2 border-primary/20 sticky top-24 shadow-lg">
-            <CardHeader className="bg-muted/50 border-b">
+          <Card className="glass-panel border-primary/30 sticky top-24 shadow-[0_0_25px_rgba(16,185,129,0.1)]">
+            <CardHeader className="border-b border-white/5 pb-4">
               <CardTitle>Ringkasan Order</CardTitle>
             </CardHeader>
             <CardContent className="pt-6 space-y-6">
@@ -284,7 +284,7 @@ export default function ProductDetail() {
                 </div>
               )}
             </CardContent>
-            <CardFooter className="bg-muted/50 border-t flex flex-col gap-3 pt-6">
+            <CardFooter className="border-t border-white/5 flex flex-col gap-3 pt-6">
               {product.availableStock === 0 ? (
                 <div className="w-full flex flex-col items-center gap-2">
                   <Button size="lg" className="w-full text-lg h-14" disabled variant="secondary">

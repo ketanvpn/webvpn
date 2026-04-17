@@ -18,11 +18,11 @@ const protocols: { value: string; label: string }[] = [
 ];
 
 const PROTOCOL_COLORS: Record<string, string> = {
-  ssh: "bg-orange-100 text-orange-700 border-orange-200",
-  vmess: "bg-blue-100 text-blue-700 border-blue-200",
-  vless: "bg-purple-100 text-purple-700 border-purple-200",
-  trojan: "bg-red-100 text-red-700 border-red-200",
-  shadowsocks: "bg-green-100 text-green-700 border-green-200",
+  ssh: "bg-orange-500/10 text-orange-400 border-orange-500/30",
+  vmess: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+  vless: "bg-purple-500/10 text-purple-400 border-purple-500/30",
+  trojan: "bg-red-500/10 text-red-400 border-red-500/30",
+  shadowsocks: "bg-green-500/10 text-green-400 border-green-500/30",
 };
 
 export default function Products() {
@@ -70,15 +70,15 @@ export default function Products() {
             const hasDiscount = product.resellerPrice != null;
             const inStock = product.availableStock > 0;
             const lowStock = product.availableStock > 0 && product.availableStock <= 3;
-            const protocolColor = PROTOCOL_COLORS[product.protocol] ?? "bg-gray-100 text-gray-700 border-gray-200";
+            const protocolColor = PROTOCOL_COLORS[product.protocol] ?? "bg-gray-500/10 text-gray-400 border-gray-500/30";
 
             return (
               <div
                 key={product.id}
-                className={`relative flex flex-col gap-2 rounded-xl border-2 p-3 transition-all ${
+                className={`relative flex flex-col gap-2 rounded-xl border p-3 transition-all duration-300 ${
                   inStock
-                    ? "bg-card hover:border-primary/50 hover:shadow-sm"
-                    : "bg-muted/30 opacity-70"
+                    ? "glass-card hover:glow-border-primary hover:border-primary/50"
+                    : "bg-muted/10 border-white/5 opacity-50"
                 }`}
               >
                 {/* Baris 1: Badge + Nama + Harga */}
