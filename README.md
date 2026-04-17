@@ -1,6 +1,6 @@
 # KETANTECH VPN Store
 
-Platform penjualan VPN berbasis web lengkap — dashboard user, panel admin, verifikasi WhatsApp, pembayaran QRIS otomatis, dan bot Telegram.
+Platform penjualan VPN berbasis web lengkap — dashboard user, panel admin, verifikasi WhatsApp, pembayaran QRIS otomatis, dan bot Telegram. Landing page menampilkan server yang tersedia (lokasi, protokol) tanpa harga — harga hanya terlihat setelah pengguna login.
 
 ---
 
@@ -366,11 +366,14 @@ pm2 logs ketantech-api --lines 30
 Kalau berhasil, baris-baris **paling bawah** akan terlihat seperti ini:
 
 ```
+[CONFIG] Semua konfigurasi kritis tersedia.
 Server listening port: 8080
 Default admin created — username: admin, password: admin123
 Scheduler notifikasi kedaluwarsa aktif (cek setiap jam)
 Scheduler auto-backup aktif (cek setiap jam)
 ```
+
+> Jika muncul baris `[CONFIG] WARN` — baca pesan peringatannya. Biasanya karena `SESSION_SECRET` belum diset atau terlalu pendek, atau `CORS_ORIGIN` belum diisi di production. Perbaiki di `ecosystem.config.cjs` lalu jalankan `pm2 restart ketantech-api`.
 
 Tekan **Ctrl+C** untuk keluar dari tampilan log.
 
@@ -620,6 +623,8 @@ Sistem tiket aktif otomatis — tidak ada konfigurasi khusus yang diperlukan.
 Menu: **Admin → Backup & Restore DB**
 - Aktifkan auto backup dan pilih interval (6/12/24 jam)
 - Backup otomatis dikirim ke Telegram admin
+- **Safety backup otomatis sebelum restore** — setiap kali kamu menekan Restore, sistem akan otomatis backup kondisi database saat itu terlebih dahulu (disimpan dengan nama `pre-restore-TANGGAL-JAM.sql.gz` dan dikirim ke Telegram). Jika backup pengaman ini gagal, proses restore dibatalkan otomatis untuk melindungi data.
+- Pastikan bot Telegram sudah dikonfigurasi agar backup tersimpan secara permanen — file di server akan hilang jika server restart/redeploy
 
 ---
 
