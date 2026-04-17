@@ -2304,6 +2304,10 @@ components:
             activeAccounts:
               type: integer
               nullable: true
+            maxAccounts:
+              type: integer
+              nullable: true
+              description: Kapasitas maksimum akun aktif di server ini
 
     CreateServerBody:
       type: object
@@ -2328,6 +2332,10 @@ components:
         isActive:
           type: boolean
           default: true
+        maxAccounts:
+          type: integer
+          description: Kapasitas maksimum akun aktif di server ini
+          default: 500
 
     UpdateServerBody:
       type: object
@@ -2350,6 +2358,9 @@ components:
             type: string
         isActive:
           type: boolean
+        maxAccounts:
+          type: integer
+          description: Kapasitas maksimum akun aktif di server ini
 
     # ─── Dashboard ────────────────────────────────────────────────────────
     DashboardSummary:

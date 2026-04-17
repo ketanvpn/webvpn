@@ -1420,6 +1420,10 @@ export const AdminListServersResponseItem = zod
       apiToken: zod.string().nullish(),
       supportedProtocols: zod.array(zod.string()),
       activeAccounts: zod.number().nullish(),
+      maxAccounts: zod
+        .number()
+        .nullish()
+        .describe("Kapasitas maksimum akun aktif di server ini"),
     }),
   );
 export const AdminListServersResponse = zod.array(AdminListServersResponseItem);
@@ -1428,6 +1432,7 @@ export const AdminListServersResponse = zod.array(AdminListServersResponseItem);
  * @summary Add VPN server (admin)
  */
 export const adminCreateServerBodyIsActiveDefault = true;
+export const adminCreateServerBodyMaxAccountsDefault = 500;
 
 export const AdminCreateServerBody = zod.object({
   name: zod.string(),
@@ -1438,6 +1443,10 @@ export const AdminCreateServerBody = zod.object({
   apiToken: zod.string().optional(),
   supportedProtocols: zod.array(zod.string()),
   isActive: zod.boolean().default(adminCreateServerBodyIsActiveDefault),
+  maxAccounts: zod
+    .number()
+    .default(adminCreateServerBodyMaxAccountsDefault)
+    .describe("Kapasitas maksimum akun aktif di server ini"),
 });
 
 /**
@@ -1456,6 +1465,10 @@ export const AdminUpdateServerBody = zod.object({
   apiToken: zod.string().optional(),
   supportedProtocols: zod.array(zod.string()).optional(),
   isActive: zod.boolean().optional(),
+  maxAccounts: zod
+    .number()
+    .optional()
+    .describe("Kapasitas maksimum akun aktif di server ini"),
 });
 
 export const AdminUpdateServerResponse = zod
@@ -1474,6 +1487,10 @@ export const AdminUpdateServerResponse = zod
       apiToken: zod.string().nullish(),
       supportedProtocols: zod.array(zod.string()),
       activeAccounts: zod.number().nullish(),
+      maxAccounts: zod
+        .number()
+        .nullish()
+        .describe("Kapasitas maksimum akun aktif di server ini"),
     }),
   );
 

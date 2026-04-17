@@ -13,4 +13,6 @@ export type VpnServer = PublicServer & {
   apiToken?: string | null;
   supportedProtocols: string[];
   activeAccounts?: number | null;
+  /** Kapasitas maksimum akun aktif di server ini */
+  maxAccounts?: number | null;
 };

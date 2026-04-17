@@ -417,6 +417,8 @@ export type VpnServer = PublicServer & {
   apiToken?: string | null;
   supportedProtocols: string[];
   activeAccounts?: number | null;
+  /** Kapasitas maksimum akun aktif di server ini */
+  maxAccounts?: number | null;
 };
 
 export interface CreateServerBody {
@@ -428,6 +430,8 @@ export interface CreateServerBody {
   apiToken?: string;
   supportedProtocols: string[];
   isActive?: boolean;
+  /** Kapasitas maksimum akun aktif di server ini */
+  maxAccounts?: number;
 }
 
 export interface UpdateServerBody {
@@ -439,6 +443,8 @@ export interface UpdateServerBody {
   apiToken?: string;
   supportedProtocols?: string[];
   isActive?: boolean;
+  /** Kapasitas maksimum akun aktif di server ini */
+  maxAccounts?: number;
 }
 
 export interface DashboardSummary {

@@ -586,7 +586,7 @@ router.post("/admin/servers", requireAdmin, async (req, res) => {
       apiToken: data.apiToken ?? null,
       supportedProtocols: data.supportedProtocols,
       isActive: data.isActive ?? true,
-      maxAccounts: (data as any).maxAccounts ?? 500,
+      maxAccounts: data.maxAccounts ?? 500,
     })
     .returning();
   res.status(201).json(formatFullServer(server));
@@ -611,7 +611,7 @@ router.patch("/admin/servers/:id", requireAdmin, async (req, res) => {
   if (data.apiToken !== undefined) updateData.apiToken = data.apiToken;
   if (data.supportedProtocols !== undefined) updateData.supportedProtocols = data.supportedProtocols;
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
-  if ((data as any).maxAccounts !== undefined) updateData.maxAccounts = (data as any).maxAccounts;
+  if (data.maxAccounts !== undefined) updateData.maxAccounts = data.maxAccounts;
 
   const [server] = await db
     .update(serversTable)
@@ -660,7 +660,7 @@ router.get("/admin/servers/health", requireAdmin, async (_req, res) => {
         location: s.location,
         isActive: s.isActive,
         activeAccounts: count ?? 0,
-        maxAccounts: (s as any).maxAccounts ?? 500,
+        maxAccounts: s.maxAccounts ?? 500,
         health,
       };
     })

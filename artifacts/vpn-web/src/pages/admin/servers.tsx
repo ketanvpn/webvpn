@@ -258,7 +258,7 @@ export default function AdminServers() {
       apiToken: s.apiToken ?? "",
       supportedProtocols: s.supportedProtocols ?? [],
       isActive: s.isActive,
-      maxAccounts: (s as any).maxAccounts ?? 500,
+      maxAccounts: s.maxAccounts ?? 500,
     });
     setDialogOpen(true);
   };

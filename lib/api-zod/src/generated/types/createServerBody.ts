@@ -15,4 +15,6 @@ export interface CreateServerBody {
   apiToken?: string;
   supportedProtocols: string[];
   isActive?: boolean;
+  /** Kapasitas maksimum akun aktif di server ini */
+  maxAccounts?: number;
 }
