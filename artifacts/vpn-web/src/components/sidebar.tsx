@@ -99,7 +99,8 @@ function isNavActive(location: string, href: string): boolean {
   if (
     href !== "/admin" &&
     href !== "/dashboard" &&
-    href !== "/"
+    href !== "/" &&
+    href !== "/balance"
   ) {
     return location.startsWith(href + "/");
   }
