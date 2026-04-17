@@ -129,14 +129,14 @@ export default function AdminResellerSettings() {
             <p className="text-xs text-muted-foreground">
               Diskon yang diberikan dari harga normal. Contoh: isi 30 artinya reseller bayar 70% dari harga normal.
             </p>
-            <div className="flex items-center gap-3">
-              <div className="relative max-w-xs flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <div className="flex items-center gap-2">
                 <Input
                   id="discount"
                   type="number"
                   min={1}
                   max={99}
-                  className="max-w-[100px]"
+                  className="w-[100px]"
                   value={settings.resellerDiscountPercent}
                   onChange={(e) =>
                     setSettings((s) => ({
@@ -205,8 +205,8 @@ export default function AdminResellerSettings() {
             <p className="text-xs text-muted-foreground">
               Total nilai order lunas reseller dalam satu bulan harus mencapai angka ini.
             </p>
-            <div className="flex items-center gap-3">
-              <div className="relative flex-1 max-w-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <div className="relative w-full sm:max-w-xs">
                 <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">Rp</span>
                 <Input
                   id="target"
@@ -376,8 +376,8 @@ export default function AdminResellerSettings() {
             <p className="text-xs text-muted-foreground">
               User yang topup sebesar ini atau lebih akan otomatis jadi reseller dalam 1 transaksi.
             </p>
-            <div className="flex items-center gap-3">
-              <div className="relative flex-1 max-w-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <div className="relative w-full sm:max-w-xs">
                 <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">Rp</span>
                 <Input
                   id="min-topup"
