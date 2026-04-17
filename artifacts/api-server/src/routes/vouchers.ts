@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import { vouchersTable, productsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { requireAdmin, requireAuth } from "../lib/auth";
-import { CreateVoucherBody, UpdateVoucherBody, ValidateVoucherBody } from "@workspace/api-zod";
+import { AdminCreateVoucherBody as CreateVoucherBody, AdminUpdateVoucherBody as UpdateVoucherBody, ValidateVoucherBody } from "@workspace/api-zod";
 
 const router = Router();
 
