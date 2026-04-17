@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { ticketsTable, ticketMessagesTable, usersTable } from "@workspace/db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, count } from "drizzle-orm";
 import { requireAdmin, requireAuth } from "../lib/auth";
-import { notifyAdminNewTicket } from "../lib/telegram";
+import { notifyAdminNewTicket, notifyAdminTicketReply } from "../lib/telegram";
 
 const router = Router();
 
@@ -122,6 +122,9 @@ router.post("/tickets/:id/reply", requireAuth, async (req, res) => {
     .set({ status: "open", updatedAt: new Date() })
     .where(eq(ticketsTable.id, ticketId));
 
+  const [user] = await db.select({ username: usersTable.username }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  notifyAdminTicketReply(ticketId, user?.username ?? "user", ticket.subject, message.trim()).catch(() => {});
+
   res.status(201).json(msg);
 });
 
@@ -150,6 +153,28 @@ router.post("/tickets/:id/close", requireAuth, async (req, res) => {
 });
 
 // ─── Admin routes ─────────────────────────────────────────────────────────────
+
+router.get("/admin/tickets/pending-count", requireAdmin, async (_req, res) => {
+  const openTickets = await db
+    .select({ id: ticketsTable.id })
+    .from(ticketsTable)
+    .where(eq(ticketsTable.status, "open"));
+
+  if (openTickets.length === 0) {
+    res.json({ count: 0 });
+    return;
+  }
+
+  const repliedTickets = await db
+    .select({ ticketId: ticketMessagesTable.ticketId })
+    .from(ticketMessagesTable)
+    .where(eq(ticketMessagesTable.isAdmin, true));
+
+  const repliedIds = new Set(repliedTickets.map((r) => r.ticketId));
+  const pendingCount = openTickets.filter((t) => !repliedIds.has(t.id)).length;
+
+  res.json({ count: pendingCount });
+});
 
 router.get("/admin/tickets", requireAdmin, async (req, res) => {
   const status = req.query.status as string | undefined;

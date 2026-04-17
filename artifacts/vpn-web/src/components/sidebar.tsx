@@ -39,13 +39,27 @@ import {
 } from "@/components/ui/sheet";
 import { SheetTrigger } from "@/components/ui/sheet";
 import { useGetAdminDashboard } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { LogoIcon } from "@/components/logo";
+
+const BASE_URL = import.meta.env.BASE_URL ?? "/";
+const API_BASE = `${BASE_URL}api`.replace(/\/+/g, "/");
+
+function usePendingTicketCount(enabled: boolean) {
+  return useQuery<{ count: number }>({
+    queryKey: ["admin-pending-tickets"],
+    queryFn: () => fetch(`${API_BASE}/admin/tickets/pending-count`, { credentials: "include" }).then((r) => r.json()),
+    enabled,
+    staleTime: 30000,
+    refetchInterval: 60000,
+  });
+}
 
 type NavItem = {
   title: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
-  badgeKey?: "pendingTopups";
+  badgeKey?: "pendingTopups" | "pendingTickets";
 };
 
 const userNav: NavItem[] = [
@@ -76,7 +90,7 @@ const adminNav: NavItem[] = [
   { title: "Notifikasi Kedaluwarsa", href: "/admin/settings/expiry-notif", icon: Bell },
   { title: "Monitor Server", href: "/admin/server-monitor", icon: Activity },
   { title: "Voucher / Kode Promo", href: "/admin/vouchers", icon: Tag },
-  { title: "Tiket Bantuan", href: "/admin/tickets", icon: TicketCheck },
+  { title: "Tiket Bantuan", href: "/admin/tickets", icon: TicketCheck, badgeKey: "pendingTickets" },
   { title: "Pengumuman", href: "/admin/announcements", icon: Megaphone },
   { title: "Sistem Poin", href: "/admin/settings/points", icon: Star },
   { title: "Broadcast", href: "/admin/broadcast", icon: Send },
@@ -228,6 +242,7 @@ function NavLinks({
   nav,
   isAdmin,
   pendingTopups,
+  pendingTickets,
   userIsAdmin,
   logout,
   location,
@@ -235,6 +250,7 @@ function NavLinks({
   nav: NavItem[];
   isAdmin: boolean;
   pendingTopups: number;
+  pendingTickets: number;
   userIsAdmin: boolean;
   logout: () => void;
   location: string;
@@ -253,7 +269,13 @@ function NavLinks({
 
       {nav.map((item) => {
         const active = isNavActive(location, item.href);
-        const badge = item.badgeKey === "pendingTopups" ? pendingTopups : 0;
+        const badge =
+          item.badgeKey === "pendingTopups" ? pendingTopups :
+          item.badgeKey === "pendingTickets" ? pendingTickets : 0;
+        const badgeColor =
+          item.badgeKey === "pendingTickets"
+            ? (active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-red-500 text-white")
+            : (active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-yellow-500 text-white");
         return (
           <Link
             key={item.href}
@@ -267,13 +289,7 @@ function NavLinks({
             <item.icon className="h-4 w-4 shrink-0" />
             <span className="flex-1">{item.title}</span>
             {badge > 0 && (
-              <span
-                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${
-                  active
-                    ? "bg-primary-foreground/20 text-primary-foreground"
-                    : "bg-yellow-500 text-white"
-                }`}
-              >
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${badgeColor}`}>
                 {badge > 99 ? "99+" : badge}
               </span>
             )}
@@ -315,6 +331,8 @@ export function MobileAdminHeader() {
     query: { enabled: true, staleTime: 30000 },
   });
   const pendingTopups = dashboardData?.pendingTopups ?? 0;
+  const { data: ticketData } = usePendingTicketCount(true);
+  const pendingTickets = ticketData?.count ?? 0;
 
   const pageTitle =
     Object.entries(adminPageTitles)
@@ -331,7 +349,10 @@ export function MobileAdminHeader() {
         <SheetTrigger asChild>
           <Button variant="ghost" size="icon" className="shrink-0 relative">
             <Menu className="h-5 w-5" />
-            {pendingTopups > 0 && (
+            {pendingTickets > 0 && (
+              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500" />
+            )}
+            {pendingTopups > 0 && pendingTickets === 0 && (
               <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-yellow-500" />
             )}
             <span className="sr-only">Buka menu</span>
@@ -347,6 +368,7 @@ export function MobileAdminHeader() {
               nav={adminNav}
               isAdmin={true}
               pendingTopups={pendingTopups}
+              pendingTickets={pendingTickets}
               userIsAdmin={userIsAdmin}
               logout={logout}
               location={location}
@@ -381,8 +403,10 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const { data: dashboardData } = useGetAdminDashboard({
     query: { enabled: isAdmin, staleTime: 30000 },
   });
+  const { data: ticketData } = usePendingTicketCount(isAdmin);
 
   const pendingTopups = dashboardData?.pendingTopups ?? 0;
+  const pendingTickets = ticketData?.count ?? 0;
 
   return (
     <div className="hidden md:flex h-screen w-64 flex-col border-r bg-card/50 backdrop-blur-xl sticky top-0">
@@ -390,6 +414,7 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
         nav={nav}
         isAdmin={isAdmin}
         pendingTopups={pendingTopups}
+        pendingTickets={pendingTickets}
         userIsAdmin={userIsAdmin}
         logout={logout}
         location={location}

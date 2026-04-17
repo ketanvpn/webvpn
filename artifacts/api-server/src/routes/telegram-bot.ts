@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { usersTable, topupsTable, settingsTable } from "@workspace/db";
+import { usersTable, topupsTable, settingsTable, ticketsTable, ticketMessagesTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { randomBytes } from "crypto";
@@ -85,6 +85,12 @@ router.post("/telegram/webhook", async (req, res) => {
 
 // ─── Handlers ────────────────────────────────────────────────────────────────
 
+async function getAdminChatId(): Promise<string | null> {
+  const rows = await db.select().from(settingsTable);
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  return map["telegramAdminChatId"] ?? null;
+}
+
 async function handleMessage(message: any) {
   const text: string = message.text ?? "";
   const chatId: number = message.chat.id;
@@ -101,7 +107,62 @@ async function handleMessage(message: any) {
       chatId,
       "👋 Halo! Saya bot KETANTECH VPN.\n\nUntuk menghubungkan akun, klik link dari halaman profil di aplikasi.",
     );
+    return;
   }
+
+  // /reply_<ticketId> <message> — hanya dari admin chat
+  const replyMatch = text.match(/^\/reply_(\d+)\s+([\s\S]+)$/);
+  if (replyMatch) {
+    const adminChatId = await getAdminChatId();
+    if (!adminChatId || String(chatId) !== String(adminChatId)) {
+      await sendMessage(chatId, "⛔ Perintah ini hanya untuk admin.");
+      return;
+    }
+    await handleReplyTicket(parseInt(replyMatch[1], 10), replyMatch[2].trim(), chatId);
+    return;
+  }
+}
+
+async function handleReplyTicket(ticketId: number, replyText: string, chatId: number) {
+  const [ticket] = await db
+    .select()
+    .from(ticketsTable)
+    .where(eq(ticketsTable.id, ticketId))
+    .limit(1);
+
+  if (!ticket) {
+    await sendMessage(chatId, `❌ Tiket #${ticketId} tidak ditemukan.`);
+    return;
+  }
+  if (ticket.status === "closed") {
+    await sendMessage(chatId, `❌ Tiket #${ticketId} sudah ditutup.`);
+    return;
+  }
+
+  const [adminUser] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.role, "admin"))
+    .limit(1);
+
+  if (!adminUser) {
+    await sendMessage(chatId, "❌ Akun admin tidak ditemukan di sistem.");
+    return;
+  }
+
+  await db.insert(ticketMessagesTable).values({
+    ticketId,
+    userId: adminUser.id,
+    isAdmin: true,
+    message: replyText,
+  });
+
+  await db
+    .update(ticketsTable)
+    .set({ status: "answered", updatedAt: new Date() })
+    .where(eq(ticketsTable.id, ticketId));
+
+  await sendMessage(chatId, `✅ Balasan untuk tiket <b>#${ticketId}</b> berhasil dikirim!`);
 }
 
 async function handleLinkToken(token: string, telegramId: number, chatId: number) {

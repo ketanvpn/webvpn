@@ -340,9 +340,49 @@ export async function notifyAdminNewTicket(ticketId: number, username: string, s
 
   const priorityEmoji: Record<string, string> = { low: "🟢", normal: "🟡", high: "🔴" };
   const emoji = priorityEmoji[priority] ?? "🟡";
-  const text = `🎫 <b>Tiket Bantuan Baru</b>\n\n` +
-    `#${ticketId} — ${emoji} ${priority.toUpperCase()}\n` +
+  const siteUrl = process.env.SITE_URL ?? "";
+
+  const text =
+    `🎫 <b>Tiket Bantuan Baru</b>\n\n` +
+    `#${ticketId} — ${emoji} <b>${priority.toUpperCase()}</b>\n` +
     `👤 User: <b>${username}</b>\n` +
-    `📝 Subjek: <b>${subject}</b>`;
-  await sendMessage(adminChatId, text);
+    `📝 Subjek: <b>${subject}</b>\n\n` +
+    `💬 Balas lewat bot:\n<code>/reply_${ticketId} tulis balasan di sini</code>`;
+
+  const extra: Record<string, unknown> = {};
+  if (siteUrl) {
+    extra.reply_markup = {
+      inline_keyboard: [[
+        { text: "🔗 Buka di Panel Admin", url: `${siteUrl}/admin/tickets/${ticketId}` },
+      ]],
+    };
+  }
+
+  await sendMessage(adminChatId, text, extra);
+}
+
+export async function notifyAdminTicketReply(ticketId: number, username: string, subject: string, message: string): Promise<void> {
+  const { token, adminChatId } = await getTelegramConfig();
+  if (!token || !adminChatId) return;
+
+  const preview = message.length > 120 ? message.slice(0, 120) + "…" : message;
+  const siteUrl = process.env.SITE_URL ?? "";
+
+  const text =
+    `💬 <b>Balasan Baru di Tiket #${ticketId}</b>\n\n` +
+    `👤 User: <b>${username}</b>\n` +
+    `📝 Subjek: <b>${subject}</b>\n\n` +
+    `🗨 Pesan:\n${preview}\n\n` +
+    `<code>/reply_${ticketId} tulis balasan di sini</code>`;
+
+  const extra: Record<string, unknown> = {};
+  if (siteUrl) {
+    extra.reply_markup = {
+      inline_keyboard: [[
+        { text: "🔗 Buka Tiket", url: `${siteUrl}/admin/tickets/${ticketId}` },
+      ]],
+    };
+  }
+
+  await sendMessage(adminChatId, text, extra);
 }
