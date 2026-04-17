@@ -41,7 +41,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Shield, Search, ChevronLeft, ChevronRight, Power, CalendarPlus, Trash2, RefreshCw } from "lucide-react";
+import { Shield, Search, ChevronLeft, ChevronRight, Power, CalendarPlus, Trash2, RefreshCw, CheckSquare, Square, Minus } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -63,6 +64,37 @@ export default function AdminAccounts() {
   const [extendDays, setExtendDays] = useState("30");
   const [extendDialogId, setExtendDialogId] = useState<number | null>(null);
   const [syncingIds, setSyncingIds] = useState<Set<number>>(new Set());
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const toggleSelect = (id: number) => setSelected((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  const toggleSelectAll = () => {
+    if (selected.size === accounts.length) setSelected(new Set());
+    else setSelected(new Set(accounts.map((a) => a.id)));
+  };
+
+  const handleBulkDelete = async () => {
+    setBulkDeleting(true);
+    try {
+      await customFetch(`/api/admin/accounts/bulk-delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selected) }),
+      });
+      toast({ title: `${selected.size} akun dihapus` });
+      setSelected(new Set());
+      queryClient.invalidateQueries({ queryKey: getAdminListAccountsQueryKey() });
+    } catch {
+      toast({ title: "Gagal menghapus akun secara bulk", variant: "destructive" });
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
 
   const handleSync = async (id: number, username: string) => {
     setSyncingIds((prev) => new Set(prev).add(id));
@@ -153,6 +185,35 @@ export default function AdminAccounts() {
         <p className="text-muted-foreground mt-1">Pantau dan kelola semua akun VPN aktif dari seluruh user.</p>
       </div>
 
+      {/* Bulk Action Bar */}
+      {selected.size > 0 && (
+        <div className="flex items-center gap-3 rounded-xl bg-primary/10 border border-primary/30 px-4 py-3">
+          <span className="text-sm font-medium text-primary">{selected.size} akun dipilih</span>
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>Batal</Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" variant="destructive" className="gap-1" disabled={bulkDeleting}>
+                  <Trash2 size={14} /> Hapus {selected.size} Akun
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="glass-panel">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Hapus {selected.size} Akun?</AlertDialogTitle>
+                  <AlertDialogDescription>Akun yang dipilih akan dihapus permanen dari database dan panel VPN.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Batal</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleBulkDelete} disabled={bulkDeleting} className="bg-destructive hover:bg-destructive/90">
+                    {bulkDeleting ? "Menghapus..." : "Ya, Hapus Semua"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-xs">
@@ -198,7 +259,11 @@ export default function AdminAccounts() {
       <Card className="glass-panel border-white/5">
         <CardHeader className="border-b border-white/5">
           <CardTitle className="text-lg flex items-center gap-2">
+            <button onClick={toggleSelectAll} className="flex items-center" title="Pilih semua">
+              <Checkbox checked={accounts.length > 0 && selected.size === accounts.length} className="mr-2" />
+            </button>
             <Shield className="h-5 w-5" /> Daftar Akun ({total})
+            {selected.size > 0 && <span className="ml-1 text-xs text-primary font-normal">({selected.size} dipilih)</span>}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -218,9 +283,12 @@ export default function AdminAccounts() {
                 return (
                   <div
                     key={acc.id}
-                    className="p-4 sm:p-5 grid sm:grid-cols-[1fr_auto] gap-3 hover:bg-white/5 transition-colors"
+                    className="p-4 sm:p-5 grid sm:grid-cols-[auto_1fr_auto] gap-3 hover:bg-white/5 transition-colors"
                     data-testid={`row-account-${acc.id}`}
                   >
+                    <div className="flex items-start pt-1">
+                      <Checkbox checked={selected.has(acc.id)} onCheckedChange={() => toggleSelect(acc.id)} />
+                    </div>
                     <div className="flex flex-wrap gap-4 items-start">
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">

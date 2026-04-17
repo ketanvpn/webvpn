@@ -89,24 +89,29 @@ artifacts/
   api-server/          — Backend Express API
     src/
       routes/          — auth, admin, orders, accounts, balance, products, servers,
-                         dashboard, reseller, settings, webhook, broadcast, backup, export
-      lib/             — auth middleware, vpn-panel, scheduler, fonnte, telegram,
+                         dashboard, reseller, settings, webhook, broadcast, backup, export,
+                         announcements, points, tickets
+      lib/             — auth middleware, vpn-panel, scheduler (auto-disable server, expiry notif,
+                         auto-cancel QRIS, reseller target, auto-backup), fonnte, telegram,
                          reseller-upgrade (auto-upgrade logic), seed
   vpn-web/             — Frontend React+Vite
     src/
       pages/
-        admin/         — dashboard, users, user-detail, orders, topups, accounts,
-                         servers, products, broadcast, backup,
+        admin/         — dashboard, users, user-detail, orders, topups, accounts (+ bulk actions),
+                         servers (+ maxAccounts field), products, broadcast, backup,
+                         announcements, points-settings, tickets, ticket-detail, server-monitor,
                          payment-settings, telegram-settings, whatsapp-settings,
                          referral-settings, reseller-settings, expiry-notification-settings
-        user/          — dashboard, orders, order-detail, accounts, account-detail,
-                         balance, balance-logs, products, product-detail, profile
+        user/          — dashboard (+ announcement banners), orders, order-detail, accounts,
+                         account-detail, balance, balance-logs, products, product-detail,
+                         profile, points, tickets, ticket-detail
         auth/          — login, register, forgot-password
 
 lib/
   db/                  — Drizzle ORM schema + migrations
-    src/schema/        — users, products, servers, orders, vpn_accounts, topup_transactions,
-                         settings, balance_logs
+    src/schema/        — users (+ points), products, servers (+ maxAccounts), orders,
+                         vpn_accounts, topup_transactions, settings, balance_logs,
+                         announcements, point_logs, tickets, ticket_messages
   api-spec/            — openapi.yaml + orval codegen config
   api-client-react/    — Generated TanStack Query hooks (dari codegen)
   api-zod/             — Generated Zod validators (dari codegen)

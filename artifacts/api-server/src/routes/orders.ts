@@ -11,6 +11,7 @@ import { addBalanceLog } from "./balance-logs";
 import { getPaymentSettingsMap, getResellerSettings } from "./settings";
 import { logger } from "../lib/logger";
 import { notifyUserVpnAccountCreated, notifyAdminOrderFulfilled } from "../lib/telegram";
+import { addPoints, getPointsSettings } from "./points";
 
 const router = Router();
 
@@ -307,6 +308,13 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
     amount,
     paymentMethod: order.paymentMethod ?? "balance",
   }).catch((err) => logger.error({ err }, "notifyAdminOrderFulfilled failed"));
+
+  // Tambah poin jika sistem poin aktif
+  getPointsSettings().then(async (pts) => {
+    if (pts.enabled && pts.pointsPerOrder > 0) {
+      await addPoints(order.userId, pts.pointsPerOrder, "order", `Order #${order.id} — ${product.name}`, order.id);
+    }
+  }).catch(() => {});
 }
 
 router.get("/orders", requireAuth, async (req, res) => {

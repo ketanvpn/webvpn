@@ -333,3 +333,16 @@ export async function broadcastMessage(message: string): Promise<{ sent: number;
 
   return { sent, failed };
 }
+
+export async function notifyAdminNewTicket(ticketId: number, username: string, subject: string, priority: string): Promise<void> {
+  const { token, adminChatId } = await getTelegramConfig();
+  if (!token || !adminChatId) return;
+
+  const priorityEmoji: Record<string, string> = { low: "🟢", normal: "🟡", high: "🔴" };
+  const emoji = priorityEmoji[priority] ?? "🟡";
+  const text = `🎫 <b>Tiket Bantuan Baru</b>\n\n` +
+    `#${ticketId} — ${emoji} ${priority.toUpperCase()}\n` +
+    `👤 User: <b>${username}</b>\n` +
+    `📝 Subjek: <b>${subject}</b>`;
+  await sendMessage(adminChatId, text);
+}

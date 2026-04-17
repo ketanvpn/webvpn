@@ -26,6 +26,7 @@ function formatFullServer(s: typeof serversTable.$inferSelect) {
     apiToken: s.apiToken,
     supportedProtocols: s.supportedProtocols,
     isActive: s.isActive,
+    maxAccounts: s.maxAccounts,
     activeAccounts: null,
   };
 }

@@ -54,6 +54,7 @@ type ServerForm = {
   apiToken: string;
   supportedProtocols: string[];
   isActive: boolean;
+  maxAccounts: number;
 };
 
 const emptyForm: ServerForm = {
@@ -65,6 +66,7 @@ const emptyForm: ServerForm = {
   apiToken: "",
   supportedProtocols: ["ssh", "vmess"],
   isActive: true,
+  maxAccounts: 500,
 };
 
 const allProtocols = ["ssh", "vmess", "vless", "trojan", "shadowsocks"];
@@ -256,6 +258,7 @@ export default function AdminServers() {
       apiToken: s.apiToken ?? "",
       supportedProtocols: s.supportedProtocols ?? [],
       isActive: s.isActive,
+      maxAccounts: (s as any).maxAccounts ?? 500,
     });
     setDialogOpen(true);
   };
@@ -288,6 +291,7 @@ export default function AdminServers() {
       apiToken: form.apiToken || undefined,
       supportedProtocols: form.supportedProtocols,
       isActive: form.isActive,
+      maxAccounts: form.maxAccounts,
     };
 
     if (editingId) {
@@ -525,6 +529,20 @@ export default function AdminServers() {
                     <Label htmlFor={`proto-${p}`} className="uppercase font-mono cursor-pointer">{p}</Label>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Kapasitas Maksimum Akun</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={1}
+                  value={form.maxAccounts}
+                  onChange={(e) => setForm({ ...form, maxAccounts: parseInt(e.target.value) || 500 })}
+                  className="max-w-[140px]"
+                />
+                <span className="text-xs text-muted-foreground">akun (server di-disable otomatis jika penuh)</span>
               </div>
             </div>
 

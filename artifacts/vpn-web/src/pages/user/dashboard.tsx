@@ -2,13 +2,15 @@ import { useGetDashboardSummary } from "@workspace/api-client-react";
 import { formatRupiah } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { Wallet, Server, ShoppingCart, AlertCircle, ChevronRight, Sparkles, X, Zap, CheckCircle2, Info } from "lucide-react";
+import { Wallet, Server, ShoppingCart, AlertCircle, ChevronRight, Sparkles, X, Zap, CheckCircle2, Info, Megaphone, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 const API = import.meta.env.VITE_API_URL ?? "";
+const DASHBOARD_API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
 const PROMO_DISMISSED_KEY = "reseller_promo_dismissed";
 
 type PromoData = {
@@ -22,6 +24,57 @@ type PromoData = {
   targetEnabled: boolean;
   monthlyTarget: number;
 };
+
+type Announcement = { id: number; title: string; content: string; type: string };
+
+const ANNOUNCE_DISMISSED_KEY = "dismissed_announcements_v1";
+
+const ANNOUNCE_STYLE: Record<string, { icon: React.ElementType; bg: string; border: string; iconColor: string }> = {
+  info: { icon: Info, bg: "bg-blue-500/10", border: "border-blue-500/30", iconColor: "text-blue-400" },
+  warning: { icon: AlertTriangle, bg: "bg-yellow-500/10", border: "border-yellow-500/30", iconColor: "text-yellow-400" },
+  success: { icon: CheckCircle2, bg: "bg-green-500/10", border: "border-green-500/30", iconColor: "text-green-400" },
+  error: { icon: AlertCircle, bg: "bg-red-500/10", border: "border-red-500/30", iconColor: "text-red-400" },
+};
+
+function AnnouncementBanners() {
+  const [dismissed, setDismissed] = useState<number[]>(() => {
+    try { return JSON.parse(localStorage.getItem(ANNOUNCE_DISMISSED_KEY) ?? "[]"); } catch { return []; }
+  });
+
+  const { data: announcements = [] } = useQuery<Announcement[]>({
+    queryKey: ["active-announcements"],
+    queryFn: () => fetch(`${DASHBOARD_API}/announcements/active`, { credentials: "include" }).then((r) => r.json()),
+    staleTime: 60_000,
+  });
+
+  const dismiss = (id: number) => {
+    const next = [...dismissed, id];
+    localStorage.setItem(ANNOUNCE_DISMISSED_KEY, JSON.stringify(next));
+    setDismissed(next);
+  };
+
+  const visible = announcements.filter((a) => !dismissed.includes(a.id));
+  if (visible.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      {visible.map((a) => {
+        const style = ANNOUNCE_STYLE[a.type] ?? ANNOUNCE_STYLE.info;
+        const Icon = style.icon;
+        return (
+          <div key={a.id} className={`relative flex items-start gap-3 rounded-xl border p-4 ${style.bg} ${style.border}`}>
+            <Icon size={18} className={`${style.iconColor} mt-0.5 shrink-0`} />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-white text-sm">{a.title}</p>
+              <p className="text-sm text-muted-foreground mt-0.5 whitespace-pre-wrap">{a.content}</p>
+            </div>
+            <button onClick={() => dismiss(a.id)} className="shrink-0 text-muted-foreground hover:text-white transition-colors"><X size={14} /></button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function ReselerPromoBanner({ onRequest }: { onRequest: () => void }) {
   const [promo, setPromo] = useState<PromoData | null>(null);
@@ -212,6 +265,9 @@ export default function Dashboard() {
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Ringkasan akun dan aktivitas kamu.</p>
       </div>
+
+      {/* Pengumuman dari admin */}
+      <AnnouncementBanners />
 
       {/* Banner promosi reseller — hanya untuk user biasa */}
       {user?.role === "user" && !promoRequested && (

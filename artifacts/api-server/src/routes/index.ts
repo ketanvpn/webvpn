@@ -17,6 +17,9 @@ import balanceLogsRouter from "./balance-logs";
 import backupRouter from "./backup";
 import resellerRouter from "./reseller";
 import vouchersRouter from "./vouchers";
+import announcementsRouter from "./announcements";
+import pointsRouter from "./points";
+import ticketsRouter from "./tickets";
 
 const router: IRouter = Router();
 
@@ -38,5 +41,8 @@ router.use(balanceLogsRouter);
 router.use(backupRouter);
 router.use(resellerRouter);
 router.use(vouchersRouter);
+router.use(announcementsRouter);
+router.use(pointsRouter);
+router.use(ticketsRouter);
 
 export default router;

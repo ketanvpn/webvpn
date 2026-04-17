@@ -12,6 +12,7 @@ export const serversTable = pgTable("vpn_servers", {
   apiToken: text("api_token"),
   supportedProtocols: text("supported_protocols").array().notNull().default(["ssh"]),
   isActive: boolean("is_active").notNull().default(true),
+  maxAccounts: integer("max_accounts").notNull().default(500),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

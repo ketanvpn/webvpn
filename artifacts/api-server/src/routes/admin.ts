@@ -8,7 +8,7 @@ import {
   vpnAccountsTable,
   topupsTable,
 } from "@workspace/db";
-import { eq, and, or, ilike, desc, asc, sql } from "drizzle-orm";
+import { eq, and, or, ilike, desc, asc, sql, inArray } from "drizzle-orm";
 import { randomUUID, randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { requireAdmin } from "../lib/auth";
@@ -22,6 +22,7 @@ import { notifyUserTopupConfirmed, notifyUserTopupRejected, notifyUserVpnAccount
 import { addBalanceLog } from "./balance-logs";
 import { tryAutoUpgradeReseller } from "../lib/reseller-upgrade";
 import { getReferralBonusAmount } from "../lib/scheduler";
+import { addPoints, getPointsSettings } from "./points";
 import { getSettingValue } from "./settings";
 import {
   AdminListUsersQueryParams,
@@ -585,6 +586,7 @@ router.post("/admin/servers", requireAdmin, async (req, res) => {
       apiToken: data.apiToken ?? null,
       supportedProtocols: data.supportedProtocols,
       isActive: data.isActive ?? true,
+      maxAccounts: (data as any).maxAccounts ?? 500,
     })
     .returning();
   res.status(201).json(formatFullServer(server));
@@ -609,6 +611,7 @@ router.patch("/admin/servers/:id", requireAdmin, async (req, res) => {
   if (data.apiToken !== undefined) updateData.apiToken = data.apiToken;
   if (data.supportedProtocols !== undefined) updateData.supportedProtocols = data.supportedProtocols;
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
+  if ((data as any).maxAccounts !== undefined) updateData.maxAccounts = (data as any).maxAccounts;
 
   const [server] = await db
     .update(serversTable)
@@ -628,6 +631,42 @@ router.delete("/admin/servers/:id", requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id, 10);
   await db.update(serversTable).set({ isActive: false }).where(eq(serversTable.id, id));
   res.json({ message: "Server deleted" });
+});
+
+router.get("/admin/servers/health", requireAdmin, async (_req, res) => {
+  const servers = await db.select().from(serversTable).orderBy(asc(serversTable.sortOrder));
+
+  const result = await Promise.all(
+    servers.map(async (s) => {
+      const [{ count }] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(vpnAccountsTable)
+        .where(and(eq(vpnAccountsTable.serverId, s.id), eq(vpnAccountsTable.isActive, true)));
+
+      let health = null;
+      if (s.apiUrl && s.apiToken) {
+        try {
+          health = await checkPanelHealth({ apiUrl: s.apiUrl, apiToken: s.apiToken });
+        } catch {
+          health = { online: false, latencyMs: null };
+        }
+      }
+
+      return {
+        id: s.id,
+        name: s.name,
+        flag: s.flag ?? "🌐",
+        host: s.host,
+        location: s.location,
+        isActive: s.isActive,
+        activeAccounts: count ?? 0,
+        maxAccounts: (s as any).maxAccounts ?? 500,
+        health,
+      };
+    })
+  );
+
+  res.json(result);
 });
 
 router.get("/admin/servers/:id/health", requireAdmin, async (req, res) => {
@@ -998,6 +1037,13 @@ router.post("/admin/topups/:id/confirm", requireAdmin, async (req, res) => {
   // Cek apakah user layak auto-upgrade jadi reseller
   tryAutoUpgradeReseller(topup.userId, Number(topup.amount)).catch(() => {});
 
+  // Tambah poin jika sistem poin aktif
+  getPointsSettings().then(async (pts) => {
+    if (pts.enabled && pts.pointsPerTopup > 0) {
+      await addPoints(topup.userId, pts.pointsPerTopup, "topup", `Topup dikonfirmasi #${topup.id}`, topup.id);
+    }
+  }).catch(() => {});
+
   res.json(formatTopup(updated));
 });
 
@@ -1209,6 +1255,44 @@ router.delete("/admin/accounts/:id", requireAdmin, async (req, res) => {
   }
 
   res.json({ success: true });
+});
+
+router.post("/admin/accounts/bulk-delete", requireAdmin, async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    res.status(400).json({ error: "ids diperlukan" });
+    return;
+  }
+  const numIds = ids.map(Number).filter((n) => !isNaN(n));
+  if (numIds.length === 0) {
+    res.status(400).json({ error: "ids tidak valid" });
+    return;
+  }
+
+  const accounts = await db
+    .select()
+    .from(vpnAccountsTable)
+    .where(inArray(vpnAccountsTable.id, numIds));
+
+  await db.delete(vpnAccountsTable).where(inArray(vpnAccountsTable.id, numIds));
+
+  for (const account of accounts) {
+    const [server] = await db
+      .select({ apiUrl: serversTable.apiUrl, apiToken: serversTable.apiToken })
+      .from(serversTable)
+      .where(eq(serversTable.id, account.serverId))
+      .limit(1);
+    if (server?.apiUrl && server?.apiToken) {
+      deletePanelAccount({
+        apiUrl: server.apiUrl,
+        apiToken: server.apiToken,
+        protocol: account.protocol,
+        username: account.username,
+      }).catch(() => {});
+    }
+  }
+
+  res.json({ deleted: numIds.length });
 });
 
 router.delete("/admin/orders/:id", requireAdmin, async (req, res) => {

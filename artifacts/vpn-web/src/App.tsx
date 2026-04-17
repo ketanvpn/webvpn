@@ -21,6 +21,9 @@ import AccountDetail from "@/pages/user/account-detail";
 import Balance from "@/pages/user/balance";
 import BalanceLogs from "@/pages/user/balance-logs";
 import Profile from "@/pages/user/profile";
+import UserPoints from "@/pages/user/points";
+import UserTickets from "@/pages/user/tickets";
+import UserTicketDetail from "@/pages/user/ticket-detail";
 
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminUsers from "@/pages/admin/users";
@@ -38,6 +41,11 @@ import AdminReferralSettings from "@/pages/admin/referral-settings";
 import AdminResellerSettings from "@/pages/admin/reseller-settings";
 import AdminExpiryNotifSettings from "@/pages/admin/expiry-notification-settings";
 import AdminBackup from "@/pages/admin/backup";
+import AdminAnnouncements from "@/pages/admin/announcements";
+import AdminPointsSettings from "@/pages/admin/points-settings";
+import AdminTickets from "@/pages/admin/tickets";
+import AdminTicketDetail from "@/pages/admin/ticket-detail";
+import AdminServerMonitor from "@/pages/admin/server-monitor";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -86,6 +94,15 @@ function Router() {
       </Route>
       <Route path="/profile">
         <Layout><Profile /></Layout>
+      </Route>
+      <Route path="/points">
+        <Layout><UserPoints /></Layout>
+      </Route>
+      <Route path="/tickets">
+        <Layout><UserTickets /></Layout>
+      </Route>
+      <Route path="/tickets/:id">
+        <Layout><UserTicketDetail /></Layout>
       </Route>
 
       {/* Admin Routes */}
@@ -136,6 +153,21 @@ function Router() {
       </Route>
       <Route path="/admin/backup">
         <Layout requireAdmin><AdminBackup /></Layout>
+      </Route>
+      <Route path="/admin/announcements">
+        <Layout requireAdmin><AdminAnnouncements /></Layout>
+      </Route>
+      <Route path="/admin/settings/points">
+        <Layout requireAdmin><AdminPointsSettings /></Layout>
+      </Route>
+      <Route path="/admin/tickets">
+        <Layout requireAdmin><AdminTickets /></Layout>
+      </Route>
+      <Route path="/admin/tickets/:id">
+        <Layout requireAdmin><AdminTicketDetail /></Layout>
+      </Route>
+      <Route path="/admin/server-monitor">
+        <Layout requireAdmin><AdminServerMonitor /></Layout>
       </Route>
 
       <Route component={NotFound} />

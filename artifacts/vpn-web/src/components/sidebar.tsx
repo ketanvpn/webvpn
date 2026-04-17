@@ -22,6 +22,10 @@ import {
   Smartphone,
   Gift,
   HardDrive,
+  Megaphone,
+  Star,
+  TicketCheck,
+  Activity,
 } from "lucide-react";
 import {
   Sheet,
@@ -47,6 +51,8 @@ const userNav: NavItem[] = [
   { title: "Riwayat Order", href: "/orders", icon: ShoppingCart },
   { title: "Saldo", href: "/balance", icon: Wallet },
   { title: "Riwayat Saldo", href: "/balance/logs", icon: History },
+  { title: "Program Poin", href: "/points", icon: Star },
+  { title: "Bantuan", href: "/tickets", icon: TicketCheck },
   { title: "Profil", href: "/profile", icon: Settings },
 ];
 
@@ -64,6 +70,10 @@ const adminNav: NavItem[] = [
   { title: "Program Referral", href: "/admin/settings/referral", icon: Gift },
   { title: "Program Reseller", href: "/admin/settings/reseller", icon: Users },
   { title: "Notifikasi Kedaluwarsa", href: "/admin/settings/expiry-notif", icon: Bell },
+  { title: "Monitor Server", href: "/admin/server-monitor", icon: Activity },
+  { title: "Tiket Bantuan", href: "/admin/tickets", icon: TicketCheck },
+  { title: "Pengumuman", href: "/admin/announcements", icon: Megaphone },
+  { title: "Sistem Poin", href: "/admin/settings/points", icon: Star },
   { title: "Broadcast", href: "/admin/broadcast", icon: Send },
   { title: "Backup & Restore DB", href: "/admin/backup", icon: HardDrive },
 ];
@@ -82,6 +92,10 @@ const adminPageTitles: Record<string, string> = {
   "/admin/settings/referral": "Program Referral",
   "/admin/settings/reseller": "Program Reseller",
   "/admin/settings/expiry-notif": "Notifikasi Kedaluwarsa",
+  "/admin/server-monitor": "Monitor Server",
+  "/admin/tickets": "Tiket Bantuan",
+  "/admin/announcements": "Pengumuman",
+  "/admin/settings/points": "Sistem Poin",
   "/admin/broadcast": "Broadcast",
   "/admin/backup": "Backup & Restore DB",
 };
