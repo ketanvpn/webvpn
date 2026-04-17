@@ -11,6 +11,7 @@ import {
   editMessageReplyMarkup,
   getBotInfo,
   registerWebhook,
+  lookupTicketByMessage,
 } from "../lib/telegram";
 
 const router = Router();
@@ -110,7 +111,7 @@ async function handleMessage(message: any) {
     return;
   }
 
-  // /reply_<ticketId> <message> — hanya dari admin chat
+  // /reply_<ticketId> <message> — hanya dari admin chat (fallback manual)
   const replyMatch = text.match(/^\/reply_(\d+)\s+([\s\S]+)$/);
   if (replyMatch) {
     const adminChatId = await getAdminChatId();
@@ -120,6 +121,19 @@ async function handleMessage(message: any) {
     }
     await handleReplyTicket(parseInt(replyMatch[1], 10), replyMatch[2].trim(), chatId);
     return;
+  }
+
+  // Native reply (geser pesan) ke notifikasi tiket — hanya dari admin chat
+  if (message.reply_to_message && text.trim()) {
+    const adminChatId = await getAdminChatId();
+    if (adminChatId && String(chatId) === String(adminChatId)) {
+      const replyToMsgId: number = message.reply_to_message.message_id;
+      const ticketId = lookupTicketByMessage(replyToMsgId);
+      if (ticketId) {
+        await handleReplyTicket(ticketId, text.trim(), chatId);
+        return;
+      }
+    }
   }
 }
 

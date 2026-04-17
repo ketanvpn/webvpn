@@ -3,6 +3,18 @@ import { usersTable, topupsTable, settingsTable } from "@workspace/db";
 import { eq, count } from "drizzle-orm";
 import { logger } from "./logger";
 
+// In-memory map: Telegram message_id → ticket_id
+// Allows native Telegram reply (swipe) to be linked back to a ticket
+const ticketMessageMap = new Map<number, number>();
+
+export function registerTicketMessage(telegramMsgId: number, ticketId: number): void {
+  ticketMessageMap.set(telegramMsgId, ticketId);
+}
+
+export function lookupTicketByMessage(telegramMsgId: number): number | null {
+  return ticketMessageMap.get(telegramMsgId) ?? null;
+}
+
 function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID");
 }
@@ -30,15 +42,16 @@ export async function callTelegramApi(token: string, method: string, body: objec
   }
 }
 
-export async function sendMessage(chatId: number | string, text: string, extra?: object) {
+export async function sendMessage(chatId: number | string, text: string, extra?: object): Promise<number | null> {
   const { token } = await getTelegramConfig();
-  if (!token) return;
-  await callTelegramApi(token, "sendMessage", {
+  if (!token) return null;
+  const result = await callTelegramApi(token, "sendMessage", {
     chat_id: chatId,
     text,
     parse_mode: "HTML",
     ...extra,
   });
+  return result?.result?.message_id ?? null;
 }
 
 export async function sendMessageWithButtons(
@@ -347,7 +360,7 @@ export async function notifyAdminNewTicket(ticketId: number, username: string, s
     `#${ticketId} — ${emoji} <b>${priority.toUpperCase()}</b>\n` +
     `👤 User: <b>${username}</b>\n` +
     `📝 Subjek: <b>${subject}</b>\n\n` +
-    `💬 Balas lewat bot:\n<code>/reply_${ticketId} tulis balasan di sini</code>`;
+    `↩️ Geser pesan ini untuk balas`;
 
   const extra: Record<string, unknown> = {};
   if (siteUrl) {
@@ -358,7 +371,8 @@ export async function notifyAdminNewTicket(ticketId: number, username: string, s
     };
   }
 
-  await sendMessage(adminChatId, text, extra);
+  const msgId = await sendMessage(adminChatId, text, extra);
+  if (msgId) registerTicketMessage(msgId, ticketId);
 }
 
 export async function notifyAdminTicketReply(ticketId: number, username: string, subject: string, message: string): Promise<void> {
@@ -373,7 +387,7 @@ export async function notifyAdminTicketReply(ticketId: number, username: string,
     `👤 User: <b>${username}</b>\n` +
     `📝 Subjek: <b>${subject}</b>\n\n` +
     `🗨 Pesan:\n${preview}\n\n` +
-    `<code>/reply_${ticketId} tulis balasan di sini</code>`;
+    `↩️ Geser pesan ini untuk balas`;
 
   const extra: Record<string, unknown> = {};
   if (siteUrl) {
@@ -384,5 +398,6 @@ export async function notifyAdminTicketReply(ticketId: number, username: string,
     };
   }
 
-  await sendMessage(adminChatId, text, extra);
+  const msgId = await sendMessage(adminChatId, text, extra);
+  if (msgId) registerTicketMessage(msgId, ticketId);
 }
