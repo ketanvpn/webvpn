@@ -95,7 +95,11 @@ artifacts/
                          auto-cancel QRIS, reseller target, auto-backup), fonnte, telegram,
                          reseller-upgrade (auto-upgrade logic), seed
   vpn-web/             — Frontend React+Vite
+    public/
+      favicon.svg      — Shield logo hijau custom (menggantikan kotak merah default)
     src/
+      components/
+        logo.tsx       — LogoIcon + LogoBrand SVG component (dipakai di navbar & sidebar)
       pages/
         admin/         — dashboard, users, user-detail, orders, topups, accounts (+ bulk actions),
                          servers (+ maxAccounts field), products, broadcast, backup,
@@ -106,6 +110,7 @@ artifacts/
                          account-detail, balance, balance-logs, products, product-detail,
                          profile, points, tickets, ticket-detail
         auth/          — login, register, forgot-password
+        home.tsx       — Landing page publik (stats bar + paket harga real-time + hero + features + CTA)
 
 lib/
   db/                  — Drizzle ORM schema + migrations
@@ -406,6 +411,19 @@ Setiap kali mengubah `lib/api-spec/openapi.yaml`:
 - File baru: `artifacts/api-server/src/routes/reseller.ts`
 - **Bug fix:** `req.user!.id` → `req.user!.userId` — JWT payload memakai field `userId` bukan `id`. Sebelum fix, query selalu menghasilkan 0 karena filter `userId = undefined` tidak cocok dengan record apapun.
 
+### Batch 17 ✅ (April 2026)
+- **Fix TypeScript TS2741 (seluruh codebase bersih):** File generated `lib/api-client-react/src/generated/api.ts` diperbaiki — semua 56 parameter `query?: UseQueryOptions<...>` diubah menjadi `query?: Partial<UseQueryOptions<...>>` sehingga `queryKey` tidak wajib diisi oleh caller (sudah di-generate internal hook). Sebelumnya ada 14 error TS2741 tersebar di sidebar, use-auth, admin/dashboard, admin/orders, user/account-detail, dll.
+- **Landing page diperkaya:**
+  - **Stats Bar baru** — 4 angka highlight: "1.000+ Pengguna Aktif", "10+ Server Premium", "99.9% Uptime Terjamin", "24/7 Support Siap"
+  - **Section "Paket Tersedia"** — fetch produk real dari `GET /api/products` (endpoint publik, tanpa login) dan tampil langsung di landing page dalam grid 3 kolom. Tiap kartu menampilkan: badge protokol berwarna (SSH/VMess/VLess/Trojan), durasi, harga IDR, kuota GB, max koneksi, nama server, stok terbatas/habis. CTA "Daftar & Beli" untuk tamu, "Pesan Sekarang" untuk yang sudah login.
+  - **Tombol "Lihat Paket"** di hero dan navbar sekarang smooth-scroll ke `#paket` section (tidak lagi ke `/products` yang butuh login)
+  - Menggunakan `useQuery` dari `@tanstack/react-query` langsung (bukan generated hook) untuk menghindari masalah multiple React instance
+- **Logo & Branding:**
+  - **Favicon baru** (`public/favicon.svg`) — shield hijau dengan huruf "K" menggantikan kotak merah kosong
+  - **Komponen `LogoIcon` & `LogoBrand`** (`src/components/logo.tsx`) — SVG logo reusable: shield + glow ring + huruf K, bisa dipakai di mana saja
+  - **Navbar home page** — menggantikan teks polos "KETANTECH" dengan `LogoBrand` (icon + teks 2 baris)
+  - **Sidebar app** — logo icon muncul di header sidebar dengan nama "Admin Portal" / "VPN Store" di bawahnya
+
 ### Batch 12 ✅ (April 2026)
 - **Login via WhatsApp atau Username:** Input login mendeteksi otomatis — jika input berisi angka/+/- dengan ≥9 digit → dianggap nomor WA; selain itu → dianggap username. Normalisasi WA via `normalizeWhatsapp()`.
 - **Cek ketersediaan username real-time saat daftar:** Input username di form register punya debounce 600ms → panggil `GET /api/auth/check-username`; tampil ikon ✅/❌; jika tidak tersedia tampil chip saran username alternatif (maks 3).
@@ -413,7 +431,6 @@ Setiap kali mengubah `lib/api-spec/openapi.yaml`:
 - **Bug kritis diperbaiki:** `POST /api/auth/forgot-password/reset` sebelumnya memakai `.set({ password: hashed })` → kolom salah (kolom DB adalah `passwordHash`/`password_hash`). Diperbaiki ke `.set({ passwordHash: hashed })` — tanpa fix ini reset password selalu gagal diam-diam.
 - **95 TypeScript error dihapus:** TS6305 (stale `references` di tsconfig) → dihapus; TS7006 (implicit any) → `"noImplicitAny": false`; 9 bug logika nyata di halaman balance, account-detail, dashboard, order-detail, admin/accounts, admin/users → diperbaiki dengan cast/prop yang benar.
 - **Dead code dibersihkan:** Fungsi `onSubmitAccount`, `useRegister` import, dan orphaned dynamic import dihapus dari `register.tsx`.
-- **Catatan TS2741 (15 sisa):** Ketidakcocokan Orval v8 + TanStack Query v5 — `queryKey` required di `UseQueryOptions` tapi disuplai internal oleh hooks. Tidak mempengaruhi runtime, hanya cosmetic. Fix butuh perubahan config orval.
 
 ### Batch 2 ✅
 - Topup rejection dialog dengan rejectionNote
