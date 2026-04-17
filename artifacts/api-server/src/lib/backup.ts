@@ -211,6 +211,7 @@ export async function performBackup(): Promise<{
 
 /**
  * Restore database from gzipped SQL buffer via psql.
+ * Automatically creates a safety backup of the current database before restoring.
  */
 export async function performRestore(gzippedBuffer: Buffer): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL;
@@ -221,6 +222,30 @@ export async function performRestore(gzippedBuffer: Buffer): Promise<void> {
     sqlBuffer = gunzipSync(gzippedBuffer);
   } catch {
     throw new Error("File bukan format .sql.gz yang valid atau rusak");
+  }
+
+  // Safety backup: simpan kondisi database saat ini sebelum restore
+  logger.info("Membuat safety backup sebelum restore...");
+  try {
+    const { buffer: safetyBuffer, filename: safetyFilename } = await runPgDump();
+    const safetyName = safetyFilename.replace("ketantech-backup-", "pre-restore-");
+    const safetyPath = saveBackupToTemp(safetyBuffer, safetyName);
+    logger.info({ safetyPath }, "Safety backup sebelum restore berhasil dibuat");
+
+    // Kirim safety backup ke Telegram jika dikonfigurasi
+    const rows = await db.select().from(settingsTable);
+    const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+    const token = map["telegramBotToken"] ?? null;
+    const chatId = map["telegramAdminChatId"] ?? null;
+    if (token && chatId) {
+      await sendBackupToTelegram(safetyBuffer, safetyName, token, chatId);
+    }
+  } catch (err) {
+    logger.error({ err }, "Safety backup gagal — restore dibatalkan untuk keamanan data");
+    throw new Error(
+      `Restore dibatalkan: gagal membuat safety backup terlebih dahulu. ` +
+      `Detail: ${err instanceof Error ? err.message : String(err)}`
+    );
   }
 
   return new Promise((resolve, reject) => {
@@ -246,6 +271,7 @@ export async function performRestore(gzippedBuffer: Buffer): Promise<void> {
         reject(new Error(`psql restore gagal (exit ${code}): ${errMsg}`));
         return;
       }
+      logger.info("Restore database berhasil");
       resolve();
     });
 
