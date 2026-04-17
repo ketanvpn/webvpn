@@ -15,10 +15,21 @@ Platform penjualan VPN berbasis web lengkap — dashboard user, panel admin, ver
 - Notifikasi kedaluwarsa akun VPN via WhatsApp dan Telegram (H-3 dan H-1)
 - **Program Referral** — bagikan kode referral, dapat bonus saldo setiap ada yang daftar dan beli via kode kamu
 - **Program Reseller** — beli VPN dengan harga lebih murah (diskon khusus reseller), jual ke siapa saja dengan harga markup sendiri; bisa jadi reseller otomatis cukup dengan topup sekali
+- **Sistem Poin / Loyalty** — kumpulkan poin dari setiap pembelian, tukarkan menjadi saldo atau diskon
+- **Tiket Bantuan** — buka tiket dukungan langsung dari dashboard, admin membalas dari panel admin
+- **Pengumuman Admin** — banner pengumuman penting muncul otomatis di dashboard saat ada info dari admin
 
 **Untuk Admin:**
 - Dashboard statistik lengkap (revenue harian/bulanan, pengguna, order, topup) dengan grafik
 - Kelola pengguna, produk, server, order, topup, akun VPN
+- **Aksi Massal (Bulk Actions)** — pilih banyak akun/user sekaligus untuk diproses sekaligus
+- **Ekspor Laporan** — ekspor data order dan topup ke format CSV
+- **Live Server Monitor** — pantau penggunaan CPU, RAM, dan disk setiap server VPN secara real-time
+- **Auto-Disable Server** — server otomatis nonaktif dari pilihan pembelian jika akun aktif sudah mencapai batas kapasitas (`maxAccounts`)
+- **Sistem Tiket Bantuan** — balas tiket user langsung dari panel admin
+- **Sistem Voucher / Kode Promo** — buat kode diskon dengan batas kuota dan waktu berlaku
+- **Sistem Poin** — atur konversi poin dan tukar poin user menjadi saldo
+- **Pengumuman** — buat pengumuman yang muncul otomatis sebagai banner di dashboard user
 - Konfigurasi payment gateway (AutoGoPay QRIS), WhatsApp OTP (Fonnte), Telegram bot
 - **Program Referral** — aktifkan/nonaktifkan, atur nominal bonus referral
 - **Program Reseller** — atur diskon harga beli, target penjualan bulanan, banner promosi di panel user, auto-upgrade reseller via topup otomatis
@@ -581,6 +592,29 @@ Menu: **Admin → Program Reseller**
 - **Promosi di Panel User** *(opsional)*: aktifkan banner promosi di dashboard dan profil user biasa — tampilkan keuntungan, syarat masuk, dan syarat aktif secara transparan; user bisa klik ajukan langsung dari panel
 
 > **Catatan:** Semua fitur reseller bersifat opsional dan bisa diaktifkan/nonaktifkan secara terpisah sesuai kebutuhan bisnis kamu.
+
+### Sistem Poin / Loyalty — Opsional
+Menu: **Admin → Pengaturan Poin**
+- Aktifkan sistem poin dan atur berapa poin yang didapat per Rp 1.000 pembelian
+- Atur nilai tukar: berapa poin setara Rp 1 saldo
+- User bisa tukar poin menjadi saldo langsung dari menu **Poin** di dashboard mereka
+
+### Voucher / Kode Promo — Opsional
+Menu: **Admin → Voucher** *(dikelola langsung dari panel admin)*
+- Buat kode promo dengan nominal diskon (Rp atau %) dan batas kuota pemakaian
+- User bisa memasukkan kode voucher saat checkout untuk mendapatkan diskon
+- Cocok untuk campaign marketing musiman (Lebaran, Tahun Baru, dll.)
+
+### Pengumuman ke User
+Menu: **Admin → Pengumuman**
+- Buat pengumuman yang tampil sebagai banner di dashboard semua user
+- Bisa dinonaktifkan kapan saja tanpa menghapusnya
+
+### Tiket Bantuan
+Sistem tiket aktif otomatis — tidak ada konfigurasi khusus yang diperlukan.
+- User bisa buka tiket dari menu **Tiket** di dashboard mereka
+- Admin membalas dari menu **Admin → Tiket**
+- Notifikasi balasan admin bisa dikirim via Telegram jika bot sudah dikonfigurasi
 
 ### Backup Database Otomatis
 Menu: **Admin → Backup & Restore DB**
