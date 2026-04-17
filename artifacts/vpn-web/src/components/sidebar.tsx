@@ -110,8 +110,9 @@ export function MobileBottomNav() {
   const [location] = useLocation();
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t shadow-lg safe-area-inset-bottom">
-      <div className="flex items-stretch h-16">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass-panel border-t-0 shadow-[0_-5px_15px_rgba(0,0,0,0.3)] safe-area-inset-bottom">
+      <div className="flex items-stretch h-16 relative">
+        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent"></div>
         {mobileBottomNav.map((item) => {
           const active = isNavActive(location, item.href);
           return (
@@ -237,7 +238,8 @@ export function MobileAdminHeader() {
       })?.[1] ?? "Admin Portal";
 
   return (
-    <header className="md:hidden sticky top-0 z-40 flex items-center h-14 border-b bg-card/95 backdrop-blur-sm px-2 gap-2 shrink-0">
+    <header className="md:hidden sticky top-0 z-40 flex items-center h-14 glass-panel border-b-0 shadow-md px-2 gap-2 shrink-0">
+      <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/30 to-transparent"></div>
       <Sheet>
         <SheetTrigger asChild>
           <Button variant="ghost" size="icon" className="shrink-0 relative">

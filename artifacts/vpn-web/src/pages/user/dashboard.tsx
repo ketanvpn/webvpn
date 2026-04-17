@@ -71,10 +71,10 @@ function ReselerPromoBanner({ onRequest }: { onRequest: () => void }) {
   ];
 
   return (
-    <div className={`relative rounded-xl border overflow-hidden ${
+    <div className={`relative rounded-xl overflow-hidden glass-panel ${
       accentGreen
-        ? "border-green-200 bg-gradient-to-br from-green-50 to-emerald-50/30 dark:from-green-950/30 dark:border-green-900"
-        : "border-primary/25 bg-gradient-to-br from-primary/8 to-primary/3"
+        ? "border-green-500/20"
+        : "border-primary/20"
     }`}>
       {/* Dekorasi latar */}
       <div className={`absolute -right-8 -top-8 h-28 w-28 rounded-full blur-2xl opacity-60 ${accentGreen ? "bg-green-200" : "bg-primary/15"}`} />
@@ -83,7 +83,7 @@ function ReselerPromoBanner({ onRequest }: { onRequest: () => void }) {
       <div className="relative flex items-center justify-between px-4 pt-4 pb-2">
         <div className="flex items-center gap-2">
           <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${
-            accentGreen ? "bg-green-100 dark:bg-green-900/50" : "bg-primary/15"
+            accentGreen ? "bg-green-900/50" : "bg-primary/20"
           }`}>
             {accentGreen
               ? <Zap className="h-4 w-4 text-green-600 dark:text-green-400" />
@@ -110,7 +110,7 @@ function ReselerPromoBanner({ onRequest }: { onRequest: () => void }) {
         {/* Keuntungan */}
         <div>
           <p className={`text-[10px] font-semibold uppercase tracking-wide mb-1.5 ${
-            accentGreen ? "text-green-700 dark:text-green-400" : "text-primary"
+            accentGreen ? "text-green-400" : "text-primary"
           }`}>Yang kamu dapat</p>
           <ul className="space-y-1">
             {benefits.map((b, i) => (
@@ -124,7 +124,7 @@ function ReselerPromoBanner({ onRequest }: { onRequest: () => void }) {
 
         {/* Syarat */}
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400 mb-1.5">Syarat</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-400 mb-1.5">Syarat</p>
           <ul className="space-y-1">
             {/* Syarat masuk */}
             <li className="flex items-start gap-1.5">
@@ -221,13 +221,13 @@ export default function Dashboard() {
       {/* Stat Cards — 2 kolom di mobile, 4 di desktop */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Link href="/balance">
-          <div className="rounded-xl border-2 border-primary bg-primary text-primary-foreground p-3 cursor-pointer hover:opacity-90 transition-opacity">
+          <div className="glass-card rounded-xl border border-primary/40 bg-primary/10 p-3 cursor-pointer hover:glow-border-primary transition-all duration-300">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium text-primary-foreground/70">Saldo</span>
-              <Wallet className="h-3.5 w-3.5 opacity-70" />
+              <span className="text-xs font-medium text-primary">Saldo</span>
+              <Wallet className="h-3.5 w-3.5 text-primary opacity-80" />
             </div>
-            <div className="text-lg font-bold leading-tight">{formatRupiah(summary.balance)}</div>
-            <div className="text-[10px] mt-0.5 text-primary-foreground/60">
+            <div className="text-lg font-bold leading-tight text-primary">{formatRupiah(summary.balance)}</div>
+            <div className="text-[10px] mt-0.5 text-primary/70">
               {summary.pendingTopup && summary.pendingTopup > 0
                 ? `+${formatRupiah(summary.pendingTopup)} pending`
                 : "Tap untuk topup"}
@@ -236,7 +236,7 @@ export default function Dashboard() {
         </Link>
 
         <Link href="/accounts">
-          <div className="rounded-xl border-2 bg-card p-3 cursor-pointer hover:border-primary/50 transition-colors">
+          <div className="glass-card rounded-xl border border-white/5 p-3 cursor-pointer hover:glow-border-primary hover:border-primary/50 transition-all duration-300">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-medium text-muted-foreground">Akun Aktif</span>
               <Server className="h-3.5 w-3.5 text-muted-foreground" />
@@ -247,7 +247,7 @@ export default function Dashboard() {
         </Link>
 
         <Link href="/orders">
-          <div className="rounded-xl border-2 bg-card p-3 cursor-pointer hover:border-primary/50 transition-colors">
+          <div className="glass-card rounded-xl border border-white/5 p-3 cursor-pointer hover:glow-border-primary hover:border-primary/50 transition-all duration-300">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-medium text-muted-foreground">Total Order</span>
               <ShoppingCart className="h-3.5 w-3.5 text-muted-foreground" />
@@ -258,10 +258,10 @@ export default function Dashboard() {
         </Link>
 
         <Link href="/accounts">
-          <div className={`rounded-xl border-2 p-3 cursor-pointer transition-colors ${
+          <div className={`glass-card rounded-xl border p-3 cursor-pointer transition-all duration-300 ${
             hasExpiring
-              ? "border-destructive/40 bg-destructive/5 hover:border-destructive/60"
-              : "bg-card hover:border-primary/50"
+              ? "border-destructive/40 bg-destructive/10 hover:border-destructive hover:shadow-[0_0_15px_rgba(239,68,68,0.2)]"
+              : "border-white/5 hover:border-primary/50 hover:glow-border-primary"
           }`}>
             <div className="flex items-center justify-between mb-1">
               <span className={`text-xs font-medium ${hasExpiring ? "text-destructive" : "text-muted-foreground"}`}>
@@ -282,7 +282,7 @@ export default function Dashboard() {
       {/* Grid bawah */}
       <div className="grid gap-4 md:grid-cols-2">
         {/* Order Terbaru */}
-        <div className="rounded-xl border-2 bg-card overflow-hidden">
+        <div className="glass-panel rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/20">
             <span className="font-semibold text-sm">Order Terbaru</span>
             <Link href="/orders" className="text-[11px] text-primary hover:underline">Lihat semua →</Link>
@@ -320,7 +320,7 @@ export default function Dashboard() {
         </div>
 
         {/* Segera Expired */}
-        <div className="rounded-xl border-2 bg-card overflow-hidden">
+        <div className="glass-panel rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/20">
             <span className="font-semibold text-sm">Akun Hampir Habis</span>
             <Link href="/accounts" className="text-[11px] text-primary hover:underline">Lihat semua →</Link>
