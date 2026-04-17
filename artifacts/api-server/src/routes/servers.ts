@@ -12,6 +12,7 @@ function formatPublicServer(s: typeof serversTable.$inferSelect) {
     location: s.location,
     flag: s.flag,
     isActive: s.isActive,
+    supportedProtocols: s.supportedProtocols ?? [],
   };
 }
 
