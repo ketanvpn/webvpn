@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
-import { Shield, Zap, Globe, Lock, ChevronRight, Users, Server, Clock, HeartHandshake, CheckCircle2 } from "lucide-react";
+import { Shield, Zap, Globe, ChevronRight, CheckCircle2 } from "lucide-react";
 import { LogoBrand } from "@/components/logo";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "");
@@ -70,7 +70,7 @@ export default function Home() {
                   <Link href="/login">Masuk</Link>
                 </Button>
                 <Button asChild>
-                  <Link href="/register">Daftar Sekarang</Link>
+                  <Link href="/register">Daftar</Link>
                 </Button>
               </>
             )}
@@ -80,106 +80,79 @@ export default function Home() {
 
       <main className="flex-1 flex flex-col">
         {/* Hero Section */}
-        <section className="relative py-14 lg:py-20 px-4 text-center overflow-hidden">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/20 rounded-full blur-[120px] pointer-events-none"></div>
-          <div className="container relative z-10 mx-auto max-w-4xl space-y-6">
-            <div className="inline-flex items-center rounded-full border border-primary/30 px-4 py-1.5 text-sm font-medium glass-panel shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-              <span className="flex h-2 w-2 rounded-full bg-primary mr-2 animate-pulse"></span>
-              Layanan VPN Premium untuk Indonesia
-            </div>
-            <h1 className="text-4xl lg:text-6xl font-extrabold tracking-tight text-foreground drop-shadow-md">
-              Internet Bebas.<br className="hidden sm:block" />
-              <span className="text-primary drop-shadow-[0_0_20px_rgba(16,185,129,0.6)]">Tanpa Batas.</span>
+        <section className="relative py-16 lg:py-24 px-4 text-center overflow-hidden">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[400px] bg-primary/10 rounded-full blur-[120px] pointer-events-none"></div>
+          <div className="container relative z-10 mx-auto max-w-3xl space-y-6">
+            <h1 className="text-4xl lg:text-5xl font-bold tracking-tight text-foreground">
+              Layanan VPN untuk<br className="hidden sm:block" />
+              <span className="text-primary"> Indonesia</span>
             </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-              Nikmati kecepatan tinggi dan keamanan enterprise dengan server SSH, VMess, VLess, dan Trojan premium kami.
+            <p className="text-base text-muted-foreground max-w-xl mx-auto leading-relaxed">
+              SSH, VMess, VLess, dan Trojan tersedia dengan server yang bisa dipilih sesuai kebutuhan. Harga transparan, aktif setelah pembayaran dikonfirmasi.
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
-              <Button size="lg" className="w-full sm:w-auto text-base h-12 px-8 shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] hover:scale-105" asChild>
-                <Link href="/register">Mulai Sekarang</Link>
-              </Button>
-              <Button size="lg" variant="outline" className="w-full sm:w-auto text-base h-12 px-8 glass-panel border-primary/30 hover:bg-primary/10 transition-all" onClick={scrollToPackages}>
-                Lihat Paket
-              </Button>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              {isAuthenticated ? (
+                <Button size="lg" className="w-full sm:w-auto px-8" asChild>
+                  <Link href="/dashboard">Buka Dashboard</Link>
+                </Button>
+              ) : (
+                <>
+                  <Button size="lg" className="w-full sm:w-auto px-8" asChild>
+                    <Link href="/register">Daftar Sekarang</Link>
+                  </Button>
+                  <Button size="lg" variant="outline" className="w-full sm:w-auto px-8" onClick={scrollToPackages}>
+                    Lihat Paket
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </section>
 
-        {/* Stats Bar */}
-        <section className="py-7 px-4 border-y border-white/5 bg-card/40">
-          <div className="container mx-auto max-w-5xl">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-              <div className="space-y-1">
-                <div className="flex items-center justify-center gap-2 text-3xl font-extrabold text-primary">
-                  <Users className="h-6 w-6" /> 1.000+
+        {/* Quick Info */}
+        <section className="py-8 px-4 border-y border-white/5 bg-card/40">
+          <div className="container mx-auto max-w-4xl">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center sm:text-left">
+              <div className="flex items-start gap-3 justify-center sm:justify-start">
+                <Zap className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium">Aktif Cepat</p>
+                  <p className="text-xs text-muted-foreground">Akun VPN dibuat otomatis setelah pembayaran dikonfirmasi.</p>
                 </div>
-                <p className="text-sm text-muted-foreground">Pengguna Aktif</p>
               </div>
-              <div className="space-y-1">
-                <div className="flex items-center justify-center gap-2 text-3xl font-extrabold text-primary">
-                  <Server className="h-6 w-6" /> 10+
+              <div className="flex items-start gap-3 justify-center sm:justify-start">
+                <Globe className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium">Multi Protokol</p>
+                  <p className="text-xs text-muted-foreground">SSH, VMess, VLess, Trojan — pilih yang paling cocok.</p>
                 </div>
-                <p className="text-sm text-muted-foreground">Server Premium</p>
               </div>
-              <div className="space-y-1">
-                <div className="flex items-center justify-center gap-2 text-3xl font-extrabold text-primary">
-                  <Clock className="h-6 w-6" /> 99.9%
+              <div className="flex items-start gap-3 justify-center sm:justify-start">
+                <Shield className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium">Harga Transparan</p>
+                  <p className="text-xs text-muted-foreground">Tidak ada biaya tersembunyi. Bayar sesuai paket yang dipilih.</p>
                 </div>
-                <p className="text-sm text-muted-foreground">Uptime Terjamin</p>
               </div>
-              <div className="space-y-1">
-                <div className="flex items-center justify-center gap-2 text-3xl font-extrabold text-primary">
-                  <HeartHandshake className="h-6 w-6" /> 24/7
-                </div>
-                <p className="text-sm text-muted-foreground">Support Siap</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Features Section */}
-        <section className="py-14 px-4 bg-background">
-          <div className="container mx-auto max-w-6xl">
-            <div className="text-center mb-10">
-              <h2 className="text-2xl font-bold tracking-tight">Kenapa Pilih KETANTECH?</h2>
-              <p className="text-muted-foreground mt-2 max-w-xl mx-auto text-sm">
-                Kami menyediakan VPN terpercaya dengan performa tinggi, harga terjangkau, dan dukungan penuh.
-              </p>
-            </div>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {[
-                { icon: Zap, title: "Super Cepat", desc: "Server performa tinggi, cocok untuk gaming, streaming, dan browsing sehari-hari." },
-                { icon: Shield, title: "Aman & Terenkripsi", desc: "Enkripsi tingkat militer melindungi data dan privasi kamu dari ancaman siber." },
-                { icon: Globe, title: "Multi Lokasi", desc: "Server di berbagai negara — akses konten lokal maupun internasional tanpa hambatan." },
-                { icon: Lock, title: "No Log Policy", desc: "Kami tidak menyimpan riwayat aktivitasmu. Privasi kamu adalah hak, bukan fitur." },
-              ].map(({ icon: Icon, title, desc }) => (
-                <div key={title} className="p-6 rounded-2xl glass-card border border-white/5 shadow-lg space-y-4 hover:-translate-y-1 transition-transform duration-300">
-                  <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]">
-                    <Icon className="h-6 w-6" />
-                  </div>
-                  <h3 className="text-xl font-bold">{title}</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">{desc}</p>
-                </div>
-              ))}
             </div>
           </div>
         </section>
 
         {/* Packages Section */}
         {featured.length > 0 && (
-          <section id="paket" className="py-14 px-4 bg-card/20">
+          <section id="paket" className="py-14 px-4">
             <div className="container mx-auto max-w-6xl">
-              <div className="text-center mb-10">
+              <div className="mb-8">
                 <h2 className="text-2xl font-bold tracking-tight">Paket Tersedia</h2>
-                <p className="text-muted-foreground mt-2 max-w-xl mx-auto text-sm">
-                  Pilih paket yang sesuai kebutuhanmu. Aktif instan setelah pembayaran dikonfirmasi.
+                <p className="text-muted-foreground mt-1 text-sm">
+                  Aktif instan setelah pembayaran dikonfirmasi.
                 </p>
               </div>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {featured.map((p) => (
                   <div
                     key={p.id}
-                    className="relative p-6 rounded-2xl glass-card border border-white/5 shadow-lg hover:-translate-y-1 hover:border-primary/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.15)] transition-all duration-300 flex flex-col gap-4"
+                    className="relative p-5 rounded-xl glass-card border border-white/5 hover:border-primary/30 transition-colors duration-200 flex flex-col gap-3"
                   >
                     <div className="flex items-center justify-between">
                       <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase ${protocolColor[p.protocol] ?? "bg-muted text-muted-foreground border-border"}`}>
@@ -190,61 +163,65 @@ export default function Home() {
                       </span>
                     </div>
 
-                    <h3 className="text-lg font-bold leading-tight">{p.name}</h3>
+                    <h3 className="text-base font-semibold leading-tight">{p.name}</h3>
 
-                    {p.description && (
-                      <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">{p.description}</p>
-                    )}
-
-                    <ul className="space-y-1.5 text-sm text-muted-foreground">
+                    <ul className="space-y-1 text-sm text-muted-foreground">
                       {p.quota != null && (
                         <li className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                          <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
                           Kuota {p.quota} GB
                         </li>
                       )}
                       {p.maxConnections && (
                         <li className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
-                          Max {p.maxConnections} Koneksi
+                          <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                          Max {p.maxConnections} koneksi
                         </li>
                       )}
                       {p.serverName && (
                         <li className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                          <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
                           Server: {p.serverName}
                         </li>
                       )}
                     </ul>
 
-                    <div className="mt-auto pt-2">
-                      <div className="text-2xl font-extrabold text-primary">
-                        {formatRupiah(p.price)}
+                    <div className="mt-auto pt-2 flex items-end justify-between">
+                      <div>
+                        <div className="text-xl font-bold text-primary">
+                          {formatRupiah(p.price)}
+                        </div>
+                        <p className="text-xs text-muted-foreground">per {formatDuration(p.durationDays)}</p>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">per {formatDuration(p.durationDays)}</p>
+                      {p.availableStock === 0 ? (
+                        <span className="text-xs text-red-400 border border-red-400/30 rounded-full px-2.5 py-1">Habis</span>
+                      ) : p.availableStock <= 5 ? (
+                        <span className="text-xs text-yellow-400 border border-yellow-400/30 rounded-full px-2.5 py-1">Sisa {p.availableStock}</span>
+                      ) : null}
                     </div>
 
-                    <Button className="w-full mt-2 shadow-[0_0_12px_rgba(16,185,129,0.3)]" asChild>
-                      <Link href={isAuthenticated ? "/products" : "/register"}>
-                        {isAuthenticated ? "Pesan Sekarang" : "Daftar & Beli"}
-                      </Link>
+                    <Button
+                      className="w-full"
+                      disabled={p.availableStock === 0}
+                      asChild={p.availableStock !== 0}
+                    >
+                      {p.availableStock !== 0 ? (
+                        <Link href={isAuthenticated ? "/products" : "/register"}>
+                          {isAuthenticated ? "Pesan Sekarang" : "Daftar & Beli"}
+                        </Link>
+                      ) : (
+                        <span>Stok Habis</span>
+                      )}
                     </Button>
-
-                    {p.availableStock <= 5 && p.availableStock > 0 && (
-                      <p className="text-xs text-yellow-400 text-center">Stok terbatas: {p.availableStock} tersisa</p>
-                    )}
-                    {p.availableStock === 0 && (
-                      <p className="text-xs text-red-400 text-center">Stok habis</p>
-                    )}
                   </div>
                 ))}
               </div>
 
               {products.length > 6 && (
-                <div className="text-center mt-10">
-                  <Button variant="outline" size="lg" className="glass-panel border-primary/30" asChild>
+                <div className="mt-8">
+                  <Button variant="outline" size="sm" asChild>
                     <Link href={isAuthenticated ? "/products" : "/register"}>
-                      Lihat Semua Paket <ChevronRight className="ml-1 h-4 w-4" />
+                      Lihat semua paket <ChevronRight className="ml-1 h-4 w-4" />
                     </Link>
                   </Button>
                 </div>
@@ -252,32 +229,11 @@ export default function Home() {
             </div>
           </section>
         )}
-
-        {/* CTA Section */}
-        <section className="relative py-14 px-4 overflow-hidden">
-          <div className="absolute inset-0 bg-primary/5"></div>
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[200px] bg-primary/10 blur-[80px] pointer-events-none rounded-t-full"></div>
-          <div className="container relative z-10 mx-auto max-w-xl text-center space-y-5 glass-panel border-primary/20 p-8 rounded-2xl shadow-[0_0_40px_rgba(16,185,129,0.1)]">
-            <h2 className="text-3xl font-bold tracking-tight">Siap Mulai?</h2>
-            <p className="text-muted-foreground">
-              Daftar gratis, pilih paket, dan nikmati internet tanpa batas dalam hitungan menit.
-            </p>
-            <Button size="lg" className="text-base h-12 px-8 shadow-[0_0_15px_rgba(16,185,129,0.5)] transition-transform hover:scale-105" asChild>
-              <Link href="/register">Daftar Gratis Sekarang</Link>
-            </Button>
-            <p className="text-sm text-muted-foreground">
-              Sudah punya akun?{" "}
-              <Link href="/login" className="text-primary hover:text-primary/80 hover:underline font-medium">
-                Masuk di sini
-              </Link>
-            </p>
-          </div>
-        </section>
       </main>
 
       <footer className="py-6 border-t bg-card">
         <div className="container mx-auto px-4 text-center text-muted-foreground text-sm">
-          <p className="font-bold text-foreground mb-1">KETANTECH VPN Store</p>
+          <p className="font-medium text-foreground mb-0.5">KETANTECH VPN Store</p>
           <p>&copy; {new Date().getFullYear()} KETANTECH. Seluruh hak cipta dilindungi.</p>
         </div>
       </footer>
