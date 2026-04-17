@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { Shield, Zap, Globe, Lock, ChevronRight, Users, Server, Clock, HeartHandshake, CheckCircle2 } from "lucide-react";
+import { LogoBrand } from "@/components/logo";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "");
 
@@ -49,9 +50,7 @@ export default function Home() {
       {/* Navbar */}
       <header className="border-b bg-card/80 backdrop-blur-md sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="font-bold text-xl tracking-tight text-primary">
-            KETANTECH
-          </div>
+          <LogoBrand iconSize={34} />
           <nav className="flex items-center gap-4">
             <button
               onClick={scrollToPackages}

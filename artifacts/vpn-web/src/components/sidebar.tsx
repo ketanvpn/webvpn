@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/sheet";
 import { SheetTrigger } from "@/components/ui/sheet";
 import { useGetAdminDashboard } from "@workspace/api-client-react";
+import { LogoIcon } from "@/components/logo";
 
 type NavItem = {
   title: string;
@@ -170,13 +171,14 @@ function NavLinks({
 }) {
   return (
     <nav className="flex flex-col gap-1 p-4 h-full overflow-y-auto">
-      <div className="mb-6 px-2">
-        <h2 className="text-xl font-bold tracking-tight text-primary">
-          KETANTECH
-        </h2>
-        <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mt-1">
-          {isAdmin ? "Admin Portal" : "VPN Store"}
-        </p>
+      <div className="mb-6 px-2 flex items-center gap-3">
+        <LogoIcon size={38} />
+        <div className="flex flex-col leading-none">
+          <span className="font-extrabold text-base tracking-tight text-foreground">KETANTECH</span>
+          <span className="text-[10px] font-semibold text-primary tracking-widest uppercase">
+            {isAdmin ? "Admin Portal" : "VPN Store"}
+          </span>
+        </div>
       </div>
 
       {nav.map((item) => {
