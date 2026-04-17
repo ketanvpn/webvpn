@@ -24,8 +24,12 @@ router.post("/webhooks/autogopay", async (req, res) => {
     const sigFromRaw = crypto.createHmac("sha256", apiKey).update(rawBody).digest("hex");
     const sigFromReserialized = crypto.createHmac("sha256", apiKey).update(reserializedBody).digest("hex");
 
-    const validRaw = signature === sigFromRaw;
-    const validReserialized = signature === sigFromReserialized;
+    const sigBuffer = Buffer.from(signature, "hex");
+    const sigRawBuffer = Buffer.from(sigFromRaw, "hex");
+    const sigReserializedBuffer = Buffer.from(sigFromReserialized, "hex");
+
+    const validRaw = sigBuffer.length === sigRawBuffer.length && crypto.timingSafeEqual(sigBuffer, sigRawBuffer);
+    const validReserialized = sigBuffer.length === sigReserializedBuffer.length && crypto.timingSafeEqual(sigBuffer, sigReserializedBuffer);
 
     if (!validRaw && !validReserialized) {
       logger.warn({

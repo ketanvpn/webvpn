@@ -348,7 +348,7 @@ export const createOrderBodyPaymentMethodDefault = `balance`;
 export const createOrderBodyRemarksMin = 5;
 
 export const createOrderBodyRemarksRegExp = new RegExp(
-  "^(?=(?:.\*[a-zA-Z]))(?=(?:.\*[0-9]){2,}).{5,}$",
+  "^(?=(?:.*[a-zA-Z]))(?=(?:.*[0-9]){2,})[a-zA-Z0-9]{5,}$",
 );
 
 export const CreateOrderBody = zod.object({
@@ -362,7 +362,7 @@ export const CreateOrderBody = zod.object({
     .min(createOrderBodyRemarksMin)
     .regex(createOrderBodyRemarksRegExp)
     .describe(
-      "Nama akun VPN unik. Wajib minimal 5 karakter, mengandung huruf dan minimal 2 angka. Contoh: daaw12",
+      "Nama akun VPN unik. Wajib minimal 5 karakter, hanya huruf dan angka (minimal 2 angka). Contoh: daaw12",
     ),
 });
 

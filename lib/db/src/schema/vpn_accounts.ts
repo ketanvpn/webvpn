@@ -1,4 +1,5 @@
-import { pgTable, serial, text, boolean, numeric, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, boolean, numeric, integer, timestamp, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -23,7 +24,11 @@ export const vpnAccountsTable = pgTable("vpn_accounts", {
   notified1Day: boolean("notified_1_day").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (t) => [
+  uniqueIndex("vpn_accounts_active_username_idx")
+    .on(t.username)
+    .where(sql`is_active = true`),
+]);
 
 export const insertVpnAccountSchema = createInsertSchema(vpnAccountsTable).omit({
   id: true,

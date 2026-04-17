@@ -60,11 +60,19 @@ async function generateAutoGopayQris(amount: number): Promise<{
     return null;
   }
 
-  const resp = await fetch(`${apiUrl}/qris/generate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ amount }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  let resp: Response;
+  try {
+    resp = await fetch(`${apiUrl}/qris/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ amount }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   const data = await resp.json() as {
     success: boolean;
@@ -322,8 +330,8 @@ router.post("/orders", requireAuth, async (req, res) => {
   const { productId, paymentMethod = "balance", remarks } = parsed.data;
   const userId = req.user!.userId;
 
-  // Normalisasi: lowercase + hanya alphanumeric
-  const normalizedRemarks = remarks.toLowerCase().replace(/[^a-z0-9]/g, "");
+  // Normalisasi: pastikan lowercase karena Zod sudah memastikan hanya alphanumeric
+  const normalizedRemarks = remarks.trim().toLowerCase();
 
   const [product] = await db
     .select()
