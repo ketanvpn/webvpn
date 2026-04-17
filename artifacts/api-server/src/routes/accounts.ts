@@ -5,7 +5,7 @@ import { eq, and, desc, sql, gte } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { RenewAccountBody } from "@workspace/api-zod";
 import { getResellerSettings } from "./settings";
-import { renewPanelAccount, modifyPanelAccount } from "../lib/vpn-panel";
+import { renewPanelAccount } from "../lib/vpn-panel";
 import { sendWhatsapp } from "../lib/fonnte";
 import { addBalanceLog } from "./balance-logs";
 import { format } from "date-fns";
@@ -103,6 +103,12 @@ router.post("/accounts/:id/renew", requireAuth, async (req, res) => {
 
   if (!account) {
     res.status(404).json({ error: "Account not found" });
+    return;
+  }
+
+  // Tolak perpanjangan jika akun sudah kedaluwarsa (panel akan menghapus akun expired secara otomatis)
+  if (account.expiresAt <= new Date()) {
+    res.status(400).json({ error: "Akun sudah kedaluwarsa dan tidak dapat diperpanjang. Silakan buat akun baru." });
     return;
   }
 
@@ -227,23 +233,7 @@ router.post("/accounts/:id/renew", requireAuth, async (req, res) => {
     .limit(1);
 
   if (server?.apiUrl && server?.apiToken) {
-    const isExpired = account.expiresAt <= new Date();
-
-    // Jika akun sudah expired, kemungkinan masuk "recovery mode" di panel.
-    // Coba modify dulu (kirim username + UUID) untuk memulihkannya,
-    // baru kemudian renew untuk extend expiry-nya.
     const panelSync = async () => {
-      if (isExpired && account.uuid) {
-        console.log(`[renew] Account ${account.username} expired — trying modifyPanelAccount first`);
-        await modifyPanelAccount({
-          apiUrl: server.apiUrl!,
-          apiToken: server.apiToken!,
-          protocol: account.protocol,
-          username: account.username,
-          uuid: account.uuid,
-        });
-      }
-
       await renewPanelAccount({
         apiUrl: server.apiUrl!,
         apiToken: server.apiToken!,

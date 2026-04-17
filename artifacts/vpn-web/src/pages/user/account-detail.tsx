@@ -49,14 +49,13 @@ function QrCodeImage({ data, label }: { data: string; label: string }) {
   );
 }
 
-function RenewDialog({ accountId, serverId, protocol, serverName, serverFlag, serverLocation, isExpired }: {
+function RenewDialog({ accountId, serverId, protocol, serverName, serverFlag, serverLocation }: {
   accountId: number;
   serverId: number;
   protocol: string;
   serverName: string;
   serverFlag: string;
   serverLocation: string;
-  isExpired: boolean;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -97,13 +96,13 @@ function RenewDialog({ accountId, serverId, protocol, serverName, serverFlag, se
           setRenewed(true);
           queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey(accountId) });
           toast({
-            title: isExpired ? "Pemulihan berhasil!" : "Renew berhasil!",
-            description: `Akun berhasil ${isExpired ? "dipulihkan" : "diperpanjang"}. ${selectedProduct ? formatRupiah(effectivePrice(selectedProduct)) + " telah dipotong dari saldo." : ""}`,
+            title: "Renew berhasil!",
+            description: `Akun berhasil diperpanjang. ${selectedProduct ? formatRupiah(effectivePrice(selectedProduct)) + " telah dipotong dari saldo." : ""}`,
           });
         },
         onError: (err) => {
           toast({
-            title: isExpired ? "Pemulihan gagal" : "Renew gagal",
+            title: "Renew gagal",
             description: getApiError(err),
             variant: "destructive",
           });
@@ -123,25 +122,16 @@ function RenewDialog({ accountId, serverId, protocol, serverName, serverFlag, se
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        {isExpired ? (
-          <Button className="w-full gap-2 bg-amber-600 hover:bg-amber-700 text-white">
-            <RotateCcw className="h-4 w-4" />
-            Pulihkan Akun
-          </Button>
-        ) : (
-          <Button className="w-full gap-2">
-            <RefreshCw className="h-4 w-4" />
-            Renew Akun
-          </Button>
-        )}
+        <Button className="w-full gap-2">
+          <RefreshCw className="h-4 w-4" />
+          Renew Akun
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{isExpired ? "Pulihkan Akun VPN" : "Perpanjang Akun VPN"}</DialogTitle>
+          <DialogTitle>Perpanjang Akun VPN</DialogTitle>
           <DialogDescription>
-            {isExpired
-              ? "Akun ini sudah kedaluwarsa. Pilih paket untuk mengaktifkan kembali. Konfigurasi dan server tidak berubah."
-              : "Pilih durasi perpanjangan. Server dan akun tetap sama, hanya masa aktif yang ditambah."}
+            Pilih durasi perpanjangan. Server dan akun tetap sama, hanya masa aktif yang ditambah.
           </DialogDescription>
         </DialogHeader>
 
@@ -159,9 +149,9 @@ function RenewDialog({ accountId, serverId, protocol, serverName, serverFlag, se
           <div className="flex flex-col items-center gap-4 py-6">
             <CheckCircle2 className="h-16 w-16 text-green-500" />
             <div className="text-center">
-              <p className="font-semibold text-lg">{isExpired ? "Pemulihan Berhasil!" : "Renew Berhasil!"}</p>
+              <p className="font-semibold text-lg">Renew Berhasil!</p>
               <p className="text-sm text-muted-foreground mt-1">
-                {isExpired ? "Akun kamu sudah aktif kembali." : "Akun kamu sudah diperpanjang."}
+                Akun kamu sudah diperpanjang.
               </p>
             </div>
             <Button onClick={() => handleOpenChange(false)} className="w-full">Tutup</Button>
@@ -261,17 +251,12 @@ function RenewDialog({ accountId, serverId, protocol, serverName, serverFlag, se
               <Button
                 onClick={handleRenew}
                 disabled={!selectedProductId || !canAfford || renewMutation.isPending}
-                className={`gap-2 ${isExpired ? "bg-amber-600 hover:bg-amber-700" : ""}`}
+                className="gap-2"
               >
                 {renewMutation.isPending ? (
                   <>
                     <RefreshCw className="h-4 w-4 animate-spin" />
                     Memproses...
-                  </>
-                ) : isExpired ? (
-                  <>
-                    <RotateCcw className="h-4 w-4" />
-                    Pulihkan Akun
                   </>
                 ) : (
                   <>
@@ -588,15 +573,16 @@ export default function AccountDetail() {
               <CardTitle className="text-base">Aksi</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <RenewDialog
-                accountId={accountId}
-                serverId={account.serverId!}
-                protocol={account.protocol}
-                serverName={account.server.name}
-                serverFlag={account.server.flag}
-                serverLocation={account.server.location}
-                isExpired={!account.isActive || new Date(account.expiresAt) < new Date()}
-              />
+              {account.isActive && new Date(account.expiresAt) > new Date() && (
+                <RenewDialog
+                  accountId={accountId}
+                  serverId={account.serverId!}
+                  protocol={account.protocol}
+                  serverName={account.server.name}
+                  serverFlag={account.server.flag}
+                  serverLocation={account.server.location}
+                />
+              )}
               <Button variant="outline" className="w-full" asChild>
                 <Link href={`/orders/${account.orderId}`}>Lihat Order Asli</Link>
               </Button>
