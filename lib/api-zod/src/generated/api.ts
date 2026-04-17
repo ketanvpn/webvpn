@@ -348,7 +348,7 @@ export const createOrderBodyPaymentMethodDefault = `balance`;
 export const createOrderBodyRemarksMin = 5;
 
 export const createOrderBodyRemarksRegExp = new RegExp(
-  "^(?=(?:.*[a-zA-Z]))(?=(?:.*[0-9]){2,})[a-zA-Z0-9]{5,}$",
+  "^(?=(?:.\*[a-zA-Z]))(?=(?:.\*[0-9]){2,})[a-zA-Z0-9]{5,}$",
 );
 
 export const CreateOrderBody = zod.object({
@@ -364,6 +364,7 @@ export const CreateOrderBody = zod.object({
     .describe(
       "Nama akun VPN unik. Wajib minimal 5 karakter, hanya huruf dan angka (minimal 2 angka). Contoh: daaw12",
     ),
+  voucherCode: zod.string().nullish(),
 });
 
 /**
@@ -2187,3 +2188,91 @@ export const ListServersResponseItem = zod.object({
   isActive: zod.boolean(),
 });
 export const ListServersResponse = zod.array(ListServersResponseItem);
+
+/**
+ * @summary List all vouchers (admin)
+ */
+export const AdminListVouchersResponseItem = zod.object({
+  id: zod.number(),
+  code: zod.string(),
+  discountType: zod.enum(["percent", "fixed"]),
+  discountValue: zod.number(),
+  maxUses: zod.number().nullish(),
+  currentUses: zod.number(),
+  isActive: zod.boolean(),
+  expiresAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const AdminListVouchersResponse = zod.array(
+  AdminListVouchersResponseItem,
+);
+
+/**
+ * @summary Create voucher (admin)
+ */
+export const adminCreateVoucherBodyIsActiveDefault = true;
+
+export const AdminCreateVoucherBody = zod.object({
+  code: zod.string(),
+  discountType: zod.enum(["percent", "fixed"]),
+  discountValue: zod.number(),
+  maxUses: zod.number().nullish(),
+  isActive: zod.boolean().default(adminCreateVoucherBodyIsActiveDefault),
+  expiresAt: zod.coerce.date().nullish(),
+});
+
+/**
+ * @summary Update voucher (admin)
+ */
+export const AdminUpdateVoucherParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateVoucherBody = zod.object({
+  code: zod.string().optional(),
+  discountType: zod.enum(["percent", "fixed"]).optional(),
+  discountValue: zod.number().optional(),
+  maxUses: zod.number().nullish(),
+  isActive: zod.boolean().optional(),
+  expiresAt: zod.coerce.date().nullish(),
+});
+
+export const AdminUpdateVoucherResponse = zod.object({
+  id: zod.number(),
+  code: zod.string(),
+  discountType: zod.enum(["percent", "fixed"]),
+  discountValue: zod.number(),
+  maxUses: zod.number().nullish(),
+  currentUses: zod.number(),
+  isActive: zod.boolean(),
+  expiresAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete voucher (admin)
+ */
+export const AdminDeleteVoucherParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminDeleteVoucherResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Validate a voucher code
+ */
+export const ValidateVoucherBody = zod.object({
+  code: zod.string(),
+  productId: zod.number(),
+});
+
+export const ValidateVoucherResponse = zod.object({
+  valid: zod.boolean(),
+  discountAmount: zod.number(),
+  finalPrice: zod.number(),
+  message: zod.string().optional(),
+});

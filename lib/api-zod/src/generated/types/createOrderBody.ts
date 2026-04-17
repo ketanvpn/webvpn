@@ -12,9 +12,10 @@ export interface CreateOrderBody {
   serverId?: number | null;
   paymentMethod?: CreateOrderBodyPaymentMethod;
   /**
-   * Nama akun VPN unik. Wajib minimal 5 karakter, mengandung huruf dan minimal 2 angka. Contoh: daaw12
+   * Nama akun VPN unik. Wajib minimal 5 karakter, hanya huruf dan angka (minimal 2 angka). Contoh: daaw12
    * @minLength 5
-   * @pattern ^(?=(?:.*[a-zA-Z]))(?=(?:.*[0-9]){2,}).{5,}$
+   * @pattern ^(?=(?:.*[a-zA-Z]))(?=(?:.*[0-9]){2,})[a-zA-Z0-9]{5,}$
    */
   remarks: string;
+  voucherCode?: string | null;
 }

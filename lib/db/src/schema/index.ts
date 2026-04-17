@@ -7,3 +7,4 @@ export * from "./topups";
 export * from "./settings";
 export * from "./balance_logs";
 export * from "./otp";
+export * from "./vouchers";

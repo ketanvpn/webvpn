@@ -47,6 +47,7 @@ import type {
   CreateOrderBody,
   CreateProductBody,
   CreateServerBody,
+  CreateVoucherBody,
   DashboardSummary,
   ErrorResponse,
   ForgotPasswordResetBody,
@@ -77,7 +78,11 @@ import type {
   UpdateProductBody,
   UpdateProfileBody,
   UpdateServerBody,
+  UpdateVoucherBody,
   User,
+  ValidateVoucherBody,
+  ValidateVoucherResponse,
+  Voucher,
   VpnAccount,
   VpnServer,
 } from "./api.schemas";
@@ -5205,3 +5210,421 @@ export function useListServers<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List all vouchers (admin)
+ */
+export const getAdminListVouchersUrl = () => {
+  return `/api/admin/vouchers`;
+};
+
+export const adminListVouchers = async (
+  options?: RequestInit,
+): Promise<Voucher[]> => {
+  return customFetch<Voucher[]>(getAdminListVouchersUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListVouchersQueryKey = () => {
+  return [`/api/admin/vouchers`] as const;
+};
+
+export const getAdminListVouchersQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListVouchers>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListVouchers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminListVouchersQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListVouchers>>
+  > = ({ signal }) => adminListVouchers({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListVouchers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListVouchersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListVouchers>>
+>;
+export type AdminListVouchersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all vouchers (admin)
+ */
+
+export function useAdminListVouchers<
+  TData = Awaited<ReturnType<typeof adminListVouchers>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListVouchers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListVouchersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create voucher (admin)
+ */
+export const getAdminCreateVoucherUrl = () => {
+  return `/api/admin/vouchers`;
+};
+
+export const adminCreateVoucher = async (
+  createVoucherBody: CreateVoucherBody,
+  options?: RequestInit,
+): Promise<Voucher> => {
+  return customFetch<Voucher>(getAdminCreateVoucherUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createVoucherBody),
+  });
+};
+
+export const getAdminCreateVoucherMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateVoucher>>,
+    TError,
+    { data: BodyType<CreateVoucherBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminCreateVoucher>>,
+  TError,
+  { data: BodyType<CreateVoucherBody> },
+  TContext
+> => {
+  const mutationKey = ["adminCreateVoucher"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminCreateVoucher>>,
+    { data: BodyType<CreateVoucherBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminCreateVoucher(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminCreateVoucherMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminCreateVoucher>>
+>;
+export type AdminCreateVoucherMutationBody = BodyType<CreateVoucherBody>;
+export type AdminCreateVoucherMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create voucher (admin)
+ */
+export const useAdminCreateVoucher = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateVoucher>>,
+    TError,
+    { data: BodyType<CreateVoucherBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminCreateVoucher>>,
+  TError,
+  { data: BodyType<CreateVoucherBody> },
+  TContext
+> => {
+  return useMutation(getAdminCreateVoucherMutationOptions(options));
+};
+
+/**
+ * @summary Update voucher (admin)
+ */
+export const getAdminUpdateVoucherUrl = (id: number) => {
+  return `/api/admin/vouchers/${id}`;
+};
+
+export const adminUpdateVoucher = async (
+  id: number,
+  updateVoucherBody: UpdateVoucherBody,
+  options?: RequestInit,
+): Promise<Voucher> => {
+  return customFetch<Voucher>(getAdminUpdateVoucherUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateVoucherBody),
+  });
+};
+
+export const getAdminUpdateVoucherMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateVoucher>>,
+    TError,
+    { id: number; data: BodyType<UpdateVoucherBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateVoucher>>,
+  TError,
+  { id: number; data: BodyType<UpdateVoucherBody> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateVoucher"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateVoucher>>,
+    { id: number; data: BodyType<UpdateVoucherBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminUpdateVoucher(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateVoucherMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateVoucher>>
+>;
+export type AdminUpdateVoucherMutationBody = BodyType<UpdateVoucherBody>;
+export type AdminUpdateVoucherMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update voucher (admin)
+ */
+export const useAdminUpdateVoucher = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateVoucher>>,
+    TError,
+    { id: number; data: BodyType<UpdateVoucherBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateVoucher>>,
+  TError,
+  { id: number; data: BodyType<UpdateVoucherBody> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateVoucherMutationOptions(options));
+};
+
+/**
+ * @summary Delete voucher (admin)
+ */
+export const getAdminDeleteVoucherUrl = (id: number) => {
+  return `/api/admin/vouchers/${id}`;
+};
+
+export const adminDeleteVoucher = async (
+  id: number,
+  options?: RequestInit,
+): Promise<MessageResponse> => {
+  return customFetch<MessageResponse>(getAdminDeleteVoucherUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getAdminDeleteVoucherMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteVoucher>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeleteVoucher>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDeleteVoucher"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeleteVoucher>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDeleteVoucher(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeleteVoucherMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeleteVoucher>>
+>;
+
+export type AdminDeleteVoucherMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete voucher (admin)
+ */
+export const useAdminDeleteVoucher = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteVoucher>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeleteVoucher>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDeleteVoucherMutationOptions(options));
+};
+
+/**
+ * @summary Validate a voucher code
+ */
+export const getValidateVoucherUrl = () => {
+  return `/api/vouchers/validate`;
+};
+
+export const validateVoucher = async (
+  validateVoucherBody: ValidateVoucherBody,
+  options?: RequestInit,
+): Promise<ValidateVoucherResponse> => {
+  return customFetch<ValidateVoucherResponse>(getValidateVoucherUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(validateVoucherBody),
+  });
+};
+
+export const getValidateVoucherMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof validateVoucher>>,
+    TError,
+    { data: BodyType<ValidateVoucherBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof validateVoucher>>,
+  TError,
+  { data: BodyType<ValidateVoucherBody> },
+  TContext
+> => {
+  const mutationKey = ["validateVoucher"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof validateVoucher>>,
+    { data: BodyType<ValidateVoucherBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return validateVoucher(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ValidateVoucherMutationResult = NonNullable<
+  Awaited<ReturnType<typeof validateVoucher>>
+>;
+export type ValidateVoucherMutationBody = BodyType<ValidateVoucherBody>;
+export type ValidateVoucherMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Validate a voucher code
+ */
+export const useValidateVoucher = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof validateVoucher>>,
+    TError,
+    { data: BodyType<ValidateVoucherBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof validateVoucher>>,
+  TError,
+  { data: BodyType<ValidateVoucherBody> },
+  TContext
+> => {
+  return useMutation(getValidateVoucherMutationOptions(options));
+};

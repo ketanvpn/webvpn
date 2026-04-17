@@ -1555,6 +1555,116 @@ paths:
                 items:
                   $ref: "#/components/schemas/PublicServer"
 
+  # ─── Vouchers ──────────────────────────────────────────────────────────
+  /admin/vouchers:
+    get:
+      operationId: adminListVouchers
+      tags: [admin]
+      summary: List all vouchers (admin)
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: All vouchers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Voucher"
+    post:
+      operationId: adminCreateVoucher
+      tags: [admin]
+      summary: Create voucher (admin)
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVoucherBody"
+      responses:
+        "201":
+          description: Created voucher
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Voucher"
+
+  /admin/vouchers/{id}:
+    put:
+      operationId: adminUpdateVoucher
+      tags: [admin]
+      summary: Update voucher (admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateVoucherBody"
+      responses:
+        "200":
+          description: Updated voucher
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Voucher"
+    delete:
+      operationId: adminDeleteVoucher
+      tags: [admin]
+      summary: Delete voucher (admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /vouchers/validate:
+    post:
+      operationId: validateVoucher
+      tags: [orders]
+      summary: Validate a voucher code
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidateVoucherBody"
+      responses:
+        "200":
+          description: Valid voucher
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidateVoucherResponse"
+        "400":
+          description: Invalid or expired voucher
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   securitySchemes:
     cookieAuth:
@@ -1979,6 +2089,9 @@ components:
           minLength: 5
           pattern: '^(?=(?:.*[a-zA-Z]))(?=(?:.*[0-9]){2,})[a-zA-Z0-9]{5,}$'
           description: "Nama akun VPN unik. Wajib minimal 5 karakter, hanya huruf dan angka (minimal 2 angka). Contoh: daaw12"
+        voucherCode:
+          type: string
+          nullable: true
 
     OrderListResponse:
       type: object
@@ -2362,3 +2475,98 @@ components:
         adjustBalance:
           type: number
           description: Add/subtract from balance (positive = add, negative = subtract)
+
+    Voucher:
+      type: object
+      required: [id, code, discountType, discountValue, currentUses, isActive, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        discountType:
+          type: string
+          enum: [percent, fixed]
+        discountValue:
+          type: number
+        maxUses:
+          type: integer
+          nullable: true
+        currentUses:
+          type: integer
+        isActive:
+          type: boolean
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateVoucherBody:
+      type: object
+      required: [code, discountType, discountValue]
+      properties:
+        code:
+          type: string
+        discountType:
+          type: string
+          enum: [percent, fixed]
+        discountValue:
+          type: number
+        maxUses:
+          type: integer
+          nullable: true
+        isActive:
+          type: boolean
+          default: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    UpdateVoucherBody:
+      type: object
+      properties:
+        code:
+          type: string
+        discountType:
+          type: string
+          enum: [percent, fixed]
+        discountValue:
+          type: number
+        maxUses:
+          type: integer
+          nullable: true
+        isActive:
+          type: boolean
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ValidateVoucherBody:
+      type: object
+      required: [code, productId]
+      properties:
+        code:
+          type: string
+        productId:
+          type: integer
+
+    ValidateVoucherResponse:
+      type: object
+      required: [valid, discountAmount, finalPrice]
+      properties:
+        valid:
+          type: boolean
+        discountAmount:
+          type: number
+        finalPrice:
+          type: number
+        message:
+          type: string

@@ -281,11 +281,12 @@ export interface CreateOrderBody {
   serverId?: number | null;
   paymentMethod?: CreateOrderBodyPaymentMethod;
   /**
-   * Nama akun VPN unik. Wajib minimal 5 karakter, mengandung huruf dan minimal 2 angka. Contoh: daaw12
+   * Nama akun VPN unik. Wajib minimal 5 karakter, hanya huruf dan angka (minimal 2 angka). Contoh: daaw12
    * @minLength 5
-   * @pattern ^(?=(?:.*[a-zA-Z]))(?=(?:.*[0-9]){2,}).{5,}$
+   * @pattern ^(?=(?:.*[a-zA-Z]))(?=(?:.*[0-9]){2,})[a-zA-Z0-9]{5,}$
    */
   remarks: string;
+  voucherCode?: string | null;
 }
 
 export interface OrderListResponse {
@@ -504,6 +505,73 @@ export interface AdminUpdateUserBody {
   role?: AdminUpdateUserBodyRole;
   /** Add/subtract from balance (positive = add, negative = subtract) */
   adjustBalance?: number;
+}
+
+export type VoucherDiscountType =
+  (typeof VoucherDiscountType)[keyof typeof VoucherDiscountType];
+
+export const VoucherDiscountType = {
+  percent: "percent",
+  fixed: "fixed",
+} as const;
+
+export interface Voucher {
+  id: number;
+  code: string;
+  discountType: VoucherDiscountType;
+  discountValue: number;
+  maxUses?: number | null;
+  currentUses: number;
+  isActive: boolean;
+  expiresAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateVoucherBodyDiscountType =
+  (typeof CreateVoucherBodyDiscountType)[keyof typeof CreateVoucherBodyDiscountType];
+
+export const CreateVoucherBodyDiscountType = {
+  percent: "percent",
+  fixed: "fixed",
+} as const;
+
+export interface CreateVoucherBody {
+  code: string;
+  discountType: CreateVoucherBodyDiscountType;
+  discountValue: number;
+  maxUses?: number | null;
+  isActive?: boolean;
+  expiresAt?: string | null;
+}
+
+export type UpdateVoucherBodyDiscountType =
+  (typeof UpdateVoucherBodyDiscountType)[keyof typeof UpdateVoucherBodyDiscountType];
+
+export const UpdateVoucherBodyDiscountType = {
+  percent: "percent",
+  fixed: "fixed",
+} as const;
+
+export interface UpdateVoucherBody {
+  code?: string;
+  discountType?: UpdateVoucherBodyDiscountType;
+  discountValue?: number;
+  maxUses?: number | null;
+  isActive?: boolean;
+  expiresAt?: string | null;
+}
+
+export interface ValidateVoucherBody {
+  code: string;
+  productId: number;
+}
+
+export interface ValidateVoucherResponse {
+  valid: boolean;
+  discountAmount: number;
+  finalPrice: number;
+  message?: string;
 }
 
 export type UpdateProfileBody = {

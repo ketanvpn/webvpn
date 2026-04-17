@@ -3,6 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
 import { productsTable } from "./products";
+import { vouchersTable } from "./vouchers";
 
 export const ordersTable = pgTable("orders", {
   id: serial("id").primaryKey(),
@@ -16,6 +17,8 @@ export const ordersTable = pgTable("orders", {
   autogopayTransactionId: text("autogopay_transaction_id"),
   qrisUrl: text("qris_url"),
   expiresAt: timestamp("expires_at"),
+  voucherId: integer("voucher_id").references(() => vouchersTable.id),
+  discountAmount: numeric("discount_amount", { precision: 12, scale: 2 }).default("0"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

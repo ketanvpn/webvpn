@@ -251,7 +251,7 @@ export default function AdminUserDetail() {
 
           {/* Tab data */}
           <Tabs defaultValue="orders">
-            <TabsList className="w-full glass-panel border border-white/5">
+            <TabsList className="w-full glass-panel border border-white/5 flex-wrap h-auto p-1">
               <TabsTrigger value="orders" className="flex-1 gap-2">
                 <ShoppingCart className="h-4 w-4" /> Pesanan ({user.orders?.length ?? 0})
               </TabsTrigger>

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { ordersTable, productsTable, usersTable, vpnAccountsTable, serversTable } from "@workspace/db";
+import { ordersTable, productsTable, usersTable, vpnAccountsTable, serversTable, vouchersTable } from "@workspace/db";
 import { eq, and, desc, sql, gte, count, gt } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { CreateOrderBody } from "@workspace/api-zod";
@@ -251,6 +251,13 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
         .update(ordersTable)
         .set({ status: "paid", vpnAccountId: acc.id, updatedAt: new Date() })
         .where(eq(ordersTable.id, orderId));
+
+      if (order.voucherId) {
+        await tx
+          .update(vouchersTable)
+          .set({ currentUses: sql`current_uses + 1`, updatedAt: new Date() })
+          .where(eq(vouchersTable.id, order.voucherId));
+      }
     });
   } catch (dbError) {
     if (hasPanel && finalUsername) {
@@ -379,6 +386,42 @@ router.post("/orders", requireAuth, async (req, res) => {
     }
   }
 
+  let appliedVoucherId: number | null = null;
+  let appliedDiscountAmount = 0;
+
+  if (parsed.data.voucherCode) {
+    const [voucher] = await db
+      .select()
+      .from(vouchersTable)
+      .where(eq(vouchersTable.code, parsed.data.voucherCode))
+      .limit(1);
+
+    if (!voucher || !voucher.isActive) {
+      res.status(400).json({ error: "Voucher tidak valid atau sudah tidak aktif" });
+      return;
+    }
+
+    if (voucher.maxUses && voucher.currentUses >= voucher.maxUses) {
+      res.status(400).json({ error: "Voucher telah mencapai batas maksimal penggunaan" });
+      return;
+    }
+
+    if (voucher.expiresAt && new Date() > voucher.expiresAt) {
+      res.status(400).json({ error: "Voucher sudah kedaluwarsa" });
+      return;
+    }
+
+    if (voucher.discountType === "percent") {
+      appliedDiscountAmount = Math.floor(amount * (Number(voucher.discountValue) / 100));
+    } else if (voucher.discountType === "fixed") {
+      appliedDiscountAmount = Number(voucher.discountValue);
+    }
+    
+    appliedDiscountAmount = Math.min(appliedDiscountAmount, amount);
+    amount = amount - appliedDiscountAmount;
+    appliedVoucherId = voucher.id;
+  }
+
   // ─── Cek duplikat nama akun: cegah bentrok username di server VPN ─────────
   const [existingAccount] = await db
     .select({ id: vpnAccountsTable.id })
@@ -460,6 +503,8 @@ router.post("/orders", requireAuth, async (req, res) => {
       amount: String(amount),
       paymentMethod,
       notes: normalizedRemarks,
+      voucherId: appliedVoucherId,
+      discountAmount: String(appliedDiscountAmount),
       autogopayTransactionId: qrisData?.transactionId ?? null,
       qrisUrl: qrisData?.qrisUrl ?? null,
       expiresAt: qrisData?.expiresAt ?? null,
