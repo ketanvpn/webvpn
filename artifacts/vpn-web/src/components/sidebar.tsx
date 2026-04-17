@@ -26,6 +26,7 @@ import {
   Star,
   TicketCheck,
   Activity,
+  Tag,
 } from "lucide-react";
 import {
   Sheet,
@@ -72,6 +73,7 @@ const adminNav: NavItem[] = [
   { title: "Program Reseller", href: "/admin/settings/reseller", icon: Users },
   { title: "Notifikasi Kedaluwarsa", href: "/admin/settings/expiry-notif", icon: Bell },
   { title: "Monitor Server", href: "/admin/server-monitor", icon: Activity },
+  { title: "Voucher / Kode Promo", href: "/admin/vouchers", icon: Tag },
   { title: "Tiket Bantuan", href: "/admin/tickets", icon: TicketCheck },
   { title: "Pengumuman", href: "/admin/announcements", icon: Megaphone },
   { title: "Sistem Poin", href: "/admin/settings/points", icon: Star },
@@ -94,6 +96,7 @@ const adminPageTitles: Record<string, string> = {
   "/admin/settings/reseller": "Program Reseller",
   "/admin/settings/expiry-notif": "Notifikasi Kedaluwarsa",
   "/admin/server-monitor": "Monitor Server",
+  "/admin/vouchers": "Voucher / Kode Promo",
   "/admin/tickets": "Tiket Bantuan",
   "/admin/announcements": "Pengumuman",
   "/admin/settings/points": "Sistem Poin",
