@@ -7,11 +7,11 @@ import { Link } from "wouter";
 import { ChevronRight, ShoppingBag } from "lucide-react";
 
 const statusColors: Record<string, string> = {
-  pending: "border-yellow-400 text-yellow-600 bg-yellow-50",
-  processing: "border-blue-400 text-blue-600 bg-blue-50",
-  paid: "border-green-400 text-green-700 bg-green-50",
-  failed: "border-red-400 text-red-600 bg-red-50",
-  expired: "border-gray-400 text-gray-500 bg-gray-50",
+  pending: "border-yellow-500/30 text-yellow-400 bg-yellow-500/10",
+  processing: "border-blue-500/30 text-blue-400 bg-blue-500/10",
+  paid: "border-green-500/30 text-green-400 bg-green-500/10",
+  failed: "border-red-500/30 text-red-400 bg-red-500/10",
+  expired: "border-gray-500/30 text-gray-400 bg-gray-500/10",
 };
 
 const statusLabel: Record<string, string> = {
@@ -42,10 +42,10 @@ export default function Orders() {
           {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
         </div>
       ) : data?.orders && data.orders.length > 0 ? (
-        <div className="rounded-xl border-2 overflow-hidden divide-y">
+        <div className="glass-panel rounded-xl overflow-hidden divide-y divide-white/5">
           {data.orders.map((order) => (
             <Link key={order.id} href={`/orders/${order.id}`}>
-              <div className="flex items-center gap-3 px-4 py-3 hover:bg-accent/30 transition-colors cursor-pointer">
+              <div className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer">
                 {/* Kiri: ID + Produk + Waktu */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -86,7 +86,7 @@ export default function Orders() {
           ))}
         </div>
       ) : (
-        <div className="text-center py-16 border-2 rounded-xl border-dashed bg-card">
+        <div className="text-center py-16 rounded-xl border border-dashed border-white/20 glass-card">
           <ShoppingBag className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
           <p className="text-sm text-muted-foreground font-medium">Belum ada order.</p>
           <Link href="/products" className="text-primary hover:underline text-sm mt-1.5 inline-block">

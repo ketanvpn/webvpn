@@ -336,8 +336,8 @@ export default function AccountDetail() {
         <div className="md:col-span-2 space-y-6">
 
           {/* Info Akun */}
-          <Card className="border-2 shadow-sm">
-            <CardHeader className="bg-muted/20 border-b pb-6">
+          <Card className="glass-panel border-white/5 shadow-lg">
+            <CardHeader className="border-b border-white/5 pb-6">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-2xl font-mono">{account.username}</CardTitle>
@@ -351,7 +351,7 @@ export default function AccountDetail() {
             </CardHeader>
             <CardContent className="pt-6 space-y-6">
 
-              <div className={`grid gap-4 p-4 bg-accent/30 rounded-lg border ${account.productName ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+              <div className={`grid gap-4 p-4 glass-card border-white/5 rounded-lg ${account.productName ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
                 <div className="space-y-1">
                   <div className="text-xs text-muted-foreground uppercase font-semibold">Tanggal Kedaluwarsa</div>
                   <div className="font-medium flex items-center gap-2">
@@ -453,8 +453,8 @@ export default function AccountDetail() {
           </Card>
 
           {/* Config Links / QR Code */}
-          <Card className="border-primary/20 bg-primary/5 shadow-md">
-            <CardHeader>
+          <Card className="glass-panel border-primary/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+            <CardHeader className="border-b border-white/5 pb-4">
               <CardTitle className="text-lg flex items-center gap-2">
                 <ShieldCheck className="h-5 w-5 text-primary" />
                 Link Import Cepat
@@ -568,8 +568,8 @@ export default function AccountDetail() {
 
         {/* Sidebar kanan */}
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
+          <Card className="glass-panel border-white/5">
+            <CardHeader className="border-b border-white/5 pb-4">
               <CardTitle className="text-base">Aksi</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -589,7 +589,7 @@ export default function AccountDetail() {
             </CardContent>
           </Card>
 
-          <Card className="bg-muted/30">
+          <Card className="glass-panel bg-black/20 border-white/5">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm">Aplikasi VPN Client</CardTitle>
             </CardHeader>

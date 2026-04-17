@@ -223,7 +223,7 @@ export default function Profile() {
     <div className="max-w-lg mx-auto pb-6 space-y-4">
 
       {/* ── Hero Card ── */}
-      <Card className="overflow-hidden border-0 shadow-md">
+      <Card className="glass-panel border-white/5 overflow-hidden shadow-lg">
         {/* Gradient header */}
         <div className="h-24 bg-gradient-to-br from-primary to-primary/70 relative" />
 
@@ -302,7 +302,7 @@ export default function Profile() {
       </Card>
 
       {/* ── Keamanan ── */}
-      <Card className="overflow-hidden border shadow-sm">
+      <Card className="glass-panel border-white/5 overflow-hidden shadow-sm">
         <div className="px-5 py-4 flex items-center gap-3">
           <div className="h-9 w-9 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
             <Lock className="h-4 w-4 text-orange-600" />
@@ -366,7 +366,7 @@ export default function Profile() {
       </Card>
 
       {/* ── Telegram ── */}
-      <Card className="overflow-hidden border shadow-sm">
+      <Card className="glass-panel border-white/5 overflow-hidden shadow-sm">
         <div className="px-5 py-4">
           <div className="flex items-center gap-3 mb-3">
             <div className="h-9 w-9 rounded-full bg-sky-100 flex items-center justify-center shrink-0">

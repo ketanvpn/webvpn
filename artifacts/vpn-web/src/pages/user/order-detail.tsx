@@ -27,11 +27,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useState, useEffect, useRef } from "react";
 
 const statusColors: Record<string, string> = {
-  pending: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
-  processing: "bg-blue-500/10 text-blue-600 border-blue-500/20",
-  paid: "bg-green-500/10 text-green-600 border-green-500/20",
-  failed: "bg-red-500/10 text-red-600 border-red-500/20",
-  expired: "bg-gray-500/10 text-gray-600 border-gray-500/20",
+  pending: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+  processing: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  paid: "bg-green-500/10 text-green-400 border-green-500/20",
+  failed: "bg-red-500/10 text-red-400 border-red-500/20",
+  expired: "bg-gray-500/10 text-gray-400 border-gray-500/20",
 };
 
 const statusLabel: Record<string, string> = {
@@ -188,9 +188,9 @@ export default function OrderDetail() {
         </Button>
       </div>
 
-      <Card className="border-2 shadow-sm overflow-hidden">
-        <div className={`h-2 w-full ${order.status === 'paid' ? 'bg-green-500' : order.status === 'pending' ? 'bg-yellow-500' : 'bg-red-500'}`} />
-        <CardHeader className="pb-4 border-b bg-muted/20">
+      <Card className="glass-panel border-white/5 overflow-hidden shadow-lg">
+        <div className={`h-2 w-full ${order.status === 'paid' ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : order.status === 'pending' ? 'bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]' : 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]'}`} />
+        <CardHeader className="pb-4 border-b border-white/5">
           <div className="flex justify-between items-start">
             <div>
               <CardTitle className="text-2xl flex items-center gap-2">
@@ -497,7 +497,7 @@ export default function OrderDetail() {
         </CardContent>
 
         {order.status === "pending" && order.paymentMethod === "balance" && (
-          <CardFooter className="bg-muted/20 border-t pt-6 flex justify-end gap-3">
+          <CardFooter className="border-t border-white/5 pt-6 flex justify-end gap-3">
             <Button variant="outline" asChild>
               <Link href="/balance">Topup Saldo</Link>
             </Button>

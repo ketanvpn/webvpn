@@ -6,11 +6,11 @@ import { Link } from "wouter";
 import { Server, ChevronRight, ShieldOff, Clock } from "lucide-react";
 
 const PROTOCOL_COLORS: Record<string, string> = {
-  ssh: "bg-orange-100 text-orange-700 border-orange-200",
-  vmess: "bg-blue-100 text-blue-700 border-blue-200",
-  vless: "bg-purple-100 text-purple-700 border-purple-200",
-  trojan: "bg-red-100 text-red-700 border-red-200",
-  shadowsocks: "bg-green-100 text-green-700 border-green-200",
+  ssh: "bg-orange-500/10 text-orange-400 border-orange-500/30",
+  vmess: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+  vless: "bg-purple-500/10 text-purple-400 border-purple-500/30",
+  trojan: "bg-red-500/10 text-red-400 border-red-500/30",
+  shadowsocks: "bg-green-500/10 text-green-400 border-green-500/30",
 };
 
 function ExpiryBadge({ expiresAt, isActive }: { expiresAt: string; isActive: boolean }) {
@@ -48,16 +48,16 @@ export default function Accounts() {
           {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}
         </div>
       ) : data && data.length > 0 ? (
-        <div className="rounded-xl border-2 overflow-hidden divide-y">
+        <div className="glass-panel rounded-xl overflow-hidden divide-y divide-white/5">
           {data.map((account) => {
-            const protocolColor = PROTOCOL_COLORS[account.protocol] ?? "bg-gray-100 text-gray-700 border-gray-200";
+            const protocolColor = PROTOCOL_COLORS[account.protocol] ?? "bg-gray-500/10 text-gray-400 border-gray-500/30";
             const days = differenceInCalendarDays(new Date(account.expiresAt), new Date());
             const isExpiringSoon = account.isActive && days >= 0 && days <= 3;
 
             return (
               <Link key={account.id} href={`/accounts/${account.id}`}>
-                <div className={`flex items-center gap-3 px-4 py-3 hover:bg-accent/30 transition-colors cursor-pointer ${
-                  isExpiringSoon ? "bg-red-50/50" : ""
+                <div className={`flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer ${
+                  isExpiringSoon ? "bg-red-500/10" : ""
                 }`}>
                   {/* Flag */}
                   <span className="text-xl shrink-0 leading-none">{account.server.flag}</span>
@@ -91,7 +91,7 @@ export default function Accounts() {
           })}
         </div>
       ) : (
-        <div className="text-center py-16 border-2 rounded-xl border-dashed bg-card">
+        <div className="text-center py-16 rounded-xl border border-dashed border-white/20 glass-card">
           <Server className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
           <p className="text-sm text-muted-foreground font-medium">Belum ada akun VPN.</p>
           <Link href="/products" className="text-primary hover:underline text-sm mt-1.5 inline-block">
