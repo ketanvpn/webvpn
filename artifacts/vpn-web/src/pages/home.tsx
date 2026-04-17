@@ -80,25 +80,25 @@ export default function Home() {
 
       <main className="flex-1 flex flex-col">
         {/* Hero Section */}
-        <section className="relative py-24 lg:py-32 px-4 text-center overflow-hidden">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/20 rounded-full blur-[120px] pointer-events-none"></div>
-          <div className="container relative z-10 mx-auto max-w-4xl space-y-8">
+        <section className="relative py-14 lg:py-20 px-4 text-center overflow-hidden">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/20 rounded-full blur-[120px] pointer-events-none"></div>
+          <div className="container relative z-10 mx-auto max-w-4xl space-y-6">
             <div className="inline-flex items-center rounded-full border border-primary/30 px-4 py-1.5 text-sm font-medium glass-panel shadow-[0_0_15px_rgba(16,185,129,0.2)]">
               <span className="flex h-2 w-2 rounded-full bg-primary mr-2 animate-pulse"></span>
               Layanan VPN Premium untuk Indonesia
             </div>
-            <h1 className="text-5xl lg:text-7xl font-extrabold tracking-tight text-foreground drop-shadow-md">
+            <h1 className="text-4xl lg:text-6xl font-extrabold tracking-tight text-foreground drop-shadow-md">
               Internet Bebas.<br className="hidden sm:block" />
               <span className="text-primary drop-shadow-[0_0_20px_rgba(16,185,129,0.6)]">Tanpa Batas.</span>
             </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
               Nikmati kecepatan tinggi dan keamanan enterprise dengan server SSH, VMess, VLess, dan Trojan premium kami.
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
-              <Button size="lg" className="w-full sm:w-auto text-lg h-14 px-8 shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] hover:scale-105" asChild>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+              <Button size="lg" className="w-full sm:w-auto text-base h-12 px-8 shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] hover:scale-105" asChild>
                 <Link href="/register">Mulai Sekarang</Link>
               </Button>
-              <Button size="lg" variant="outline" className="w-full sm:w-auto text-lg h-14 px-8 glass-panel border-primary/30 hover:bg-primary/10 transition-all" onClick={scrollToPackages}>
+              <Button size="lg" variant="outline" className="w-full sm:w-auto text-base h-12 px-8 glass-panel border-primary/30 hover:bg-primary/10 transition-all" onClick={scrollToPackages}>
                 Lihat Paket
               </Button>
             </div>
@@ -106,7 +106,7 @@ export default function Home() {
         </section>
 
         {/* Stats Bar */}
-        <section className="py-10 px-4 border-y border-white/5 bg-card/40">
+        <section className="py-7 px-4 border-y border-white/5 bg-card/40">
           <div className="container mx-auto max-w-5xl">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
               <div className="space-y-1">
@@ -138,11 +138,11 @@ export default function Home() {
         </section>
 
         {/* Features Section */}
-        <section className="py-24 px-4 bg-background">
+        <section className="py-14 px-4 bg-background">
           <div className="container mx-auto max-w-6xl">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl font-bold tracking-tight">Kenapa Pilih KETANTECH?</h2>
-              <p className="text-muted-foreground mt-3 max-w-xl mx-auto">
+            <div className="text-center mb-10">
+              <h2 className="text-2xl font-bold tracking-tight">Kenapa Pilih KETANTECH?</h2>
+              <p className="text-muted-foreground mt-2 max-w-xl mx-auto text-sm">
                 Kami menyediakan VPN terpercaya dengan performa tinggi, harga terjangkau, dan dukungan penuh.
               </p>
             </div>
@@ -167,11 +167,11 @@ export default function Home() {
 
         {/* Packages Section */}
         {featured.length > 0 && (
-          <section id="paket" className="py-24 px-4 bg-card/20">
+          <section id="paket" className="py-14 px-4 bg-card/20">
             <div className="container mx-auto max-w-6xl">
-              <div className="text-center mb-16">
-                <h2 className="text-3xl font-bold tracking-tight">Paket Tersedia</h2>
-                <p className="text-muted-foreground mt-3 max-w-xl mx-auto">
+              <div className="text-center mb-10">
+                <h2 className="text-2xl font-bold tracking-tight">Paket Tersedia</h2>
+                <p className="text-muted-foreground mt-2 max-w-xl mx-auto text-sm">
                   Pilih paket yang sesuai kebutuhanmu. Aktif instan setelah pembayaran dikonfirmasi.
                 </p>
               </div>
@@ -254,18 +254,18 @@ export default function Home() {
         )}
 
         {/* CTA Section */}
-        <section className="relative py-24 px-4 overflow-hidden">
+        <section className="relative py-14 px-4 overflow-hidden">
           <div className="absolute inset-0 bg-primary/5"></div>
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-primary/10 blur-[100px] pointer-events-none rounded-t-full"></div>
-          <div className="container relative z-10 mx-auto max-w-2xl text-center space-y-8 glass-panel border-primary/20 p-12 rounded-3xl shadow-[0_0_40px_rgba(16,185,129,0.1)]">
-            <h2 className="text-4xl font-bold tracking-tight">Siap Mulai?</h2>
-            <p className="text-muted-foreground text-lg">
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[200px] bg-primary/10 blur-[80px] pointer-events-none rounded-t-full"></div>
+          <div className="container relative z-10 mx-auto max-w-xl text-center space-y-5 glass-panel border-primary/20 p-8 rounded-2xl shadow-[0_0_40px_rgba(16,185,129,0.1)]">
+            <h2 className="text-3xl font-bold tracking-tight">Siap Mulai?</h2>
+            <p className="text-muted-foreground">
               Daftar gratis, pilih paket, dan nikmati internet tanpa batas dalam hitungan menit.
             </p>
-            <Button size="lg" className="text-lg h-14 px-10 shadow-[0_0_15px_rgba(16,185,129,0.5)] transition-transform hover:scale-105" asChild>
+            <Button size="lg" className="text-base h-12 px-8 shadow-[0_0_15px_rgba(16,185,129,0.5)] transition-transform hover:scale-105" asChild>
               <Link href="/register">Daftar Gratis Sekarang</Link>
             </Button>
-            <p className="text-sm text-muted-foreground pt-4">
+            <p className="text-sm text-muted-foreground">
               Sudah punya akun?{" "}
               <Link href="/login" className="text-primary hover:text-primary/80 hover:underline font-medium">
                 Masuk di sini
@@ -275,7 +275,7 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="py-10 border-t bg-card">
+      <footer className="py-6 border-t bg-card">
         <div className="container mx-auto px-4 text-center text-muted-foreground text-sm">
           <p className="font-bold text-foreground mb-1">KETANTECH VPN Store</p>
           <p>&copy; {new Date().getFullYear()} KETANTECH. Seluruh hak cipta dilindungi.</p>
