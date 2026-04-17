@@ -6,7 +6,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Clock, HardDrive, Network, ShieldCheck, ArrowLeft, Wifi, Wallet, AlertTriangle, PackageX } from "lucide-react";
+import { Clock, HardDrive, Network, ShieldCheck, ArrowLeft, Wifi, Wallet, AlertTriangle, PackageX, Tag, CheckCircle2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import { useState } from "react";
@@ -25,6 +25,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+const BASE_URL = import.meta.env.BASE_URL ?? "/";
+const API_BASE = `${BASE_URL}api`.replace(/\/+/g, "/");
+
+interface VoucherResult {
+  discountAmount: number;
+  finalPrice: number;
+}
+
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const productId = parseInt(id || "0", 10);
@@ -34,6 +42,12 @@ export default function ProductDetail() {
   const [paymentMethod, setPaymentMethod] = useState<"balance" | "qris">("balance");
   const [remarks, setRemarks] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const [voucherInput, setVoucherInput] = useState("");
+  const [appliedCode, setAppliedCode] = useState("");
+  const [voucherResult, setVoucherResult] = useState<VoucherResult | null>(null);
+  const [voucherError, setVoucherError] = useState("");
+  const [voucherLoading, setVoucherLoading] = useState(false);
 
   const { data: product, isLoading } = useGetProduct(productId, {
     query: { enabled: !!productId }
@@ -49,6 +63,47 @@ export default function ProductDetail() {
     const hasLetter = /[a-zA-Z]/.test(val);
     const digitCount = (val.match(/[0-9]/g) || []).length;
     return hasLetter && digitCount >= 2;
+  };
+
+  const basePrice = product ? (product.resellerPrice ?? product.price) : 0;
+  const finalPrice = voucherResult ? voucherResult.finalPrice : basePrice;
+  const discountAmount = voucherResult ? voucherResult.discountAmount : 0;
+  const balanceAfter = balance - finalPrice;
+
+  const handleApplyVoucher = async () => {
+    const code = voucherInput.trim().toUpperCase();
+    if (!code) return;
+    setVoucherError("");
+    setVoucherLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/vouchers/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ code, productId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.valid) {
+        setVoucherError(data.error || data.message || "Kode voucher tidak valid atau sudah kedaluwarsa");
+        setVoucherResult(null);
+        setAppliedCode("");
+      } else {
+        setVoucherResult({ discountAmount: data.discountAmount, finalPrice: data.finalPrice });
+        setAppliedCode(code);
+        setVoucherError("");
+      }
+    } catch {
+      setVoucherError("Gagal memvalidasi voucher, coba lagi");
+    } finally {
+      setVoucherLoading(false);
+    }
+  };
+
+  const handleRemoveVoucher = () => {
+    setVoucherInput("");
+    setAppliedCode("");
+    setVoucherResult(null);
+    setVoucherError("");
   };
 
   const handleOpenConfirm = () => {
@@ -69,8 +124,7 @@ export default function ProductDetail() {
       return;
     }
 
-    const effectivePrice = product?.resellerPrice ?? product?.price ?? 0;
-    if (paymentMethod === "balance" && balance < effectivePrice) {
+    if (paymentMethod === "balance" && balance < finalPrice) {
       toast({
         title: "Saldo tidak cukup",
         description: "Silakan top up saldo terlebih dahulu.",
@@ -89,6 +143,7 @@ export default function ProductDetail() {
         productId,
         paymentMethod,
         remarks: remarks.trim(),
+        voucherCode: appliedCode || null,
       }
     }, {
       onSuccess: (order) => {
@@ -126,9 +181,6 @@ export default function ProductDetail() {
       </div>
     );
   }
-
-  const effectivePrice = product.resellerPrice ?? product.price;
-  const balanceAfter = balance - effectivePrice;
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -200,6 +252,7 @@ export default function ProductDetail() {
               <CardTitle>Ringkasan Order</CardTitle>
             </CardHeader>
             <CardContent className="pt-6 space-y-6">
+              {/* Harga */}
               <div className="flex justify-between items-center pb-4 border-b">
                 <span className="text-muted-foreground">Harga</span>
                 <div className="text-right">
@@ -215,6 +268,7 @@ export default function ProductDetail() {
                 </div>
               </div>
 
+              {/* Nama Akun VPN */}
               <div className="space-y-3">
                 <Label htmlFor="remarks">
                   Nama Akun VPN <span className="text-destructive">*</span>
@@ -241,6 +295,7 @@ export default function ProductDetail() {
                 )}
               </div>
 
+              {/* Metode Pembayaran */}
               <div className="space-y-3">
                 <Label htmlFor="payment-method">Metode Pembayaran</Label>
                 <Select value={paymentMethod} onValueChange={(v: "balance" | "qris") => setPaymentMethod(v)}>
@@ -256,6 +311,55 @@ export default function ProductDetail() {
                 </Select>
               </div>
 
+              {/* Kode Voucher */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  <Tag className="h-3.5 w-3.5 text-primary" />
+                  Kode Voucher / Promo
+                </Label>
+                {appliedCode ? (
+                  <div className="flex items-center justify-between rounded-lg border border-green-500/40 bg-green-500/10 px-3 py-2.5">
+                    <div className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                      <span className="font-mono font-semibold text-green-600">{appliedCode}</span>
+                      <span className="text-muted-foreground">— hemat {formatRupiah(discountAmount)}</span>
+                    </div>
+                    <button
+                      onClick={handleRemoveVoucher}
+                      className="text-muted-foreground hover:text-destructive transition-colors ml-2"
+                      aria-label="Hapus voucher"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Masukkan kode voucher"
+                      value={voucherInput}
+                      onChange={(e) => {
+                        setVoucherInput(e.target.value.toUpperCase());
+                        setVoucherError("");
+                      }}
+                      onKeyDown={(e) => e.key === "Enter" && handleApplyVoucher()}
+                      className="font-mono uppercase"
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={handleApplyVoucher}
+                      disabled={!voucherInput.trim() || voucherLoading}
+                      className="shrink-0"
+                    >
+                      {voucherLoading ? "..." : "Terapkan"}
+                    </Button>
+                  </div>
+                )}
+                {voucherError && (
+                  <p className="text-xs text-destructive">{voucherError}</p>
+                )}
+              </div>
+
+              {/* Ringkasan Saldo */}
               {paymentMethod === "balance" && (
                 <div className="rounded-lg bg-muted/50 border p-3 space-y-2 text-sm">
                   <div className="flex justify-between">
@@ -266,7 +370,19 @@ export default function ProductDetail() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Harga produk</span>
-                    <span className="font-medium text-destructive">- {formatRupiah(effectivePrice)}</span>
+                    <span className="font-medium">{formatRupiah(basePrice)}</span>
+                  </div>
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between text-green-600">
+                      <span className="flex items-center gap-1">
+                        <Tag className="h-3 w-3" /> Diskon voucher
+                      </span>
+                      <span className="font-medium">- {formatRupiah(discountAmount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total bayar</span>
+                    <span className="font-semibold text-destructive">- {formatRupiah(finalPrice)}</span>
                   </div>
                   <div className="flex justify-between pt-2 border-t font-semibold">
                     <span>Sisa saldo</span>
@@ -277,9 +393,9 @@ export default function ProductDetail() {
                 </div>
               )}
 
-              {paymentMethod === "balance" && balance < effectivePrice && (
+              {paymentMethod === "balance" && balance < finalPrice && (
                 <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md border border-destructive/20">
-                  Saldo tidak cukup. Kamu butuh {formatRupiah(effectivePrice - balance)} lagi.
+                  Saldo tidak cukup. Kamu butuh {formatRupiah(finalPrice - balance)} lagi.
                   <Link href="/balance" className="font-semibold underline block mt-1">Top up sekarang →</Link>
                 </div>
               )}
@@ -301,7 +417,7 @@ export default function ProductDetail() {
                     size="lg"
                     className="w-full text-lg h-14"
                     onClick={handleOpenConfirm}
-                    disabled={createOrder.isPending || !isRemarksValid(remarks) || (paymentMethod === "balance" && balance < effectivePrice)}
+                    disabled={createOrder.isPending || !isRemarksValid(remarks) || (paymentMethod === "balance" && balance < finalPrice)}
                   >
                     {createOrder.isPending ? "Memproses..." : "Buat Order"}
                   </Button>
@@ -351,14 +467,28 @@ export default function ProductDetail() {
                     <span className="text-muted-foreground">Metode Bayar</span>
                     <span className="font-medium">{paymentMethod === "balance" ? "Saldo Akun" : "QRIS"}</span>
                   </div>
+                  {appliedCode && (
+                    <>
+                      <div className="flex justify-between px-4 py-2.5">
+                        <span className="text-muted-foreground">Harga asal</span>
+                        <span className="font-medium">{formatRupiah(basePrice)}</span>
+                      </div>
+                      <div className="flex justify-between px-4 py-2.5 text-green-600">
+                        <span className="flex items-center gap-1">
+                          <Tag className="h-3 w-3" /> Voucher ({appliedCode})
+                        </span>
+                        <span className="font-medium">- {formatRupiah(discountAmount)}</span>
+                      </div>
+                    </>
+                  )}
                   <div className="flex justify-between px-4 py-2.5 bg-primary/5">
                     <span className="font-semibold">Total Bayar</span>
-                    <span className="font-bold text-primary text-base">{formatRupiah(effectivePrice)}</span>
+                    <span className="font-bold text-primary text-base">{formatRupiah(finalPrice)}</span>
                   </div>
                   {paymentMethod === "balance" && (
                     <div className="flex justify-between px-4 py-2.5">
                       <span className="text-muted-foreground">Sisa saldo</span>
-                      <span className="font-medium text-green-600">{formatRupiah(balanceAfter)}</span>
+                      <span className="font-medium text-green-600">{formatRupiah(Math.max(0, balanceAfter))}</span>
                     </div>
                   )}
                 </div>
