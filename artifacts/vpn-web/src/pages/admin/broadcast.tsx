@@ -57,8 +57,8 @@ export default function AdminBroadcast() {
         </AlertDescription>
       </Alert>
 
-      <Card className="border-2">
-        <CardHeader>
+      <Card className="glass-panel border-white/5">
+        <CardHeader className="border-b border-white/5">
           <CardTitle className="flex items-center gap-2 text-base">
             <Send className="h-4 w-4" /> Kirim Pesan Broadcast
           </CardTitle>
@@ -98,8 +98,8 @@ export default function AdminBroadcast() {
       </Card>
 
       {result && (
-        <Card className="border-2">
-          <CardHeader>
+        <Card className="glass-panel border-white/5">
+          <CardHeader className="border-b border-white/5">
             <CardTitle className="text-base flex items-center gap-2">
               <CheckCircle className="h-4 w-4 text-green-500" /> Hasil Broadcast
             </CardTitle>

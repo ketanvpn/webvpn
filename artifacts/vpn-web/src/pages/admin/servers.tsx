@@ -351,8 +351,8 @@ export default function AdminServers() {
           [1, 2, 3].map((i) => <Skeleton key={i} className="h-48 w-full" />)
         ) : servers && servers.length > 0 ? (
           servers.map((server) => (
-            <Card key={server.id} className="flex flex-col group" data-testid={`card-server-${server.id}`}>
-              <CardHeader className="pb-3 border-b bg-muted/20">
+            <Card key={server.id} className="glass-card flex flex-col group border-white/5 hover:border-primary/50 hover:glow-border-primary transition-all" data-testid={`card-server-${server.id}`}>
+              <CardHeader className="pb-3 border-b border-white/5">
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-2">
                     <span className="text-2xl">{server.flag}</span>
@@ -406,14 +406,14 @@ export default function AdminServers() {
                     </Badge>
                   ))}
                 </div>
-                <div className="pt-4 mt-auto border-t flex justify-between items-center text-sm">
+                <div className="pt-4 mt-auto border-t border-white/5 flex justify-between items-center text-sm">
                   <span className="text-muted-foreground flex items-center gap-1">
                     <Activity className="h-4 w-4" /> Akun Aktif
                   </span>
                   <span className="font-bold">{server.activeAccounts ?? 0}</span>
                 </div>
                 {healthStatus[server.id] && !healthStatus[server.id]?.loading && (
-                  <div className="pt-2 border-t flex items-center gap-2 text-xs">
+                  <div className="pt-2 border-t border-white/5 flex items-center gap-2 text-xs">
                     {healthStatus[server.id]?.online ? (
                       <>
                         <Wifi className="h-3.5 w-3.5 text-green-500" />
@@ -437,7 +437,7 @@ export default function AdminServers() {
             </Card>
           ))
         ) : (
-          <div className="col-span-full p-12 text-center border rounded-xl bg-card border-dashed">
+          <div className="col-span-full p-12 text-center glass-panel rounded-xl border-dashed border-white/10">
             <p className="text-muted-foreground">Belum ada server.</p>
           </div>
         )}

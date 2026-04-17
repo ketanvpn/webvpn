@@ -95,8 +95,8 @@ export default function AdminResellerSettings() {
       </div>
 
       {/* ── Harga Khusus Reseller ── */}
-      <Card className="border-2">
-        <CardHeader>
+      <Card className="glass-panel border-white/5">
+        <CardHeader className="border-b border-white/5">
           <CardTitle className="text-base flex items-center gap-2">
             <Users className="h-4 w-4" /> Harga Khusus Reseller
           </CardTitle>
@@ -171,8 +171,8 @@ export default function AdminResellerSettings() {
       </Card>
 
       {/* ── Target Penjualan ── */}
-      <Card className="border-2">
-        <CardHeader>
+      <Card className="glass-panel border-white/5">
+        <CardHeader className="border-b border-white/5">
           <CardTitle className="text-base flex items-center gap-2">
             <Target className="h-4 w-4" /> Target Penjualan Bulanan
           </CardTitle>
@@ -246,8 +246,8 @@ export default function AdminResellerSettings() {
       </Card>
 
       {/* ── Promosi Reseller di Panel User ── */}
-      <Card className="border-2 border-primary/20">
-        <CardHeader>
+      <Card className="glass-panel border-primary/20">
+        <CardHeader className="border-b border-primary/20">
           <CardTitle className="text-base flex items-center gap-2">
             <Megaphone className="h-4 w-4 text-primary" /> Promosi di Panel User
           </CardTitle>
@@ -341,8 +341,8 @@ export default function AdminResellerSettings() {
       </Card>
 
       {/* ── Auto-Upgrade via Topup ── */}
-      <Card className="border-2 border-green-200 dark:border-green-900">
-        <CardHeader>
+      <Card className="glass-panel border-green-500/20">
+        <CardHeader className="border-b border-green-500/20">
           <CardTitle className="text-base flex items-center gap-2">
             <Zap className="h-4 w-4 text-green-600" /> Auto-Upgrade Reseller via Topup
           </CardTitle>

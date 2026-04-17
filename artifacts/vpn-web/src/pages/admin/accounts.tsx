@@ -195,8 +195,8 @@ export default function AdminAccounts() {
         </Select>
       </div>
 
-      <Card>
-        <CardHeader className="bg-muted/20 border-b">
+      <Card className="glass-panel border-white/5">
+        <CardHeader className="border-b border-white/5">
           <CardTitle className="text-lg flex items-center gap-2">
             <Shield className="h-5 w-5" /> Daftar Akun ({total})
           </CardTitle>
@@ -211,14 +211,14 @@ export default function AdminAccounts() {
               {debouncedSearch ? `Tidak ada akun untuk "${debouncedSearch}".` : "Tidak ada akun VPN ditemukan."}
             </div>
           ) : (
-            <div className="divide-y">
+            <div className="divide-y divide-white/5">
               {accounts.map((acc) => {
                 const expired = acc.expiresAt && new Date(acc.expiresAt) < new Date();
                 const isActive = acc.isActive && !expired;
                 return (
                   <div
                     key={acc.id}
-                    className="p-4 sm:p-5 grid sm:grid-cols-[1fr_auto] gap-3 hover:bg-accent/20 transition-colors"
+                    className="p-4 sm:p-5 grid sm:grid-cols-[1fr_auto] gap-3 hover:bg-white/5 transition-colors"
                     data-testid={`row-account-${acc.id}`}
                   >
                     <div className="flex flex-wrap gap-4 items-start">

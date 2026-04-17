@@ -261,8 +261,8 @@ export default function AdminProducts() {
         </Button>
       </div>
 
-      <Card>
-        <CardHeader className="bg-muted/20 border-b">
+      <Card className="glass-panel border-white/5">
+        <CardHeader className="border-b border-white/5">
           <CardTitle className="text-lg flex items-center gap-2">
             <Package className="h-5 w-5" /> Katalog Produk
           </CardTitle>
@@ -273,11 +273,11 @@ export default function AdminProducts() {
               {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full" />)}
             </div>
           ) : products && products.length > 0 ? (
-            <div className="divide-y">
+            <div className="divide-y divide-white/5">
               {products.map((product) => (
                 <div
                   key={product.id}
-                  className="p-4 sm:p-6 flex items-center justify-between hover:bg-accent/30 transition-colors"
+                  className="p-4 sm:p-6 flex items-center justify-between hover:bg-white/5 transition-colors"
                   data-testid={`row-product-${product.id}`}
                 >
                   <div className="flex items-center gap-4">

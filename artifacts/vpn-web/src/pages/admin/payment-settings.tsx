@@ -169,8 +169,8 @@ export default function AdminPaymentSettings() {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
 
           {/* ── Pilih Gateway Aktif ──────────────────────── */}
-          <Card className="border-2">
-            <CardHeader className="pb-4">
+          <Card className="glass-panel border-white/5">
+            <CardHeader className="pb-4 border-b border-white/5">
               <CardTitle className="text-base">Gateway Aktif</CardTitle>
               <CardDescription>
                 Pilih metode pembayaran yang digunakan saat user melakukan topup.
@@ -186,10 +186,10 @@ export default function AdminPaymentSettings() {
                     <button
                       type="button"
                       onClick={() => field.onChange("qris_static")}
-                      className={`rounded-xl border-2 p-4 text-left transition-all ${
+                      className={`rounded-xl border border-white/10 p-4 text-left transition-all ${
                         field.value === "qris_static"
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/40"
+                          ? "border-primary/50 bg-primary/10"
+                          : "hover:border-primary/40 hover:bg-white/5"
                       }`}
                     >
                       <div className="flex items-center gap-2 mb-2">
@@ -208,10 +208,10 @@ export default function AdminPaymentSettings() {
                     <button
                       type="button"
                       onClick={() => field.onChange("autogopay")}
-                      className={`rounded-xl border-2 p-4 text-left transition-all ${
+                      className={`rounded-xl border border-white/10 p-4 text-left transition-all ${
                         field.value === "autogopay"
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/40"
+                          ? "border-primary/50 bg-primary/10"
+                          : "hover:border-primary/40 hover:bg-white/5"
                       }`}
                     >
                       <div className="flex items-center gap-2 mb-2">
@@ -232,8 +232,8 @@ export default function AdminPaymentSettings() {
           </Card>
 
           {/* ── QRIS Statis ──────────────────────────────── */}
-          <Card className={`border-2 transition-opacity ${activeGateway === "qris_static" ? "border-primary/30" : "opacity-50"}`}>
-            <CardHeader className="pb-3">
+          <Card className={`glass-panel transition-opacity ${activeGateway === "qris_static" ? "border-primary/50 glow-border-primary" : "border-white/5 opacity-50"}`}>
+            <CardHeader className="pb-3 border-b border-white/5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <QrCode className="h-5 w-5" />
@@ -311,7 +311,7 @@ export default function AdminPaymentSettings() {
               />
 
               {qrisStaticUrl && (
-                <div className="rounded-xl border bg-muted/30 p-4">
+                <div className="rounded-xl glass-panel border-white/5 p-4 mt-4">
                   <p className="text-xs font-medium text-muted-foreground mb-3">Preview QRIS:</p>
                   <div className="flex justify-center bg-white rounded-lg p-4">
                     <img
@@ -335,8 +335,8 @@ export default function AdminPaymentSettings() {
           </Card>
 
           {/* ── AutoGoPay ───────────────────────────────── */}
-          <Card className={`border-2 transition-opacity ${activeGateway === "autogopay" ? "border-primary/30" : "opacity-50"}`}>
-            <CardHeader className="pb-3">
+          <Card className={`glass-panel transition-opacity ${activeGateway === "autogopay" ? "border-primary/50 glow-border-primary" : "border-white/5 opacity-50"}`}>
+            <CardHeader className="pb-3 border-b border-white/5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Zap className="h-5 w-5" />

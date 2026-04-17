@@ -196,8 +196,8 @@ export default function AdminBackup() {
   return (
     <div className="space-y-6 max-w-2xl">
       {/* Status Backup Terakhir */}
-      <Card>
-        <CardHeader>
+      <Card className="glass-panel border-white/5">
+        <CardHeader className="border-b border-white/5">
           <CardTitle className="flex items-center gap-2">
             <Database className="h-5 w-5" />
             Status Backup Database
@@ -283,8 +283,8 @@ export default function AdminBackup() {
       </Card>
 
       {/* Pengaturan Auto Backup */}
-      <Card>
-        <CardHeader>
+      <Card className="glass-panel border-white/5">
+        <CardHeader className="border-b border-white/5">
           <CardTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
             Auto Backup Terjadwal
@@ -335,8 +335,8 @@ export default function AdminBackup() {
       </Card>
 
       {/* Restore Database */}
-      <Card className="border-destructive/30">
-        <CardHeader>
+      <Card className="glass-panel border-destructive/30">
+        <CardHeader className="border-b border-destructive/30">
           <CardTitle className="flex items-center gap-2 text-destructive">
             <ShieldAlert className="h-5 w-5" />
             Restore Database

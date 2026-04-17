@@ -72,8 +72,8 @@ export default function AdminReferralSettings() {
         <p className="text-muted-foreground mt-1">Atur bonus referral untuk program ajak teman.</p>
       </div>
 
-      <Card className="border-2">
-        <CardHeader>
+      <Card className="glass-panel border-white/5">
+        <CardHeader className="border-b border-white/5">
           <CardTitle className="text-base flex items-center gap-2">
             <Gift className="h-4 w-4" /> Konfigurasi Program Referral
           </CardTitle>
@@ -132,7 +132,7 @@ export default function AdminReferralSettings() {
             </div>
           </div>
 
-          <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-3 flex gap-2">
+          <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-3 flex gap-2 mt-4">
             <Info className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
             <div className="text-xs text-blue-700 space-y-1">
               <p className="font-medium">Cara kerja sistem referral:</p>

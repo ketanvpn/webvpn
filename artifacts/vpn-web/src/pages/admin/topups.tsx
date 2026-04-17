@@ -116,8 +116,8 @@ export default function AdminTopups() {
         </TabsList>
       </Tabs>
 
-      <Card>
-        <CardHeader className="bg-muted/20 border-b">
+      <Card className="glass-panel border-white/5">
+        <CardHeader className="border-b border-white/5">
           <CardTitle className="text-lg flex items-center gap-2">
             <CreditCard className="h-5 w-5" /> Permintaan Deposit
           </CardTitle>
@@ -128,14 +128,14 @@ export default function AdminTopups() {
               {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)}
             </div>
           ) : data && data.length > 0 ? (
-            <div className="divide-y">
+            <div className="divide-y divide-white/5">
               {data.map((topup) => {
                 const cfg = statusConfig[topup.status] ?? statusConfig.pending;
                 const Icon = cfg.icon;
                 return (
                   <div
                     key={topup.id}
-                    className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-accent/30 transition-colors"
+                    className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/5 transition-colors"
                     data-testid={`row-topup-${topup.id}`}
                   >
                     <div className="flex items-start gap-4">

@@ -84,8 +84,8 @@ export default function AdminExpiryNotifSettings() {
         </p>
       </div>
 
-      <Card className="border-2">
-        <CardHeader>
+      <Card className="glass-panel border-white/5">
+        <CardHeader className="border-b border-white/5">
           <CardTitle className="text-base flex items-center gap-2">
             <Bell className="h-4 w-4" /> Pengaturan Notifikasi Otomatis
           </CardTitle>

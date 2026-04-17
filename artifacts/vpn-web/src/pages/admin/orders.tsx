@@ -133,8 +133,8 @@ export default function AdminOrders() {
         </TabsList>
       </Tabs>
 
-      <Card>
-        <CardHeader className="bg-muted/20 border-b">
+      <Card className="glass-panel border-white/5">
+        <CardHeader className="border-b border-white/5">
           <CardTitle className="text-lg flex items-center gap-2">
             <ShoppingCart className="h-5 w-5" /> Transaksi
             {data && <span className="text-sm font-normal text-muted-foreground">({data.total} total)</span>}
@@ -148,9 +148,9 @@ export default function AdminOrders() {
               ))}
             </div>
           ) : data?.orders && data.orders.length > 0 ? (
-            <div className="divide-y">
+            <div className="divide-y divide-white/5">
               {data.orders.map((order) => (
-                <div key={order.id} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-accent/30 transition-colors">
+                <div key={order.id} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/5 transition-colors">
                   <div className="flex items-start gap-4">
                     <div className="hidden sm:flex h-10 w-10 rounded-full bg-primary/10 items-center justify-center text-primary font-bold text-sm">
                       #{order.id}

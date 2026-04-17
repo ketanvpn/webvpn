@@ -184,8 +184,8 @@ export default function AdminUsers() {
         </Select>
       </div>
 
-      <Card>
-        <CardHeader className="bg-muted/20 border-b">
+      <Card className="glass-panel border-white/5">
+        <CardHeader className="border-b border-white/5">
           <CardTitle className="text-lg flex items-center gap-2">
             <Users className="h-5 w-5" /> Daftar User
             {!isLoading && <span className="text-sm font-normal text-muted-foreground">({total} total)</span>}
@@ -199,9 +199,9 @@ export default function AdminUsers() {
               ))}
             </div>
           ) : users.length > 0 ? (
-            <div className="divide-y">
+            <div className="divide-y divide-white/5">
               {users.map((user) => (
-                <div key={user.id} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-accent/30 transition-colors">
+                <div key={user.id} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/5 transition-colors">
                   <div className="flex items-start gap-4">
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">
                       {user.username.substring(0, 2).toUpperCase()}
@@ -245,7 +245,7 @@ export default function AdminUsers() {
           )}
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t">
+            <div className="flex items-center justify-between px-6 py-4 border-t border-white/5">
               <span className="text-sm text-muted-foreground">
                 Halaman {page + 1} dari {totalPages}
               </span>

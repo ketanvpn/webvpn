@@ -112,8 +112,8 @@ export default function AdminTelegramSettings() {
         </AlertDescription>
       </Alert>
 
-      <Card className="border-2">
-        <CardHeader>
+      <Card className="glass-panel border-white/5">
+        <CardHeader className="border-b border-white/5">
           <CardTitle className="flex items-center gap-2 text-base">
             <Bot className="h-4 w-4" /> Konfigurasi Bot
           </CardTitle>
@@ -188,8 +188,8 @@ export default function AdminTelegramSettings() {
         </CardContent>
       </Card>
 
-      <Card className="border-2">
-        <CardHeader>
+      <Card className="glass-panel border-white/5">
+        <CardHeader className="border-b border-white/5">
           <CardTitle className="flex items-center gap-2 text-base">
             <Webhook className="h-4 w-4" /> Webhook Bot
           </CardTitle>
@@ -220,8 +220,8 @@ export default function AdminTelegramSettings() {
         </CardContent>
       </Card>
 
-      <Card className="border-2">
-        <CardHeader>
+      <Card className="glass-panel border-white/5">
+        <CardHeader className="border-b border-white/5">
           <CardTitle className="flex items-center gap-2 text-base">
             <Bell className="h-4 w-4" /> Notifikasi yang Dikirim
           </CardTitle>

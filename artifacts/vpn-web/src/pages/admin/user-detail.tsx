@@ -102,7 +102,10 @@ export default function AdminUserDetail() {
         onSuccess: () => {
           toast({ title: "Saldo berhasil disesuaikan", description: `${amount > 0 ? "+" : ""}${formatRupiah(amount)}` });
           setBalanceAdjustment("");
+          // Invalidate user data (untuk update total saldo)
           queryClient.invalidateQueries({ queryKey: getAdminGetUserQueryKey(userId) });
+          // Perbaikan: Invalidate juga log saldo agar riwayat langsung muncul tanpa refresh!
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/users", userId, "balance-logs"] });
         },
         onError: (err) =>
           toast({ title: "Gagal menyesuaikan saldo", description: getApiError(err), variant: "destructive" }),
@@ -165,9 +168,9 @@ export default function AdminUserDetail() {
         {/* Kiri: info user + tab data */}
         <div className="md:col-span-2 space-y-6">
           {/* Profil */}
-          <Card className="overflow-hidden">
+          <Card className="glass-panel border-white/5 overflow-hidden">
             <div className="h-24 bg-primary/10 relative" />
-            <div className="absolute top-[5.5rem] left-10 h-16 w-16 bg-background rounded-full p-1.5 shadow">
+            <div className="absolute top-[5.5rem] left-10 h-16 w-16 bg-[#0a0a0a] rounded-full p-1.5 shadow-xl border border-white/10">
               <div className="h-full w-full bg-primary/20 rounded-full flex items-center justify-center text-primary font-bold text-xl">
                 {user.username.substring(0, 2).toUpperCase()}
               </div>
@@ -190,7 +193,7 @@ export default function AdminUserDetail() {
                   <Badge variant="secondary" className="capitalize">{user.role}</Badge>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4 mt-6 pt-4 border-t text-sm">
+              <div className="grid grid-cols-2 gap-4 mt-6 pt-4 border-t border-white/5 text-sm">
                 <div>
                   <div className="text-muted-foreground flex items-center gap-1 mb-1">
                     <Calendar className="h-3.5 w-3.5" /> Bergabung
@@ -248,7 +251,7 @@ export default function AdminUserDetail() {
 
           {/* Tab data */}
           <Tabs defaultValue="orders">
-            <TabsList className="w-full">
+            <TabsList className="w-full glass-panel border border-white/5">
               <TabsTrigger value="orders" className="flex-1 gap-2">
                 <ShoppingCart className="h-4 w-4" /> Pesanan ({user.orders?.length ?? 0})
               </TabsTrigger>
@@ -265,14 +268,14 @@ export default function AdminUserDetail() {
 
             {/* Orders */}
             <TabsContent value="orders">
-              <Card>
+              <Card className="glass-panel border-white/5">
                 <CardContent className="p-0">
                   {!user.orders || user.orders.length === 0 ? (
                     <div className="p-8 text-center text-muted-foreground text-sm">Belum ada pesanan</div>
                   ) : (
-                    <div className="divide-y">
+                    <div className="divide-y divide-white/5">
                       {user.orders.map((order) => (
-                        <div key={order.id} className="p-4 flex justify-between items-center hover:bg-accent/20">
+                        <div key={order.id} className="p-4 flex justify-between items-center hover:bg-white/5">
                           <div>
                             <div className="font-medium text-sm">{order.product?.name ?? `Produk #${order.productId}`}</div>
                             <div className="text-xs text-muted-foreground mt-0.5">
@@ -295,14 +298,14 @@ export default function AdminUserDetail() {
 
             {/* Akun VPN */}
             <TabsContent value="accounts">
-              <Card>
+              <Card className="glass-panel border-white/5">
                 <CardContent className="p-0">
                   {!user.accounts || user.accounts.length === 0 ? (
                     <div className="p-8 text-center text-muted-foreground text-sm">Belum ada akun VPN</div>
                   ) : (
-                    <div className="divide-y">
+                    <div className="divide-y divide-white/5">
                       {user.accounts.map((acc) => (
-                        <div key={acc.id} className="p-4 flex justify-between items-start hover:bg-accent/20">
+                        <div key={acc.id} className="p-4 flex justify-between items-start hover:bg-white/5">
                           <div>
                             <div className="font-medium text-sm flex items-center gap-2">
                               <Badge variant="secondary" className="uppercase text-[10px]">{acc.protocol}</Badge>
@@ -328,14 +331,14 @@ export default function AdminUserDetail() {
 
             {/* Topup */}
             <TabsContent value="topups">
-              <Card>
+              <Card className="glass-panel border-white/5">
                 <CardContent className="p-0">
                   {!user.topupHistory || user.topupHistory.length === 0 ? (
                     <div className="p-8 text-center text-muted-foreground text-sm">Belum ada riwayat topup</div>
                   ) : (
-                    <div className="divide-y">
+                    <div className="divide-y divide-white/5">
                       {user.topupHistory.map((t) => (
-                        <div key={t.id} className="p-4 flex justify-between items-center hover:bg-accent/20">
+                        <div key={t.id} className="p-4 flex justify-between items-center hover:bg-white/5">
                           <div>
                             <div className="font-medium text-sm">{formatRupiah(t.amount)}</div>
                             <div className="text-xs text-muted-foreground mt-0.5">
@@ -361,7 +364,7 @@ export default function AdminUserDetail() {
 
             {/* Log Saldo */}
             <TabsContent value="balance-logs">
-              <Card>
+              <Card className="glass-panel border-white/5">
                 <CardContent className="p-0">
                   {!balanceLogsData?.data || balanceLogsData.data.length === 0 ? (
                     <div className="p-8 text-center text-muted-foreground text-sm">
@@ -369,7 +372,7 @@ export default function AdminUserDetail() {
                       Belum ada riwayat perubahan saldo
                     </div>
                   ) : (
-                    <div className="divide-y">
+                    <div className="divide-y divide-white/5">
                       {balanceLogsData.data.map((log) => {
                         const isPositive = log.amount >= 0;
                         const typeInfo = log.type === "topup"
@@ -378,7 +381,7 @@ export default function AdminUserDetail() {
                           ? { label: "Pembelian", color: "bg-red-500/10 text-red-700 border-red-200", icon: <ArrowUpRight className="h-3.5 w-3.5 text-red-600" /> }
                           : { label: "Penyesuaian", color: "bg-blue-500/10 text-blue-700 border-blue-200", icon: <Settings2 className="h-3.5 w-3.5 text-blue-600" /> };
                         return (
-                          <div key={log.id} className="p-4 flex items-start gap-3 hover:bg-accent/20">
+                          <div key={log.id} className="p-4 flex items-start gap-3 hover:bg-white/5">
                             <div className="mt-0.5 w-7 h-7 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
                               {typeInfo.icon}
                             </div>
@@ -408,8 +411,8 @@ export default function AdminUserDetail() {
 
         {/* Kanan: kontrol */}
         <div className="space-y-6">
-          <Card>
-            <CardHeader className="bg-muted/30 border-b pb-4">
+          <Card className="glass-panel border-white/5">
+            <CardHeader className="border-b border-white/5 pb-4">
               <CardTitle className="text-base flex items-center gap-2">
                 <Wallet className="h-4 w-4 text-primary" /> Saldo & Dompet
               </CardTitle>
@@ -421,7 +424,7 @@ export default function AdminUserDetail() {
               </div>
 
               {user.role !== "admin" && (
-                <form onSubmit={handleAdjustBalance} className="space-y-3 pt-4 border-t">
+                <form onSubmit={handleAdjustBalance} className="space-y-3 pt-4 border-t border-white/5">
                   <Label className="text-xs text-muted-foreground">Sesuaikan Saldo (+/-)</Label>
                   <p className="text-xs text-muted-foreground">Positif = tambah, negatif = kurangi</p>
                   <div className="flex gap-2">
@@ -446,8 +449,8 @@ export default function AdminUserDetail() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="bg-muted/30 border-b pb-4">
+          <Card className="glass-panel border-white/5">
+            <CardHeader className="border-b border-white/5 pb-4">
               <CardTitle className="text-base flex items-center gap-2">
                 <UserCircle className="h-4 w-4 text-primary" /> Kontrol Akses
               </CardTitle>
@@ -487,7 +490,7 @@ export default function AdminUserDetail() {
               </form>
 
               {user.role !== "admin" && (
-                <div className="pt-4 border-t space-y-3">
+                <div className="pt-4 border-t border-white/5 space-y-3">
                   <Button
                     variant={user.isActive ? "destructive" : "default"}
                     className="w-full gap-2"
@@ -507,7 +510,7 @@ export default function AdminUserDetail() {
                       : "User akan mendapatkan akses penuh kembali."}
                   </p>
 
-                  <div className="pt-2 border-t">
+                  <div className="pt-2 border-t border-white/5">
                     <Button
                       variant="outline"
                       className="w-full gap-2 text-destructive border-destructive/40 hover:bg-destructive/10"

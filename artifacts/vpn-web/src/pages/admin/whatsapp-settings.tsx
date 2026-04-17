@@ -141,8 +141,8 @@ export default function AdminWhatsappSettings() {
         </AlertDescription>
       </Alert>
 
-      <Card className="border-2">
-        <CardHeader>
+      <Card className="glass-panel border-white/5">
+        <CardHeader className="border-b border-white/5">
           <CardTitle className="flex items-center gap-2 text-base">
             <Smartphone className="h-4 w-4" /> Konfigurasi Fonnte
           </CardTitle>
@@ -203,8 +203,8 @@ export default function AdminWhatsappSettings() {
         </CardContent>
       </Card>
 
-      <Card className="border-2">
-        <CardHeader>
+      <Card className="glass-panel border-white/5">
+        <CardHeader className="border-b border-white/5">
           <CardTitle className="flex items-center gap-2 text-base">
             <TestTube className="h-4 w-4" /> Test Kirim OTP
           </CardTitle>

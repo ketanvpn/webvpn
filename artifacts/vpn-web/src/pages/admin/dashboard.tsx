@@ -43,7 +43,7 @@ function formatShortDate(dateStr: string) {
 function RevenueTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-background border rounded-lg shadow-lg p-3 text-sm space-y-1">
+    <div className="glass-panel border border-white/10 rounded-lg shadow-[0_0_15px_rgba(0,0,0,0.5)] p-3 text-sm space-y-1">
       <p className="font-medium text-xs text-muted-foreground">{label}</p>
       <p className="font-bold text-primary">{formatRupiah(payload[0]?.value ?? 0)}</p>
       {payload[1] && (
@@ -56,7 +56,7 @@ function RevenueTooltip({ active, payload, label }: any) {
 function OrdersTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-background border rounded-lg shadow-lg p-3 text-sm space-y-1">
+    <div className="glass-panel border border-white/10 rounded-lg shadow-[0_0_15px_rgba(0,0,0,0.5)] p-3 text-sm space-y-1">
       <p className="font-medium text-xs text-muted-foreground">{label}</p>
       <p className="font-bold">{payload[0]?.value ?? 0} order</p>
     </div>
@@ -110,21 +110,21 @@ export default function AdminDashboard() {
 
       {/* Stat cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-primary text-primary-foreground border-none">
+        <Card className="glass-panel border-primary/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-primary-foreground/80">Total Pendapatan</CardTitle>
             <Wallet className="h-4 w-4 opacity-80" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatRupiah(summary.totalRevenue)}</div>
-            <p className="text-xs mt-1 text-primary-foreground/80">
+            <div className="text-2xl font-bold text-primary">{formatRupiah(summary.totalRevenue)}</div>
+            <p className="text-xs mt-1 text-primary/80">
               +{formatRupiah(summary.revenueThisMonth || 0)} bulan ini
             </p>
           </CardContent>
         </Card>
 
         <Link href="/admin/users">
-          <Card className="cursor-pointer hover:border-primary/50 hover:shadow-md transition-all">
+          <Card className="glass-card cursor-pointer border-white/5 hover:border-primary/50 hover:glow-border-primary transition-all">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Pengguna</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
@@ -137,7 +137,7 @@ export default function AdminDashboard() {
         </Link>
 
         <Link href="/admin/accounts">
-          <Card className="cursor-pointer hover:border-primary/50 hover:shadow-md transition-all">
+          <Card className="glass-card cursor-pointer border-white/5 hover:border-primary/50 hover:glow-border-primary transition-all">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">VPN Aktif</CardTitle>
               <Server className="h-4 w-4 text-muted-foreground" />
@@ -154,7 +154,7 @@ export default function AdminDashboard() {
         </Link>
 
         <Link href="/admin/topups">
-          <Card className={`cursor-pointer hover:shadow-md transition-all ${summary.pendingTopups > 0 ? "border-yellow-500/50 bg-yellow-500/5 hover:border-yellow-500" : "hover:border-primary/50"}`}>
+          <Card className={`glass-card cursor-pointer transition-all ${summary.pendingTopups > 0 ? "border-yellow-500/50 shadow-[0_0_15px_rgba(234,179,8,0.2)] hover:border-yellow-500" : "border-white/5 hover:border-primary/50 hover:glow-border-primary"}`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Topup Tertunda</CardTitle>
               <Activity className={`h-4 w-4 ${summary.pendingTopups > 0 ? "text-yellow-600" : "text-muted-foreground"}`} />
@@ -173,7 +173,7 @@ export default function AdminDashboard() {
         </Link>
 
         <Link href="/admin/orders?status=pending">
-          <Card className={`cursor-pointer hover:shadow-md transition-all ${summary.pendingOrders > 0 ? "border-orange-500/50 bg-orange-500/5 hover:border-orange-500" : "hover:border-primary/50"}`}>
+          <Card className={`glass-card cursor-pointer transition-all ${summary.pendingOrders > 0 ? "border-orange-500/50 shadow-[0_0_15px_rgba(249,115,22,0.2)] hover:border-orange-500" : "border-white/5 hover:border-primary/50 hover:glow-border-primary"}`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Order Tertunda</CardTitle>
               <ShoppingCart className={`h-4 w-4 ${summary.pendingOrders > 0 ? "text-orange-600" : "text-muted-foreground"}`} />
@@ -223,7 +223,7 @@ export default function AdminDashboard() {
 
         <div className="grid gap-4 md:grid-cols-3">
           {/* Revenue area chart */}
-          <Card className="md:col-span-2">
+          <Card className="glass-panel border-white/5 md:col-span-2">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-primary" />
@@ -277,7 +277,7 @@ export default function AdminDashboard() {
           </Card>
 
           {/* Orders bar chart */}
-          <Card>
+          <Card className="glass-panel border-white/5">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <BarChart2 className="h-4 w-4 text-primary" />
@@ -322,8 +322,8 @@ export default function AdminDashboard() {
 
       {/* Recent activity */}
       <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader className="flex items-center justify-between">
+        <Card className="glass-panel border-white/5">
+          <CardHeader className="flex items-center justify-between border-b border-white/5 pb-4">
             <CardTitle>Order Terbaru</CardTitle>
             <Link href="/admin/orders" className="text-xs text-primary hover:underline">Lihat semua →</Link>
           </CardHeader>
@@ -331,7 +331,7 @@ export default function AdminDashboard() {
             {summary.recentOrders && summary.recentOrders.length > 0 ? (
               <div className="space-y-4">
                 {summary.recentOrders.map((order) => (
-                  <div key={order.id} className="flex justify-between items-center border-b pb-4 last:border-0 last:pb-0">
+                  <div key={order.id} className="flex justify-between items-center border-b border-white/5 pb-4 last:border-0 last:pb-0">
                     <div>
                       <div className="font-medium text-sm">
                         {order.user?.username} <span className="text-muted-foreground font-normal">beli</span> {order.product?.name}
@@ -355,8 +355,8 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex items-center justify-between">
+        <Card className="glass-panel border-white/5">
+          <CardHeader className="flex items-center justify-between border-b border-white/5 pb-4">
             <CardTitle>Topup Terbaru</CardTitle>
             <Link href="/admin/topups" className="text-xs text-primary hover:underline">Lihat semua →</Link>
           </CardHeader>
@@ -364,9 +364,9 @@ export default function AdminDashboard() {
             {summary.recentTopups && summary.recentTopups.length > 0 ? (
               <div className="space-y-4">
                 {summary.recentTopups.map((topup) => (
-                  <div key={topup.id} className="flex justify-between items-center border-b pb-4 last:border-0 last:pb-0">
+                  <div key={topup.id} className="flex justify-between items-center border-b border-white/5 pb-4 last:border-0 last:pb-0">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-muted rounded-full">
+                      <div className="p-2 bg-black/20 border border-white/5 rounded-full">
                         <ArrowUpRight className="h-4 w-4" />
                       </div>
                       <div>
