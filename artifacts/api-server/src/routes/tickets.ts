@@ -24,7 +24,7 @@ function formatTicket(t: typeof ticketsTable.$inferSelect, messageCount?: number
 // ─── User routes ──────────────────────────────────────────────────────────────
 
 router.get("/tickets", requireAuth, async (req, res) => {
-  const userId = (req as any).user.id;
+  const userId = (req as any).user.userId;
   const rows = await db
     .select()
     .from(ticketsTable)
@@ -34,7 +34,7 @@ router.get("/tickets", requireAuth, async (req, res) => {
 });
 
 router.post("/tickets", requireAuth, async (req, res) => {
-  const userId = (req as any).user.id;
+  const userId = (req as any).user.userId;
   const { subject, message, priority } = req.body ?? {};
   if (!subject || typeof subject !== "string" || subject.trim().length < 5) {
     res.status(400).json({ error: "Subjek minimal 5 karakter" });
@@ -65,7 +65,7 @@ router.post("/tickets", requireAuth, async (req, res) => {
 });
 
 router.get("/tickets/:id", requireAuth, async (req, res) => {
-  const userId = (req as any).user.id;
+  const userId = (req as any).user.userId;
   const ticketId = parseInt(req.params.id, 10);
 
   const [ticket] = await db
@@ -89,7 +89,7 @@ router.get("/tickets/:id", requireAuth, async (req, res) => {
 });
 
 router.post("/tickets/:id/reply", requireAuth, async (req, res) => {
-  const userId = (req as any).user.id;
+  const userId = (req as any).user.userId;
   const ticketId = parseInt(req.params.id, 10);
   const message = req.body?.message;
   if (!message || typeof message !== "string" || message.trim().length < 1) {
@@ -126,7 +126,7 @@ router.post("/tickets/:id/reply", requireAuth, async (req, res) => {
 });
 
 router.post("/tickets/:id/close", requireAuth, async (req, res) => {
-  const userId = (req as any).user.id;
+  const userId = (req as any).user.userId;
   const ticketId = parseInt(req.params.id, 10);
 
   const [ticket] = await db
@@ -206,7 +206,7 @@ router.get("/admin/tickets/:id", requireAdmin, async (req, res) => {
 });
 
 router.post("/admin/tickets/:id/reply", requireAdmin, async (req, res) => {
-  const adminId = (req as any).user.id;
+  const adminId = (req as any).user.userId;
   const ticketId = parseInt(req.params.id, 10);
   const message = req.body?.message;
   if (!message || typeof message !== "string" || message.trim().length < 1) {
