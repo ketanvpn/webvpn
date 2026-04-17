@@ -40,15 +40,15 @@ export default function Products() {
       </div>
 
       {/* Filter Tab — scroll horizontal, tidak wrap */}
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-none">
+      <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-none">
         {protocols.map((p) => (
           <button
             key={p.value}
             onClick={() => setProtocol(p.value)}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${
+            className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 ${
               protocol === p.value
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-background text-muted-foreground border-border hover:border-primary/40"
+                ? "bg-primary/20 text-primary border border-primary/50 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                : "glass-card text-muted-foreground border border-white/5 hover:border-primary/30 hover:text-foreground"
             }`}
           >
             {p.label}
@@ -101,32 +101,29 @@ export default function Products() {
                   </div>
                 </div>
 
-                {/* Baris 2: Spek */}
-                <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />{product.durationDays}h
-                  </span>
-                  <span className="text-border">·</span>
-                  <span className="flex items-center gap-1">
-                    <HardDrive className="h-3 w-3" />{product.quota ? `${product.quota}GB` : "∞"}
-                  </span>
-                  <span className="text-border">·</span>
-                  <span className="flex items-center gap-1">
-                    <Network className="h-3 w-3" />{product.maxConnections ? `${product.maxConnections} IP` : "∞ IP"}
-                  </span>
-                  {hasDiscount && (
-                    <>
-                      <span className="text-border">·</span>
-                      <span className="text-green-600 font-medium">Reseller</span>
-                    </>
-                  )}
-                  {product.category && (
-                    <>
-                      <span className="text-border">·</span>
-                      <span>{product.category}</span>
-                    </>
-                  )}
+                {/* Baris 2: Spek (Grid) */}
+                <div className="grid grid-cols-3 gap-1.5 mt-1">
+                  <div className="flex flex-col items-center justify-center bg-black/20 rounded-md py-1 border border-white/5">
+                    <Clock className="h-3 w-3 text-muted-foreground mb-0.5" />
+                    <span className="text-[10px] font-medium">{product.durationDays} Hari</span>
+                  </div>
+                  <div className="flex flex-col items-center justify-center bg-black/20 rounded-md py-1 border border-white/5">
+                    <HardDrive className="h-3 w-3 text-muted-foreground mb-0.5" />
+                    <span className="text-[10px] font-medium">{product.quota ? `${product.quota}GB` : "Unli"}</span>
+                  </div>
+                  <div className="flex flex-col items-center justify-center bg-black/20 rounded-md py-1 border border-white/5">
+                    <Network className="h-3 w-3 text-muted-foreground mb-0.5" />
+                    <span className="text-[10px] font-medium">{product.maxConnections ? `${product.maxConnections} IP` : "Unli IP"}</span>
+                  </div>
                 </div>
+
+                {/* Badges tambahan */}
+                {(hasDiscount || product.category) && (
+                  <div className="flex gap-1 flex-wrap mt-0.5">
+                    {hasDiscount && <span className="text-[9px] bg-green-500/10 text-green-500 px-1.5 py-0.5 rounded border border-green-500/20 font-medium">Reseller</span>}
+                    {product.category && <span className="text-[9px] bg-white/5 text-muted-foreground px-1.5 py-0.5 rounded border border-white/10">{product.category}</span>}
+                  </div>
+                )}
 
                 {/* Baris 3: Deskripsi (opsional) */}
                 {product.description && (
@@ -165,8 +162,9 @@ export default function Products() {
           })}
         </div>
       ) : (
-        <div className="text-center py-16 border rounded-xl bg-card border-dashed">
-          <p className="text-sm text-muted-foreground">Tidak ada produk untuk protokol ini.</p>
+        <div className="text-center py-16 rounded-xl glass-panel border-white/5 flex flex-col items-center justify-center gap-3">
+          <PackageX className="h-10 w-10 text-muted-foreground/50" />
+          <p className="text-sm text-muted-foreground">Belum ada produk untuk kategori ini.</p>
         </div>
       )}
     </div>
