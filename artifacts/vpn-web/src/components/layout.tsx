@@ -40,8 +40,10 @@ export function Layout({
   }
 
   return (
-    <div className="flex min-h-screen w-full bg-background/95">
-      <Sidebar isAdmin={requireAdmin} />
+    <div className="flex min-h-screen w-full bg-background selection:bg-primary/30">
+      <div className="fixed inset-0 z-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,hsl(var(--primary)/0.15),rgba(0,0,0,0))] pointer-events-none"></div>
+      <div className="flex min-h-screen w-full relative z-10">
+        <Sidebar isAdmin={requireAdmin} />
       <div className="flex flex-col flex-1 min-w-0">
         {requireAdmin && <MobileAdminHeader />}
         <main className="flex-1 overflow-y-auto w-full">
@@ -55,6 +57,7 @@ export function Layout({
         </main>
       </div>
       {!requireAdmin && <MobileBottomNav />}
+      </div>
     </div>
   );
 }
