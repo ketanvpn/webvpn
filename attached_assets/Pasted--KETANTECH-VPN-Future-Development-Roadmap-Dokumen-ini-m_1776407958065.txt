@@ -1,0 +1,30 @@
+# KETANTECH VPN - Future Development Roadmap
+
+Dokumen ini mencatat ide-ide brilian untuk pengembangan sistem KETANTECH VPN di masa mendatang agar bisnis semakin berkembang dan operasional semakin efisien.
+
+## 1. Fitur Marketing & Penjualan (Meningkatkan Omzet)
+- [ ] **Sistem Kode Promo / Voucher:** 
+  Pembuatan kode diskon (misal: `RAMADHAN20` atau `DISKONKILAT`) dengan batas kuota/waktu. Ini digunakan saat *campaign* marketing untuk menarik pengguna baru membeli VPN.
+- [ ] **Sistem Poin / Loyalty Reward:** 
+  Setiap pengguna melakukan topup atau order, mereka mendapat Poin. Poin ini dapat ditukar menjadi saldo atau diskon khusus. Berfungsi untuk menjaga loyalitas pelanggan (retensi).
+- [ ] **Popup Pengumuman di Dashboard User:** 
+  Banner popup saat user login, sangat berguna untuk pengumuman *maintenance* atau promosi mendadak.
+
+## 2. Kemudahan Operasional Admin (Efisiensi Waktu)
+- [ ] **Ekspor Laporan Keuangan (Excel / PDF):** 
+  Fitur di halaman Topup/Transaksi untuk merekapitulasi data pemasukan per bulan ke format Spreadsheet, memudahkan proses pembukuan.
+- [ ] **Aksi Massal (Bulk Actions):** 
+  Memberikan opsi *checkbox* di daftar akun VPN dan user untuk memproses puluhan akun sekaligus (misal: hapus masal akun kedaluwarsa, atau aktifkan masal).
+
+## 3. Pemantauan Infrastruktur Tingkat Lanjut (Monitoring)
+- [ ] **Live Server Monitor (CPU/RAM):** 
+  Tampilan grafik *real-time* di panel Admin yang memonitor kesehatan server (penggunaan RAM, CPU, Kapasitas Disk) dari setiap mesin VPS yang didaftarkan.
+- [ ] **Auto-Disable Server Penuh:** 
+  Otomatisasi untuk menyembunyikan Server dari daftar pilihan pembelian jika server tersebut telah mencapai batas kuota maksimal koneksi/pengguna.
+
+## 4. Bantuan & Interaksi Otomatis (Customer Support)
+- [ ] **Fitur Live Chat / Tiket Bantuan:** 
+  Sistem tiket bawaan aplikasi di mana pengguna bisa mengirim pesan bantuan dan Admin membalas langsung melalui dashboard (tanpa perlu via WA), menjadikan riwayat keluhan tertata rapi.
+
+---
+*Catatan: Kerjakan fitur-fitur ini satu per satu berdasarkan skala prioritas.*
