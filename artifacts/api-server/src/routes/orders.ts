@@ -386,8 +386,12 @@ router.post("/orders", requireAuth, async (req, res) => {
     return;
   }
 
+  // Ambil role terkini dari DB (bukan JWT yang bisa basi setelah admin ubah role)
+  const [dbUser] = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  const userRole = dbUser?.role ?? req.user!.role;
+
   let amount = Number(product.price);
-  if (req.user!.role === "reseller") {
+  if (userRole === "reseller") {
     const resellerSettings = await getResellerSettings();
     if (resellerSettings.resellerEnabled && resellerSettings.resellerDiscountPercent > 0) {
       amount = Math.floor(amount * (1 - resellerSettings.resellerDiscountPercent / 100));

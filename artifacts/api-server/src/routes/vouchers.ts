@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { vouchersTable, productsTable } from "@workspace/db";
+import { vouchersTable, productsTable, usersTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { requireAdmin, requireAuth } from "../lib/auth";
 import { AdminCreateVoucherBody as CreateVoucherBody, AdminUpdateVoucherBody as UpdateVoucherBody, ValidateVoucherBody } from "@workspace/api-zod";
@@ -136,12 +136,15 @@ router.post("/vouchers/validate", requireAuth, async (req, res) => {
     return;
   }
 
-  // Kalkulasi Harga (Diskon)
+  // Kalkulasi Harga (Diskon) — ambil role terkini dari DB, bukan JWT (JWT bisa basi)
   let basePrice = Number(product.price);
 
-  const currentUser = (req as any).user;
-  if (currentUser?.role === "reseller" && product.resellerPrice != null) {
-    basePrice = Number(product.resellerPrice);
+  const currentUserId = (req as any).user?.userId;
+  if (currentUserId && product.resellerPrice != null) {
+    const [dbUser] = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, currentUserId)).limit(1);
+    if (dbUser?.role === "reseller") {
+      basePrice = Number(product.resellerPrice);
+    }
   }
 
   let discountAmount = 0;
