@@ -298,9 +298,9 @@ export default function AdminServers() {
       updateServer.mutate(
         { id: editingId, data: payload },
         {
-          onSuccess: () => {
+          onSuccess: async () => {
             toast({ title: "Server berhasil diperbarui" });
-            queryClient.invalidateQueries({ queryKey: getAdminListServersQueryKey() });
+            await queryClient.refetchQueries({ queryKey: getAdminListServersQueryKey() });
             setDialogOpen(false);
           },
           onError: (err) => toast({ title: "Gagal memperbarui server", description: getApiError(err), variant: "destructive" }),
@@ -310,9 +310,9 @@ export default function AdminServers() {
       createServer.mutate(
         { data: payload },
         {
-          onSuccess: () => {
+          onSuccess: async () => {
             toast({ title: "Server berhasil ditambahkan" });
-            queryClient.invalidateQueries({ queryKey: getAdminListServersQueryKey() });
+            await queryClient.refetchQueries({ queryKey: getAdminListServersQueryKey() });
             setDialogOpen(false);
           },
           onError: (err) => toast({ title: "Gagal menambah server", description: getApiError(err), variant: "destructive" }),
