@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Send, XCircle, User, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Send, XCircle, User, ShieldCheck, BellRing } from "lucide-react";
 import { format } from "date-fns";
 
 const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
@@ -30,17 +30,57 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   closed: { label: "Ditutup", className: "bg-gray-500/10 text-gray-400 border-gray-500/20" },
 };
 
+function markTicketRead(ticketId: string) {
+  localStorage.setItem(`tkr_${ticketId}`, new Date().toISOString());
+}
+
 export default function TicketDetail() {
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
   const { toast } = useToast();
   const [reply, setReply] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const prevMsgCountRef = useRef<number | null>(null);
+  const isFirstLoad = useRef(true);
 
   const { data: ticket, isLoading } = useQuery<TicketDetail>({
     queryKey: ["ticket-detail", id],
     queryFn: () => apiFetch(`/tickets/${id}`),
-    refetchInterval: 15000,
+    refetchInterval: 5000,
   });
+
+  // Mark as read + scroll + toast on new admin reply
+  useEffect(() => {
+    if (!ticket) return;
+
+    const msgs = ticket.messages;
+    const count = msgs.length;
+
+    if (isFirstLoad.current) {
+      isFirstLoad.current = false;
+      prevMsgCountRef.current = count;
+      markTicketRead(id);
+      qc.invalidateQueries({ queryKey: ["user-tickets"] });
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "instant" }), 50);
+      return;
+    }
+
+    if (prevMsgCountRef.current !== null && count > prevMsgCountRef.current) {
+      const newMsgs = msgs.slice(prevMsgCountRef.current);
+      const hasAdminReply = newMsgs.some((m) => m.isAdmin);
+      if (hasAdminReply) {
+        toast({
+          title: "💬 Admin mengirim balasan!",
+          description: ticket.subject,
+        });
+      }
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      markTicketRead(id);
+      qc.invalidateQueries({ queryKey: ["user-tickets"] });
+    }
+
+    prevMsgCountRef.current = count;
+  }, [ticket?.messages.length]);
 
   const sendReply = useMutation({
     mutationFn: () => apiFetch(`/tickets/${id}/reply`, {
@@ -51,6 +91,7 @@ export default function TicketDetail() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["ticket-detail", id] });
       setReply("");
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     },
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
   });
@@ -119,6 +160,7 @@ export default function TicketDetail() {
             </div>
           </div>
         ))}
+        <div ref={messagesEndRef} />
       </div>
 
       {!isClosed && (
@@ -136,6 +178,10 @@ export default function TicketDetail() {
           </Button>
         </div>
       )}
+
+      <p className="text-xs text-muted-foreground/40 text-center flex items-center justify-center gap-1">
+        <BellRing size={10} /> Halaman ini memperbarui secara otomatis setiap 5 detik
+      </p>
     </div>
   );
 }

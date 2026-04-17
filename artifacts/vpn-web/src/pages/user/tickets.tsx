@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,6 +38,13 @@ const PRIORITY_CONFIG: Record<string, { label: string; className: string }> = {
   high: { label: "Tinggi", className: "bg-red-500/10 text-red-400 border-red-500/20" },
 };
 
+function isTicketUnread(ticket: Ticket): boolean {
+  if (ticket.status !== "answered") return false;
+  const lastRead = localStorage.getItem(`tkr_${ticket.id}`);
+  if (!lastRead) return true;
+  return new Date(ticket.updatedAt) > new Date(lastRead);
+}
+
 export default function UserTickets() {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -47,6 +54,7 @@ export default function UserTickets() {
   const { data: tickets = [], isLoading } = useQuery<Ticket[]>({
     queryKey: ["user-tickets"],
     queryFn: () => apiFetch("/tickets"),
+    refetchInterval: 10000,
   });
 
   const create = useMutation({
@@ -64,12 +72,19 @@ export default function UserTickets() {
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
   });
 
+  const unreadCount = tickets.filter(isTicketUnread).length;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <TicketCheck className="text-primary" /> Tiket Bantuan
+            {unreadCount > 0 && (
+              <span className="text-xs font-bold bg-green-500 text-white px-2 py-0.5 rounded-full animate-pulse">
+                {unreadCount} balasan baru
+              </span>
+            )}
           </h1>
           <p className="text-muted-foreground text-sm mt-1">Kirim pertanyaan atau laporan masalah ke admin</p>
         </div>
@@ -93,22 +108,29 @@ export default function UserTickets() {
           {tickets.map((t) => {
             const status = STATUS_CONFIG[t.status] ?? STATUS_CONFIG.open;
             const priority = PRIORITY_CONFIG[t.priority] ?? PRIORITY_CONFIG.normal;
+            const unread = isTicketUnread(t);
             return (
               <Link key={t.id} href={`/tickets/${t.id}`}>
-                <Card className="glass-panel cursor-pointer hover:border-primary/30 transition-colors">
+                <Card className={`glass-panel cursor-pointer transition-colors ${unread ? "border-green-500/40 hover:border-green-500/60" : "hover:border-primary/30"}`}>
                   <CardContent className="py-4 px-5 flex items-center gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className="font-semibold text-white text-sm">#{t.id} — {t.subject}</span>
+                        {unread && (
+                          <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse shrink-0" />
+                        )}
+                        <span className={`font-semibold text-sm ${unread ? "text-white" : "text-white/80"}`}>
+                          #{t.id} — {t.subject}
+                        </span>
                         <Badge variant="outline" className={`text-xs ${status.className}`}>{status.label}</Badge>
                         <Badge variant="outline" className={`text-xs ${priority.className}`}>{priority.label}</Badge>
                       </div>
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Clock size={11} />
                         <span>Diperbarui {format(new Date(t.updatedAt), "dd MMM yyyy HH:mm")}</span>
+                        {unread && <span className="text-green-400 font-medium ml-1">· Ada balasan baru</span>}
                       </div>
                     </div>
-                    <ChevronRight size={16} className="text-muted-foreground shrink-0" />
+                    <ChevronRight size={16} className={`shrink-0 ${unread ? "text-green-400" : "text-muted-foreground"}`} />
                   </CardContent>
                 </Card>
               </Link>
