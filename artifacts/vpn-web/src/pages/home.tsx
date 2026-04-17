@@ -78,25 +78,29 @@ export default function Home() {
       <main className="flex-1 flex flex-col">
         {/* Hero */}
         <section className="relative py-16 lg:py-24 px-4 text-center overflow-hidden">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[400px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[500px] bg-primary/20 rounded-full blur-[120px] pointer-events-none" />
           <div className="container relative z-10 mx-auto max-w-3xl space-y-5">
-            <h1 className="text-4xl lg:text-5xl font-bold tracking-tight">
-              Layanan VPN untuk <span className="text-primary">Indonesia</span>
+            <div className="inline-flex items-center rounded-full border border-primary/30 px-4 py-1.5 text-sm font-medium glass-panel shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+              <span className="flex h-2 w-2 rounded-full bg-primary mr-2 animate-pulse" />
+              Layanan VPN Premium untuk Indonesia
+            </div>
+            <h1 className="text-4xl lg:text-5xl font-bold tracking-tight drop-shadow-md">
+              Layanan VPN untuk <span className="text-primary drop-shadow-[0_0_20px_rgba(16,185,129,0.5)]">Indonesia</span>
             </h1>
             <p className="text-base text-muted-foreground max-w-xl mx-auto leading-relaxed">
               SSH, VMess, VLess, dan Trojan tersedia. Harga transparan, akun aktif otomatis setelah pembayaran dikonfirmasi.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
               {isAuthenticated ? (
-                <Button size="lg" className="w-full sm:w-auto px-8" asChild>
+                <Button size="lg" className="w-full sm:w-auto px-8 shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] hover:scale-105 transition-all" asChild>
                   <Link href="/dashboard">Buka Dashboard</Link>
                 </Button>
               ) : (
                 <>
-                  <Button size="lg" className="w-full sm:w-auto px-8" asChild>
+                  <Button size="lg" className="w-full sm:w-auto px-8 shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] hover:scale-105 transition-all" asChild>
                     <Link href="/register">Daftar Sekarang</Link>
                   </Button>
-                  <Button size="lg" variant="outline" className="w-full sm:w-auto px-8" onClick={scrollToServers}>
+                  <Button size="lg" variant="outline" className="w-full sm:w-auto px-8 glass-panel border-primary/30 hover:bg-primary/10 transition-all" onClick={scrollToServers}>
                     Lihat Server
                   </Button>
                 </>
@@ -161,7 +165,7 @@ export default function Home() {
                 {servers.map((s: any) => (
                   <div
                     key={s.id}
-                    className="flex items-start gap-4 p-4 rounded-xl glass-card border border-white/5 hover:border-white/10 transition-colors"
+                    className="flex items-start gap-4 p-4 rounded-xl glass-card border border-white/5 hover:border-primary/40 hover:shadow-[0_0_16px_rgba(16,185,129,0.12)] transition-all duration-200"
                   >
                     <span className="text-3xl leading-none mt-0.5">{s.flag}</span>
                     <div className="flex-1 min-w-0">
