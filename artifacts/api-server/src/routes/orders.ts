@@ -6,7 +6,7 @@ import { requireAuth } from "../lib/auth";
 import { CreateOrderBody } from "@workspace/api-zod";
 import { formatProduct } from "./products";
 import { randomUUID } from "crypto";
-import { createPanelAccount, sanitizeVpnUsername } from "../lib/vpn-panel";
+import { createPanelAccount, sanitizeVpnUsername, deletePanelAccount } from "../lib/vpn-panel";
 import { addBalanceLog } from "./balance-logs";
 import { getPaymentSettingsMap, getResellerSettings } from "./settings";
 import { logger } from "../lib/logger";
@@ -216,41 +216,56 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
   let balanceBefore: number | null = null;
   let balanceAfter: number | null = null;
 
-  await db.transaction(async (tx) => {
-    if (opts.deductBalance) {
-      const [updatedUser] = await tx
-        .update(usersTable)
-        .set({ balance: sql`balance - ${amount}` })
-        .where(and(eq(usersTable.id, order.userId), gte(usersTable.balance, String(amount))))
-        .returning({ balance: usersTable.balance });
+  try {
+    await db.transaction(async (tx) => {
+      if (opts.deductBalance) {
+        const [updatedUser] = await tx
+          .update(usersTable)
+          .set({ balance: sql`balance - ${amount}` })
+          .where(and(eq(usersTable.id, order.userId), gte(usersTable.balance, String(amount))))
+          .returning({ balance: usersTable.balance });
 
-      if (!updatedUser) throw new Error("INSUFFICIENT_BALANCE");
-      balanceAfter = Number(updatedUser.balance);
-      balanceBefore = balanceAfter + amount;
-    }
+        if (!updatedUser) throw new Error("INSUFFICIENT_BALANCE");
+        balanceAfter = Number(updatedUser.balance);
+        balanceBefore = balanceAfter + amount;
+      }
 
-    const [acc] = await tx
-      .insert(vpnAccountsTable)
-      .values({
-        userId: order.userId,
-        orderId: order.id,
+      const [acc] = await tx
+        .insert(vpnAccountsTable)
+        .values({
+          userId: order.userId,
+          orderId: order.id,
+          protocol: product.protocol,
+          username: finalUsername,
+          password: finalPassword,
+          uuid: finalUuid,
+          serverId: server.id,
+          configLink,
+          allLinks,
+          expiresAt,
+          quota: product.quota ?? null,
+        })
+        .returning();
+
+      await tx
+        .update(ordersTable)
+        .set({ status: "paid", vpnAccountId: acc.id, updatedAt: new Date() })
+        .where(eq(ordersTable.id, orderId));
+    });
+  } catch (dbError) {
+    if (hasPanel && finalUsername) {
+      logger.error({ err: dbError, username: finalUsername }, "[orders:fulfill] DB transaction failed! Rolling back (deleting) panel account.");
+      await deletePanelAccount({
+        apiUrl: server.apiUrl!,
+        apiToken: server.apiToken!,
         protocol: product.protocol,
         username: finalUsername,
-        password: finalPassword,
-        uuid: finalUuid,
-        serverId: server.id,
-        configLink,
-        allLinks,
-        expiresAt,
-        quota: product.quota ?? null,
-      })
-      .returning();
-
-    await tx
-      .update(ordersTable)
-      .set({ status: "paid", vpnAccountId: acc.id, updatedAt: new Date() })
-      .where(eq(ordersTable.id, orderId));
-  });
+      }).catch(deleteErr => {
+        logger.error({ err: deleteErr, username: finalUsername }, "[orders:fulfill] CRITICAL: Failed to rollback panel account. Orphaned account remains.");
+      });
+    }
+    throw dbError;
+  }
 
   if (opts.deductBalance && balanceBefore !== null && balanceAfter !== null) {
     addBalanceLog({

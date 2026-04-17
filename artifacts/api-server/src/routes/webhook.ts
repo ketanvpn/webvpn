@@ -102,26 +102,29 @@ router.post("/webhooks/autogopay", async (req, res) => {
         return;
       }
 
-      const [[updatedUser], [userInfo]] = await Promise.all([
-        db
-          .update(usersTable)
-          .set({ balance: sql`balance + ${Number(topup.amount)}` })
-          .where(eq(usersTable.id, topup.userId))
-          .returning({ newBalance: usersTable.balance, username: usersTable.username }),
-        db
-          .select({ username: usersTable.username })
-          .from(usersTable)
-          .where(eq(usersTable.id, topup.userId))
-          .limit(1),
-      ]);
-
-      await db
+      // Amankan dari Race Condition: Hanya update topup jika statusnya MASIH pending.
+      // Jika request webhook dipanggil bersamaan, hanya 1 request yang akan berhasil melakukan update ini.
+      const [updatedTopup] = await db
         .update(topupsTable)
         .set({ status: "confirmed", updatedAt: new Date() })
-        .where(eq(topupsTable.id, topup.id));
+        .where(and(eq(topupsTable.id, topup.id), eq(topupsTable.status, "pending")))
+        .returning();
+
+      if (!updatedTopup) {
+        logger.warn({ topupId: topup.id }, "AutoGoPay webhook: Race condition prevented. Topup was already processed by another request.");
+        res.json({ success: true });
+        return;
+      }
+
+      // Aman untuk menambah saldo karena kita telah 'mengunci' status topup
+      const [updatedUser] = await db
+        .update(usersTable)
+        .set({ balance: sql`balance + ${Number(topup.amount)}` })
+        .where(eq(usersTable.id, topup.userId))
+        .returning({ newBalance: usersTable.balance, username: usersTable.username });
 
       const newBalance = Number(updatedUser?.newBalance ?? 0);
-      const username = updatedUser?.username ?? userInfo?.username ?? `User#${topup.userId}`;
+      const username = updatedUser?.username ?? `User#${topup.userId}`;
 
       logger.info({ topupId: topup.id, userId: topup.userId, amount: topup.amount }, "AutoGoPay: topup auto-confirmed");
 
