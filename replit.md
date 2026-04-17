@@ -411,6 +411,15 @@ Setiap kali mengubah `lib/api-spec/openapi.yaml`:
 - File baru: `artifacts/api-server/src/routes/reseller.ts`
 - **Bug fix:** `req.user!.id` → `req.user!.userId` — JWT payload memakai field `userId` bukan `id`. Sebelum fix, query selalu menghasilkan 0 karena filter `userId = undefined` tidak cocok dengan record apapun.
 
+### Batch 18 ✅ (April 2026)
+- **Fix bug tiket 500:** `req.user.id` → `req.user.userId` (6 titik di `tickets.ts`) — JWT payload memakai `userId` bukan `id`
+- **Voucher di checkout:** Input voucher di `product-detail.tsx` — validasi via `/api/vouchers/validate`, tampil badge diskon + hemat, bisa dihapus, terintegrasi ke dialog konfirmasi order
+- **Fix harga voucher/reseller:** `resellerPrice` dihitung dinamis dari `getResellerSettings()`, bukan kolom DB. Backend fetch role dari DB (bukan trust JWT yang bisa stale) di `/vouchers/validate` dan `/orders`
+- **Fix mobile layout reseller-settings:** 3 container flex (%, Target, Min-Topup) diubah jadi stack vertikal di mobile, horizontal di sm keatas
+- **Sidebar badge Tiket Bantuan (admin):** Badge merah muncul jika ada tiket pending (belum dijawab). Endpoint baru `GET /api/admin/tickets/pending-count`. Dot merah di hamburger mobile ikut muncul. Polling setiap 60 detik.
+- **Telegram native reply (geser pesan):** Admin bisa geser/swipe pesan notifikasi tiket di Telegram untuk langsung membalas — tanpa perlu ketik `/reply_<id>`. Sistem simpan `message_id` Telegram (in-memory map) ketika notifikasi dikirim; bot deteksi `reply_to_message` dan cocokkan ke tiket. Fallback `/reply_<id>` tetap tersedia. Teks notifikasi diubah jadi "↩️ Geser pesan ini untuk balas".
+- **Real-time tiket user:** Polling halaman detail tiket dipercepat 15s → 5s. Toast otomatis "💬 Admin mengirim balasan!" saat ada pesan baru dari admin. Auto-scroll ke pesan terbaru. List tiket polling 10s + dot hijau berkedip + teks "Ada balasan baru" pada tiket answered yang belum dibuka user (localStorage-based tracking).
+
 ### Batch 17 ✅ (April 2026)
 - **Fix TypeScript TS2741 (seluruh codebase bersih):** File generated `lib/api-client-react/src/generated/api.ts` diperbaiki — semua 56 parameter `query?: UseQueryOptions<...>` diubah menjadi `query?: Partial<UseQueryOptions<...>>` sehingga `queryKey` tidak wajib diisi oleh caller (sudah di-generate internal hook). Sebelumnya ada 14 error TS2741 tersebar di sidebar, use-auth, admin/dashboard, admin/orders, user/account-detail, dll.
 - **Landing page diperkaya:**
