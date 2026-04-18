@@ -72,15 +72,15 @@ export default function AdminWhatsappSettings() {
     }
     setIsTesting(true);
     try {
-      const resp = await fetch("/api/auth/send-otp", {
+      const resp = await fetch("/api/admin/settings/whatsapp/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ whatsapp: testPhone }),
         credentials: "include",
       });
       const data = await resp.json();
-      if (!resp.ok && data.error !== "Nomor WhatsApp sudah terdaftar") {
-        toast({ title: "Test gagal", description: data.error, variant: "destructive" });
+      if (!resp.ok) {
+        toast({ title: "Test gagal", description: data.error ?? "Gagal mengirim OTP", variant: "destructive" });
       } else if (data.simulateMode) {
         toast({
           title: "Mode Simulasi",

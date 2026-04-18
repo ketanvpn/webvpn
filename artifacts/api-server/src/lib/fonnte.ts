@@ -1,6 +1,7 @@
 import { db } from "@workspace/db";
 import { settingsTable, otpTable } from "@workspace/db";
 import { eq, and, gt } from "drizzle-orm";
+import { logger } from "./logger";
 
 async function getFonnteToken(): Promise<string | null> {
   const [row] = await db
@@ -65,12 +66,15 @@ export async function sendOtp(
       body: JSON.stringify({ target: whatsapp, message }),
     });
 
-    const data = await resp.json() as { status: boolean; detail?: string };
+    const data = await resp.json() as { status: boolean; detail?: string; reason?: string; message?: string };
+    logger.info({ fonnte_status: data.status, fonnte_reason: data.reason, fonnte_detail: data.detail }, "Fonnte API response");
     if (!data.status) {
-      return { success: false, simulateMode: false, error: data.detail ?? "Gagal mengirim OTP" };
+      const errMsg = data.reason ?? data.detail ?? data.message ?? "Gagal mengirim OTP";
+      return { success: false, simulateMode: false, error: errMsg };
     }
     return { success: true, simulateMode: false };
   } catch (err) {
+    logger.error({ err }, "Fonnte API call failed");
     return { success: false, simulateMode: false, error: "Tidak dapat terhubung ke layanan WhatsApp" };
   }
 }

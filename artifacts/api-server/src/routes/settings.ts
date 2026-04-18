@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { settingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "../lib/auth";
+import { sendOtp } from "../lib/fonnte";
 
 const router = Router();
 
@@ -162,6 +163,24 @@ router.put("/admin/settings/whatsapp", requireAdmin, async (req, res) => {
   const rows = await db.select().from(settingsTable);
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
   res.json(buildWhatsappSettingsResponse(map));
+});
+
+router.post("/admin/settings/whatsapp/test", requireAdmin, async (req, res) => {
+  const { whatsapp } = req.body as { whatsapp?: string };
+  if (!whatsapp || typeof whatsapp !== "string") {
+    res.status(400).json({ error: "Nomor WhatsApp diperlukan" });
+    return;
+  }
+  const result = await sendOtp(whatsapp, "register");
+  if (!result.success) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+  if (result.simulateMode) {
+    res.json({ simulateMode: true, otp: result.otp });
+    return;
+  }
+  res.json({ success: true });
 });
 
 // ─── Expiry Notification Settings ────────────────────────────────────────────
