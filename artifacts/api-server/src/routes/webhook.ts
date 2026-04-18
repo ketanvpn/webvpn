@@ -78,10 +78,10 @@ router.post("/webhooks/autogopay", async (req, res) => {
     !event; // some gateways send no event field
 
   const isPaidStatus =
-    transaction?.status === "settlement" ||
-    transaction?.status === "paid" ||
-    transaction?.status === "success" ||
-    transaction?.status === "completed";
+    transaction?.status?.toLowerCase() === "settlement" ||
+    transaction?.status?.toLowerCase() === "paid" ||
+    transaction?.status?.toLowerCase() === "success" ||
+    transaction?.status?.toLowerCase() === "completed";
 
   const transactionId = transaction?.id ?? transaction?.transaction_id;
 

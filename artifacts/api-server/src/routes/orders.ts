@@ -223,7 +223,7 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
         const [updatedUser] = await tx
           .update(usersTable)
           .set({ balance: sql`balance - ${amount}` })
-          .where(and(eq(usersTable.id, order.userId), gte(usersTable.balance, String(amount))))
+          .where(and(eq(usersTable.id, order.userId), sql`balance >= ${amount}::numeric`))
           .returning({ balance: usersTable.balance });
 
         if (!updatedUser) throw new Error("INSUFFICIENT_BALANCE");

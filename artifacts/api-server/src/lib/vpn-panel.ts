@@ -5,6 +5,7 @@
  */
 
 import axios, { AxiosError } from "axios";
+import https from "https";
 
 export interface VpnProvisionResult {
   username: string;
@@ -15,6 +16,8 @@ export interface VpnProvisionResult {
   hostname?: string;
   expiryInfo?: string;
 }
+
+const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 function buildHeaders(apiToken: string) {
   return {
@@ -55,36 +58,43 @@ export async function createPanelAccount(params: {
   const limitip = maxConnections ? Number(maxConnections) : 0;
 
   if (protocol === "ssh") {
-    const { data } = await axios.post(
-      `${baseUrl}/vps/sshvpn`,
-      {
-        username,
-        password: password ?? "Ketan@1234",
-        expired: durationDays,
-        limitip: String(limitip),
-      },
-      { headers, timeout: 20000 }
-    );
-
-    if (data?.meta?.code !== 200 || !data.data) {
-      throw new Error(
-        data?.meta?.message ?? data?.message ?? "SSH account creation failed"
+    try {
+      const { data } = await axios.post(
+        `${baseUrl}/vps/sshvpn`,
+        {
+          username,
+          password: password ?? "Ketan@1234",
+          expired: durationDays,
+          limitip: String(limitip),
+        },
+        { headers, timeout: 20000, httpsAgent }
       );
-    }
 
-    const s = data.data;
-    return {
-      username: s.username,
-      password: s.password,
-      hostname: s.hostname,
-      expiryInfo: `${s.exp} (${s.time})`,
-      configLink: `${s.hostname}:${s.port?.tls ?? 443}@${s.username}:${s.password}`,
-      allLinks: {
-        ws: `${s.hostname}:80@${s.username}:${s.password}`,
-        tls: `${s.hostname}:${s.port?.tls ?? 443}@${s.username}:${s.password}`,
-        udp: `${s.hostname}:1-65535@${s.username}:${s.password}`,
-      },
-    };
+      if (data?.meta?.code !== 200 || !data.data) {
+        throw new Error(
+          data?.meta?.message ?? data?.message ?? "SSH account creation failed"
+        );
+      }
+
+      const s = data.data;
+      return {
+        username: s.username,
+        password: s.password,
+        hostname: s.hostname,
+        expiryInfo: `${s.exp} (${s.time})`,
+        configLink: `${s.hostname}:${s.port?.tls ?? 443}@${s.username}:${s.password}`,
+        allLinks: {
+          ws: `${s.hostname}:80@${s.username}:${s.password}`,
+          tls: `${s.hostname}:${s.port?.tls ?? 443}@${s.username}:${s.password}`,
+          udp: `${s.hostname}:1-65535@${s.username}:${s.password}`,
+        },
+      };
+    } catch (e) {
+      if (axios.isAxiosError(e)) {
+        throw new Error(`Panel API Error (SSH): ${e.response?.data?.message || e.response?.data?.meta?.message || e.message}`);
+      }
+      throw e;
+    }
   }
 
   if (protocol === "vmess" || protocol === "vless" || protocol === "trojan") {
@@ -94,39 +104,46 @@ export async function createPanelAccount(params: {
       trojan: "trojanall",
     };
 
-    const { data } = await axios.post(
-      `${baseUrl}/vps/${endpointMap[protocol]}`,
-      {
-        username,
-        expired: durationDays,
-        kuota,
-        limitip,
-        ...(uuid ? { uuidv2: uuid } : {}),
-      },
-      { headers, timeout: 20000 }
-    );
-
-    if (data?.meta?.code !== 200 || !data.data) {
-      throw new Error(
-        data?.meta?.message ?? data?.message ?? `${protocol} account creation failed`
+    try {
+      const { data } = await axios.post(
+        `${baseUrl}/vps/${endpointMap[protocol]}`,
+        {
+          username,
+          expired: durationDays,
+          kuota,
+          limitip,
+          ...(uuid ? { uuidv2: uuid } : {}),
+        },
+        { headers, timeout: 20000, httpsAgent }
       );
-    }
 
-    const s = data.data;
-    return {
-      username: s.username,
-      uuid: s.uuid,
-      hostname: s.hostname,
-      expiryInfo: `${s.expired} (${s.time})`,
-      configLink: s.link?.tls ?? s.link?.none ?? undefined,
-      allLinks: {
-        tls: s.link?.tls,
-        none: s.link?.none,
-        grpc: s.link?.grpc,
-        upntls: s.link?.upntls,
-        uptls: s.link?.uptls,
-      },
-    };
+      if (data?.meta?.code !== 200 || !data.data) {
+        throw new Error(
+          data?.meta?.message ?? data?.message ?? `${protocol} account creation failed`
+        );
+      }
+
+      const s = data.data;
+      return {
+        username: s.username,
+        uuid: s.uuid,
+        hostname: s.hostname,
+        expiryInfo: `${s.expired} (${s.time})`,
+        configLink: s.link?.tls ?? s.link?.none ?? undefined,
+        allLinks: {
+          tls: s.link?.tls,
+          none: s.link?.none,
+          grpc: s.link?.grpc,
+          upntls: s.link?.upntls,
+          uptls: s.link?.uptls,
+        },
+      };
+    } catch (e) {
+      if (axios.isAxiosError(e)) {
+        throw new Error(`Panel API Error (${protocol}): ${e.response?.data?.message || e.response?.data?.meta?.message || e.message}`);
+      }
+      throw e;
+    }
   }
 
   throw new Error(
@@ -162,6 +179,7 @@ export async function deletePanelAccount(params: {
     await axios.delete(`${baseUrl}/vps/delete${endpoint}/${username}`, {
       headers,
       timeout: 10000,
+      httpsAgent,
     });
   } catch (e) {
     const err = e as AxiosError;
@@ -203,7 +221,7 @@ export async function renewPanelAccount(params: {
     await axios.patch(
       `${baseUrl}/vps/renew${endpoint}/${username}/${durationDays}`,
       body,
-      { headers, timeout: 15000 }
+      { headers, timeout: 15000, httpsAgent }
     );
   } catch (e) {
     const err = e as AxiosError;
@@ -227,6 +245,7 @@ export async function checkPanelHealth(params: {
     await axios.get(`${baseUrl}/vps/checkconfigvmess/__healthcheck__`, {
       headers,
       timeout: 8000,
+      httpsAgent,
       validateStatus: () => true,
     });
     return { online: true, latencyMs: Date.now() - start };
@@ -276,7 +295,7 @@ export async function syncPanelAccount(params: {
   try {
     const { data } = await axios.get(
       `${baseUrl}/vps/checkconfig${endpoint}/${username}`,
-      { headers, timeout: 10000 }
+      { headers, timeout: 10000, httpsAgent }
     );
 
     if (data?.meta?.code !== 200 || !data.data) return null;
@@ -339,7 +358,7 @@ export async function modifyPanelAccount(params: {
     const { data } = await axios.patch(
       `${baseUrl}/vps/modify${endpoint}`,
       { username, pass_uuid: uuid },
-      { headers, timeout: 15000 }
+      { headers, timeout: 15000, httpsAgent }
     );
     const ok = data?.meta?.code === 200;
     if (ok) {
@@ -382,6 +401,7 @@ export async function lockPanelAccount(params: {
     await axios.patch(`${baseUrl}/vps/lock${endpoint}/${username}`, null, {
       headers,
       timeout: 10000,
+      httpsAgent,
     });
   } catch (e) {
     const err = e as AxiosError;
