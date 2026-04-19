@@ -553,7 +553,7 @@ router.get("/admin/servers", requireAdmin, async (_req, res) => {
   const servers = await db
     .select()
     .from(serversTable)
-    .orderBy(asc(serversTable.sortOrder));
+    .orderBy(asc(serversTable.sortOrder), asc(serversTable.id));
 
   const result = await Promise.all(
     servers.map(async (s) => {
@@ -634,7 +634,7 @@ router.delete("/admin/servers/:id", requireAdmin, async (req, res) => {
 });
 
 router.get("/admin/servers/health", requireAdmin, async (_req, res) => {
-  const servers = await db.select().from(serversTable).orderBy(asc(serversTable.sortOrder));
+  const servers = await db.select().from(serversTable).orderBy(asc(serversTable.sortOrder), asc(serversTable.id));
 
   const result = await Promise.all(
     servers.map(async (s) => {

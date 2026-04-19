@@ -37,7 +37,7 @@ router.get("/servers", async (_req, res) => {
     .select()
     .from(serversTable)
     .where(eq(serversTable.isActive, true))
-    .orderBy(asc(serversTable.sortOrder));
+    .orderBy(asc(serversTable.sortOrder), asc(serversTable.id));
 
   res.json(servers.map(formatPublicServer));
 });
