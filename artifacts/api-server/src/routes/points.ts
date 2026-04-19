@@ -105,6 +105,17 @@ router.post("/points/redeem", requireAuth, async (req, res) => {
     description: `Tukar ${amount} poin → Rp ${balanceCredit.toLocaleString("id-ID")}`,
   });
 
+  import("../routes/balance-logs").then(({ addBalanceLog }) => {
+    addBalanceLog({
+      userId,
+      type: "redeem",
+      amount: balanceCredit,
+      balanceBefore,
+      balanceAfter,
+      description: `Penukaran ${amount} poin`,
+    }).catch(() => {});
+  }).catch(() => {});
+
   res.json({ message: `Berhasil menukar ${amount} poin menjadi saldo Rp ${balanceCredit.toLocaleString("id-ID")}`, balanceAdded: balanceCredit });
 });
 

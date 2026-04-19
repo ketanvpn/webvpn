@@ -12,6 +12,7 @@ import { getPaymentSettingsMap, getResellerSettings } from "./settings";
 import { logger } from "../lib/logger";
 import { notifyUserVpnAccountCreated, notifyAdminOrderFulfilled } from "../lib/telegram";
 import { addPoints, getPointsSettings } from "./points";
+import { getReferralBonusAmount } from "../lib/scheduler";
 
 const router = Router();
 
@@ -315,6 +316,56 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
       await addPoints(order.userId, pts.pointsPerOrder, "order", `Order #${order.id} — ${product.name}`, order.id);
     }
   }).catch(() => {});
+
+  // Cek bonus referral jika ini order pertama
+  (async () => {
+    try {
+      const [buyer] = await db
+        .select({
+          referredBy: usersTable.referredBy,
+          referralBonusClaimed: usersTable.referralBonusClaimed,
+        })
+        .from(usersTable)
+        .where(eq(usersTable.id, order.userId))
+        .limit(1);
+
+      if (!buyer?.referredBy || buyer.referralBonusClaimed) return;
+
+      const [referrer] = await db
+        .select({ id: usersTable.id, balance: usersTable.balance, username: usersTable.username })
+        .from(usersTable)
+        .where(eq(usersTable.referralCode, buyer.referredBy))
+        .limit(1);
+
+      if (!referrer) return;
+
+      const bonusAmount = await getReferralBonusAmount();
+      const refBalanceBefore = Number(referrer.balance);
+      const refBalanceAfter = refBalanceBefore + bonusAmount;
+
+      await db
+        .update(usersTable)
+        .set({ balance: sql`balance + ${bonusAmount}` })
+        .where(eq(usersTable.id, referrer.id));
+
+      await db
+        .update(usersTable)
+        .set({ referralBonusClaimed: true })
+        .where(eq(usersTable.id, order.userId));
+
+      addBalanceLog({
+        userId: referrer.id,
+        type: "referral",
+        amount: bonusAmount,
+        balanceBefore: refBalanceBefore,
+        balanceAfter: refBalanceAfter,
+        description: `Bonus referral dari pembelian pertama user`,
+        relatedId: order.id,
+      }).catch(() => {});
+    } catch (err) {
+      logger.error({ err }, "[referral-bonus] fulfillOrder");
+    }
+  })();
 }
 
 router.get("/orders", requireAuth, async (req, res) => {

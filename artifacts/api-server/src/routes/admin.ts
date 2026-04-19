@@ -890,59 +890,7 @@ router.post("/admin/orders/:id/confirm", requireAdmin, async (req, res) => {
     .where(eq(ordersTable.id, id))
     .returning();
 
-  // ── Referral Bonus ──────────────────────────────────────────────────────────
-  // Give bonus to referrer when referred user's first order is confirmed
-  (async () => {
-    try {
-      const referralEnabledSetting = await getSettingValue("referralEnabled");
-      if (referralEnabledSetting === "false") return;
 
-      const [buyer] = await db
-        .select({
-          referredBy: usersTable.referredBy,
-          referralBonusClaimed: usersTable.referralBonusClaimed,
-        })
-        .from(usersTable)
-        .where(eq(usersTable.id, order.userId))
-        .limit(1);
-
-      if (!buyer?.referredBy || buyer.referralBonusClaimed) return;
-
-      const [referrer] = await db
-        .select({ id: usersTable.id, balance: usersTable.balance, username: usersTable.username })
-        .from(usersTable)
-        .where(eq(usersTable.referralCode, buyer.referredBy))
-        .limit(1);
-
-      if (!referrer) return;
-
-      const bonusAmount = await getReferralBonusAmount();
-      const balanceBefore = Number(referrer.balance);
-      const balanceAfter = balanceBefore + bonusAmount;
-
-      await db
-        .update(usersTable)
-        .set({ balance: sql`balance + ${bonusAmount}` })
-        .where(eq(usersTable.id, referrer.id));
-
-      await db
-        .update(usersTable)
-        .set({ referralBonusClaimed: true })
-        .where(eq(usersTable.id, order.userId));
-
-      addBalanceLog({
-        userId: referrer.id,
-        type: "referral",
-        amount: bonusAmount,
-        balanceBefore,
-        balanceAfter,
-        description: `Bonus referral dari pembelian pertama user`,
-        relatedId: order.id,
-      }).catch(() => {});
-    } catch (err) {
-      console.error("[referral-bonus]", err);
-    }
-  })();
 
   res.json(await formatOrder(updated));
 });

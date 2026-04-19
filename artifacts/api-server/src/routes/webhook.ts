@@ -126,6 +126,19 @@ router.post("/webhooks/autogopay", async (req, res) => {
       const newBalance = Number(updatedUser?.newBalance ?? 0);
       const username = updatedUser?.username ?? `User#${topup.userId}`;
 
+      // Insert balance log
+      import("../routes/balance-logs").then(({ addBalanceLog }) => {
+        addBalanceLog({
+          userId: topup.userId,
+          type: "topup",
+          amount: Number(topup.amount),
+          balanceBefore: newBalance - Number(topup.amount),
+          balanceAfter: newBalance,
+          description: `Isi saldo otomatis via QRIS`,
+          relatedId: topup.id,
+        }).catch(() => {});
+      }).catch(() => {});
+
       logger.info({ topupId: topup.id, userId: topup.userId, amount: topup.amount }, "AutoGoPay: topup auto-confirmed");
 
       // Kirim notifikasi Telegram ke user
