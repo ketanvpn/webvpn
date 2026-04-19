@@ -43,7 +43,7 @@ const infoItems = [
   },
   {
     icon: Shield,
-    title: "Harga Jujur",
+    title: "Harga Transparan",
     desc: "Tanpa biaya tersembunyi, bayar sesuai yang tercantum di paket pilihanmu.",
   },
 ];
@@ -132,22 +132,22 @@ export default function Home() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
               </span>
-              Layanan VPN Premium No. 1
+              Akses Internet Aman & Stabil
             </motion.div>
 
             {/* heading */}
             <motion.div variants={fadeUp}>
               <h1 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold tracking-tight leading-[1.15]">
-                Akses Tanpa Batas, <br className="hidden sm:block" />
+                Solusi Jaringan Andal, <br className="hidden sm:block" />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-primary drop-shadow-[0_0_30px_rgba(16,185,129,0.3)]">
-                  Kecepatan Sultan
+                  Akses Tanpa Hambatan
                 </span>
               </h1>
             </motion.div>
 
             {/* sub */}
             <motion.p variants={fadeUp} className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-xl leading-relaxed mt-2">
-              Rasakan pengalaman internet bebas hambatan dengan server premium kami. Mendukung SSH, VMess, VLess, dan Trojan.
+              Hadirkan kenyamanan berselancar di internet dengan koneksi yang stabil dan aman. Proses pendaftaran mudah dan aktivasi instan.
             </motion.p>
 
             {/* CTA */}
