@@ -20,11 +20,11 @@ async function apiFetch(path: string, options?: RequestInit) {
   return res.json();
 }
 
-type Settings = { enabled: boolean; pointsPerOrder: number; pointsPerTopup: number; redeemRate: number; minRedeem: number };
+type Settings = { enabled: boolean; pointsRateOrder: number; pointsMinOrder: number; pointsRateTopup: number; pointsMinTopup: number; redeemRate: number; minRedeem: number };
 
 export default function AdminPointsSettings() {
   const { toast } = useToast();
-  const [form, setForm] = useState<Settings>({ enabled: false, pointsPerOrder: 10, pointsPerTopup: 5, redeemRate: 100, minRedeem: 100 });
+  const [form, setForm] = useState<Settings>({ enabled: false, pointsRateOrder: 10000, pointsMinOrder: 20000, pointsRateTopup: 10000, pointsMinTopup: 20000, redeemRate: 100, minRedeem: 100 });
 
   const { data, isLoading } = useQuery<Settings>({
     queryKey: ["points-settings-admin"],
@@ -79,18 +79,36 @@ export default function AdminPointsSettings() {
               <CardDescription>Berapa poin diberikan per transaksi</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-1.5">
-                <Label>Poin per Order Berhasil</Label>
-                <div className="flex items-center gap-2">
-                  <Input type="number" min="0" value={form.pointsPerOrder} onChange={(e) => setNum("pointsPerOrder", e.target.value)} className="max-w-[140px]" />
-                  <span className="text-muted-foreground text-sm">poin</span>
+              <div className="space-y-4">
+                <div className="space-y-1.5 border-b border-border/50 pb-4">
+                  <p className="font-medium text-white mb-2">Aturan Poin dari Pembelian Akun (Order)</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label>Dapat 1 Poin tiap kelipatan Rp</Label>
+                      <Input type="number" min="0" value={form.pointsRateOrder} onChange={(e) => setNum("pointsRateOrder", e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Minimal Total Tagihan Order</Label>
+                      <Input type="number" min="0" value={form.pointsMinOrder} onChange={(e) => setNum("pointsMinOrder", e.target.value)} />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Contoh: Jika diset 10000 dan min 20000, maka beli harga Rp 25.000 dapat {Math.floor(25000 / (form.pointsRateOrder || 1))} poin. Beli harga Rp 15.000 dapat 0 poin.
+                  </p>
                 </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Poin per Topup Dikonfirmasi</Label>
-                <div className="flex items-center gap-2">
-                  <Input type="number" min="0" value={form.pointsPerTopup} onChange={(e) => setNum("pointsPerTopup", e.target.value)} className="max-w-[140px]" />
-                  <span className="text-muted-foreground text-sm">poin</span>
+
+                <div className="space-y-1.5 pt-2">
+                  <p className="font-medium text-white mb-2">Aturan Poin dari Topup Saldo</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label>Dapat 1 Poin tiap kelipatan Rp</Label>
+                      <Input type="number" min="0" value={form.pointsRateTopup} onChange={(e) => setNum("pointsRateTopup", e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Minimal Jumlah Topup</Label>
+                      <Input type="number" min="0" value={form.pointsMinTopup} onChange={(e) => setNum("pointsMinTopup", e.target.value)} />
+                    </div>
+                  </div>
                 </div>
               </div>
             </CardContent>

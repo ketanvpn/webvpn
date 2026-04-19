@@ -21,7 +21,7 @@ async function apiFetch(path: string, options?: RequestInit) {
   return res.json();
 }
 
-type PointSettings = { enabled: boolean; pointsPerOrder: number; pointsPerTopup: number; redeemRate: number; minRedeem: number };
+type PointSettings = { enabled: boolean; pointsRateOrder: number; pointsMinOrder: number; pointsRateTopup: number; pointsMinTopup: number; redeemRate: number; minRedeem: number };
 type PointLog = { id: number; type: string; amount: number; pointsBefore: number; pointsAfter: number; description: string; createdAt: string };
 
 const TYPE_ICON: Record<string, React.ElementType> = {
@@ -110,13 +110,19 @@ export default function UserPoints() {
                 <CardTitle className="text-sm text-muted-foreground">Cara Mendapat Poin</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 pt-0">
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2 text-muted-foreground"><ShoppingBag size={14} /> Per pembelian VPN</div>
-                  <span className="text-yellow-400 font-medium">+{settings?.pointsPerOrder ?? 0} poin</span>
+                <div className="flex items-center justify-between text-sm border-b border-border/50 pb-2 mb-2">
+                  <div className="flex items-center gap-2 text-muted-foreground"><ShoppingBag size={14} /> Pembelian Akun (Order)</div>
+                  <div className="text-right">
+                    <div className="text-yellow-400 font-medium">+1 poin tiap Rp {settings?.pointsRateOrder?.toLocaleString("id-ID") ?? 0}</div>
+                    <div className="text-xs text-muted-foreground">(Min. tagihan Rp {settings?.pointsMinOrder?.toLocaleString("id-ID") ?? 0})</div>
+                  </div>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2 text-muted-foreground"><Wallet size={14} /> Per topup dikonfirmasi</div>
-                  <span className="text-yellow-400 font-medium">+{settings?.pointsPerTopup ?? 0} poin</span>
+                  <div className="flex items-center gap-2 text-muted-foreground"><Wallet size={14} /> Topup Saldo</div>
+                  <div className="text-right">
+                    <div className="text-yellow-400 font-medium">+1 poin tiap Rp {settings?.pointsRateTopup?.toLocaleString("id-ID") ?? 0}</div>
+                    <div className="text-xs text-muted-foreground">(Min. topup Rp {settings?.pointsMinTopup?.toLocaleString("id-ID") ?? 0})</div>
+                  </div>
                 </div>
               </CardContent>
             </Card>

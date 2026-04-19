@@ -312,10 +312,13 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
 
   // Tambah poin jika sistem poin aktif
   getPointsSettings().then(async (pts) => {
-    if (pts.enabled && pts.pointsPerOrder > 0) {
-      await addPoints(order.userId, pts.pointsPerOrder, "order", `Order #${order.id} — ${product.name}`, order.id);
+    if (pts.enabled && amount >= pts.pointsMinOrder && pts.pointsRateOrder > 0) {
+      const pointsEarned = Math.floor(amount / pts.pointsRateOrder);
+      if (pointsEarned > 0) {
+        await addPoints(order.userId, pointsEarned, "order", `Order #${order.id} — ${product.name}`, order.id);
+      }
     }
-  }).catch(() => {});
+  }).catch((err) => logger.error({ err }, "[orders] addPoints failed"));
 
   // Cek bonus referral jika ini order pertama
   (async () => {

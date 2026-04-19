@@ -987,10 +987,14 @@ router.post("/admin/topups/:id/confirm", requireAdmin, async (req, res) => {
 
   // Tambah poin jika sistem poin aktif
   getPointsSettings().then(async (pts) => {
-    if (pts.enabled && pts.pointsPerTopup > 0) {
-      await addPoints(topup.userId, pts.pointsPerTopup, "topup", `Topup dikonfirmasi #${topup.id}`, topup.id);
+    const topupAmount = Number(topup.amount);
+    if (pts.enabled && topupAmount >= pts.pointsMinTopup && pts.pointsRateTopup > 0) {
+      const pointsEarned = Math.floor(topupAmount / pts.pointsRateTopup);
+      if (pointsEarned > 0) {
+        await addPoints(topup.userId, pointsEarned, "topup", `Topup dikonfirmasi #${topup.id}`, topup.id);
+      }
     }
-  }).catch(() => {});
+  }).catch((err) => console.error("[admin topup] addPoints failed:", err));
 
   res.json(formatTopup(updated));
 });

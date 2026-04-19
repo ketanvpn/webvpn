@@ -28,18 +28,22 @@ export async function addPoints(userId: number, amount: number, type: string, de
   });
 }
 
-export async function getPointsSettings(): Promise<{ enabled: boolean; pointsPerOrder: number; pointsPerTopup: number; redeemRate: number; minRedeem: number }> {
-  const [enabled, pointsPerOrder, pointsPerTopup, redeemRate, minRedeem] = await Promise.all([
+export async function getPointsSettings(): Promise<{ enabled: boolean; pointsRateOrder: number; pointsMinOrder: number; pointsRateTopup: number; pointsMinTopup: number; redeemRate: number; minRedeem: number }> {
+  const [enabled, pointsRateOrder, pointsMinOrder, pointsRateTopup, pointsMinTopup, redeemRate, minRedeem] = await Promise.all([
     getSettingValue("pointsEnabled"),
-    getSettingValue("pointsPerOrder"),
-    getSettingValue("pointsPerTopup"),
+    getSettingValue("pointsRateOrder"),
+    getSettingValue("pointsMinOrder"),
+    getSettingValue("pointsRateTopup"),
+    getSettingValue("pointsMinTopup"),
     getSettingValue("pointsRedeemRate"),
     getSettingValue("pointsMinRedeem"),
   ]);
   return {
     enabled: enabled === "true",
-    pointsPerOrder: parseInt(pointsPerOrder ?? "10") || 10,
-    pointsPerTopup: parseInt(pointsPerTopup ?? "5") || 5,
+    pointsRateOrder: parseInt(pointsRateOrder ?? "10000") || 10000,
+    pointsMinOrder: parseInt(pointsMinOrder ?? "20000") || 20000,
+    pointsRateTopup: parseInt(pointsRateTopup ?? "10000") || 10000,
+    pointsMinTopup: parseInt(pointsMinTopup ?? "20000") || 20000,
     redeemRate: parseInt(redeemRate ?? "100") || 100,
     minRedeem: parseInt(minRedeem ?? "100") || 100,
   };
@@ -126,11 +130,13 @@ router.get("/admin/settings/points", requireAdmin, async (_req, res) => {
 });
 
 router.put("/admin/settings/points", requireAdmin, async (req, res) => {
-  const { enabled, pointsPerOrder, pointsPerTopup, redeemRate, minRedeem } = req.body ?? {};
+  const { enabled, pointsRateOrder, pointsMinOrder, pointsRateTopup, pointsMinTopup, redeemRate, minRedeem } = req.body ?? {};
   await Promise.all([
     setSettingValue("pointsEnabled", String(!!enabled)),
-    setSettingValue("pointsPerOrder", String(parseInt(pointsPerOrder ?? "10") || 10)),
-    setSettingValue("pointsPerTopup", String(parseInt(pointsPerTopup ?? "5") || 5)),
+    setSettingValue("pointsRateOrder", String(parseInt(pointsRateOrder ?? "10000") || 10000)),
+    setSettingValue("pointsMinOrder", String(parseInt(pointsMinOrder ?? "20000") || 20000)),
+    setSettingValue("pointsRateTopup", String(parseInt(pointsRateTopup ?? "10000") || 10000)),
+    setSettingValue("pointsMinTopup", String(parseInt(pointsMinTopup ?? "20000") || 20000)),
     setSettingValue("pointsRedeemRate", String(parseInt(redeemRate ?? "100") || 100)),
     setSettingValue("pointsMinRedeem", String(parseInt(minRedeem ?? "100") || 100)),
   ]);
