@@ -120,12 +120,29 @@ export default function ConfigConverter() {
     setIsCopied(false);
   };
 
-  const copyToClipboard = () => {
+  const copyToClipboard = async () => {
     if (!result) return;
-    navigator.clipboard.writeText(result);
-    setIsCopied(true);
-    toast({ title: "Tersalin!", description: "Config berhasil disalin ke clipboard." });
-    setTimeout(() => setIsCopied(false), 2000);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(result);
+      } else {
+        // Fallback for HTTP (non-secure) environments
+        const textArea = document.createElement("textarea");
+        textArea.value = result;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+      }
+      setIsCopied(true);
+      toast({ title: "Tersalin!", description: "Config berhasil disalin ke clipboard." });
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (error) {
+      toast({ title: "Gagal menyalin", description: "Browser Anda tidak mendukung fitur salin otomatis.", variant: "destructive" });
+    }
   };
 
   return (
