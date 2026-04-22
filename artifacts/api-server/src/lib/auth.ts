@@ -1,5 +1,8 @@
 import jwt from "jsonwebtoken";
 import type { Request, Response, NextFunction } from "express";
+import { db } from "@workspace/db";
+import { usersTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 const JWT_SECRET = process.env.SESSION_SECRET ?? "dev-secret-change-in-production";
 
@@ -45,7 +48,7 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction) {
   next();
 }
 
-export function requireAdmin(req: Request, res: Response, next: NextFunction) {
+export async function requireAdmin(req: Request, res: Response, next: NextFunction) {
   const token = req.cookies?.token as string | undefined;
   if (!token) {
     res.status(401).json({ error: "Not authenticated" });
@@ -53,10 +56,19 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   }
   try {
     const payload = verifyToken(token);
-    if (payload.role !== "admin") {
+    
+    // Cek database untuk memastikan user masih berstatus admin
+    const [dbUser] = await db
+      .select({ role: usersTable.role })
+      .from(usersTable)
+      .where(eq(usersTable.id, payload.userId))
+      .limit(1);
+
+    if (!dbUser || dbUser.role !== "admin") {
       res.status(403).json({ error: "Forbidden: admin only" });
       return;
     }
+    
     (req as Request & { user: JwtPayload }).user = payload;
     next();
   } catch {
