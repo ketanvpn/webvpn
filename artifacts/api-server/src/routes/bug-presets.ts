@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import { bugPresetsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { requireAdmin } from "../lib/auth";
-import { CreateBugPresetBody, UpdateBugPresetBody } from "@workspace/api-zod";
+import { AdminCreateBugPresetBody, AdminUpdateBugPresetBody } from "@workspace/api-zod";
 
 const router = Router();
 
@@ -38,7 +38,7 @@ router.get("/admin/bug-presets", requireAdmin, async (_req, res) => {
 
 // Admin: Create bug preset
 router.post("/admin/bug-presets", requireAdmin, async (req, res) => {
-  const parsed = CreateBugPresetBody.safeParse(req.body);
+  const parsed = AdminCreateBugPresetBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid input" });
     return;
@@ -64,7 +64,7 @@ router.post("/admin/bug-presets", requireAdmin, async (req, res) => {
 // Admin: Update bug preset
 router.put("/admin/bug-presets/:id", requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id, 10);
-  const parsed = UpdateBugPresetBody.safeParse(req.body);
+  const parsed = AdminUpdateBugPresetBody.safeParse(req.body);
   
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid input" });
