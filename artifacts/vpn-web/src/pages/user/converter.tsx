@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -84,6 +84,7 @@ export default function ConfigConverter() {
   const [selectedBugId, setSelectedBugId] = useState<string>("");
   const [result, setResult] = useState("");
   const [isCopied, setIsCopied] = useState(false);
+  const resultRef = useRef<HTMLDivElement>(null);
 
   const { data: bugs = [], isLoading } = useQuery<BugPreset[]>({
     queryKey: ["bug-presets"],
@@ -119,6 +120,10 @@ export default function ConfigConverter() {
     setResult(convertedLines.join("\n"));
     toast({ title: "Config Berhasil Di-convert!" });
     setIsCopied(false);
+    // Auto-scroll ke hasil, sangat berguna di tampilan ponsel
+    setTimeout(() => {
+      resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
   };
 
   const copyToClipboard = async () => {
@@ -214,35 +219,44 @@ export default function ConfigConverter() {
       </Card>
 
       {result && (
-        <Card className="border-emerald-500/30 bg-emerald-950/10 backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <CardHeader className="pb-3 border-b border-white/5">
-            <CardTitle className="text-emerald-400 flex items-center justify-between">
-              <span>Hasil Convert</span>
-              {isCopied ? (
-                <Badge variant="outline" className="text-emerald-400 border-emerald-400/30 bg-emerald-400/10">
-                  <CheckCircle2 className="w-3 h-3 mr-1" /> Tersalin
-                </Badge>
-              ) : null}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <div className="relative">
-              <Textarea
-                readOnly
-                value={result}
-                className="min-h-[120px] font-mono text-sm bg-background/80 pr-12 focus-visible:ring-emerald-500/30 border-emerald-500/20"
-              />
+        <div ref={resultRef} className="scroll-mt-4">
+          <Card className="border-emerald-500/30 bg-emerald-950/10 backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <CardHeader className="pb-3 border-b border-white/5">
+              <CardTitle className="text-emerald-400 flex items-center justify-between">
+                <span>✅ Hasil Convert</span>
+                {isCopied ? (
+                  <Badge variant="outline" className="text-emerald-400 border-emerald-400/30 bg-emerald-400/10">
+                    <CheckCircle2 className="w-3 h-3 mr-1" /> Tersalin
+                  </Badge>
+                ) : null}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <div className="relative">
+                <Textarea
+                  readOnly
+                  value={result}
+                  className="min-h-[120px] font-mono text-sm bg-background/80 pr-12 focus-visible:ring-emerald-500/30 border-emerald-500/20"
+                />
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="absolute top-2 right-2 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300"
+                  onClick={copyToClipboard}
+                >
+                  {isCopied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                </Button>
+              </div>
               <Button
-                variant="secondary"
-                size="icon"
-                className="absolute top-2 right-2 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300"
                 onClick={copyToClipboard}
+                className="w-full mt-3 gap-2 bg-emerald-600 hover:bg-emerald-500 text-white"
               >
                 {isCopied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                {isCopied ? "Tersalin!" : "Salin Config"}
               </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
     </div>

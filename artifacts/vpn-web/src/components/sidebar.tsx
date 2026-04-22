@@ -133,6 +133,7 @@ const mobileBottomNav: NavItem[] = [
 ];
 
 const mobileMoreNav: NavItem[] = [
+  { title: "Convert Config", href: "/converter", icon: ArrowRightLeft },
   { title: "Bantuan", href: "/tickets", icon: TicketCheck },
   { title: "Program Poin", href: "/points", icon: Star },
   { title: "Riwayat Saldo", href: "/balance/logs", icon: History },
