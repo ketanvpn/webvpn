@@ -54,7 +54,7 @@ async function generateAutoGopayQris(amount: number): Promise<{
 
   if (activeGateway !== "autogopay") return null;
 
-  const apiUrl = (settingsMap["autoGopayApiUrl"] ?? "https://api-gopay.sawargipay.cloud").replace(/\/$/, "");
+  const apiUrl = (settingsMap["autoGopayApiUrl"] ?? "https://v1-gateway.autogopay.site").replace(/\/$/, "");
   const apiKey = settingsMap["autoGopaySecretKey"];
 
   if (!apiKey) {

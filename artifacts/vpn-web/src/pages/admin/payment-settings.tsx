@@ -96,7 +96,7 @@ export default function AdminPaymentSettings() {
       qrisStaticUrl: "",
       qrisExpiryMinutes: 15,
       autoGopayEnabled: false,
-      autoGopayApiUrl: "https://api-gopay.sawargipay.cloud",
+      autoGopayApiUrl: "https://v1-gateway.autogopay.site",
       autoGopaySecretKey: "",
     },
   });
@@ -109,7 +109,7 @@ export default function AdminPaymentSettings() {
         qrisStaticUrl: settings.qrisStaticUrl ?? "",
         qrisExpiryMinutes: settings.qrisExpiryMinutes ?? 15,
         autoGopayEnabled: settings.autoGopayEnabled ?? false,
-        autoGopayApiUrl: settings.autoGopayApiUrl ?? "https://api-gopay.sawargipay.cloud",
+        autoGopayApiUrl: settings.autoGopayApiUrl ?? "https://v1-gateway.autogopay.site",
         autoGopaySecretKey: settings.autoGopaySecretKey ?? "",
       });
     }
@@ -368,13 +368,13 @@ export default function AdminPaymentSettings() {
                     <FormLabel>Base URL API</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="https://api-gopay.sawargipay.cloud"
+                        placeholder="https://v1-gateway.autogopay.site"
                         {...field}
                         value={field.value ?? ""}
                       />
                     </FormControl>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Default: <code className="bg-muted px-1 rounded text-[10px]">https://api-gopay.sawargipay.cloud</code>
+                      Default: <code className="bg-muted px-1 rounded text-[10px]">https://v1-gateway.autogopay.site</code>
                     </p>
                     <FormMessage />
                   </FormItem>

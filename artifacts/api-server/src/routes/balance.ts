@@ -77,7 +77,7 @@ router.post("/balance/topup", requireAuth, async (req, res) => {
     const expiryMinutes = settingsMap["qrisExpiryMinutes"] ? parseInt(settingsMap["qrisExpiryMinutes"], 10) : 15;
     expiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000);
   } else if (activeGateway === "autogopay") {
-    const apiUrl = (settingsMap["autoGopayApiUrl"] ?? "https://api-gopay.sawargipay.cloud").replace(/\/$/, "");
+    const apiUrl = (settingsMap["autoGopayApiUrl"] ?? "https://v1-gateway.autogopay.site").replace(/\/$/, "");
     const apiKey = settingsMap["autoGopaySecretKey"];
 
     if (!apiKey) {
