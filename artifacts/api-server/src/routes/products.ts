@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { productsTable, ordersTable, vpnAccountsTable, serversTable } from "@workspace/db";
+import { productsTable, ordersTable, vpnAccountsTable, serversTable, usersTable } from "@workspace/db";
 import { eq, and, asc, count, gt, inArray } from "drizzle-orm";
 import { getResellerSettings } from "./settings";
 import { optionalAuth } from "../lib/auth";
@@ -53,7 +53,12 @@ async function getActiveCountMap(productIds: number[]): Promise<Map<number, numb
 
 router.get("/products", optionalAuth, async (req, res) => {
   const { protocol, category } = req.query as Record<string, string | undefined>;
-  const userRole = (req as any).user?.role ?? "user";
+  let userRole = (req as any).user?.role ?? "user";
+  const userId = (req as any).user?.userId;
+  if (userId) {
+    const [dbUser] = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    if (dbUser) userRole = dbUser.role;
+  }
 
   const conditions = [eq(productsTable.isActive, true)];
   if (protocol) conditions.push(eq(productsTable.protocol, protocol));
@@ -78,7 +83,12 @@ router.get("/products", optionalAuth, async (req, res) => {
 
 router.get("/products/:id", optionalAuth, async (req, res) => {
   const id = parseInt(req.params.id, 10);
-  const userRole = (req as any).user?.role ?? "user";
+  let userRole = (req as any).user?.role ?? "user";
+  const userId = (req as any).user?.userId;
+  if (userId) {
+    const [dbUser] = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    if (dbUser) userRole = dbUser.role;
+  }
 
   const [row] = await db
     .select({ product: productsTable, serverName: serversTable.name })
