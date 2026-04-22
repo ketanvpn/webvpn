@@ -580,6 +580,56 @@ export interface ValidateVoucherResponse {
   message?: string;
 }
 
+export type BugPresetMode = (typeof BugPresetMode)[keyof typeof BugPresetMode];
+
+export const BugPresetMode = {
+  wildcard: "wildcard",
+  sni: "sni",
+  host: "host",
+} as const;
+
+export interface BugPreset {
+  id: number;
+  name: string;
+  bugDomain: string;
+  mode: BugPresetMode;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CreateBugPresetBodyMode =
+  (typeof CreateBugPresetBodyMode)[keyof typeof CreateBugPresetBodyMode];
+
+export const CreateBugPresetBodyMode = {
+  wildcard: "wildcard",
+  sni: "sni",
+  host: "host",
+} as const;
+
+export interface CreateBugPresetBody {
+  name: string;
+  bugDomain: string;
+  mode: CreateBugPresetBodyMode;
+  isActive?: boolean;
+}
+
+export type UpdateBugPresetBodyMode =
+  (typeof UpdateBugPresetBodyMode)[keyof typeof UpdateBugPresetBodyMode];
+
+export const UpdateBugPresetBodyMode = {
+  wildcard: "wildcard",
+  sni: "sni",
+  host: "host",
+} as const;
+
+export interface UpdateBugPresetBody {
+  name?: string;
+  bugDomain?: string;
+  mode?: UpdateBugPresetBodyMode;
+  isActive?: boolean;
+}
+
 export type UpdateProfileBody = {
   fullName?: string | null;
   email?: string;
@@ -799,4 +849,8 @@ export type GetTelegramLink200 = {
 
 export type UnlinkTelegram200 = {
   success: boolean;
+};
+
+export type AdminDeleteBugPreset200 = {
+  success?: boolean;
 };

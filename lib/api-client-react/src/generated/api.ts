@@ -21,6 +21,7 @@ import type {
   AdminBroadcast200,
   AdminBroadcastBody,
   AdminDashboard,
+  AdminDeleteBugPreset200,
   AdminDeleteUser200,
   AdminExtendAccount200,
   AdminExtendAccountBody,
@@ -41,9 +42,11 @@ import type {
   AuthResponse,
   BalanceLogList,
   BalanceResponse,
+  BugPreset,
   ChangePasswordBody,
   CheckUsername200,
   CheckUsernameParams,
+  CreateBugPresetBody,
   CreateOrderBody,
   CreateProductBody,
   CreateServerBody,
@@ -75,6 +78,7 @@ import type {
   TopupResponse,
   TopupTransaction,
   UnlinkTelegram200,
+  UpdateBugPresetBody,
   UpdateProductBody,
   UpdateProfileBody,
   UpdateServerBody,
@@ -5627,4 +5631,411 @@ export const useValidateVoucher = <
   TContext
 > => {
   return useMutation(getValidateVoucherMutationOptions(options));
+};
+
+/**
+ * @summary List all active bug presets for users
+ */
+export const getListBugPresetsUrl = () => {
+  return `/api/bug-presets`;
+};
+
+export const listBugPresets = async (
+  options?: RequestInit,
+): Promise<BugPreset[]> => {
+  return customFetch<BugPreset[]>(getListBugPresetsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListBugPresetsQueryKey = () => {
+  return [`/api/bug-presets`] as const;
+};
+
+export const getListBugPresetsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listBugPresets>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listBugPresets>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListBugPresetsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listBugPresets>>> = ({
+    signal,
+  }) => listBugPresets({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listBugPresets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListBugPresetsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listBugPresets>>
+>;
+export type ListBugPresetsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all active bug presets for users
+ */
+
+export function useListBugPresets<
+  TData = Awaited<ReturnType<typeof listBugPresets>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listBugPresets>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListBugPresetsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all bug presets (admin)
+ */
+export const getAdminListBugPresetsUrl = () => {
+  return `/api/admin/bug-presets`;
+};
+
+export const adminListBugPresets = async (
+  options?: RequestInit,
+): Promise<BugPreset[]> => {
+  return customFetch<BugPreset[]>(getAdminListBugPresetsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListBugPresetsQueryKey = () => {
+  return [`/api/admin/bug-presets`] as const;
+};
+
+export const getAdminListBugPresetsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListBugPresets>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListBugPresets>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminListBugPresetsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListBugPresets>>
+  > = ({ signal }) => adminListBugPresets({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListBugPresets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListBugPresetsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListBugPresets>>
+>;
+export type AdminListBugPresetsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all bug presets (admin)
+ */
+
+export function useAdminListBugPresets<
+  TData = Awaited<ReturnType<typeof adminListBugPresets>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListBugPresets>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListBugPresetsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new bug preset (admin)
+ */
+export const getAdminCreateBugPresetUrl = () => {
+  return `/api/admin/bug-presets`;
+};
+
+export const adminCreateBugPreset = async (
+  createBugPresetBody: CreateBugPresetBody,
+  options?: RequestInit,
+): Promise<BugPreset> => {
+  return customFetch<BugPreset>(getAdminCreateBugPresetUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createBugPresetBody),
+  });
+};
+
+export const getAdminCreateBugPresetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateBugPreset>>,
+    TError,
+    { data: BodyType<CreateBugPresetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminCreateBugPreset>>,
+  TError,
+  { data: BodyType<CreateBugPresetBody> },
+  TContext
+> => {
+  const mutationKey = ["adminCreateBugPreset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminCreateBugPreset>>,
+    { data: BodyType<CreateBugPresetBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminCreateBugPreset(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminCreateBugPresetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminCreateBugPreset>>
+>;
+export type AdminCreateBugPresetMutationBody = BodyType<CreateBugPresetBody>;
+export type AdminCreateBugPresetMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a new bug preset (admin)
+ */
+export const useAdminCreateBugPreset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateBugPreset>>,
+    TError,
+    { data: BodyType<CreateBugPresetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminCreateBugPreset>>,
+  TError,
+  { data: BodyType<CreateBugPresetBody> },
+  TContext
+> => {
+  return useMutation(getAdminCreateBugPresetMutationOptions(options));
+};
+
+/**
+ * @summary Update a bug preset (admin)
+ */
+export const getAdminUpdateBugPresetUrl = (id: number) => {
+  return `/api/admin/bug-presets/${id}`;
+};
+
+export const adminUpdateBugPreset = async (
+  id: number,
+  updateBugPresetBody: UpdateBugPresetBody,
+  options?: RequestInit,
+): Promise<BugPreset> => {
+  return customFetch<BugPreset>(getAdminUpdateBugPresetUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateBugPresetBody),
+  });
+};
+
+export const getAdminUpdateBugPresetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateBugPreset>>,
+    TError,
+    { id: number; data: BodyType<UpdateBugPresetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateBugPreset>>,
+  TError,
+  { id: number; data: BodyType<UpdateBugPresetBody> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateBugPreset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateBugPreset>>,
+    { id: number; data: BodyType<UpdateBugPresetBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminUpdateBugPreset(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateBugPresetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateBugPreset>>
+>;
+export type AdminUpdateBugPresetMutationBody = BodyType<UpdateBugPresetBody>;
+export type AdminUpdateBugPresetMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a bug preset (admin)
+ */
+export const useAdminUpdateBugPreset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateBugPreset>>,
+    TError,
+    { id: number; data: BodyType<UpdateBugPresetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateBugPreset>>,
+  TError,
+  { id: number; data: BodyType<UpdateBugPresetBody> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateBugPresetMutationOptions(options));
+};
+
+/**
+ * @summary Delete a bug preset (admin)
+ */
+export const getAdminDeleteBugPresetUrl = (id: number) => {
+  return `/api/admin/bug-presets/${id}`;
+};
+
+export const adminDeleteBugPreset = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminDeleteBugPreset200> => {
+  return customFetch<AdminDeleteBugPreset200>(getAdminDeleteBugPresetUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getAdminDeleteBugPresetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteBugPreset>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeleteBugPreset>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDeleteBugPreset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeleteBugPreset>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDeleteBugPreset(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeleteBugPresetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeleteBugPreset>>
+>;
+
+export type AdminDeleteBugPresetMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a bug preset (admin)
+ */
+export const useAdminDeleteBugPreset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteBugPreset>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeleteBugPreset>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDeleteBugPresetMutationOptions(options));
 };

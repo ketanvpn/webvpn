@@ -27,6 +27,8 @@ tags:
     description: VPN servers management
   - name: dashboard
     description: Dashboard stats
+  - name: bug-presets
+    description: Bug presets and converter config
 
 paths:
   /healthz:
@@ -1665,6 +1667,107 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  # ─── Bug Presets ──────────────────────────────────────────────────────
+  /bug-presets:
+    get:
+      operationId: listBugPresets
+      tags: [bug-presets]
+      summary: List all active bug presets for users
+      responses:
+        "200":
+          description: List of bug presets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BugPreset"
+
+  /admin/bug-presets:
+    get:
+      operationId: adminListBugPresets
+      tags: [admin]
+      summary: List all bug presets (admin)
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: List of bug presets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BugPreset"
+    post:
+      operationId: adminCreateBugPreset
+      tags: [admin]
+      summary: Create a new bug preset (admin)
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBugPresetBody"
+      responses:
+        "201":
+          description: Bug preset created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BugPreset"
+
+  /admin/bug-presets/{id}:
+    put:
+      operationId: adminUpdateBugPreset
+      tags: [admin]
+      summary: Update a bug preset (admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBugPresetBody"
+      responses:
+        "200":
+          description: Bug preset updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BugPreset"
+    delete:
+      operationId: adminDeleteBugPreset
+      tags: [admin]
+      summary: Delete a bug preset (admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Bug preset deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
 components:
   securitySchemes:
     cookieAuth:
@@ -2581,3 +2684,54 @@ components:
           type: number
         message:
           type: string
+
+    # ─── Bug Presets ──────────────────────────────────────────────────────
+    BugPreset:
+      type: object
+      required: [id, name, bugDomain, mode, isActive, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        bugDomain:
+          type: string
+        mode:
+          type: string
+          enum: [wildcard, sni, host]
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateBugPresetBody:
+      type: object
+      required: [name, bugDomain, mode]
+      properties:
+        name:
+          type: string
+        bugDomain:
+          type: string
+        mode:
+          type: string
+          enum: [wildcard, sni, host]
+        isActive:
+          type: boolean
+          default: true
+
+    UpdateBugPresetBody:
+      type: object
+      properties:
+        name:
+          type: string
+        bugDomain:
+          type: string
+        mode:
+          type: string
+          enum: [wildcard, sni, host]
+        isActive:
+          type: boolean

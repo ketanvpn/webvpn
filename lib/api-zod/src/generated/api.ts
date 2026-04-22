@@ -2293,3 +2293,80 @@ export const ValidateVoucherResponse = zod.object({
   finalPrice: zod.number(),
   message: zod.string().optional(),
 });
+
+/**
+ * @summary List all active bug presets for users
+ */
+export const ListBugPresetsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  bugDomain: zod.string(),
+  mode: zod.enum(["wildcard", "sni", "host"]),
+  isActive: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListBugPresetsResponse = zod.array(ListBugPresetsResponseItem);
+
+/**
+ * @summary List all bug presets (admin)
+ */
+export const AdminListBugPresetsResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  bugDomain: zod.string(),
+  mode: zod.enum(["wildcard", "sni", "host"]),
+  isActive: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const AdminListBugPresetsResponse = zod.array(
+  AdminListBugPresetsResponseItem,
+);
+
+/**
+ * @summary Create a new bug preset (admin)
+ */
+export const adminCreateBugPresetBodyIsActiveDefault = true;
+
+export const AdminCreateBugPresetBody = zod.object({
+  name: zod.string(),
+  bugDomain: zod.string(),
+  mode: zod.enum(["wildcard", "sni", "host"]),
+  isActive: zod.boolean().default(adminCreateBugPresetBodyIsActiveDefault),
+});
+
+/**
+ * @summary Update a bug preset (admin)
+ */
+export const AdminUpdateBugPresetParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateBugPresetBody = zod.object({
+  name: zod.string().optional(),
+  bugDomain: zod.string().optional(),
+  mode: zod.enum(["wildcard", "sni", "host"]).optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const AdminUpdateBugPresetResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  bugDomain: zod.string(),
+  mode: zod.enum(["wildcard", "sni", "host"]),
+  isActive: zod.boolean(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a bug preset (admin)
+ */
+export const AdminDeleteBugPresetParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminDeleteBugPresetResponse = zod.object({
+  success: zod.boolean().optional(),
+});

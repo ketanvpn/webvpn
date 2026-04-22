@@ -1,0 +1,232 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { Bug, Copy, ArrowRightLeft, CheckCircle2 } from "lucide-react";
+
+const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
+
+async function apiFetch(path: string) {
+  const res = await fetch(`${API}${path}`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch");
+  return res.json();
+}
+
+type BugPreset = {
+  id: number;
+  name: string;
+  bugDomain: string;
+  mode: "wildcard" | "sni" | "host";
+  isActive: boolean;
+};
+
+function convertVmess(raw: string, bug: BugPreset) {
+  try {
+    const b64 = raw.replace("vmess://", "");
+    const decoded = atob(b64);
+    const json = JSON.parse(decoded);
+    
+    const originalHost = json.host || json.add;
+    
+    if (bug.mode === "wildcard") {
+      json.add = bug.bugDomain;
+      json.host = `${bug.bugDomain}.${originalHost}`;
+      json.sni = `${bug.bugDomain}.${originalHost}`;
+    } else if (bug.mode === "sni") {
+      // json.add = originalHost; // Keep original
+      json.sni = bug.bugDomain;
+    } else if (bug.mode === "host") {
+      // json.add = originalHost; // Keep original
+      json.host = bug.bugDomain;
+    }
+    
+    return "vmess://" + btoa(JSON.stringify(json));
+  } catch (e) {
+    return null;
+  }
+}
+
+function convertVlessOrTrojan(raw: string, bug: BugPreset) {
+  try {
+    const url = new URL(raw);
+    const params = new URLSearchParams(url.search);
+    
+    const originalHost = url.hostname;
+    const originalSni = params.get("sni") || originalHost;
+    const originalHostParam = params.get("host") || originalHost;
+    
+    if (bug.mode === "wildcard") {
+      url.hostname = bug.bugDomain;
+      params.set("host", `${bug.bugDomain}.${originalHostParam}`);
+      params.set("sni", `${bug.bugDomain}.${originalSni}`);
+    } else if (bug.mode === "sni") {
+      params.set("sni", bug.bugDomain);
+    } else if (bug.mode === "host") {
+      params.set("host", bug.bugDomain);
+    }
+    
+    url.search = params.toString();
+    // Re-decode the URL components to keep it cleaner
+    return url.toString().replace(/%2F/g, "/").replace(/%3A/g, ":");
+  } catch (e) {
+    return null;
+  }
+}
+
+export default function ConfigConverter() {
+  const { toast } = useToast();
+  const [rawConfig, setRawConfig] = useState("");
+  const [selectedBugId, setSelectedBugId] = useState<string>("");
+  const [result, setResult] = useState("");
+  const [isCopied, setIsCopied] = useState(false);
+
+  const { data: bugs = [], isLoading } = useQuery<BugPreset[]>({
+    queryKey: ["bug-presets"],
+    queryFn: () => apiFetch("/bug-presets"),
+  });
+
+  const handleConvert = () => {
+    if (!rawConfig.trim()) {
+      toast({ title: "Masukkan Config", description: "Config mentah tidak boleh kosong.", variant: "destructive" });
+      return;
+    }
+    if (!selectedBugId) {
+      toast({ title: "Pilih Bug", description: "Silakan pilih preset bug terlebih dahulu.", variant: "destructive" });
+      return;
+    }
+
+    const bug = bugs.find((b) => b.id.toString() === selectedBugId);
+    if (!bug) return;
+
+    const lines = rawConfig.split("\n").map(l => l.trim()).filter(Boolean);
+    const convertedLines = lines.map(line => {
+      if (line.startsWith("vmess://")) return convertVmess(line, bug) || line;
+      if (line.startsWith("vless://") || line.startsWith("trojan://")) return convertVlessOrTrojan(line, bug) || line;
+      return line; // Not recognized, leave as is
+    });
+
+    const isAllFailed = convertedLines.every((l, i) => l === lines[i]);
+    if (isAllFailed) {
+      toast({ title: "Gagal Mengonversi", description: "Format config tidak valid atau tidak didukung.", variant: "destructive" });
+      return;
+    }
+
+    setResult(convertedLines.join("\n"));
+    toast({ title: "Config Berhasil Di-convert!" });
+    setIsCopied(false);
+  };
+
+  const copyToClipboard = () => {
+    if (!result) return;
+    navigator.clipboard.writeText(result);
+    setIsCopied(true);
+    toast({ title: "Tersalin!", description: "Config berhasil disalin ke clipboard." });
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  return (
+    <div className="space-y-6 max-w-4xl mx-auto">
+      <div>
+        <h1 className="text-2xl font-bold">Alat Convert Config</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          Ubah konfigurasi akun VPN mentah (VMess, VLess, Trojan) Anda dengan otomatis menyisipkan Bug/SNI Trik.
+        </p>
+      </div>
+
+      <Card className="border-primary/20 bg-card/40 backdrop-blur-md shadow-xl overflow-hidden relative">
+        {/* Dekorasi Background */}
+        <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/20 rounded-full blur-[80px] pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-purple-500/10 rounded-full blur-[80px] pointer-events-none" />
+
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ArrowRightLeft className="w-5 h-5 text-primary" />
+            Config Injector
+          </CardTitle>
+          <CardDescription>
+            Pilih bug yang ingin digunakan, lalu tempel akun VPN Anda di bawah ini.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          
+          <div className="space-y-2">
+            <Label className="font-semibold text-base">1. Pilih Preset Bug</Label>
+            <Select value={selectedBugId} onValueChange={setSelectedBugId}>
+              <SelectTrigger className="bg-background/50 h-12">
+                <SelectValue placeholder={isLoading ? "Memuat preset..." : "Klik untuk memilih bug..."} />
+              </SelectTrigger>
+              <SelectContent>
+                {bugs.map((bug) => (
+                  <SelectItem key={bug.id} value={bug.id.toString()}>
+                    <div className="flex items-center gap-2">
+                      <Bug className="w-4 h-4 text-primary" />
+                      <span>{bug.name}</span>
+                      <span className="text-xs text-muted-foreground ml-2">({bug.bugDomain})</span>
+                    </div>
+                  </SelectItem>
+                ))}
+                {bugs.length === 0 && !isLoading && (
+                  <div className="p-2 text-sm text-muted-foreground text-center">Belum ada preset bug.</div>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="font-semibold text-base">2. Config Mentah (Raw)</Label>
+            <Textarea
+              placeholder="Tempel config vmess://, vless://, atau trojan:// di sini..."
+              className="min-h-[120px] font-mono text-sm bg-background/50 resize-y"
+              value={rawConfig}
+              onChange={(e) => setRawConfig(e.target.value)}
+            />
+          </div>
+
+        </CardContent>
+        <CardFooter className="bg-primary/5 flex justify-end p-4 border-t border-white/5">
+          <Button onClick={handleConvert} size="lg" className="w-full sm:w-auto shadow-lg shadow-primary/20">
+            <ArrowRightLeft className="w-4 h-4 mr-2" />
+            Convert Sekarang
+          </Button>
+        </CardFooter>
+      </Card>
+
+      {result && (
+        <Card className="border-emerald-500/30 bg-emerald-950/10 backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <CardHeader className="pb-3 border-b border-white/5">
+            <CardTitle className="text-emerald-400 flex items-center justify-between">
+              <span>Hasil Convert</span>
+              {isCopied ? (
+                <Badge variant="outline" className="text-emerald-400 border-emerald-400/30 bg-emerald-400/10">
+                  <CheckCircle2 className="w-3 h-3 mr-1" /> Tersalin
+                </Badge>
+              ) : null}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="relative">
+              <Textarea
+                readOnly
+                value={result}
+                className="min-h-[120px] font-mono text-sm bg-background/80 pr-12 focus-visible:ring-emerald-500/30 border-emerald-500/20"
+              />
+              <Button
+                variant="secondary"
+                size="icon"
+                className="absolute top-2 right-2 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300"
+                onClick={copyToClipboard}
+              >
+                {isCopied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+    </div>
+  );
+}

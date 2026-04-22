@@ -29,6 +29,8 @@ import {
   Tag,
   MoreHorizontal,
   ChevronRight,
+  Bug,
+  ArrowRightLeft,
 } from "lucide-react";
 import {
   Sheet,
@@ -66,6 +68,7 @@ const userNav: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Produk VPN", href: "/products", icon: Package },
   { title: "Akun VPN", href: "/accounts", icon: Server },
+  { title: "Convert Config", href: "/converter", icon: ArrowRightLeft },
   { title: "Riwayat Order", href: "/orders", icon: ShoppingCart },
   { title: "Saldo", href: "/balance", icon: Wallet },
   { title: "Riwayat Saldo", href: "/balance/logs", icon: History },
@@ -93,6 +96,7 @@ const adminNav: NavItem[] = [
   { title: "Tiket Bantuan", href: "/admin/tickets", icon: TicketCheck, badgeKey: "pendingTickets" },
   { title: "Pengumuman", href: "/admin/announcements", icon: Megaphone },
   { title: "Sistem Poin", href: "/admin/settings/points", icon: Star },
+  { title: "Manajemen Bug", href: "/admin/bug-presets", icon: Bug },
   { title: "Broadcast", href: "/admin/broadcast", icon: Send },
   { title: "Backup & Restore DB", href: "/admin/backup", icon: HardDrive },
 ];
@@ -116,6 +120,7 @@ const adminPageTitles: Record<string, string> = {
   "/admin/tickets": "Tiket Bantuan",
   "/admin/announcements": "Pengumuman",
   "/admin/settings/points": "Sistem Poin",
+  "/admin/bug-presets": "Manajemen Bug",
   "/admin/broadcast": "Broadcast",
   "/admin/backup": "Backup & Restore DB",
 };

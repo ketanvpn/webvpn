@@ -11,3 +11,4 @@ export * from "./vouchers";
 export * from "./announcements";
 export * from "./points";
 export * from "./tickets";
+export * from "./bug_presets";

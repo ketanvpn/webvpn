@@ -24,6 +24,7 @@ import Profile from "@/pages/user/profile";
 import UserPoints from "@/pages/user/points";
 import UserTickets from "@/pages/user/tickets";
 import UserTicketDetail from "@/pages/user/ticket-detail";
+import ConfigConverter from "@/pages/user/converter";
 
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminUsers from "@/pages/admin/users";
@@ -47,6 +48,7 @@ import AdminTickets from "@/pages/admin/tickets";
 import AdminTicketDetail from "@/pages/admin/ticket-detail";
 import AdminServerMonitor from "@/pages/admin/server-monitor";
 import AdminVouchers from "@/pages/admin/vouchers";
+import AdminBugPresets from "@/pages/admin/bug-presets";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -104,6 +106,9 @@ function Router() {
       </Route>
       <Route path="/tickets/:id">
         <Layout><UserTicketDetail /></Layout>
+      </Route>
+      <Route path="/converter">
+        <Layout><ConfigConverter /></Layout>
       </Route>
 
       {/* Admin Routes */}
@@ -172,6 +177,9 @@ function Router() {
       </Route>
       <Route path="/admin/vouchers">
         <Layout requireAdmin><AdminVouchers /></Layout>
+      </Route>
+      <Route path="/admin/bug-presets">
+        <Layout requireAdmin><AdminBugPresets /></Layout>
       </Route>
 
       <Route component={NotFound} />

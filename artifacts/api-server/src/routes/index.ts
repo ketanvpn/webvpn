@@ -20,6 +20,7 @@ import vouchersRouter from "./vouchers";
 import announcementsRouter from "./announcements";
 import pointsRouter from "./points";
 import ticketsRouter from "./tickets";
+import bugPresetsRouter from "./bug-presets";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(vouchersRouter);
 router.use(announcementsRouter);
 router.use(pointsRouter);
 router.use(ticketsRouter);
+router.use(bugPresetsRouter);
 
 export default router;
