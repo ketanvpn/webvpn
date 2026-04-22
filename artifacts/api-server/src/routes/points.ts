@@ -52,14 +52,14 @@ export async function getPointsSettings(): Promise<{ enabled: boolean; pointsRat
 // ─── User routes ──────────────────────────────────────────────────────────────
 
 router.get("/points", requireAuth, async (req, res) => {
-  const userId = (req as any).user.id;
+  const userId = req.user!.userId;
   const [user] = await db.select({ points: usersTable.points }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
   const settings = await getPointsSettings();
   res.json({ points: user?.points ?? 0, settings });
 });
 
 router.get("/points/logs", requireAuth, async (req, res) => {
-  const userId = (req as any).user.id;
+  const userId = req.user!.userId;
   const logs = await db
     .select()
     .from(pointLogsTable)
