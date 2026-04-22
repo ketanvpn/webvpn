@@ -8,6 +8,7 @@ import { getPaymentSettingsMap } from "./settings";
 import { logger } from "../lib/logger";
 import { fulfillOrder } from "./orders";
 import { notifyUserTopupConfirmed, notifyAdminTopupAutoConfirmed } from "../lib/telegram";
+import { addPoints, getPointsSettings } from "./points";
 
 const router = Router();
 
@@ -158,6 +159,18 @@ router.post("/webhooks/autogopay", async (req, res) => {
 
       // Cek apakah user layak auto-upgrade jadi reseller
       tryAutoUpgradeReseller(topup.userId, Number(topup.amount)).catch(() => {});
+
+      // Tambah poin jika sistem poin aktif (topup via QRIS otomatis)
+      getPointsSettings().then(async (pts) => {
+        const topupAmount = Number(topup.amount);
+        if (pts.enabled && topupAmount >= pts.pointsMinTopup && pts.pointsRateTopup > 0) {
+          const pointsEarned = Math.floor(topupAmount / pts.pointsRateTopup);
+          if (pointsEarned > 0) {
+            await addPoints(topup.userId, pointsEarned, "topup", `Topup QRIS otomatis #${topup.id}`, topup.id);
+            logger.info({ topupId: topup.id, userId: topup.userId, pointsEarned }, "AutoGoPay: points added after QRIS topup");
+          }
+        }
+      }).catch((err) => logger.error({ err }, "[webhook] addPoints for QRIS topup failed"));
 
       res.json({ success: true });
       return;
