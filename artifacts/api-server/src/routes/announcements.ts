@@ -29,6 +29,12 @@ router.post("/admin/announcements", requireAdmin, async (req, res) => {
     return;
   }
   const finalType = VALID_TYPES.includes(type) ? type : "info";
+  const parseDate = (d: any) => {
+    if (!d) return null;
+    const p = new Date(d);
+    return isNaN(p.getTime()) ? null : p;
+  };
+
   const [row] = await db
     .insert(announcementsTable)
     .values({
@@ -36,8 +42,8 @@ router.post("/admin/announcements", requireAdmin, async (req, res) => {
       content: content.trim(),
       type: finalType,
       isActive: isActive !== false,
-      startAt: startAt ? new Date(startAt) : null,
-      endAt: endAt ? new Date(endAt) : null,
+      startAt: parseDate(startAt),
+      endAt: parseDate(endAt),
     })
     .returning();
   res.status(201).json(row);
@@ -53,8 +59,23 @@ router.put("/admin/announcements/:id", requireAdmin, async (req, res) => {
   if (content !== undefined) updateData.content = String(content).trim();
   if (type !== undefined && VALID_TYPES.includes(type)) updateData.type = type;
   if (isActive !== undefined) updateData.isActive = Boolean(isActive);
-  if ("startAt" in req.body) updateData.startAt = startAt ? new Date(startAt) : null;
-  if ("endAt" in req.body) updateData.endAt = endAt ? new Date(endAt) : null;
+  
+  if ("startAt" in req.body) {
+    if (!startAt) {
+      updateData.startAt = null;
+    } else {
+      const d = new Date(startAt);
+      updateData.startAt = isNaN(d.getTime()) ? null : d;
+    }
+  }
+  if ("endAt" in req.body) {
+    if (!endAt) {
+      updateData.endAt = null;
+    } else {
+      const d = new Date(endAt);
+      updateData.endAt = isNaN(d.getTime()) ? null : d;
+    }
+  }
 
   const [row] = await db
     .update(announcementsTable)
