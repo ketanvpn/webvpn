@@ -64,8 +64,8 @@ export default function AdminAnnouncements() {
         content: form.content,
         type: form.type,
         isActive: form.isActive,
-        startAt: form.startAt || null,
-        endAt: form.endAt || null,
+        startAt: form.startAt ? new Date(form.startAt).toISOString() : null,
+        endAt: form.endAt ? new Date(form.endAt).toISOString() : null,
       };
       if (editing) {
         return apiFetch(`/admin/announcements/${editing.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -96,14 +96,25 @@ export default function AdminAnnouncements() {
   };
 
   const openEdit = (a: Announcement) => {
+    const safeFormat = (dateStr: string | null) => {
+      if (!dateStr) return "";
+      try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return "";
+        return format(d, "yyyy-MM-dd'T'HH:mm");
+      } catch {
+        return "";
+      }
+    };
+
     setEditing(a);
     setForm({
       title: a.title,
       content: a.content,
       type: a.type,
       isActive: a.isActive,
-      startAt: a.startAt ? format(new Date(a.startAt), "yyyy-MM-dd'T'HH:mm") : "",
-      endAt: a.endAt ? format(new Date(a.endAt), "yyyy-MM-dd'T'HH:mm") : "",
+      startAt: safeFormat(a.startAt),
+      endAt: safeFormat(a.endAt),
     });
     setOpen(true);
   };
