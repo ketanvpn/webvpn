@@ -19,7 +19,9 @@ router.get("/admin/announcements", requireAdmin, async (_req, res) => {
 });
 
 router.post("/admin/announcements", requireAdmin, async (req, res) => {
+  console.log("[DEBUG POST] req.body:", JSON.stringify(req.body));
   const { title, content, type, isActive, startAt, endAt } = req.body ?? {};
+  console.log("[DEBUG POST] startAt:", startAt, "endAt:", endAt);
   if (!title || typeof title !== "string" || title.trim().length < 1) {
     res.status(400).json({ error: "Judul wajib diisi" });
     return;

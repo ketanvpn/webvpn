@@ -59,6 +59,8 @@ export default function AdminAnnouncements() {
 
   const save = useMutation({
     mutationFn: async () => {
+      console.log("[DEBUG] form.startAt:", JSON.stringify(form.startAt));
+      console.log("[DEBUG] form.endAt:", JSON.stringify(form.endAt));
       const body = {
         title: form.title,
         content: form.content,
@@ -67,6 +69,7 @@ export default function AdminAnnouncements() {
         startAt: form.startAt ? new Date(form.startAt).toISOString() : null,
         endAt: form.endAt ? new Date(form.endAt).toISOString() : null,
       };
+      console.log("[DEBUG] body being sent:", JSON.stringify(body));
       if (editing) {
         return apiFetch(`/admin/announcements/${editing.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       }
