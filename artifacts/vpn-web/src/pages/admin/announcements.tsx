@@ -102,8 +102,8 @@ export default function AdminAnnouncements() {
       content: a.content,
       type: a.type,
       isActive: a.isActive,
-      startAt: a.startAt ? a.startAt.slice(0, 16) : "",
-      endAt: a.endAt ? a.endAt.slice(0, 16) : "",
+      startAt: a.startAt ? format(new Date(a.startAt), "yyyy-MM-dd'T'HH:mm") : "",
+      endAt: a.endAt ? format(new Date(a.endAt), "yyyy-MM-dd'T'HH:mm") : "",
     });
     setOpen(true);
   };
