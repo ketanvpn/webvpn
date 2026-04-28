@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Megaphone, Info, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, Megaphone, Info, AlertTriangle, CheckCircle, XCircle, Calendar } from "lucide-react";
 import { format } from "date-fns";
 
 const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
@@ -59,8 +59,6 @@ export default function AdminAnnouncements() {
 
   const save = useMutation({
     mutationFn: async () => {
-      console.log("[DEBUG] form.startAt:", JSON.stringify(form.startAt));
-      console.log("[DEBUG] form.endAt:", JSON.stringify(form.endAt));
       const body = {
         title: form.title,
         content: form.content,
@@ -69,7 +67,6 @@ export default function AdminAnnouncements() {
         startAt: form.startAt ? new Date(form.startAt).toISOString() : null,
         endAt: form.endAt ? new Date(form.endAt).toISOString() : null,
       };
-      console.log("[DEBUG] body being sent:", JSON.stringify(body));
       if (editing) {
         return apiFetch(`/admin/announcements/${editing.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       }
@@ -232,12 +229,28 @@ export default function AdminAnnouncements() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Mulai Tayang (opsional)</Label>
-                <Input type="datetime-local" value={form.startAt} onChange={(e) => setForm((f) => ({ ...f, startAt: e.target.value }))} />
+                <Label className="flex items-center gap-1.5"><Calendar size={13} className="text-primary" /> Mulai Tayang (opsional)</Label>
+                <div className="relative">
+                  <Input
+                    type="datetime-local"
+                    value={form.startAt}
+                    onChange={(e) => setForm((f) => ({ ...f, startAt: e.target.value }))}
+                    className="cursor-pointer [color-scheme:dark]"
+                  />
+                  {!form.startAt && <p className="text-[10px] text-muted-foreground/60 mt-1">Klik untuk pilih tanggal</p>}
+                </div>
               </div>
               <div className="space-y-1.5">
-                <Label>Berakhir (opsional)</Label>
-                <Input type="datetime-local" value={form.endAt} onChange={(e) => setForm((f) => ({ ...f, endAt: e.target.value }))} />
+                <Label className="flex items-center gap-1.5"><Calendar size={13} className="text-primary" /> Berakhir (opsional)</Label>
+                <div className="relative">
+                  <Input
+                    type="datetime-local"
+                    value={form.endAt}
+                    onChange={(e) => setForm((f) => ({ ...f, endAt: e.target.value }))}
+                    className="cursor-pointer [color-scheme:dark]"
+                  />
+                  {!form.endAt && <p className="text-[10px] text-muted-foreground/60 mt-1">Klik untuk pilih tanggal</p>}
+                </div>
               </div>
             </div>
           </div>
