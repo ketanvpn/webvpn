@@ -402,6 +402,7 @@ export async function handleGiftSaldo(chatId: number, username: string, amount: 
       amount: amount.toString(),
       type: "compensation",
       description: `Kompensasi saldo dari Admin`,
+      balanceBefore: user.balance ? user.balance.toString() : "0",
       balanceAfter: newBalance.toString(),
     });
   });
