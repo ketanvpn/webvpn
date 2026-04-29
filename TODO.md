@@ -36,12 +36,76 @@ Penyelesaian *error* TypeScript yang menumpuk agar performa dan stabilitas aplik
 - [x] **2. Frontend: Perbaikan Animasi Framer Motion**
   Memperbaiki *error* tipe data pada konfigurasi `ease` di komponen *Home* (Sultan Glassmorphism).
 
-- [ ] **3. Backend: Perbaikan Tipe Data Query Parameter**
-  Memperbaiki penanganan `string | string[]` dari Fastify query parameter agar aman dari potensi *crash* (di rute tickets, vouchers, accounts, dsb).
+- [x] **3. Backend: Perbaikan Tipe Data Query Parameter**
+  Memperbaiki penanganan `string | string[]` dari Express query/params parameter agar aman dari potensi *crash* (di rute tickets, vouchers, accounts, dsb).
 
-- [ ] **4. Backend: Perbaikan Tipe Objek Telegram Admin**
+- [x] **4. Backend: Perbaikan Tipe Objek Telegram Admin**
   Menghapus/menyesuaikan *property* `uuid` yang menyebabkan *error* TypeScript pada fungsi sinkronisasi *server* VPN di `/admin`.
 
-- [ ] **5. Backend: Penyelesaian "Implicit Any"**
+- [x] **5. Backend: Penyelesaian "Implicit Any"**
   Menambahkan tipe eksplisit pada *handler request/reply* dan variabel yang saat ini masih `any` di rute-rute *backend*.
+
+---
+
+## 🚀 Fase 3: Fitur Lanjutan & Peningkatan Layanan
+
+Fitur-fitur baru untuk meningkatkan kualitas produk, akuisisi user, dan keamanan sistem.
+
+### 🔴 Prioritas Tinggi
+
+- [ ] **7. Redesign Landing Page & SEO**
+  Upgrade tampilan halaman depan agar lebih menarik untuk akuisisi user baru. Optimasi meta tags, heading structure, dan performa loading.
+  *Tingkat Risiko: Rendah*
+  *⚠️ Kendala: Harus hati-hati agar perubahan CSS tidak merusak halaman lain yang sudah pakai "Sultan Glassmorphism". Disarankan audit komponen shared sebelum mulai.*
+
+- [ ] **8. Notifikasi Email (Transaksional)**
+  Konfirmasi topup, order selesai, dan akun VPN siap dikirim via email. Untuk user yang belum link Telegram/WA.
+  *Tingkat Risiko: Rendah - Menengah*
+  *⚠️ Kendala:*
+  - *Butuh layanan SMTP (misal: Resend, Brevo, atau Gmail SMTP). Ada biaya jika volume tinggi.*
+  - *Perlu penambahan kolom `emailVerified` di tabel users jika belum ada.*
+  - *Rate-limiting SMTP agar tidak kena blacklist.*
+
+### 🟡 Prioritas Sedang
+
+- [ ] **9. Riwayat Login & Keamanan Akun**
+  Log IP login terakhir, deteksi login dari perangkat/lokasi baru, dan opsional 2FA (TOTP via Google Authenticator).
+  *Tingkat Risiko: Menengah*
+  *⚠️ Kendala:*
+  - *Butuh tabel baru `login_logs` di database → perlu `drizzle-kit push`.*
+  - *2FA (TOTP) memerlukan library tambahan (`otplib` / `speakeasy`) dan UI scan QR code di frontend.*
+  - *Harus diuji menyeluruh agar user tidak terkunci dari akunnya sendiri.*
+
+- [ ] **10. Dashboard Analytics Lanjutan**
+  Grafik retensi user, churn rate, revenue forecast, dan breakdown penjualan per produk/server.
+  *Tingkat Risiko: Rendah*
+  *⚠️ Kendala:*
+  - *Query SQL yang kompleks bisa lambat jika data membesar → perlu indexing yang tepat.*
+  - *Library charting di frontend (sudah pakai apa? Perlu cek kompatibilitas).*
+
+### 🟢 Prioritas Rendah
+
+- [ ] **11. Sistem Kupon/Promo Terjadwal**
+  Diskon otomatis yang aktif di hari/jam tertentu (misal: weekend sale, flash sale malam). Admin set jadwal lewat panel.
+  *Tingkat Risiko: Rendah*
+  *⚠️ Kendala:*
+  - *Logika timezone (WIB) di scheduler harus akurat agar promo tidak nyala di waktu yang salah.*
+  - *Perlu validasi agar tidak bentrok dengan voucher yang sudah ada.*
+
+- [ ] **12. Multi-bahasa (i18n)**
+  Dukungan English & Bahasa Indonesia di seluruh frontend.
+  *Tingkat Risiko: Rendah - Menengah*
+  *⚠️ Kendala:*
+  - *Effort besar: semua string hardcoded di frontend harus diekstrak ke file terjemahan.*
+  - *Library i18n (react-i18next) perlu setup context provider di root app.*
+  - *Sebaiknya dikerjakan terakhir setelah fitur lain stabil, agar tidak double-work.*
+
+---
+
+### 📌 Catatan Umum Sebelum Eksekusi
+
+> **Database Migration:** Setiap fitur yang butuh tabel/kolom baru harus melalui `drizzle-kit push` di VPS. Selalu backup database dulu via fitur Backup Telegram sebelum push schema baru.
+
+> **Urutan Kerja yang Disarankan:** `7 → 8 → 10 → 9 → 11 → 12`
+> Landing page & email paling berdampak ke bisnis, analytics membantu keputusan, keamanan & promo menyusul, i18n terakhir.
 
