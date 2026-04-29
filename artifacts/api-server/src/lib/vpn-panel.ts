@@ -212,20 +212,26 @@ export async function renewPanelAccount(params: {
   };
 
   const endpoint = endpointMap[protocol];
-  if (!endpoint) return;
+  if (!endpoint) throw new Error(`Protocol "${protocol}" is not supported for renewal`);
 
   const body: Record<string, unknown> = {};
   if (quota != null) body.kuota = Math.round(Number(quota));
 
   try {
-    await axios.patch(
+    const { data } = await axios.patch(
       `${baseUrl}/vps/renew${endpoint}/${username}/${durationDays}`,
       body,
       { headers, timeout: 15000, httpsAgent }
     );
+    
+    if (data?.meta && data.meta.code !== 200) {
+      throw new Error(data.meta.message || "Failed to renew account on panel");
+    }
   } catch (e) {
-    const err = e as AxiosError;
-    console.warn(`[vpn-panel] Failed to renew ${protocol} account ${username}: ${err.message}`);
+    if (axios.isAxiosError(e)) {
+      throw new Error(`Panel API Error (${protocol}): ${e.response?.data?.message || e.response?.data?.meta?.message || e.message}`);
+    }
+    throw e;
   }
 }
 

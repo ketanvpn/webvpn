@@ -152,6 +152,41 @@ router.post("/accounts/:id/renew", requireAuth, async (req, res) => {
   const baseDate = account.expiresAt > new Date() ? account.expiresAt : new Date();
   const newExpiresAt = new Date(baseDate.getTime() + product.durationDays * 24 * 60 * 60 * 1000);
 
+  // 1. Cek saldo sebelum memanggil API eksternal
+  if (Number(user!.balance) < price) {
+    res.status(400).json({ error: "Saldo tidak cukup untuk melakukan renew" });
+    return;
+  }
+
+  // 2. Dapatkan data server VPS
+  const [server] = await db
+    .select({ apiUrl: serversTable.apiUrl, apiToken: serversTable.apiToken })
+    .from(serversTable)
+    .where(eq(serversTable.id, account.serverId))
+    .limit(1);
+
+  if (!server?.apiUrl || !server?.apiToken) {
+    res.status(500).json({ error: "Konfigurasi server VPS tidak valid" });
+    return;
+  }
+
+  // 3. Panggil API Panel VPS terlebih dahulu
+  try {
+    await renewPanelAccount({
+      apiUrl: server.apiUrl,
+      apiToken: server.apiToken,
+      protocol: account.protocol,
+      username: account.username,
+      durationDays: product.durationDays,
+      quota: account.quota,
+    });
+  } catch (err) {
+    console.error("[renew] Panel error:", err);
+    res.status(502).json({ error: err instanceof Error ? err.message : "Gagal memperpanjang akun di server VPS" });
+    return;
+  }
+
+  // 4. Jika berhasil, jalankan transaksi database
   // ─── Atomic transaction: balance deduction + account update + order insert ──
   let balanceBefore: number;
   let balanceAfter: number;
@@ -199,12 +234,8 @@ router.post("/accounts/:id/renew", requireAuth, async (req, res) => {
     balanceBefore = txResult.prevBalance;
     balanceAfter = txResult.newBalance;
   } catch (err) {
-    if (err instanceof Error && err.message === "INSUFFICIENT_BALANCE") {
-      res.status(400).json({ error: "Saldo tidak cukup untuk melakukan renew" });
-    } else {
-      console.error("[renew] Transaction failed:", err);
-      res.status(500).json({ error: "Gagal memproses renew, silakan coba lagi" });
-    }
+    console.error("[renew] Transaction failed after panel sync:", err);
+    res.status(500).json({ error: "Terjadi kesalahan internal saat mencatat transaksi, namun akun di VPS mungkin sudah diperpanjang." });
     return;
   }
 
@@ -224,28 +255,6 @@ router.post("/accounts/:id/renew", requireAuth, async (req, res) => {
     .from(vpnAccountsTable)
     .where(eq(vpnAccountsTable.id, id))
     .limit(1);
-
-  // Notify VPS panel to extend the account on the actual server (best-effort)
-  const [server] = await db
-    .select({ apiUrl: serversTable.apiUrl, apiToken: serversTable.apiToken })
-    .from(serversTable)
-    .where(eq(serversTable.id, account.serverId))
-    .limit(1);
-
-  if (server?.apiUrl && server?.apiToken) {
-    const panelSync = async () => {
-      await renewPanelAccount({
-        apiUrl: server.apiUrl!,
-        apiToken: server.apiToken!,
-        protocol: account.protocol,
-        username: account.username,
-        durationDays: product.durationDays,
-        quota: account.quota,
-      });
-    };
-
-    panelSync().catch(() => {});
-  }
 
   // Kirim notifikasi WhatsApp kepada user (best-effort)
   if (user!.whatsapp) {
