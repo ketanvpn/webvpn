@@ -12,7 +12,9 @@ import {
   getBotInfo,
   registerWebhook,
   lookupTicketByMessage,
+  broadcastMessage,
 } from "../lib/telegram";
+import { showAdminMenu, handleAdminCallback } from "../lib/telegram-admin";
 
 const router = Router();
 
@@ -108,6 +110,34 @@ async function handleMessage(message: any) {
       chatId,
       "👋 Halo! Saya bot KETANTECH VPN.\n\nUntuk menghubungkan akun, klik link dari halaman profil di aplikasi.",
     );
+    return;
+  }
+
+  // Perintah /admin (Hanya Admin)
+  if (text === "/admin") {
+    const adminChatId = await getAdminChatId();
+    if (!adminChatId || String(chatId) !== String(adminChatId)) {
+      await sendMessage(chatId, "⛔ Perintah ini hanya untuk admin.");
+      return;
+    }
+    await showAdminMenu(chatId);
+    return;
+  }
+
+  // Perintah /broadcast (Hanya Admin)
+  if (text.startsWith("/broadcast ")) {
+    const adminChatId = await getAdminChatId();
+    if (!adminChatId || String(chatId) !== String(adminChatId)) {
+      await sendMessage(chatId, "⛔ Perintah ini hanya untuk admin.");
+      return;
+    }
+    
+    const message = text.replace("/broadcast ", "").trim();
+    if (!message) return;
+
+    await sendMessage(chatId, "⏳ Sedang mengirim broadcast...");
+    const { sent, failed } = await broadcastMessage(message);
+    await sendMessage(chatId, `✅ <b>Broadcast Selesai</b>\n\nBerhasil terkirim: ${sent}\nGagal: ${failed}`);
     return;
   }
 
@@ -217,6 +247,15 @@ async function handleCallbackQuery(callbackQuery: any) {
   if (data.startsWith("reject_topup_")) {
     const topupId = parseInt(data.replace("reject_topup_", ""), 10);
     await handleRejectTopup(topupId, chatId, messageId, callbackId);
+    return;
+  }
+
+  if (data.startsWith("admin_")) {
+    const adminChatId = await getAdminChatId();
+    if (adminChatId && String(chatId) === String(adminChatId)) {
+      await handleAdminCallback(data, chatId, messageId, callbackId);
+    }
+    return;
   }
 }
 

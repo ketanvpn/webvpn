@@ -4,10 +4,15 @@ Semua perubahan penting pada proyek KETANTECH VPN akan didokumentasikan di file 
 
 ---
 
-## [2026-04-29] - Auto-Cleanup Akun Hantu & Keamanan Alur Renew
+## [2026-04-29] - Telegram Admin Menu & Auto-Cleanup
 
-### ✨ Fitur Baru (Backend)
-- **Auto-Cleanup Akun Kedaluwarsa (Ghost Accounts)** — Menambahkan fungsi `cleanupGhostAccounts` ke dalam sistem *Scheduler*. Sistem kini akan otomatis berjalan setiap jam untuk mencari dan menghapus akun VPN dari database web yang sudah lewat masa kedaluwarsanya lebih dari **7 hari**. Hal ini selaras dengan *behavior* server VPS yang otomatis membersihkan config *expired*, sehingga menjaga database web tetap ringan dan UI pengguna bebas dari riwayat akun lawas yang sudah tidak bisa dipakai.
+### ✨ Fitur Baru (Backend & Bot)
+- **Telegram Admin Menu (Interactive)** — Menambahkan menu rahasia khusus Admin di Telegram Bot. Ketik `/admin` untuk memunculkan antarmuka tombol interaktif (*Inline Keyboard*) dengan 4 fitur utama:
+  1. **🖥️ Status Server**: Cek daftar server, kapasitas terpakai, dan opsi menyalakan/mematikan server (ON/OFF) hanya dengan 1 kali klik.
+  2. **📊 Statistik Hari Ini**: Ringkasan kilat pendapatan hari ini, pendaftar baru, total Topup pending, dan tiket terbuka.
+  3. **💾 Force Backup**: Tombol untuk memerintahkan bot membungkus isi database ke file `.sql.gz` dan mengirimkannya saat itu juga ke Telegram.
+  4. **📢 Broadcast Instan**: Perintah `/broadcast [pesan]` memungkinkan admin mengirim pengumuman massal ke seluruh Telegram pengguna secara instan dari layar HP.
+- **Auto-Cleanup Akun Kedaluwarsa (Ghost Accounts)** — Menambahkan fungsi `cleanupGhostAccounts` ke dalam sistem *Scheduler*. Sistem kini akan otomatis berjalan setiap 3 jam untuk mencari dan menghapus akun VPN dari database web yang sudah lewat masa kedaluwarsanya lebih dari **7 hari**.
 
 ### 🛡️ Security Fixes
 - **Pemotongan Saldo Asinkron (Fire-and-forget)** — Sebelumnya, sistem memotong saldo user dan mencatat transaksi ke database *sebelum* berhasil mengeksekusi perpanjangan akun di Panel VPS. Jika VPS *down* atau API gagal, saldo user hangus tapi akun gagal diperpanjang.
