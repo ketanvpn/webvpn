@@ -238,6 +238,25 @@ async function checkAndAutoDisableServers(): Promise<void> {
   }
 }
 
+async function cleanupGhostAccounts(): Promise<void> {
+  try {
+    const now = new Date();
+    // Cari akun yang expired lebih dari 7 hari lalu
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const result = await db
+      .delete(vpnAccountsTable)
+      .where(lt(vpnAccountsTable.expiresAt, sevenDaysAgo))
+      .returning({ id: vpnAccountsTable.id, username: vpnAccountsTable.username });
+
+    if (result.length > 0) {
+      logger.info({ count: result.length, accounts: result.map((r) => r.username) }, "Auto-cleanup: menghapus akun VPN hantu yang sudah lama expired");
+    }
+  } catch (err) {
+    logger.error({ err }, "Error saat auto-cleanup akun hantu");
+  }
+}
+
 export function startScheduler(): void {
   const ONE_HOUR = 60 * 60 * 1000;
   const FIVE_MIN = 5 * 60 * 1000;
@@ -246,6 +265,7 @@ export function startScheduler(): void {
   cancelExpiredQrisOrders().catch(() => {});
   checkResellerTargets().catch(() => {});
   checkAndAutoDisableServers().catch(() => {});
+  cleanupGhostAccounts().catch(() => {});
 
   setInterval(() => {
     checkExpiringAccounts().catch(() => {});
@@ -263,10 +283,16 @@ export function startScheduler(): void {
     checkAndAutoDisableServers().catch(() => {});
   }, FIVE_MIN);
 
+  // Auto-cleanup jalan setiap jam, tapi hanya memproses yang sudah expired > 7 hari
+  setInterval(() => {
+    cleanupGhostAccounts().catch(() => {});
+  }, ONE_HOUR);
+
   logger.info("Scheduler notifikasi kedaluwarsa aktif (cek setiap jam, kirim sesuai jam WIB yang dikonfigurasi)");
   logger.info("Scheduler auto-cancel QRIS expired aktif (interval: 5 menit)");
   logger.info("Scheduler cek target reseller aktif (cek setiap jam, eksekusi tanggal 1 jam 07.00 WIB)");
   logger.info("Scheduler auto-disable server penuh aktif (interval: 5 menit)");
+  logger.info("Scheduler auto-cleanup akun hantu aktif (cek setiap jam)");
 
   // Auto-backup: cek setiap jam apakah sudah waktunya backup
   import("./backup").then(({ isBackupDue, performBackup }) => {
