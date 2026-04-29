@@ -17,7 +17,7 @@ import { formatOrder } from "./orders";
 import { formatAccount } from "./accounts";
 import { formatTopup } from "./balance";
 import { formatFullServer } from "./servers";
-import { createPanelAccount, sanitizeVpnUsername, renewPanelAccount, deletePanelAccount, checkPanelHealth, syncPanelAccount } from "../lib/vpn-panel";
+import { createPanelAccount, createTrialPanelAccount, sanitizeVpnUsername, renewPanelAccount, deletePanelAccount, checkPanelHealth, syncPanelAccount } from "../lib/vpn-panel";
 import { notifyUserTopupConfirmed, notifyUserTopupRejected, notifyUserVpnAccountCreated, notifyAdminOrderFulfilled } from "../lib/telegram";
 import { addBalanceLog } from "./balance-logs";
 import { tryAutoUpgradeReseller } from "../lib/reseller-upgrade";
@@ -808,7 +808,11 @@ router.post("/admin/orders/:id/confirm", requireAdmin, async (req, res) => {
       allServers[0];
 
     if (product && user && server) {
-      const expiresAt = new Date(Date.now() + product.durationDays * 24 * 60 * 60 * 1000);
+      const isTrial = product.durationDays === 0;
+      const durationMs = isTrial
+        ? 1 * 60 * 60 * 1000 // 1 jam
+        : product.durationDays * 24 * 60 * 60 * 1000;
+      const expiresAt = new Date(Date.now() + durationMs);
       const rawUsername = sanitizeVpnUsername(order.notes ?? user.username);
       const vpnPassword = randomUUID().replace(/-/g, "").slice(0, 12);
       const vpnUuid = randomUUID();
@@ -817,24 +821,40 @@ router.post("/admin/orders/:id/confirm", requireAdmin, async (req, res) => {
       let finalPassword: string | null = vpnPassword;
       let finalUuid: string | null = vpnUuid;
       let configLink: string | null = null;
+      let allLinks: Record<string, string | null> | null = null;
 
       if (server.apiUrl && server.apiToken) {
         try {
-          const panelResult = await createPanelAccount({
-            apiUrl: server.apiUrl,
-            apiToken: server.apiToken,
-            protocol: product.protocol,
-            username: rawUsername,
-            password: vpnPassword,
-            durationDays: product.durationDays,
-            quota: product.quota ? Number(product.quota) : null,
-            maxConnections: product.maxConnections ?? null,
-            uuid: vpnUuid,
-          });
+          let panelResult;
+          if (isTrial) {
+            panelResult = await createTrialPanelAccount({
+              apiUrl: server.apiUrl,
+              apiToken: server.apiToken,
+              protocol: product.protocol,
+              timelimit: "60m", // 1 jam = 60 menit
+            });
+          } else {
+            panelResult = await createPanelAccount({
+              apiUrl: server.apiUrl,
+              apiToken: server.apiToken,
+              protocol: product.protocol,
+              username: rawUsername,
+              password: vpnPassword,
+              durationDays: product.durationDays,
+              quota: product.quota ? Number(product.quota) : null,
+              maxConnections: product.maxConnections ?? null,
+              uuid: vpnUuid,
+            });
+          }
           finalUsername = panelResult.username;
           finalPassword = panelResult.password ?? vpnPassword;
           finalUuid = panelResult.uuid ?? vpnUuid;
           configLink = panelResult.configLink ?? null;
+          if (panelResult.allLinks) {
+            const links: Record<string, string | null> = {};
+            for (const [k, v] of Object.entries(panelResult.allLinks)) links[k] = v ?? null;
+            allLinks = links;
+          }
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           console.error(`[admin/confirm] Panel API error: ${msg}`);
@@ -853,6 +873,7 @@ router.post("/admin/orders/:id/confirm", requireAdmin, async (req, res) => {
           uuid: finalUuid,
           serverId: server.id,
           configLink,
+          allLinks,
           expiresAt,
           quota: product.quota ?? null,
         })

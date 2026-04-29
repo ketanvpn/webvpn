@@ -209,7 +209,7 @@ function RenewDialog({ accountId, serverId, protocol, serverName, serverFlag, se
                       >
                         <div className="flex justify-between items-center">
                           <div>
-                            <div className="font-bold text-base">{p.durationDays} hari</div>
+                            <div className="font-bold text-base">{p.durationDays === 0 ? "1 Jam (Trial)" : `${p.durationDays} hari`}</div>
                             <div className="text-xs text-muted-foreground mt-0.5">{p.name}</div>
                           </div>
                           <div className="text-right">

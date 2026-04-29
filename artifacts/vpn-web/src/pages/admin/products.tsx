@@ -292,7 +292,7 @@ export default function AdminProducts() {
                         )}
                       </div>
                       <div className="text-sm text-muted-foreground flex flex-wrap gap-2 mt-1">
-                        <span>{product.durationDays} Hari</span>
+                        <span>{product.durationDays === 0 ? "1 Jam (Trial)" : `${product.durationDays} Hari`}</span>
                         <span>&bull;</span>
                         <span>{product.quota ? `${product.quota} GB` : "Unlimited"}</span>
                         <span>&bull;</span>

@@ -220,7 +220,7 @@ export default function OrderDetail() {
                   <div className="font-bold text-lg">{order.product.name}</div>
                   <div className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
                     <Badge variant="secondary" className="uppercase text-[10px]">{order.product.protocol}</Badge>
-                    <span>{order.product.durationDays} Hari</span>
+                    <span>{order.product.durationDays === 0 ? "1 Jam (Trial)" : `${order.product.durationDays} Hari`}</span>
                   </div>
                 </div>
               </div>

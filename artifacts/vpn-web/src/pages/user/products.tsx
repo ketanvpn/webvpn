@@ -66,7 +66,7 @@ function ProductCard({ product }: { product: any }) {
              {/* Mini badges for Protocol, Duration, etc */}
              <div className="flex flex-wrap gap-1.5">
                 <span className="text-[9px] sm:text-[10px] bg-white/5 text-muted-foreground px-1.5 py-0.5 rounded border border-white/5 flex items-center gap-1">
-                  <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> {product.durationDays} Hari
+                  <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> {product.durationDays === 0 ? "1 Jam" : `${product.durationDays} Hari`}
                 </span>
                 <span className="text-[9px] sm:text-[10px] bg-white/5 text-muted-foreground px-1.5 py-0.5 rounded border border-white/5 flex items-center gap-1">
                   <HardDrive className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> {product.quota ? `${product.quota}GB` : "Unli"}

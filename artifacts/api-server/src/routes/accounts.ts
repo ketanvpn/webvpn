@@ -128,6 +128,11 @@ router.post("/accounts/:id/renew", requireAuth, async (req, res) => {
     return;
   }
 
+  if (product.durationDays === 0) {
+    res.status(400).json({ error: "Akun tidak dapat diperpanjang menggunakan paket Trial." });
+    return;
+  }
+
   // Validasi server: produk yang di-pin ke server tertentu harus cocok dengan server akun
   if (product.serverId !== null && product.serverId !== account.serverId) {
     res.status(400).json({ error: "Produk ini tidak tersedia untuk server akun kamu." });
