@@ -19,7 +19,7 @@ async function fetchProducts() {
   const res = await fetch(`${BASE}/api/products`);
   if (!res.ok) return [];
   const data = await res.json();
-  return (data as any[]).filter((p: any) => p.isActive).sort((a: any, b: any) => a.price - b.price).slice(0, 3);
+  return (data as any[]).filter((p: any) => p.isActive && p.price > 0).sort((a: any, b: any) => a.price - b.price).slice(0, 3);
 }
 
 const protocolLabel: Record<string, string> = {
