@@ -17,6 +17,11 @@ Daftar fitur *"Next-Level"* yang akan dikembangkan untuk meningkatkan otomatisas
 - [x] **4. Fitur Trial 1 Jam (Marketing)**
   Fitur khusus agar pengguna baru bisa membuat akun VPN uji coba gratis dengan durasi 1 Jam (dibatasi 1 user = 1 trial) untuk meyakinkan calon pelanggan.
   *Tingkat Risiko: Menengah - Tinggi (Membutuhkan perubahan logika provisioning)*
-- [ ] **5. Kompensasi Saldo (Gift Balance) via Telegram**
+
+- [x] **5. Kompensasi Saldo (Gift Balance) via Telegram**
   Fitur untuk menambahkan saldo secara manual ke pengguna sebagai bentuk kompensasi (misal karena komplain). Admin mengetik perintah `/gift <username> <nominal>` di bot Telegram.
   *Tingkat Risiko: Sangat Rendah*
+
+- [x] **6. Kompensasi Waktu Massal (Extend Server) via Telegram**
+  Fitur cerdas untuk menambah masa aktif seluruh akun VPN aktif di sebuah server yang bermasalah. Termasuk proteksi *anti-spam* panel dan pelaporan via telegram background-job.
+  *Tingkat Risiko: Menengah*
