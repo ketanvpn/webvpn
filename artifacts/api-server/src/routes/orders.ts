@@ -149,6 +149,8 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
   const supportsProtocol = (s: typeof allServers[0]) =>
     Array.isArray(s.supportedProtocols) && s.supportedProtocols.includes(product.protocol);
 
+  let server: typeof allServers[0] | undefined;
+
   // Jika produk di-pin ke server tertentu
   if (product.serverId) {
     const pinnedServer = allServers.find((s) => s.id === product.serverId);
