@@ -1,5 +1,5 @@
 import { getApiError } from "@/lib/utils";
-import { useAdminGetUser, useAdminUpdateUser, getAdminGetUserQueryKey, useAdminGetUserBalanceLogs, useAdminResetUserPassword, useAdminDeleteUser } from "@workspace/api-client-react";
+import { useAdminGetUser, useAdminUpdateUser, getAdminGetUserQueryKey, useAdminGetUserBalanceLogs, getAdminGetUserBalanceLogsQueryKey, useAdminResetUserPassword, useAdminDeleteUser } from "@workspace/api-client-react";
 import { useParams, Link, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,7 +56,7 @@ export default function AdminUserDetail() {
   });
 
   const { data: balanceLogsData } = useAdminGetUserBalanceLogs(userId, {}, {
-    query: { enabled: !!userId, staleTime: 30000 },
+    query: { queryKey: getAdminGetUserBalanceLogsQueryKey(userId, {}), enabled: !!userId, staleTime: 30000 },
   });
 
   const updateUser = useAdminUpdateUser();

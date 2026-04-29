@@ -50,7 +50,7 @@ router.post("/admin/vouchers", requireAdmin, async (req, res) => {
 });
 
 router.put("/admin/vouchers/:id", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   const parsed = UpdateVoucherBody.safeParse(req.body);
 
   if (!parsed.success) {
@@ -92,7 +92,7 @@ router.put("/admin/vouchers/:id", requireAdmin, async (req, res) => {
 });
 
 router.delete("/admin/vouchers/:id", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   const [deleted] = await db.delete(vouchersTable).where(eq(vouchersTable.id, id)).returning();
   
   if (!deleted) {

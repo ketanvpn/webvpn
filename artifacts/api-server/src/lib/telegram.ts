@@ -21,7 +21,7 @@ function formatRupiah(n: number) {
 
 async function getTelegramConfig(): Promise<{ token: string | null; adminChatId: string | null }> {
   const rows = await db.select().from(settingsTable);
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   return {
     token: map["telegramBotToken"] ?? null,
     adminChatId: map["telegramAdminChatId"] ?? null,
@@ -347,7 +347,7 @@ export async function broadcastMessage(message: string): Promise<{ sent: number;
     .from(usersTable)
     .where(eq(usersTable.isActive, true));
 
-  const linked = users.filter((u) => u.telegramId != null);
+  const linked = users.filter((u: any) => u.telegramId != null);
   let sent = 0;
   let failed = 0;
 

@@ -48,7 +48,7 @@ async function getActiveCountMap(productIds: number[]): Promise<Map<number, numb
       )
     )
     .groupBy(ordersTable.productId);
-  return new Map(rows.map((r) => [r.productId, Number(r.cnt)]));
+  return new Map(rows.map((r: any) => [r.productId, Number(r.cnt)]));
 }
 
 router.get("/products", optionalAuth, async (req, res) => {
@@ -76,18 +76,18 @@ router.get("/products", optionalAuth, async (req, res) => {
     )
     .orderBy(asc(productsTable.sortOrder), asc(productsTable.id));
 
-  const products = rows.map((r) => r.product);
-  const countMap = await getActiveCountMap(products.map((p) => p.id));
+  const products = rows.map((r: any) => r.product);
+  const countMap = await getActiveCountMap(products.map((p: any) => p.id));
   let resellerDiscount = 0;
   if (userRole === "reseller") {
     const settings = await getResellerSettings();
     if (settings.resellerEnabled) resellerDiscount = settings.resellerDiscountPercent;
   }
-  res.json(rows.map((r) => formatProduct(r.product, countMap.get(r.product.id) ?? 0, resellerDiscount, r.serverName ?? null)));
+  res.json(rows.map((r: any) => formatProduct(r.product, countMap.get(r.product.id) ?? 0, resellerDiscount, r.serverName ?? null)));
 });
 
 router.get("/products/:id", optionalAuth, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   let userRole = (req as any).user?.role ?? "user";
   const userId = (req as any).user?.userId;
   if (userId) {

@@ -1,5 +1,5 @@
 import { getApiError } from "@/lib/utils";
-import { useGetProduct, useCreateOrder, getGetBalanceQueryKey, useGetBalance } from "@workspace/api-client-react";
+import { useGetProduct, useCreateOrder, getGetBalanceQueryKey, useGetBalance, getGetProductQueryKey } from "@workspace/api-client-react";
 import { useParams, useLocation } from "wouter";
 import { formatRupiah } from "@/lib/format";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,7 +50,7 @@ export default function ProductDetail() {
   const [voucherLoading, setVoucherLoading] = useState(false);
 
   const { data: product, isLoading } = useGetProduct(productId, {
-    query: { enabled: !!productId }
+    query: { queryKey: getGetProductQueryKey(productId), enabled: !!productId }
   });
 
   const { data: balanceData } = useGetBalance();

@@ -59,12 +59,14 @@ export default function AdminOrders() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const queryParams = {
+    status: status === "all" ? undefined : (status as AdminListOrdersStatus),
+    search: debouncedSearch || undefined,
+  };
+
   const { data, isLoading } = useAdminListOrders(
-    {
-      status: status === "all" ? undefined : (status as AdminListOrdersStatus),
-      search: debouncedSearch || undefined,
-    },
-    { query: { refetchInterval: 30_000 } }
+    queryParams,
+    { query: { queryKey: getAdminListOrdersQueryKey(queryParams), refetchInterval: 30_000 } }
   );
 
   const confirmOrder = useAdminConfirmOrder();

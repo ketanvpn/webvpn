@@ -40,7 +40,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { SheetTrigger } from "@/components/ui/sheet";
-import { useGetAdminDashboard } from "@workspace/api-client-react";
+import { useGetAdminDashboard, getGetAdminDashboardQueryKey } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { LogoIcon } from "@/components/logo";
 
@@ -334,7 +334,7 @@ export function MobileAdminHeader() {
   const { logout, isAdmin: userIsAdmin } = useAuth();
 
   const { data: dashboardData } = useGetAdminDashboard({
-    query: { enabled: true, staleTime: 30000 },
+    query: { queryKey: getGetAdminDashboardQueryKey(), enabled: true, staleTime: 30000 },
   });
   const pendingTopups = dashboardData?.pendingTopups ?? 0;
   const { data: ticketData } = usePendingTicketCount(true);
@@ -407,7 +407,7 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const nav = isAdmin ? adminNav : userNav;
 
   const { data: dashboardData } = useGetAdminDashboard({
-    query: { enabled: isAdmin, staleTime: 30000 },
+    query: { queryKey: getGetAdminDashboardQueryKey(), enabled: isAdmin, staleTime: 30000 },
   });
   const { data: ticketData } = usePendingTicketCount(isAdmin);
 

@@ -90,7 +90,7 @@ router.post("/telegram/webhook", async (req, res) => {
 
 async function getAdminChatId(): Promise<string | null> {
   const rows = await db.select().from(settingsTable);
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   return map["telegramAdminChatId"] ?? null;
 }
 

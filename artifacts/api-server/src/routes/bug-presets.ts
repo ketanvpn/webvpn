@@ -63,7 +63,7 @@ router.post("/admin/bug-presets", requireAdmin, async (req, res) => {
 
 // Admin: Update bug preset
 router.put("/admin/bug-presets/:id", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   const parsed = AdminUpdateBugPresetBody.safeParse(req.body);
   
   if (!parsed.success) {
@@ -97,7 +97,7 @@ router.put("/admin/bug-presets/:id", requireAdmin, async (req, res) => {
 
 // Admin: Delete bug preset
 router.delete("/admin/bug-presets/:id", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   
   try {
     const [deleted] = await db

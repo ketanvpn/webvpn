@@ -42,7 +42,7 @@ router.get("/balance", requireAuth, async (req, res) => {
     .from(topupsTable)
     .where(and(eq(topupsTable.userId, userId), eq(topupsTable.status, "pending")));
 
-  const pendingAmount = pendingTopups.reduce((sum, t) => sum + Number(t.amount), 0);
+  const pendingAmount = pendingTopups.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
 
   res.json({
     balance: Number(user?.balance ?? 0),
@@ -107,7 +107,7 @@ router.post("/balance/topup", requireAuth, async (req, res) => {
       message?: string;
     };
     try {
-      agpData = await agpResponse.json();
+      agpData = await agpResponse.json() as any;
     } catch {
       res.status(503).json({ error: "Response tidak valid dari AutoGoPay." });
       return;
@@ -170,7 +170,7 @@ router.get("/balance/topup/history", requireAuth, async (req, res) => {
     .limit(limit)
     .offset(offset);
 
-  res.json(topups.map((t) => formatTopup(t)));
+  res.json(topups.map((t: any) => formatTopup(t)));
 });
 
 export { formatTopup };

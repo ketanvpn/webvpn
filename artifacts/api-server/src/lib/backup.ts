@@ -28,7 +28,7 @@ export interface BackupSettings {
 
 export async function getBackupSettings(): Promise<BackupSettings> {
   const rows = await db.select().from(settingsTable);
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   return {
     backupEnabled: map["backupEnabled"] === "true",
     backupIntervalHours: parseInt(map["backupIntervalHours"] ?? "24", 10) || 24,
@@ -148,7 +148,7 @@ export async function sendBackupToTelegram(
     form.append("chat_id", chatId);
     form.append("caption", caption);
     form.append("parse_mode", "HTML");
-    form.append("document", new Blob([buffer], { type: "application/gzip" }), filename);
+    form.append("document", new Blob([new Uint8Array(buffer)]), filename);
 
     const res = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, {
       method: "POST",
@@ -189,7 +189,7 @@ export async function performBackup(): Promise<{
     saveBackupToTemp(buffer, filename);
 
     const rows = await db.select().from(settingsTable);
-    const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+    const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
     const token = map["telegramBotToken"] ?? null;
     const chatId = map["telegramAdminChatId"] ?? null;
 
@@ -234,7 +234,7 @@ export async function performRestore(gzippedBuffer: Buffer): Promise<void> {
 
     // Kirim safety backup ke Telegram jika dikonfigurasi
     const rows = await db.select().from(settingsTable);
-    const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+    const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
     const token = map["telegramBotToken"] ?? null;
     const chatId = map["telegramAdminChatId"] ?? null;
     if (token && chatId) {

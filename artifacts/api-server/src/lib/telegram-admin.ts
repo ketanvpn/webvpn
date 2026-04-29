@@ -420,7 +420,7 @@ export async function handleGiftSaldo(chatId: number, username: string, amount: 
 
   const newBalance = Number(user.balance) + amount;
 
-  await db.transaction(async (tx) => {
+  await db.transaction(async (tx: any) => {
     // 1. Update user balance
     await tx.update(usersTable)
       .set({ balance: newBalance.toString() })
@@ -493,7 +493,6 @@ export async function handleExtendServer(chatId: number, serverId: number, days:
           apiToken: server.apiToken,
           protocol: account.protocol,
           username: account.username,
-          uuid: account.uuid,
           durationDays: days,
         });
       }

@@ -30,7 +30,7 @@ router.get("/tickets", requireAuth, async (req, res) => {
     .from(ticketsTable)
     .where(eq(ticketsTable.userId, userId))
     .orderBy(desc(ticketsTable.updatedAt));
-  res.json(rows.map((t) => formatTicket(t)));
+  res.json(rows.map((t: any) => formatTicket(t)));
 });
 
 router.post("/tickets", requireAuth, async (req, res) => {
@@ -66,7 +66,7 @@ router.post("/tickets", requireAuth, async (req, res) => {
 
 router.get("/tickets/:id", requireAuth, async (req, res) => {
   const userId = (req as any).user.userId;
-  const ticketId = parseInt(req.params.id, 10);
+  const ticketId = parseInt(req.params.id as string, 10);
 
   const [ticket] = await db
     .select()
@@ -90,7 +90,7 @@ router.get("/tickets/:id", requireAuth, async (req, res) => {
 
 router.post("/tickets/:id/reply", requireAuth, async (req, res) => {
   const userId = (req as any).user.userId;
-  const ticketId = parseInt(req.params.id, 10);
+  const ticketId = parseInt(req.params.id as string, 10);
   const message = req.body?.message;
   if (!message || typeof message !== "string" || message.trim().length < 1) {
     res.status(400).json({ error: "Pesan tidak boleh kosong" });
@@ -130,7 +130,7 @@ router.post("/tickets/:id/reply", requireAuth, async (req, res) => {
 
 router.post("/tickets/:id/close", requireAuth, async (req, res) => {
   const userId = (req as any).user.userId;
-  const ticketId = parseInt(req.params.id, 10);
+  const ticketId = parseInt(req.params.id as string, 10);
 
   const [ticket] = await db
     .select()
@@ -170,8 +170,8 @@ router.get("/admin/tickets/pending-count", requireAdmin, async (_req, res) => {
     .from(ticketMessagesTable)
     .where(eq(ticketMessagesTable.isAdmin, true));
 
-  const repliedIds = new Set(repliedTickets.map((r) => r.ticketId));
-  const pendingCount = openTickets.filter((t) => !repliedIds.has(t.id)).length;
+  const repliedIds = new Set(repliedTickets.map((r: any) => r.ticketId));
+  const pendingCount = openTickets.filter((t: any) => !repliedIds.has(t.id)).length;
 
   res.json({ count: pendingCount });
 });
@@ -188,10 +188,10 @@ router.get("/admin/tickets", requireAdmin, async (req, res) => {
     .innerJoin(usersTable, eq(ticketsTable.userId, usersTable.id))
     .orderBy(desc(ticketsTable.updatedAt));
 
-  const filtered = status && status !== "all" ? rows.filter((r) => r.ticket.status === status) : rows;
+  const filtered = status && status !== "all" ? rows.filter((r: any) => r.ticket.status === status) : rows;
 
   res.json(
-    filtered.map((r) => ({
+    filtered.map((r: any) => ({
       ...formatTicket(r.ticket),
       username: r.username,
     })),
@@ -199,7 +199,7 @@ router.get("/admin/tickets", requireAdmin, async (req, res) => {
 });
 
 router.get("/admin/tickets/:id", requireAdmin, async (req, res) => {
-  const ticketId = parseInt(req.params.id, 10);
+  const ticketId = parseInt(req.params.id as string, 10);
 
   const [row] = await db
     .select({ ticket: ticketsTable, username: usersTable.username })
@@ -226,13 +226,13 @@ router.get("/admin/tickets/:id", requireAdmin, async (req, res) => {
   res.json({
     ...formatTicket(row.ticket, messages.length),
     username: row.username,
-    messages: messages.map((m) => ({ ...m.msg, username: m.username })),
+    messages: messages.map((m: any) => ({ ...m.msg, username: m.username })),
   });
 });
 
 router.post("/admin/tickets/:id/reply", requireAdmin, async (req, res) => {
   const adminId = (req as any).user.userId;
-  const ticketId = parseInt(req.params.id, 10);
+  const ticketId = parseInt(req.params.id as string, 10);
   const message = req.body?.message;
   if (!message || typeof message !== "string" || message.trim().length < 1) {
     res.status(400).json({ error: "Pesan tidak boleh kosong" });
@@ -259,7 +259,7 @@ router.post("/admin/tickets/:id/reply", requireAdmin, async (req, res) => {
 });
 
 router.post("/admin/tickets/:id/close", requireAdmin, async (req, res) => {
-  const ticketId = parseInt(req.params.id, 10);
+  const ticketId = parseInt(req.params.id as string, 10);
   const [ticket] = await db.select().from(ticketsTable).where(eq(ticketsTable.id, ticketId)).limit(1);
   if (!ticket) {
     res.status(404).json({ error: "Tiket tidak ditemukan" });

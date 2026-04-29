@@ -38,7 +38,7 @@ router.get("/admin/export/topups", requireAdmin, async (_req, res) => {
     .limit(10000);
 
   const header = toCsvRow(["ID", "User ID", "Username", "Nominal", "Status", "Ref AutoGoPay", "Catatan Tolak", "Dibuat", "Diperbarui"]);
-  const lines = rows.map((r) =>
+  const lines = rows.map((r: any) =>
     toCsvRow([
       r.id,
       r.userId,
@@ -85,7 +85,7 @@ router.get("/admin/export/orders", requireAdmin, async (_req, res) => {
     "ID", "User ID", "Username", "Product ID", "Produk", "Nominal",
     "Status", "Metode Bayar", "Catatan", "Dibuat", "Diperbarui",
   ]);
-  const lines = rows.map((r) =>
+  const lines = rows.map((r: any) =>
     toCsvRow([
       r.id,
       r.userId,

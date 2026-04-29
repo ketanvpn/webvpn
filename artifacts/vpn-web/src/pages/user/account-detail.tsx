@@ -1,4 +1,4 @@
-import { useGetAccount, useListProducts, useGetBalance, useRenewAccount, getGetAccountQueryKey } from "@workspace/api-client-react";
+import { useGetAccount, useListProducts, useGetBalance, useRenewAccount, getGetAccountQueryKey, getListProductsQueryKey, getGetBalanceQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -66,10 +66,10 @@ function RenewDialog({ accountId, serverId, protocol, serverName, serverFlag, se
 
   const { data: products, isLoading: loadingProducts } = useListProducts(
     undefined,
-    { query: { enabled: open } as any },
+    { query: { queryKey: getListProductsQueryKey(), enabled: open } },
   );
   const { data: balanceData, isLoading: loadingBalance } = useGetBalance({
-    query: { enabled: open },
+    query: { queryKey: getGetBalanceQueryKey(), enabled: open },
   });
 
   const renewMutation = useRenewAccount();
@@ -286,7 +286,7 @@ export default function AccountDetail() {
   const { toast } = useToast();
 
   const { data: account, isLoading } = useGetAccount(accountId, {
-    query: { enabled: !!accountId }
+    query: { queryKey: getGetAccountQueryKey(accountId), enabled: !!accountId }
   });
 
   const copyToClipboard = (text: string, label: string) => {

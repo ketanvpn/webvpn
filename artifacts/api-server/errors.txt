@@ -1,0 +1,203 @@
+src/lib/auth.ts(3,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/lib/auth.ts(4,28): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/lib/backup.ts(9,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/lib/backup.ts(10,31): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/lib/backup.ts(31,44): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/lib/backup.ts(151,39): error TS2322: Type 'Buffer<ArrayBufferLike>' is not assignable to type 'BlobPart'.
+  Type 'Buffer<ArrayBufferLike>' is not assignable to type 'Blob | Uint8Array<ArrayBuffer> | DataView<ArrayBuffer>'.
+    Type 'Buffer<ArrayBufferLike>' is not assignable to type 'Uint8Array<ArrayBuffer>'.
+      Types of property 'buffer' are incompatible.
+        Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+          Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+            Types of property '[Symbol.toStringTag]' are incompatible.
+              Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+src/lib/backup.ts(192,46): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/lib/backup.ts(237,46): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/lib/fonnte.ts(1,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/lib/fonnte.ts(2,41): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/lib/reseller-upgrade.ts(1,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/lib/reseller-upgrade.ts(2,28): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/schema/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/schema/index.ts'.
+src/lib/scheduler.ts(1,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/lib/scheduler.ts(2,101): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/lib/scheduler.ts(98,47): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/lib/scheduler.ts(283,65): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/lib/seed.ts(1,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/lib/seed.ts(2,28): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/lib/telegram-admin.ts(1,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/lib/telegram-admin.ts(11,8): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/lib/telegram-admin.ts(423,31): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/lib/telegram-admin.ts(496,11): error TS2353: Object literal may only specify known properties, and 'uuid' does not exist in type '{ apiUrl: string; apiToken: string; protocol: string; username: string; durationDays: number; quota?: number | null | undefined; }'.
+src/lib/telegram.ts(1,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/lib/telegram.ts(2,56): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/lib/telegram.ts(24,44): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/lib/telegram.ts(350,32): error TS7006: Parameter 'u' implicitly has an 'any' type.
+src/routes/accounts.ts(2,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/accounts.ts(3,88): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/accounts.ts(6,34): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/api-zod/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/api-zod/src/index.ts'.
+src/routes/accounts.ts(71,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/accounts.ts(89,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/accounts.ts(205,50): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/routes/admin.ts(2,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/admin.ts(10,8): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/admin.ts(36,8): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/api-zod/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/api-zod/src/index.ts'.
+src/routes/admin.ts(144,37): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/admin.ts(172,30): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/admin.ts(278,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/admin.ts(319,37): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/admin.ts(324,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/admin.ts(380,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/admin.ts(408,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/admin.ts(436,30): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/admin.ts(437,58): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/admin.ts(438,22): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/admin.ts(474,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/admin.ts(518,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/admin.ts(559,24): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/routes/admin.ts(596,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/admin.ts(631,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/admin.ts(640,24): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/routes/admin.ts(673,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/admin.ts(736,23): error TS7031: Binding element 'order' implicitly has an 'any' type.
+src/routes/admin.ts(736,30): error TS7031: Binding element 'user' implicitly has an 'any' type.
+src/routes/admin.ts(761,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/admin.ts(806,24): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/routes/admin.ts(946,24): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/admin.ts(950,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/admin.ts(1024,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/admin.ts(1115,35): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/routes/admin.ts(1146,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/admin.ts(1199,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/admin.ts(1272,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/admin.ts(1295,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/admin.ts(1342,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/announcements.ts(2,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/announcements.ts(3,36): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/announcements.ts(53,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/announcements.ts(93,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/auth.ts(3,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/auth.ts(4,28): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/auth.ts(7,41): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/api-zod/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/api-zod/src/index.ts'.
+src/routes/balance-logs.ts(2,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/balance-logs.ts(3,46): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/balance-logs.ts(63,21): error TS7006: Parameter 'l' implicitly has an 'any' type.
+src/routes/balance-logs.ts(71,27): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/balance-logs.ts(101,21): error TS7006: Parameter 'l' implicitly has an 'any' type.
+src/routes/balance.ts(2,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/balance.ts(3,41): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/balance.ts(6,34): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/api-zod/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/api-zod/src/index.ts'.
+src/routes/balance.ts(45,47): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/routes/balance.ts(45,52): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/balance.ts(110,7): error TS2322: Type 'unknown' is not assignable to type '{ success: boolean; data?: { transaction_id: string; qr_url: string; expiry_time: string; } | undefined; message?: string | undefined; }'.
+src/routes/balance.ts(173,24): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/bug-presets.ts(2,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/bug-presets.ts(3,33): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/bug-presets.ts(6,68): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/api-zod/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/api-zod/src/index.ts'.
+src/routes/bug-presets.ts(66,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/bug-presets.ts(100,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/dashboard.ts(2,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/dashboard.ts(3,72): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/dashboard.ts(27,51): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/routes/dashboard.ts(27,56): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/export.ts(2,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/export.ts(3,69): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/export.ts(41,27): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/export.ts(88,27): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/health.ts(2,37): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/api-zod/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/api-zod/src/index.ts'.
+src/routes/orders.ts(2,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/orders.ts(3,103): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/orders.ts(6,33): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/api-zod/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/api-zod/src/index.ts'.
+src/routes/orders.ts(156,43): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/routes/orders.ts(163,31): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/routes/orders.ts(164,24): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/routes/orders.ts(246,33): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/routes/orders.ts(449,52): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/routes/orders.ts(654,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/orders.ts(672,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/points.ts(2,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/points.ts(3,44): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/products.ts(2,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/products.ts(3,88): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/products.ts(51,28): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/products.ts(79,30): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/products.ts(80,58): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/routes/products.ts(86,22): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/products.ts(90,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/reseller.ts(2,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/reseller.ts(3,41): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/schema/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/schema/index.ts'.
+src/routes/servers.ts(2,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/servers.ts(3,30): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/settings.ts(2,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/settings.ts(3,31): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/settings.ts(79,44): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/settings.ts(95,44): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/settings.ts(101,39): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/settings.ts(117,44): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/settings.ts(133,44): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/settings.ts(148,44): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/settings.ts(164,44): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/settings.ts(207,44): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/settings.ts(221,44): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/settings.ts(242,44): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/settings.ts(258,44): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/settings.ts(287,44): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/settings.ts(293,44): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/settings.ts(307,44): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/telegram-bot.ts(2,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/telegram-bot.ts(3,91): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/telegram-bot.ts(93,44): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/tickets.ts(2,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/tickets.ts(3,63): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/tickets.ts(33,22): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/tickets.ts(69,29): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/tickets.ts(93,29): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/tickets.ts(133,29): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/tickets.ts(173,50): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/tickets.ts(174,44): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/routes/tickets.ts(191,62): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/tickets.ts(194,19): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/routes/tickets.ts(202,29): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/tickets.ts(229,29): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/routes/tickets.ts(235,29): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/tickets.ts(262,29): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/vouchers.ts(2,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/vouchers.ts(3,58): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/vouchers.ts(6,127): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/api-zod/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/api-zod/src/index.ts'.
+src/routes/vouchers.ts(53,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/vouchers.ts(95,23): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/routes/webhook.ts(3,20): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.
+src/routes/webhook.ts(4,54): error TS6305: Output file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/dist/index.d.ts' has not been built from source file 'F:/5. WEB PROJECT/WEBVPN/webvpn/lib/db/src/index.ts'.

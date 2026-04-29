@@ -95,7 +95,7 @@ async function getExpiryNotifSettings(): Promise<{
   sendHour: number;
 }> {
   const allRows = await db.select().from(settingsTable);
-  const map = Object.fromEntries(allRows.map((r) => [r.key, r.value]));
+  const map = Object.fromEntries(allRows.map((r: any) => [r.key, r.value]));
   const parse = (v: string | null | undefined, def = true) =>
     v === undefined || v === null ? def : v === "true";
   const rawHour = parseInt(map["expiryNotifSendHour"] ?? "8", 10);
@@ -280,7 +280,7 @@ async function cleanupGhostAccounts(): Promise<void> {
       .returning({ id: vpnAccountsTable.id, username: vpnAccountsTable.username });
 
     if (result.length > 0) {
-      logger.info({ count: result.length, accounts: result.map((r) => r.username) }, "Auto-cleanup: menghapus akun VPN hantu yang sudah lama expired");
+      logger.info({ count: result.length, accounts: result.map((r: any) => r.username) }, "Auto-cleanup: menghapus akun VPN hantu yang sudah lama expired");
     }
   } catch (err) {
     logger.error({ err }, "Error saat auto-cleanup akun hantu");

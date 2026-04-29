@@ -146,22 +146,22 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
     .from(serversTable)
     .where(eq(serversTable.isActive, true));
 
-  const supportsProtocol = (s: typeof allServers[0]) =>
+  const supportsProtocol = (s: any) =>
     Array.isArray(s.supportedProtocols) && s.supportedProtocols.includes(product.protocol);
 
   let server: typeof allServers[0] | undefined;
 
   // Jika produk di-pin ke server tertentu
   if (product.serverId) {
-    const pinnedServer = allServers.find((s) => s.id === product.serverId);
+    const pinnedServer = allServers.find((s: any) => s.id === product.serverId);
     if (!pinnedServer) {
       throw new Error(`Server untuk produk ini sedang offline atau penuh.`);
     }
     server = pinnedServer;
   } else {
     // Jika tidak di-pin, cari server aktif mana saja yang support protokol
-    server = allServers.find((s) => supportsProtocol(s) && s.apiUrl && s.apiToken) ??
-      allServers.find((s) => supportsProtocol(s)) ??
+    server = allServers.find((s: any) => supportsProtocol(s) && s.apiUrl && s.apiToken) ??
+      allServers.find((s: any) => supportsProtocol(s)) ??
       allServers[0];
   }
 
@@ -243,7 +243,7 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
   let balanceAfter: number | null = null;
 
   try {
-    await db.transaction(async (tx) => {
+    await db.transaction(async (tx: any) => {
       if (opts.deductBalance) {
         const [updatedUser] = await tx
           .update(usersTable)
@@ -446,7 +446,7 @@ router.post("/orders", requireAuth, async (req, res) => {
 
   const parsed = CreateOrderBody.safeParse(req.body);
   if (!parsed.success) {
-    const remarksIssue = parsed.error.issues.find((i) => i.path.includes("remarks"));
+    const remarksIssue = parsed.error.issues.find((i: any) => i.path.includes("remarks"));
     const errorMsg = remarksIssue
       ? "Nama akun tidak valid. Minimal 5 karakter, harus mengandung huruf dan minimal 2 angka. Contoh: daaw12"
       : "Input tidak valid";
@@ -651,7 +651,7 @@ router.post("/orders", requireAuth, async (req, res) => {
 });
 
 router.get("/orders/:id", requireAuth, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   const userId = req.user!.userId;
 
   const [order] = await db
@@ -669,7 +669,7 @@ router.get("/orders/:id", requireAuth, async (req, res) => {
 });
 
 router.post("/orders/:id/pay", requireAuth, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   const userId = req.user!.userId;
 
   const [order] = await db

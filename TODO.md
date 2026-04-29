@@ -25,3 +25,23 @@ Daftar fitur *"Next-Level"* yang akan dikembangkan untuk meningkatkan otomatisas
 - [x] **6. Kompensasi Waktu Massal (Extend Server) via Telegram**
   Fitur cerdas untuk menambah masa aktif seluruh akun VPN aktif di sebuah server yang bermasalah. Termasuk proteksi *anti-spam* panel dan pelaporan via telegram background-job.
   *Tingkat Risiko: Menengah*
+
+## 🛠️ Fase Pembersihan Kode (Technical Debt & Refactoring)
+
+Penyelesaian *error* TypeScript yang menumpuk agar performa dan stabilitas aplikasi lebih terjaga untuk pengembangan ke depan.
+
+- [x] **1. Frontend: Perbaikan React Query (v5 Migration)**
+  Memperbaiki semua rute pemanggilan API di *frontend* yang mengalami *error* `Property 'queryKey' is missing` akibat ketidakcocokan tipe parameter di React Query.
+
+- [x] **2. Frontend: Perbaikan Animasi Framer Motion**
+  Memperbaiki *error* tipe data pada konfigurasi `ease` di komponen *Home* (Sultan Glassmorphism).
+
+- [ ] **3. Backend: Perbaikan Tipe Data Query Parameter**
+  Memperbaiki penanganan `string | string[]` dari Fastify query parameter agar aman dari potensi *crash* (di rute tickets, vouchers, accounts, dsb).
+
+- [ ] **4. Backend: Perbaikan Tipe Objek Telegram Admin**
+  Menghapus/menyesuaikan *property* `uuid` yang menyebabkan *error* TypeScript pada fungsi sinkronisasi *server* VPN di `/admin`.
+
+- [ ] **5. Backend: Penyelesaian "Implicit Any"**
+  Menambahkan tipe eksplisit pada *handler request/reply* dan variabel yang saat ini masih `any` di rute-rute *backend*.
+

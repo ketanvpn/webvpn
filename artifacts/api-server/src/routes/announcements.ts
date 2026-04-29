@@ -50,7 +50,7 @@ router.post("/admin/announcements", requireAdmin, async (req, res) => {
 });
 
 router.put("/admin/announcements/:id", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   const { title, content, type, isActive, startAt, endAt } = req.body ?? {};
   const updateData: Partial<typeof announcementsTable.$inferInsert> = {
     updatedAt: new Date(),
@@ -90,7 +90,7 @@ router.put("/admin/announcements/:id", requireAdmin, async (req, res) => {
 });
 
 router.delete("/admin/announcements/:id", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   const [deleted] = await db
     .delete(announcementsTable)
     .where(eq(announcementsTable.id, id))

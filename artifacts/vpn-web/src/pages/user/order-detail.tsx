@@ -1,5 +1,5 @@
 import { getApiError } from "@/lib/utils";
-import { useGetOrder, usePayOrder, getGetOrderQueryKey, useGetAccount, getGetBalanceQueryKey } from "@workspace/api-client-react";
+import { useGetOrder, usePayOrder, getGetOrderQueryKey, useGetAccount, getGetBalanceQueryKey, getGetAccountQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { formatRupiah } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -80,6 +80,7 @@ export default function OrderDetail() {
 
   const { data: order, isLoading } = useGetOrder(orderId, {
     query: {
+      queryKey: getGetOrderQueryKey(orderId),
       enabled: !!orderId,
       refetchInterval: (q) => shouldPoll(q.state.data) ? 3000 : false,
     }
@@ -110,7 +111,10 @@ export default function OrderDetail() {
   }, [order?.status]);
 
   const { data: vpnAccount } = useGetAccount(order?.vpnAccountId ?? 0, {
-    query: { enabled: !!order?.vpnAccountId && order?.status === "paid" }
+    query: { 
+      queryKey: getGetAccountQueryKey(order?.vpnAccountId ?? 0),
+      enabled: !!order?.vpnAccountId && order?.status === "paid" 
+    }
   });
 
   const payOrder = usePayOrder();

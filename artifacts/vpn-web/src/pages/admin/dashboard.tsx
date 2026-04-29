@@ -1,4 +1,4 @@
-import { useGetAdminDashboard } from "@workspace/api-client-react";
+import { useGetAdminDashboard, getGetAdminDashboardQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatRupiah } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -65,7 +65,7 @@ function OrdersTooltip({ active, payload, label }: any) {
 
 export default function AdminDashboard() {
   const { data: summary, isLoading } = useGetAdminDashboard({
-    query: { refetchInterval: 30_000 },
+    query: { queryKey: getGetAdminDashboardQueryKey(), refetchInterval: 30_000 },
   });
 
   const [chartDays, setChartDays] = useState(14);

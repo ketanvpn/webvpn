@@ -42,9 +42,10 @@ export default function AdminTopups() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const queryParams = { status: status === "all" ? undefined : (status as AdminListTopupsStatus) };
   const { data, isLoading } = useAdminListTopups(
-    { status: status === "all" ? undefined : (status as AdminListTopupsStatus) },
-    { query: { refetchInterval: 30_000 } }
+    queryParams,
+    { query: { queryKey: getAdminListTopupsQueryKey(queryParams), refetchInterval: 30_000 } }
   );
 
   const confirmTopup = useAdminConfirmTopup();

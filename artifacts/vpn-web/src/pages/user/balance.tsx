@@ -64,11 +64,11 @@ export default function Balance() {
   const prevBalanceRef = useRef<number | null>(null);
 
   const { data: balanceData, isLoading: isLoadingBalance } = useGetBalance({
-    query: { refetchInterval: showQris ? 3000 : false },
+    query: { queryKey: getGetBalanceQueryKey(), refetchInterval: showQris ? 3000 : false },
   });
   const { data: historyData, isLoading: isLoadingHistory } = useListTopupHistory(
     undefined,
-    { query: { refetchInterval: showQris ? 3000 : false } as any },
+    { query: { queryKey: getListTopupHistoryQueryKey(), refetchInterval: showQris ? 3000 : false } },
   );
   const topup = useTopupBalance();
 

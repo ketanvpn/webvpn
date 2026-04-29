@@ -49,7 +49,7 @@ function formatUser(u: typeof usersTable.$inferSelect) {
     referralCode: u.referralCode,
     whatsapp: u.whatsapp ?? null,
     telegramId: u.telegramId ?? null,
-    telegramUsername: u.telegramUsername ?? null,
+    telegramUsername: (u as any).telegramUsername ?? null,
     referredBy: u.referredBy ?? null,
     createdAt: u.createdAt,
   };
@@ -141,7 +141,7 @@ router.get("/admin/dashboard", requireAdmin, async (_req, res) => {
     revenueThisMonth: Number(revMonthResult[0]?.total ?? 0),
     ordersByProtocol,
     recentOrders: formattedRecentOrders,
-    recentTopups: recentTopups.map((t) => formatTopup(t as typeof topupsTable.$inferSelect & { username?: string | null })),
+    recentTopups: recentTopups.map((t: any) => formatTopup(t as typeof topupsTable.$inferSelect & { username?: string | null })),
   });
 });
 
@@ -169,7 +169,7 @@ router.get("/admin/stats/revenue-chart", requireAdmin, async (req, res) => {
     const d = new Date();
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().split("T")[0];
-    const found = rows.find((r) => r.date === dateStr);
+    const found = rows.find((r: any) => r.date === dateStr);
     result.push({
       date: dateStr,
       revenue: Number(found?.revenue ?? 0),
@@ -275,7 +275,7 @@ router.post("/admin/users", requireAdmin, async (req, res) => {
 });
 
 router.get("/admin/users/:id", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
 
   const [user] = await db
     .select()
@@ -316,12 +316,12 @@ router.get("/admin/users/:id", requireAdmin, async (req, res) => {
     ...formatUser(user),
     orders: formattedOrders,
     accounts: formattedAccounts,
-    topupHistory: topupHistory.map((t) => formatTopup(t)),
+    topupHistory: topupHistory.map((t: any) => formatTopup(t)),
   });
 });
 
 router.patch("/admin/users/:id", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   const parsed = AdminUpdateUserBody.safeParse(req.body);
 
   if (!parsed.success) {
@@ -377,7 +377,7 @@ router.patch("/admin/users/:id", requireAdmin, async (req, res) => {
 });
 
 router.delete("/admin/users/:id", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   const currentUser = (req as any).user;
 
   if (currentUser?.id === id) {
@@ -405,7 +405,7 @@ router.delete("/admin/users/:id", requireAdmin, async (req, res) => {
 });
 
 router.post("/admin/users/:id/reset-password", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   const { newPassword } = req.body ?? {};
 
   if (!newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
@@ -433,9 +433,9 @@ router.get("/admin/products", requireAdmin, async (_req, res) => {
     .from(productsTable)
     .leftJoin(serversTable, eq(productsTable.serverId, serversTable.id))
     .orderBy(asc(productsTable.sortOrder), asc(productsTable.id));
-  const products = rows.map((r) => r.product);
-  const countMap = await getActiveCountMap(products.map((p) => p.id));
-  res.json(rows.map((r) => formatProduct(r.product, countMap.get(r.product.id) ?? 0, 0, r.serverName ?? null)));
+  const products = rows.map((r: any) => r.product);
+  const countMap = await getActiveCountMap(products.map((p: any) => p.id));
+  res.json(rows.map((r: any) => formatProduct(r.product, countMap.get(r.product.id) ?? 0, 0, r.serverName ?? null)));
 });
 
 router.post("/admin/products", requireAdmin, async (req, res) => {
@@ -471,7 +471,7 @@ router.post("/admin/products", requireAdmin, async (req, res) => {
 });
 
 router.patch("/admin/products/:id", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   const parsed = AdminUpdateProductBody.safeParse(req.body);
 
   if (!parsed.success) {
@@ -515,7 +515,7 @@ router.patch("/admin/products/:id", requireAdmin, async (req, res) => {
 });
 
 router.delete("/admin/products/:id", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
 
   // Cek apakah produk ada
   const [product] = await db
@@ -556,7 +556,7 @@ router.get("/admin/servers", requireAdmin, async (_req, res) => {
     .orderBy(asc(serversTable.sortOrder), asc(serversTable.id));
 
   const result = await Promise.all(
-    servers.map(async (s) => {
+    servers.map(async (s: any) => {
       const [{ count }] = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(vpnAccountsTable)
@@ -593,7 +593,7 @@ router.post("/admin/servers", requireAdmin, async (req, res) => {
 });
 
 router.patch("/admin/servers/:id", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   const parsed = AdminUpdateServerBody.safeParse(req.body);
 
   if (!parsed.success) {
@@ -628,7 +628,7 @@ router.patch("/admin/servers/:id", requireAdmin, async (req, res) => {
 });
 
 router.delete("/admin/servers/:id", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   await db.update(serversTable).set({ isActive: false }).where(eq(serversTable.id, id));
   res.json({ message: "Server deleted" });
 });
@@ -637,7 +637,7 @@ router.get("/admin/servers/health", requireAdmin, async (_req, res) => {
   const servers = await db.select().from(serversTable).orderBy(asc(serversTable.sortOrder), asc(serversTable.id));
 
   const result = await Promise.all(
-    servers.map(async (s) => {
+    servers.map(async (s: any) => {
       const [{ count }] = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(vpnAccountsTable)
@@ -670,7 +670,7 @@ router.get("/admin/servers/health", requireAdmin, async (_req, res) => {
 });
 
 router.get("/admin/servers/:id/health", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
 
   const [server] = await db
     .select()
@@ -733,7 +733,7 @@ router.get("/admin/orders", requireAdmin, async (req, res) => {
     .where(conditions.length > 0 ? and(...conditions) : undefined);
 
   const formatted = await Promise.all(
-    rows.map(async ({ order, user }) => {
+    rows.map(async ({ order, user }: any) => {
       const base = await formatOrder(order);
       return {
         ...base,
@@ -758,7 +758,7 @@ router.get("/admin/orders", requireAdmin, async (req, res) => {
 });
 
 router.post("/admin/orders/:id/confirm", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
 
   const [order] = await db
     .select()
@@ -803,7 +803,7 @@ router.post("/admin/orders/:id/confirm", requireAdmin, async (req, res) => {
         : false;
 
     const server =
-      allServers.find((s) => supportsProtocol(s) && s.apiUrl && s.apiToken) ??
+      allServers.find((s: any) => supportsProtocol(s) && s.apiUrl && s.apiToken) ??
       allServers.find(supportsProtocol) ??
       allServers[0];
 
@@ -943,11 +943,11 @@ router.get("/admin/topups", requireAdmin, async (req, res) => {
     .limit(limit)
     .offset(offset);
 
-  res.json(topups.map((t) => formatTopup(t as typeof topupsTable.$inferSelect & { username?: string | null })));
+  res.json(topups.map((t: any) => formatTopup(t as typeof topupsTable.$inferSelect & { username?: string | null })));
 });
 
 router.post("/admin/topups/:id/confirm", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   const adminId = req.user!.userId;
 
   const [topup] = await db
@@ -1021,7 +1021,7 @@ router.post("/admin/topups/:id/confirm", requireAdmin, async (req, res) => {
 });
 
 router.post("/admin/topups/:id/reject", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   const adminId = req.user!.userId;
   const rejectionNote = req.body?.rejectionNote ? String(req.body.rejectionNote).slice(0, 200) : null;
 
@@ -1112,7 +1112,7 @@ router.get("/admin/accounts", requireAdmin, async (req, res) => {
     .leftJoin(usersTable, eq(vpnAccountsTable.userId, usersTable.id))
     .where(conditions.length > 0 ? and(...conditions) : undefined);
 
-  const formatted = accounts.map((a) => ({
+  const formatted = accounts.map((a: any) => ({
     id: a.id,
     userId: a.userId,
     orderId: a.orderId,
@@ -1143,7 +1143,7 @@ router.get("/admin/accounts", requireAdmin, async (req, res) => {
 });
 
 router.post("/admin/accounts/:id/extend", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   const days = parseInt(String(req.body?.days ?? "30"), 10);
 
   if (isNaN(days) || days < 1 || days > 365) {
@@ -1188,7 +1188,7 @@ router.post("/admin/accounts/:id/extend", requireAdmin, async (req, res) => {
       protocol: account.protocol,
       username: account.username,
       durationDays: days,
-      quota: account.quota,
+      quota: account.quota ? Number(account.quota) : null,
     }).catch(() => {});
   }
 
@@ -1196,7 +1196,7 @@ router.post("/admin/accounts/:id/extend", requireAdmin, async (req, res) => {
 });
 
 router.delete("/admin/accounts/:id", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
 
   const [account] = await db
     .select()
@@ -1269,7 +1269,7 @@ router.post("/admin/accounts/bulk-delete", requireAdmin, async (req, res) => {
 });
 
 router.delete("/admin/orders/:id", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
 
   const [order] = await db
     .select()
@@ -1292,7 +1292,7 @@ router.delete("/admin/orders/:id", requireAdmin, async (req, res) => {
 });
 
 router.post("/admin/accounts/:id/toggle", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
 
   const [account] = await db
     .select()
@@ -1339,7 +1339,7 @@ router.post("/admin/accounts/:id/toggle", requireAdmin, async (req, res) => {
 });
 
 router.post("/admin/accounts/:id/sync", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
 
   const [account] = await db
     .select()
@@ -1379,7 +1379,7 @@ router.post("/admin/accounts/:id/sync", requireAdmin, async (req, res) => {
   const updateData: Partial<typeof vpnAccountsTable.$inferInsert> = {};
   if (info.uuid) updateData.uuid = info.uuid;
   if (info.configLink) updateData.configLink = info.configLink;
-  if (info.allLinks) updateData.allLinks = info.allLinks;
+  if (info.allLinks) updateData.allLinks = info.allLinks as Record<string, string | null>;
   updateData.updatedAt = new Date();
 
   const [updated] = await db

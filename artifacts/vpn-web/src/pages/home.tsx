@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { Shield, Zap, Globe, ChevronRight, Server, ArrowRight } from "lucide-react";
 import { LogoBrand } from "@/components/logo";
-import { motion } from "framer-motion";
+import { motion, Variants } from "framer-motion";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "");
 
@@ -49,12 +49,12 @@ const infoItems = [
 ];
 
 // Animation Variants
-const fadeUp = {
+const fadeUp: Variants = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
 };
 
-const staggerContainer = {
+const staggerContainer: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,

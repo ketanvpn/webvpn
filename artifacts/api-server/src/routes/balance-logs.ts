@@ -60,7 +60,7 @@ router.get("/balance/logs", requireAuth, async (req, res) => {
     .where(eq(balanceLogsTable.userId, userId));
 
   res.json({
-    data: logs.map((l) => formatBalanceLog(l)),
+    data: logs.map((l: any) => formatBalanceLog(l)),
     total: countResult.count,
     limit,
     offset,
@@ -68,7 +68,7 @@ router.get("/balance/logs", requireAuth, async (req, res) => {
 });
 
 router.get("/admin/users/:id/balance-logs", requireAdmin, async (req, res) => {
-  const userId = parseInt(req.params.id, 10);
+  const userId = parseInt(req.params.id as string, 10);
   const limit = Math.min(parseInt(String(req.query.limit ?? "30"), 10), 100);
   const offset = parseInt(String(req.query.offset ?? "0"), 10);
 
@@ -98,7 +98,7 @@ router.get("/admin/users/:id/balance-logs", requireAdmin, async (req, res) => {
     .where(eq(balanceLogsTable.userId, userId));
 
   res.json({
-    data: logs.map((l) => formatBalanceLog(l as typeof balanceLogsTable.$inferSelect & { username?: string | null })),
+    data: logs.map((l: any) => formatBalanceLog(l as typeof balanceLogsTable.$inferSelect & { username?: string | null })),
     total: countResult.count,
     limit,
     offset,

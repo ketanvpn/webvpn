@@ -24,7 +24,7 @@ router.get("/dashboard/summary", requireAuth, async (req, res) => {
     .from(topupsTable)
     .where(and(eq(topupsTable.userId, userId), eq(topupsTable.status, "pending")));
 
-  const pendingTopup = pendingTopupResult.reduce((sum, t) => sum + Number(t.amount), 0);
+  const pendingTopup = pendingTopupResult.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
 
   const activeAccountsResult = await db
     .select({ count: sql<number>`count(*)::int` })

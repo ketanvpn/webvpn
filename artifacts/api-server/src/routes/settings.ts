@@ -76,7 +76,7 @@ function buildPaymentSettingsResponse(map: Record<string, string | null>) {
 
 router.get("/admin/settings/payment", requireAdmin, async (_req, res) => {
   const rows = await db.select().from(settingsTable);
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildPaymentSettingsResponse(map));
 });
 
@@ -92,13 +92,13 @@ router.put("/admin/settings/payment", requireAdmin, async (req, res) => {
   }
 
   const rows = await db.select().from(settingsTable);
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildPaymentSettingsResponse(map));
 });
 
 export async function getPaymentSettingsMap(): Promise<Record<string, string | null>> {
   const rows = await db.select().from(settingsTable);
-  return Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  return Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
 }
 
 // ─── Telegram Settings ────────────────────────────────────────────────────────
@@ -114,7 +114,7 @@ function buildTelegramSettingsResponse(map: Record<string, string | null>) {
 
 router.get("/admin/settings/telegram", requireAdmin, async (_req, res) => {
   const rows = await db.select().from(settingsTable);
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildTelegramSettingsResponse(map));
 });
 
@@ -130,7 +130,7 @@ router.put("/admin/settings/telegram", requireAdmin, async (req, res) => {
   }
 
   const rows = await db.select().from(settingsTable);
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildTelegramSettingsResponse(map));
 });
 
@@ -145,7 +145,7 @@ function buildWhatsappSettingsResponse(map: Record<string, string | null>) {
 
 router.get("/admin/settings/whatsapp", requireAdmin, async (_req, res) => {
   const rows = await db.select().from(settingsTable);
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildWhatsappSettingsResponse(map));
 });
 
@@ -161,7 +161,7 @@ router.put("/admin/settings/whatsapp", requireAdmin, async (req, res) => {
   }
 
   const rows = await db.select().from(settingsTable);
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildWhatsappSettingsResponse(map));
 });
 
@@ -204,7 +204,7 @@ function buildExpiryNotifSettingsResponse(map: Record<string, string | null>) {
 
 router.get("/admin/settings/expiry-notif", requireAdmin, async (_req, res) => {
   const rows = await db.select().from(settingsTable);
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildExpiryNotifSettingsResponse(map));
 });
 
@@ -218,7 +218,7 @@ router.put("/admin/settings/expiry-notif", requireAdmin, async (req, res) => {
     }
   }
   const rows = await db.select().from(settingsTable);
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildExpiryNotifSettingsResponse(map));
 });
 
@@ -239,7 +239,7 @@ function buildReferralSettingsResponse(map: Record<string, string | null>) {
 
 router.get("/admin/settings/referral", requireAdmin, async (_req, res) => {
   const rows = await db.select().from(settingsTable);
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildReferralSettingsResponse(map));
 });
 
@@ -255,7 +255,7 @@ router.put("/admin/settings/referral", requireAdmin, async (req, res) => {
   }
 
   const rows = await db.select().from(settingsTable);
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildReferralSettingsResponse(map));
 });
 
@@ -284,13 +284,13 @@ function buildResellerSettingsResponse(map: Record<string, string | null>) {
 
 export async function getResellerSettings() {
   const rows = await db.select().from(settingsTable);
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   return buildResellerSettingsResponse(map);
 }
 
 router.get("/admin/settings/reseller", requireAdmin, async (_req, res) => {
   const rows = await db.select().from(settingsTable);
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildResellerSettingsResponse(map));
 });
 
@@ -304,7 +304,7 @@ router.put("/admin/settings/reseller", requireAdmin, async (req, res) => {
     }
   }
   const rows = await db.select().from(settingsTable);
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildResellerSettingsResponse(map));
 });
 

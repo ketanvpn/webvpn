@@ -1,4 +1,4 @@
-import { useListBalanceLogs } from "@workspace/api-client-react";
+import { useListBalanceLogs, getListBalanceLogsQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ export default function BalanceLogs() {
 
   const { data, isLoading } = useListBalanceLogs(
     { limit: LIMIT, offset },
-    { query: { staleTime: 30000 } }
+    { query: { queryKey: getListBalanceLogsQueryKey({ limit: LIMIT, offset }), staleTime: 30000 } }
   );
 
   const logs = data?.data ?? [];

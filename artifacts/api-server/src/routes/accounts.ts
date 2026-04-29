@@ -68,7 +68,7 @@ router.get("/accounts", requireAuth, async (req, res) => {
 });
 
 router.get("/accounts/:id", requireAuth, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   const userId = req.user!.userId;
 
   const [account] = await db
@@ -86,7 +86,7 @@ router.get("/accounts/:id", requireAuth, async (req, res) => {
 });
 
 router.post("/accounts/:id/renew", requireAuth, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id as string, 10);
   const userId = req.user!.userId;
   const parsed = RenewAccountBody.safeParse(req.body);
 
@@ -188,7 +188,7 @@ router.post("/accounts/:id/renew", requireAuth, async (req, res) => {
       protocol: account.protocol,
       username: account.username,
       durationDays: product.durationDays,
-      quota: account.quota,
+      quota: account.quota ? Number(account.quota) : null,
     });
   } catch (err) {
     console.error("[renew] Panel error:", err);
@@ -202,7 +202,7 @@ router.post("/accounts/:id/renew", requireAuth, async (req, res) => {
   let balanceAfter: number;
 
   try {
-    const txResult = await db.transaction(async (tx) => {
+    const txResult = await db.transaction(async (tx: any) => {
       const [updatedUser] = await tx
         .update(usersTable)
         .set({ balance: sql`balance - ${price}` })
