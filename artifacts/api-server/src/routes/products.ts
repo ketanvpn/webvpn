@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { productsTable, ordersTable, vpnAccountsTable, serversTable, usersTable } from "@workspace/db";
-import { eq, and, asc, count, gt, inArray } from "drizzle-orm";
+import { eq, and, asc, count, gt, inArray, or, isNull } from "drizzle-orm";
 import { getResellerSettings } from "./settings";
 import { optionalAuth } from "../lib/auth";
 
@@ -68,7 +68,12 @@ router.get("/products", optionalAuth, async (req, res) => {
     .select({ product: productsTable, serverName: serversTable.name })
     .from(productsTable)
     .leftJoin(serversTable, eq(productsTable.serverId, serversTable.id))
-    .where(and(...conditions))
+    .where(
+      and(
+        ...conditions,
+        or(isNull(productsTable.serverId), eq(serversTable.isActive, true))
+      )
+    )
     .orderBy(asc(productsTable.sortOrder), asc(productsTable.id));
 
   const products = rows.map((r) => r.product);
@@ -94,7 +99,13 @@ router.get("/products/:id", optionalAuth, async (req, res) => {
     .select({ product: productsTable, serverName: serversTable.name })
     .from(productsTable)
     .leftJoin(serversTable, eq(productsTable.serverId, serversTable.id))
-    .where(and(eq(productsTable.id, id), eq(productsTable.isActive, true)))
+    .where(
+      and(
+        eq(productsTable.id, id),
+        eq(productsTable.isActive, true),
+        or(isNull(productsTable.serverId), eq(serversTable.isActive, true))
+      )
+    )
     .limit(1);
 
   if (!row) {

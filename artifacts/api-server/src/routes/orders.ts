@@ -149,15 +149,19 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
   const supportsProtocol = (s: typeof allServers[0]) =>
     Array.isArray(s.supportedProtocols) && s.supportedProtocols.includes(product.protocol);
 
-  // Prioritaskan server yang di-pin ke produk, jika ada dan aktif
-  const pinnedServer = product.serverId
-    ? allServers.find((s) => s.id === product.serverId)
-    : undefined;
-
-  const server = pinnedServer ??
-    allServers.find((s) => supportsProtocol(s) && s.apiUrl && s.apiToken) ??
-    allServers.find((s) => supportsProtocol(s)) ??
-    allServers[0];
+  // Jika produk di-pin ke server tertentu
+  if (product.serverId) {
+    const pinnedServer = allServers.find((s) => s.id === product.serverId);
+    if (!pinnedServer) {
+      throw new Error(`Server untuk produk ini sedang offline atau penuh.`);
+    }
+    server = pinnedServer;
+  } else {
+    // Jika tidak di-pin, cari server aktif mana saja yang support protokol
+    server = allServers.find((s) => supportsProtocol(s) && s.apiUrl && s.apiToken) ??
+      allServers.find((s) => supportsProtocol(s)) ??
+      allServers[0];
+  }
 
   if (!server) throw new Error("Tidak ada server yang tersedia saat ini");
 
@@ -417,14 +421,21 @@ router.post("/orders", requireAuth, async (req, res) => {
   // Normalisasi: pastikan lowercase karena Zod sudah memastikan hanya alphanumeric
   const normalizedRemarks = remarks.trim().toLowerCase();
 
-  const [product] = await db
-    .select()
+  const [productRow] = await db
+    .select({ product: productsTable, serverActive: serversTable.isActive })
     .from(productsTable)
+    .leftJoin(serversTable, eq(productsTable.serverId, serversTable.id))
     .where(and(eq(productsTable.id, productId), eq(productsTable.isActive, true)))
     .limit(1);
 
-  if (!product) {
+  if (!productRow) {
     res.status(400).json({ error: "Product not found or not active" });
+    return;
+  }
+
+  const product = productRow.product;
+  if (product.serverId && productRow.serverActive === false) {
+    res.status(400).json({ error: "Server untuk produk ini sedang offline/maintenance" });
     return;
   }
 

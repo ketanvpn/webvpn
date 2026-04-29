@@ -17,6 +17,10 @@ Semua perubahan penting pada proyek KETANTECH VPN akan didokumentasikan di file 
 - **Auto-Cleanup Akun Kedaluwarsa (Ghost Accounts)** — Menambahkan fungsi `cleanupGhostAccounts` ke dalam sistem *Scheduler*. Sistem kini akan otomatis berjalan setiap 3 jam untuk mencari dan menghapus akun VPN dari database web yang sudah lewat masa kedaluwarsanya lebih dari **7 hari**.
 
 ### 🛡️ Security Fixes
+- **Logika Server Non-aktif (Maintenance)** — Memperbaiki kebocoran logika (logic flaw) di mana saat admin mematikan suatu server, produk VPN yang mengarah ke server mati tersebut tetap bisa dibeli. Lebih parahnya, sistem sebelumnya akan melempar (fallback) pesanan user ke server aktif lainnya tanpa pemberitahuan. Kini:
+  1. Produk yang menempel pada server non-aktif otomatis disembunyikan dari Toko VPN.
+  2. Order otomatis ditolak dengan pesan error yang jelas jika sistem tidak sengaja memprosesnya.
+  3. User tidak dapat melakukan perpanjangan (Renew) pada akun yang berada di server non-aktif/maintenance.
 - **Pemotongan Saldo Asinkron (Fire-and-forget)** — Sebelumnya, sistem memotong saldo user dan mencatat transaksi ke database *sebelum* berhasil mengeksekusi perpanjangan akun di Panel VPS. Jika VPS *down* atau API gagal, saldo user hangus tapi akun gagal diperpanjang.
 - **Validasi Terpusat (Triple Validation)** — Alur dirombak sehingga:
   1. Mengecek saldo user terlebih dahulu.

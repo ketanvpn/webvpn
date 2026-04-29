@@ -160,10 +160,15 @@ router.post("/accounts/:id/renew", requireAuth, async (req, res) => {
 
   // 2. Dapatkan data server VPS
   const [server] = await db
-    .select({ apiUrl: serversTable.apiUrl, apiToken: serversTable.apiToken })
+    .select({ apiUrl: serversTable.apiUrl, apiToken: serversTable.apiToken, isActive: serversTable.isActive })
     .from(serversTable)
     .where(eq(serversTable.id, account.serverId))
     .limit(1);
+
+  if (server && !server.isActive) {
+    res.status(400).json({ error: "Server ini sedang maintenance atau offline. Tidak dapat melakukan perpanjangan." });
+    return;
+  }
 
   if (!server?.apiUrl || !server?.apiToken) {
     res.status(500).json({ error: "Konfigurasi server VPS tidak valid" });
