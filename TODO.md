@@ -106,6 +106,15 @@ Fitur-fitur baru untuk meningkatkan kualitas produk, akuisisi user, dan keamanan
 
 > **Database Migration:** Setiap fitur yang butuh tabel/kolom baru harus melalui `drizzle-kit push` di VPS. Selalu backup database dulu via fitur Backup Telegram sebelum push schema baru.
 
-> **Urutan Kerja yang Disarankan:** `7 → 8 → 10 → 9 → 11 → 12`
-> Landing page & email paling berdampak ke bisnis, analytics membantu keputusan, keamanan & promo menyusul, i18n terakhir.
+### 🗺️ Roadmap Eksekusi (Urutan yang Disepakati)
 
+| Urutan | Fitur | Estimasi | Butuh DB Migration? | Prasyarat |
+|:------:|-------|----------|:-------------------:|-----------|
+| ① | **#7 Redesign Landing Page & SEO** | 1-2 sesi | ❌ | Tidak ada — bisa langsung mulai |
+| ② | **#8 Notifikasi Email** | 2-3 sesi | ✅ (kolom `emailVerified`) | Pilih SMTP provider dulu (Resend/Brevo/Gmail) |
+| ③ | **#10 Dashboard Analytics** | 1-2 sesi | ❌ | Cek library chart yang sudah dipakai di frontend |
+| ④ | **#9 Login Security & 2FA** | 2-3 sesi | ✅ (tabel `login_logs`, kolom `totpSecret`) | Install `otplib`, siapkan UI QR code |
+| ⑤ | **#11 Promo Terjadwal** | 1-2 sesi | ✅ (kolom jadwal di `vouchers`) | Pastikan scheduler timezone WIB sudah stabil |
+| ⑥ | **#12 Multi-bahasa (i18n)** | 3-4 sesi | ❌ | Semua fitur lain harus stabil dulu |
+
+> **Langkah pertama:** Mulai dari **#7 Redesign Landing Page & SEO** — tanpa risiko database, dampak langsung ke akuisisi user.

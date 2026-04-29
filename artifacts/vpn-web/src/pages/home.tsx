@@ -2,9 +2,10 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
-import { Shield, Zap, Globe, ChevronRight, Server, ArrowRight } from "lucide-react";
+import { Shield, Zap, Globe, ChevronRight, Server, ArrowRight, Users, Activity, Clock, UserPlus, CreditCard, Wifi, ChevronDown } from "lucide-react";
 import { LogoBrand } from "@/components/logo";
-import { motion, Variants } from "framer-motion";
+import { motion, Variants, useInView } from "framer-motion";
+import { useRef, useEffect, useState } from "react";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "");
 
@@ -12,6 +13,13 @@ async function fetchPublicServers() {
   const res = await fetch(`${BASE}/api/servers`);
   if (!res.ok) return [];
   return res.json();
+}
+
+async function fetchProducts() {
+  const res = await fetch(`${BASE}/api/products`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return (data as any[]).filter((p: any) => p.isActive).sort((a: any, b: any) => a.price - b.price).slice(0, 3);
 }
 
 const protocolLabel: Record<string, string> = {
@@ -64,6 +72,43 @@ const staggerContainer: Variants = {
   },
 };
 
+function AnimatedCounter({ target, suffix = "" }: { target: number; suffix?: string }) {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true });
+  useEffect(() => {
+    if (!inView) return;
+    let start = 0;
+    const duration = 1500;
+    const step = Math.ceil(target / (duration / 16));
+    const timer = setInterval(() => {
+      start += step;
+      if (start >= target) { setCount(target); clearInterval(timer); }
+      else setCount(start);
+    }, 16);
+    return () => clearInterval(timer);
+  }, [inView, target]);
+  return <span ref={ref}>{count.toLocaleString("id-ID")}{suffix}</span>;
+}
+
+const howItWorks = [
+  { icon: UserPlus, step: "1", title: "Daftar Gratis", desc: "Buat akun dalam hitungan detik. Tanpa kartu kredit." },
+  { icon: CreditCard, step: "2", title: "Isi Saldo & Pilih Paket", desc: "Top-up via QRIS/Transfer, lalu pilih paket VPN sesuai kebutuhan." },
+  { icon: Wifi, step: "3", title: "Langsung Terhubung", desc: "Akun VPN aktif otomatis. Salin config dan mulai browsing aman." },
+];
+
+const faqItems = [
+  { q: "Apa itu VPN dan untuk apa?", a: "VPN (Virtual Private Network) mengenkripsi koneksi internet kamu sehingga aktivitas online lebih aman dan privat. Cocok untuk mengakses konten yang dibatasi, melindungi data di WiFi publik, dan kebutuhan tunneling." },
+  { q: "Protokol apa saja yang tersedia?", a: "Kami menyediakan SSH, VMess, VLess, dan Trojan. Setiap protokol memiliki kelebihan masing-masing untuk berbagai kebutuhan koneksi." },
+  { q: "Bagaimana cara pembayaran?", a: "Kamu bisa top-up saldo via QRIS (scan langsung bayar) atau transfer manual ke rekening bank/e-wallet yang tersedia. Setelah saldo terisi, tinggal pilih paket." },
+  { q: "Apakah akun VPN langsung aktif?", a: "Ya! Setelah pembayaran dikonfirmasi, akun VPN kamu langsung dibuat secara otomatis. Tidak perlu menunggu admin." },
+  { q: "Bisa perpanjang masa aktif?", a: "Tentu. Masuk ke menu Akun VPN di dashboard, lalu klik Perpanjang pada akun yang ingin diperpanjang." },
+];
+
+function formatRupiah(n: number) {
+  return "Rp " + n.toLocaleString("id-ID");
+}
+
 export default function Home() {
   const { isAuthenticated } = useAuth();
   const { data: servers = [], isLoading } = useQuery<any[]>({
@@ -71,6 +116,12 @@ export default function Home() {
     queryFn: fetchPublicServers,
     staleTime: 60000,
   });
+  const { data: topProducts = [] } = useQuery<any[]>({
+    queryKey: ["public-products-top"],
+    queryFn: fetchProducts,
+    staleTime: 60000,
+  });
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const scrollToServers = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -309,17 +360,139 @@ export default function Home() {
           </motion.div>
         </section>
 
+        {/* ── Stats ───────────────────────────────────── */}
+        <section className="px-4 sm:px-6 pb-20 relative z-10">
+          <motion.div className="container mx-auto max-w-4xl" initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={staggerContainer}>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[
+                { icon: Users, value: 500, suffix: "+", label: "Pengguna Aktif" },
+                { icon: Server, value: servers.length || 5, suffix: "", label: "Server Tersedia" },
+                { icon: Activity, value: 99, suffix: "%", label: "Uptime Server" },
+                { icon: Clock, value: 24, suffix: "/7", label: "Dukungan Online" },
+              ].map(({ icon: Icon, value, suffix, label }) => (
+                <motion.div key={label} variants={fadeUp} className="glass-card rounded-2xl p-5 text-center hover:border-primary/30 transition-colors">
+                  <Icon className="h-5 w-5 text-primary mx-auto mb-2" />
+                  <p className="text-2xl sm:text-3xl font-extrabold text-foreground"><AnimatedCounter target={value} suffix={suffix} /></p>
+                  <p className="text-xs text-muted-foreground mt-1 font-medium">{label}</p>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        </section>
+
+        {/* ── Paket Populer ───────────────────────────── */}
+        {topProducts.length > 0 && (
+          <section className="px-4 sm:px-6 pb-20 relative z-10">
+            <motion.div className="container mx-auto max-w-5xl" initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={staggerContainer}>
+              <motion.div variants={fadeUp} className="text-center mb-10">
+                <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2">Paket Populer</h2>
+                <p className="text-muted-foreground text-sm sm:text-base">Mulai dari harga terjangkau, koneksi langsung aktif.</p>
+              </motion.div>
+              <div className="grid sm:grid-cols-3 gap-5">
+                {topProducts.map((p: any, i: number) => (
+                  <motion.div key={p.id} variants={fadeUp} whileHover={{ y: -5 }}
+                    className={`glass-card rounded-3xl p-6 flex flex-col relative overflow-hidden transition-all duration-300 ${i === 1 ? "border-primary/40 shadow-[0_0_30px_rgba(16,185,129,0.1)]" : "hover:border-primary/30"}`}
+                  >
+                    {i === 1 && <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-[10px] font-bold px-3 py-1 rounded-bl-xl uppercase tracking-wider">Terlaris</div>}
+                    <div className="mb-4">
+                      <h3 className="font-bold text-lg">{p.name}</h3>
+                      <p className="text-xs text-muted-foreground mt-1">{p.protocol?.toUpperCase()} • {p.durationDays} Hari</p>
+                    </div>
+                    <p className="text-3xl font-extrabold text-primary mb-1">{formatRupiah(p.price)}</p>
+                    <p className="text-xs text-muted-foreground mb-5">{formatRupiah(Math.round(p.price / p.durationDays))}/hari</p>
+                    <div className="mt-auto">
+                      <Button className="w-full h-11 glow-primary hover:scale-[1.02] transition-all" asChild>
+                        <Link href={isAuthenticated ? "/products" : "/register"}>Pilih Paket</Link>
+                      </Button>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          </section>
+        )}
+
+        {/* ── Cara Kerja ──────────────────────────────── */}
+        <section className="px-4 sm:px-6 pb-20 relative z-10">
+          <motion.div className="container mx-auto max-w-4xl" initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={staggerContainer}>
+            <motion.div variants={fadeUp} className="text-center mb-10">
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2">Cara Kerja</h2>
+              <p className="text-muted-foreground text-sm sm:text-base">Tiga langkah mudah untuk mulai terhubung.</p>
+            </motion.div>
+            <div className="grid sm:grid-cols-3 gap-6">
+              {howItWorks.map(({ icon: Icon, step, title, desc }) => (
+                <motion.div key={step} variants={fadeUp} className="glass-card rounded-2xl p-6 text-center group hover:border-primary/30 transition-colors">
+                  <div className="mx-auto mb-4 h-14 w-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                    <Icon className="h-6 w-6 text-primary" />
+                  </div>
+                  <div className="text-xs font-bold text-primary mb-2 tracking-widest">LANGKAH {step}</div>
+                  <h3 className="font-bold text-base mb-2">{title}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        </section>
+
+        {/* ── FAQ ──────────────────────────────────────── */}
+        <section className="px-4 sm:px-6 pb-24 relative z-10">
+          <motion.div className="container mx-auto max-w-2xl" initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={staggerContainer}>
+            <motion.div variants={fadeUp} className="text-center mb-10">
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2">Pertanyaan Umum</h2>
+              <p className="text-muted-foreground text-sm sm:text-base">Jawaban untuk pertanyaan yang sering ditanyakan.</p>
+            </motion.div>
+            <div className="space-y-3">
+              {faqItems.map((item, i) => (
+                <motion.div key={i} variants={fadeUp} className="glass-card rounded-2xl overflow-hidden">
+                  <button onClick={() => setOpenFaq(openFaq === i ? null : i)} className="w-full flex items-center justify-between p-5 text-left hover:bg-white/5 transition-colors">
+                    <span className="font-semibold text-sm sm:text-base pr-4">{item.q}</span>
+                    <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${openFaq === i ? "rotate-180 text-primary" : ""}`} />
+                  </button>
+                  {openFaq === i && (
+                    <div className="px-5 pb-5 -mt-1">
+                      <p className="text-sm text-muted-foreground leading-relaxed">{item.a}</p>
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        </section>
+
       </main>
 
       {/* ── Footer ─────────────────────────────────── */}
-      <footer className="py-8 border-t border-white/5 bg-background/40 backdrop-blur-md">
-        <div className="container mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
-          <div className="flex items-center gap-2 opacity-80 hover:opacity-100 transition-opacity">
-            <LogoBrand iconSize={24} />
+      <footer className="py-10 border-t border-white/5 bg-background/60 backdrop-blur-md">
+        <div className="container mx-auto px-4 sm:px-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-8">
+            <div>
+              <LogoBrand iconSize={28} />
+              <p className="text-xs text-muted-foreground mt-3 max-w-xs leading-relaxed">
+                Layanan VPN premium Indonesia dengan aktivasi instan, server cepat, dan dukungan pelanggan 24/7.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-semibold text-sm mb-3">Navigasi</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><Link href="/register" className="hover:text-primary transition-colors">Daftar</Link></li>
+                <li><Link href="/login" className="hover:text-primary transition-colors">Masuk</Link></li>
+                <li><button onClick={scrollToServers} className="hover:text-primary transition-colors">Server</button></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold text-sm mb-3">Kontak</h4>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li>📱 WhatsApp: <span className="text-foreground">Tersedia di Dashboard</span></li>
+                <li>🤖 Telegram Bot: <span className="text-foreground">@ketantechvpn_bot</span></li>
+              </ul>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground font-medium">
-            &copy; {new Date().getFullYear()} KETANTECH VPN. Hak Cipta Dilindungi.
-          </p>
+          <div className="border-t border-white/5 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground font-medium">
+              &copy; {new Date().getFullYear()} KETANTECH VPN. Hak Cipta Dilindungi.
+            </p>
+            <p className="text-[10px] text-muted-foreground/50">v2.0 • Made with ❤️ in Indonesia</p>
+          </div>
         </div>
       </footer>
     </div>
