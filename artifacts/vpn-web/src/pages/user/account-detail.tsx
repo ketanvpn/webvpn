@@ -49,13 +49,14 @@ function QrCodeImage({ data, label }: { data: string; label: string }) {
   );
 }
 
-function RenewDialog({ accountId, serverId, protocol, serverName, serverFlag, serverLocation }: {
+function RenewDialog({ accountId, serverId, protocol, serverName, serverFlag, serverLocation, serverIsActive }: {
   accountId: number;
   serverId: number;
   protocol: string;
   serverName: string;
   serverFlag: string;
   serverLocation: string;
+  serverIsActive: boolean;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -176,6 +177,12 @@ function RenewDialog({ accountId, serverId, protocol, serverName, serverFlag, se
                   <Skeleton className="h-16 w-full" />
                   <Skeleton className="h-16 w-full" />
                 </div>
+              ) : !serverIsActive ? (
+                <div className="text-center py-8 px-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg flex flex-col items-center gap-2">
+                  <AlertCircle className="h-8 w-8 text-red-500" />
+                  <p className="font-semibold">Server Offline / Maintenance</p>
+                  <p>Server <b>{serverName}</b> sedang tidak aktif. Kamu tidak dapat melakukan perpanjangan akun saat ini.</p>
+                </div>
               ) : matchingProducts.length === 0 ? (
                 <div className="text-center py-8 text-sm text-muted-foreground border rounded-lg">
                   Tidak ada paket tersedia untuk protokol {protocol.toUpperCase()}.
@@ -250,7 +257,7 @@ function RenewDialog({ accountId, serverId, protocol, serverName, serverFlag, se
               </Button>
               <Button
                 onClick={handleRenew}
-                disabled={!selectedProductId || !canAfford || renewMutation.isPending}
+                disabled={!selectedProductId || !canAfford || renewMutation.isPending || !serverIsActive}
                 className="gap-2"
               >
                 {renewMutation.isPending ? (
@@ -581,6 +588,7 @@ export default function AccountDetail() {
                   serverName={account.server.name}
                   serverFlag={account.server.flag}
                   serverLocation={account.server.location}
+                  serverIsActive={account.server.isActive}
                 />
               )}
               <Button variant="outline" className="w-full" asChild>
