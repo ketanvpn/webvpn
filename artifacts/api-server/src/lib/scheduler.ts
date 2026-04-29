@@ -259,6 +259,7 @@ async function cleanupGhostAccounts(): Promise<void> {
 
 export function startScheduler(): void {
   const ONE_HOUR = 60 * 60 * 1000;
+  const THREE_HOURS = 3 * 60 * 60 * 1000;
   const FIVE_MIN = 5 * 60 * 1000;
 
   checkExpiringAccounts().catch(() => {});
@@ -283,16 +284,16 @@ export function startScheduler(): void {
     checkAndAutoDisableServers().catch(() => {});
   }, FIVE_MIN);
 
-  // Auto-cleanup jalan setiap jam, tapi hanya memproses yang sudah expired > 7 hari
+  // Auto-cleanup jalan setiap 3 jam
   setInterval(() => {
     cleanupGhostAccounts().catch(() => {});
-  }, ONE_HOUR);
+  }, THREE_HOURS);
 
   logger.info("Scheduler notifikasi kedaluwarsa aktif (cek setiap jam, kirim sesuai jam WIB yang dikonfigurasi)");
   logger.info("Scheduler auto-cancel QRIS expired aktif (interval: 5 menit)");
   logger.info("Scheduler cek target reseller aktif (cek setiap jam, eksekusi tanggal 1 jam 07.00 WIB)");
   logger.info("Scheduler auto-disable server penuh aktif (interval: 5 menit)");
-  logger.info("Scheduler auto-cleanup akun hantu aktif (cek setiap jam)");
+  logger.info("Scheduler auto-cleanup akun hantu aktif (cek setiap 3 jam)");
 
   // Auto-backup: cek setiap jam apakah sudah waktunya backup
   import("./backup").then(({ isBackupDue, performBackup }) => {
