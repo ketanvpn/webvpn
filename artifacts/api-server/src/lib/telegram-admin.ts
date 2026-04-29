@@ -242,7 +242,7 @@ async function handleServersList(chatId: number, messageId: number, callbackId: 
     const activeCount = count ?? 0;
     const statusIcon = server.isActive ? "✅" : "⛔";
     
-    text += `${statusIcon} <b>${server.name}</b>\n`;
+    text += `${statusIcon} <b>[ID: ${server.id}] ${server.name}</b>\n`;
     text += `   Akun: ${activeCount} / ${server.maxAccounts}\n\n`;
 
     buttons.push([
