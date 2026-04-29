@@ -7,6 +7,7 @@ import {
   ticketMessagesTable,
   serversTable,
   vpnAccountsTable,
+  balanceLogsTable,
 } from "@workspace/db";
 import { eq, sql, sum, and, gte } from "drizzle-orm";
 import {
@@ -370,5 +371,46 @@ export async function handleCekUser(chatId: number, username: string) {
     text += `🔌 <b>Akun VPN Aktif:</b> Tidak ada\n`;
   }
 
+  text += `\n<i>Gunakan /gift ${user.username} nominal untuk memberi kompensasi saldo.</i>`;
   await sendMessage(chatId, text);
+}
+
+export async function handleGiftSaldo(chatId: number, username: string, amount: number) {
+  if (amount <= 0 || isNaN(amount)) {
+    await sendMessage(chatId, `❌ Nominal harus berupa angka lebih dari 0.`);
+    return;
+  }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.username, username)).limit(1);
+
+  if (!user) {
+    await sendMessage(chatId, `❌ User dengan username <b>${username}</b> tidak ditemukan.`);
+    return;
+  }
+
+  const newBalance = Number(user.balance) + amount;
+
+  await db.transaction(async (tx) => {
+    // 1. Update user balance
+    await tx.update(usersTable)
+      .set({ balance: newBalance.toString() })
+      .where(eq(usersTable.id, user.id));
+
+    // 2. Insert to balance_logs
+    await tx.insert(balanceLogsTable).values({
+      userId: user.id,
+      amount: amount.toString(),
+      type: "compensation",
+      description: `Kompensasi saldo dari Admin`,
+      balanceAfter: newBalance.toString(),
+    });
+  });
+
+  await sendMessage(chatId, `✅ <b>Kompensasi Berhasil</b>\n\nSaldo sebesar <b>${formatRupiah(amount)}</b> telah ditambahkan ke akun <b>${username}</b>.\nSaldo saat ini: <b>${formatRupiah(newBalance)}</b>`);
+
+  // Kirim notifikasi ke user (jika telegramnya terhubung)
+  if (user.telegramId) {
+    const userMsg = `🎁 <b>Kompensasi Saldo Masuk!</b>\n\nMohon maaf atas ketidaknyamanannya. Admin telah memberikan kompensasi saldo sebesar <b>${formatRupiah(amount)}</b> ke akun kamu.\n\nSaldo kamu sekarang: <b>${formatRupiah(newBalance)}</b>\n\nTerima kasih telah menggunakan layanan KETANTECH VPN!`;
+    await sendMessage(Number(user.telegramId), userMsg).catch(() => {});
+  }
 }

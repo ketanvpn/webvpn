@@ -14,7 +14,7 @@ import {
   lookupTicketByMessage,
   broadcastMessage,
 } from "../lib/telegram";
-import { showAdminMenu, handleAdminCallback, handleCekUser } from "../lib/telegram-admin";
+import { showAdminMenu, handleAdminCallback, handleCekUser, handleGiftSaldo } from "../lib/telegram-admin";
 
 const router = Router();
 
@@ -151,6 +151,24 @@ async function handleMessage(message: any) {
     const username = text.replace("/cek ", "").trim();
     if (!username) return;
     await handleCekUser(chatId, username);
+    return;
+  }
+
+  // Perintah /gift <username> <nominal> (Hanya Admin)
+  if (text.startsWith("/gift ")) {
+    const adminChatId = await getAdminChatId();
+    if (!adminChatId || String(chatId) !== String(adminChatId)) {
+      await sendMessage(chatId, "⛔ Perintah ini hanya untuk admin.");
+      return;
+    }
+    const args = text.replace("/gift ", "").trim().split(/\s+/);
+    if (args.length !== 2) {
+      await sendMessage(chatId, "ℹ️ <b>Cara penggunaan:</b>\n<code>/gift username nominal</code>\nContoh: <code>/gift daaw12 5000</code>");
+      return;
+    }
+    const username = args[0];
+    const amount = parseInt(args[1], 10);
+    await handleGiftSaldo(chatId, username, amount);
     return;
   }
 
