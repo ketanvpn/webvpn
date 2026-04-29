@@ -152,6 +152,86 @@ export async function createPanelAccount(params: {
 }
 
 /**
+ * Create a TRIAL VPN account on the panel server.
+ * Uses the panel's native trial endpoints (/vps/trialvmessall, etc.)
+ * which handle auto-expiry internally (no need for scheduler cleanup).
+ * @param timelimit - duration in minutes (e.g. "60" for 1 hour)
+ */
+export async function createTrialPanelAccount(params: {
+  apiUrl: string;
+  apiToken: string;
+  protocol: string;
+  timelimit: string; // in minutes, e.g. "60"
+}): Promise<VpnProvisionResult> {
+  const { apiUrl, apiToken, protocol, timelimit } = params;
+  const baseUrl = apiUrl.replace(/\/+$/, "");
+  const headers = buildHeaders(apiToken);
+
+  const trialEndpointMap: Record<string, string> = {
+    ssh: "trialsshvpn",
+    vmess: "trialvmessall",
+    vless: "trialvlessall",
+    trojan: "trialtrojanall",
+  };
+
+  const endpoint = trialEndpointMap[protocol];
+  if (!endpoint) {
+    throw new Error(`Protocol "${protocol}" tidak mendukung fitur Trial`);
+  }
+
+  try {
+    const { data } = await axios.post(
+      `${baseUrl}/vps/${endpoint}`,
+      { timelimit },
+      { headers, timeout: 20000, httpsAgent }
+    );
+
+    if (data?.meta?.code !== 200 || !data.data) {
+      throw new Error(
+        data?.meta?.message ?? data?.message ?? `Trial ${protocol} account creation failed`
+      );
+    }
+
+    const s = data.data;
+
+    if (protocol === "ssh") {
+      return {
+        username: s.username,
+        password: s.password,
+        hostname: s.hostname,
+        expiryInfo: `Trial ${timelimit} menit`,
+        configLink: s.hostname ? `${s.hostname}:${s.port?.tls ?? 443}@${s.username}:${s.password}` : undefined,
+        allLinks: s.hostname ? {
+          ws: `${s.hostname}:80@${s.username}:${s.password}`,
+          tls: `${s.hostname}:${s.port?.tls ?? 443}@${s.username}:${s.password}`,
+        } : undefined,
+      };
+    }
+
+    // vmess / vless / trojan
+    return {
+      username: s.username,
+      uuid: s.uuid,
+      hostname: s.hostname,
+      expiryInfo: `Trial ${timelimit} menit`,
+      configLink: s.link?.tls ?? s.link?.none ?? undefined,
+      allLinks: {
+        tls: s.link?.tls,
+        none: s.link?.none,
+        grpc: s.link?.grpc,
+        upntls: s.link?.upntls,
+        uptls: s.link?.uptls,
+      },
+    };
+  } catch (e) {
+    if (axios.isAxiosError(e)) {
+      throw new Error(`Panel API Error (Trial ${protocol}): ${e.response?.data?.message || e.response?.data?.meta?.message || e.message}`);
+    }
+    throw e;
+  }
+}
+
+/**
  * Delete a VPN account from the panel server.
  * Swallows errors silently (best-effort cleanup).
  */

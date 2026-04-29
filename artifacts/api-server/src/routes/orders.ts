@@ -6,7 +6,7 @@ import { requireAuth } from "../lib/auth";
 import { CreateOrderBody } from "@workspace/api-zod";
 import { formatProduct } from "./products";
 import { randomUUID } from "crypto";
-import { createPanelAccount, sanitizeVpnUsername, deletePanelAccount } from "../lib/vpn-panel";
+import { createPanelAccount, createTrialPanelAccount, sanitizeVpnUsername, deletePanelAccount } from "../lib/vpn-panel";
 import { addBalanceLog } from "./balance-logs";
 import { getPaymentSettingsMap, getResellerSettings } from "./settings";
 import { logger } from "../lib/logger";
@@ -184,20 +184,33 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
   let allLinks: Record<string, string | null> | null = null;
 
   const hasPanel = server.apiUrl && server.apiToken;
-  logger.info(`[orders:fulfill] Server: "${server.name}", protocol: ${product.protocol}, hasPanel: ${!!hasPanel}`);
+  logger.info(`[orders:fulfill] Server: "${server.name}", protocol: ${product.protocol}, hasPanel: ${!!hasPanel}, isTrial: ${isTrial}`);
 
   if (hasPanel) {
-    const panelResult = await createPanelAccount({
-      apiUrl: server.apiUrl!,
-      apiToken: server.apiToken!,
-      protocol: product.protocol,
-      username: rawUsername,
-      password: vpnPassword,
-      durationDays: isTrial ? 1 : product.durationDays, // VPN Panel butuh minimal 1 hari
-      quota: product.quota ? Number(product.quota) : null,
-      maxConnections: product.maxConnections ?? null,
-      uuid: vpnUuid,
-    });
+    let panelResult;
+
+    if (isTrial) {
+      // Gunakan endpoint trial khusus dari Panel — durasi dalam menit
+      panelResult = await createTrialPanelAccount({
+        apiUrl: server.apiUrl!,
+        apiToken: server.apiToken!,
+        protocol: product.protocol,
+        timelimit: "60", // 1 jam = 60 menit
+      });
+    } else {
+      panelResult = await createPanelAccount({
+        apiUrl: server.apiUrl!,
+        apiToken: server.apiToken!,
+        protocol: product.protocol,
+        username: rawUsername,
+        password: vpnPassword,
+        durationDays: product.durationDays,
+        quota: product.quota ? Number(product.quota) : null,
+        maxConnections: product.maxConnections ?? null,
+        uuid: vpnUuid,
+      });
+    }
+
     finalUsername = panelResult.username;
     finalPassword = panelResult.password ?? vpnPassword;
     finalUuid = panelResult.uuid ?? vpnUuid;
@@ -207,7 +220,7 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
       for (const [k, v] of Object.entries(panelResult.allLinks)) links[k] = v ?? null;
       allLinks = links;
     }
-    logger.info(`[orders:fulfill] Panel account created: ${product.protocol}/${finalUsername}`);
+    logger.info(`[orders:fulfill] Panel account created: ${product.protocol}/${finalUsername}${isTrial ? " (TRIAL 60m)" : ""}`);
   } else {
     logger.warn(`[orders:fulfill] Server "${server.name}" has no apiUrl/apiToken. Using local credential generation.`);
     if (product.protocol === "vmess") {
