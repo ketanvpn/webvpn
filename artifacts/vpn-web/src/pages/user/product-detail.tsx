@@ -65,6 +65,8 @@ export default function ProductDetail() {
     return hasLetter && digitCount >= 2;
   };
 
+  const isTrial = product?.durationDays === 0;
+
   const basePrice = product ? (product.resellerPrice ?? product.price) : 0;
   const finalPrice = voucherResult ? voucherResult.finalPrice : basePrice;
   const discountAmount = voucherResult ? voucherResult.discountAmount : 0;
@@ -107,21 +109,24 @@ export default function ProductDetail() {
   };
 
   const handleOpenConfirm = () => {
-    if (!remarks.trim()) {
-      toast({
-        title: "Nama akun wajib diisi",
-        description: "Masukkan nama akun VPN kamu. Contoh: daaw12",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (!isRemarksValid(remarks)) {
-      toast({
-        title: "Format nama akun tidak valid",
-        description: "Minimal 5 karakter, harus ada huruf dan minimal 2 angka. Contoh: daaw12",
-        variant: "destructive",
-      });
-      return;
+    // Trial tidak butuh remarks
+    if (!isTrial) {
+      if (!remarks.trim()) {
+        toast({
+          title: "Nama akun wajib diisi",
+          description: "Masukkan nama akun VPN kamu. Contoh: daaw12",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!isRemarksValid(remarks)) {
+        toast({
+          title: "Format nama akun tidak valid",
+          description: "Minimal 5 karakter, harus ada huruf dan minimal 2 angka. Contoh: daaw12",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     if (paymentMethod === "balance" && balance < finalPrice) {
@@ -211,7 +216,7 @@ export default function ProductDetail() {
               <CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-2">
                 <Clock className="h-8 w-8 text-primary drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                 <div className="text-sm font-medium text-muted-foreground">Durasi</div>
-                <div className="text-xl font-bold">{product.durationDays} Hari</div>
+                <div className="text-xl font-bold">{product.durationDays === 0 ? "1 Jam" : `${product.durationDays} Hari`}</div>
               </CardContent>
             </Card>
             <Card className="glass-card border-white/5 border-none shadow-none">
@@ -268,7 +273,8 @@ export default function ProductDetail() {
                 </div>
               </div>
 
-              {/* Nama Akun VPN */}
+              {/* Nama Akun VPN — disembunyikan untuk Trial */}
+              {!isTrial && (
               <div className="space-y-3">
                 <Label htmlFor="remarks">
                   Nama Akun VPN <span className="text-destructive">*</span>
@@ -294,6 +300,14 @@ export default function ProductDetail() {
                   </p>
                 )}
               </div>
+              )}
+
+              {isTrial && (
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm space-y-1">
+                  <p className="font-semibold text-primary">🎁 Paket Trial Gratis</p>
+                  <p className="text-muted-foreground">Nama akun akan dibuat otomatis oleh server. Kamu bisa langsung mencoba selama <strong>1 Jam</strong>.</p>
+                </div>
+              )}
 
               {/* Metode Pembayaran */}
               <div className="space-y-3">
@@ -417,7 +431,7 @@ export default function ProductDetail() {
                     size="lg"
                     className="w-full text-lg h-14"
                     onClick={handleOpenConfirm}
-                    disabled={createOrder.isPending || !isRemarksValid(remarks) || (paymentMethod === "balance" && balance < finalPrice)}
+                    disabled={createOrder.isPending || (!isTrial && !isRemarksValid(remarks)) || (paymentMethod === "balance" && balance < finalPrice)}
                   >
                     {createOrder.isPending ? "Memproses..." : "Buat Order"}
                   </Button>
@@ -457,12 +471,14 @@ export default function ProductDetail() {
                   </div>
                   <div className="flex justify-between px-4 py-2.5">
                     <span className="text-muted-foreground">Durasi</span>
-                    <span className="font-medium">{product.durationDays} hari</span>
+                    <span className="font-medium">{product.durationDays === 0 ? "1 Jam (Trial)" : `${product.durationDays} hari`}</span>
                   </div>
+                  {!isTrial && (
                   <div className="flex justify-between px-4 py-2.5">
                     <span className="text-muted-foreground">Nama Akun</span>
                     <span className="font-mono font-medium">{remarks}</span>
                   </div>
+                  )}
                   <div className="flex justify-between px-4 py-2.5">
                     <span className="text-muted-foreground">Metode Bayar</span>
                     <span className="font-medium">{paymentMethod === "balance" ? "Saldo Akun" : "QRIS"}</span>

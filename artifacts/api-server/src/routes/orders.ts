@@ -426,6 +426,23 @@ router.get("/orders", requireAuth, async (req, res) => {
 });
 
 router.post("/orders", requireAuth, async (req, res) => {
+  // Cek dulu apakah ini produk Trial (durationDays === 0) agar bisa skip validasi remarks
+  const bodyProductId = typeof req.body?.productId === "number" ? req.body.productId : null;
+  let isTrialProduct = false;
+  if (bodyProductId) {
+    const [checkProduct] = await db
+      .select({ durationDays: productsTable.durationDays })
+      .from(productsTable)
+      .where(eq(productsTable.id, bodyProductId))
+      .limit(1);
+    isTrialProduct = checkProduct?.durationDays === 0;
+  }
+
+  // Untuk Trial: remarks tidak wajib, auto-generate jika kosong
+  if (isTrialProduct) {
+    req.body.remarks = req.body.remarks || `trial${Date.now().toString(36)}`;
+  }
+
   const parsed = CreateOrderBody.safeParse(req.body);
   if (!parsed.success) {
     const remarksIssue = parsed.error.issues.find((i) => i.path.includes("remarks"));
