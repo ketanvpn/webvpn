@@ -14,7 +14,7 @@ import {
   lookupTicketByMessage,
   broadcastMessage,
 } from "../lib/telegram";
-import { showAdminMenu, handleAdminCallback } from "../lib/telegram-admin";
+import { showAdminMenu, handleAdminCallback, handleCekUser } from "../lib/telegram-admin";
 
 const router = Router();
 
@@ -138,6 +138,19 @@ async function handleMessage(message: any) {
     await sendMessage(chatId, "⏳ Sedang mengirim broadcast...");
     const { sent, failed } = await broadcastMessage(message);
     await sendMessage(chatId, `✅ <b>Broadcast Selesai</b>\n\nBerhasil terkirim: ${sent}\nGagal: ${failed}`);
+    return;
+  }
+
+  // Perintah /cek [username] (Hanya Admin)
+  if (text.startsWith("/cek ")) {
+    const adminChatId = await getAdminChatId();
+    if (!adminChatId || String(chatId) !== String(adminChatId)) {
+      await sendMessage(chatId, "⛔ Perintah ini hanya untuk admin.");
+      return;
+    }
+    const username = text.replace("/cek ", "").trim();
+    if (!username) return;
+    await handleCekUser(chatId, username);
     return;
   }
 

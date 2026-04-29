@@ -26,7 +26,11 @@ export async function showAdminMenu(chatId: number) {
   const buttons = [
     [
       { text: "🖥️ Status Server", callback_data: "admin_servers" },
-      { text: "📊 Statistik Hari Ini", callback_data: "admin_stats" },
+      { text: "📊 Statistik", callback_data: "admin_stats" },
+    ],
+    [
+      { text: "💸 Antrean Topup", callback_data: "admin_topups" },
+      { text: "🔍 Cari User", callback_data: "admin_search_prompt" },
     ],
     [
       { text: "💾 Force Backup", callback_data: "admin_backup" },
@@ -48,7 +52,11 @@ export async function handleAdminCallback(
     const buttons = [
       [
         { text: "🖥️ Status Server", callback_data: "admin_servers" },
-        { text: "📊 Statistik Hari Ini", callback_data: "admin_stats" },
+        { text: "📊 Statistik", callback_data: "admin_stats" },
+      ],
+      [
+        { text: "💸 Antrean Topup", callback_data: "admin_topups" },
+        { text: "🔍 Cari User", callback_data: "admin_search_prompt" },
       ],
       [
         { text: "💾 Force Backup", callback_data: "admin_backup" },
@@ -96,6 +104,22 @@ export async function handleAdminCallback(
     } catch (error) {
       await sendMessage(chatId, "❌ Gagal melakukan backup database.");
     }
+    return;
+  }
+
+  if (data === "admin_topups") {
+    await handlePendingTopups(chatId, messageId, callbackId);
+    return;
+  }
+
+  if (data === "admin_search_prompt") {
+    await answerCallbackQuery(callbackId);
+    await editMessageText(
+      chatId,
+      messageId,
+      "🔍 <b>Fitur Cari User</b>\n\nUntuk mengecek detail user (saldo, status, dll), ketik perintah berikut di chat:\n\n<code>/cek [username]</code>\n\nContoh:\n<code>/cek budi123</code>",
+      [[{ text: "🔙 Kembali", callback_data: "admin_menu" }]]
+    );
     return;
   }
 
@@ -208,4 +232,79 @@ async function handleServerToggle(serverId: number, chatId: number, messageId: n
 
   await answerCallbackQuery(callbackId, `Server ${server.name} kini ${newStatus ? 'AKTIF ✅' : 'NONAKTIF ⛔'}`);
   await handleServersList(chatId, messageId, callbackId); // refresh the list
+}
+
+async function handlePendingTopups(chatId: number, messageId: number, callbackId: string) {
+  const pending = await db
+    .select({
+      id: topupsTable.id,
+      amount: topupsTable.amount,
+      username: usersTable.username,
+      createdAt: topupsTable.createdAt,
+    })
+    .from(topupsTable)
+    .innerJoin(usersTable, eq(topupsTable.userId, usersTable.id))
+    .where(eq(topupsTable.status, "pending"))
+    .orderBy(sql`${topupsTable.createdAt} ASC`)
+    .limit(5);
+
+  if (pending.length === 0) {
+    await answerCallbackQuery(callbackId, "Tidak ada antrean topup 🎉");
+    return;
+  }
+
+  let text = `💸 <b>Antrean Topup (5 Terlama)</b>\n\n`;
+  const buttons: any[][] = [];
+
+  for (const t of pending) {
+    const waktu = new Date(t.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" });
+    text += `🆔 #${t.id} - <b>${t.username}</b>\n`;
+    text += `💰 ${formatRupiah(Number(t.amount))} (Jam ${waktu} WIB)\n\n`;
+
+    buttons.push([
+      { text: `✅ #${t.id}`, callback_data: `confirm_topup_${t.id}` },
+      { text: `❌ #${t.id}`, callback_data: `reject_topup_${t.id}` },
+    ]);
+  }
+
+  buttons.push([{ text: "🔙 Kembali", callback_data: "admin_menu" }]);
+
+  await answerCallbackQuery(callbackId);
+  await editMessageText(chatId, messageId, text, buttons);
+}
+
+export async function handleCekUser(chatId: number, username: string) {
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.username, username)).limit(1);
+
+  if (!user) {
+    await sendMessage(chatId, `❌ User dengan username <b>${username}</b> tidak ditemukan.`);
+    return;
+  }
+
+  // Get active vpn accounts
+  const activeVpns = await db
+    .select({ serverName: serversTable.name, expiresAt: vpnAccountsTable.expiresAt })
+    .from(vpnAccountsTable)
+    .innerJoin(serversTable, eq(vpnAccountsTable.serverId, serversTable.id))
+    .where(and(eq(vpnAccountsTable.userId, user.id), eq(vpnAccountsTable.isActive, true)));
+
+  let text = `👤 <b>Profil User</b>\n\n`;
+  text += `📛 Username: <b>${user.username}</b>\n`;
+  text += `📧 Email: ${user.email || "-"}\n`;
+  text += `📱 WhatsApp: ${user.whatsapp || "-"}\n`;
+  text += `💳 Saldo: <b>${formatRupiah(Number(user.balance || 0))}</b>\n`;
+  text += `🎁 Poin: <b>${user.points || 0}</b>\n`;
+  text += `👑 Role: <b>${user.role.toUpperCase()}</b>\n\n`;
+
+  if (activeVpns.length > 0) {
+    text += `🔌 <b>Akun VPN Aktif (${activeVpns.length}):</b>\n`;
+    for (const vpn of activeVpns) {
+      const exp = new Date(vpn.expiresAt).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+      text += `- ${vpn.serverName} (Exp: ${exp})\n`;
+    }
+  } else {
+    text += `🔌 <b>Akun VPN Aktif:</b> Tidak ada\n`;
+  }
+
+  await sendMessage(chatId, text);
 }

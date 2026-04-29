@@ -10,8 +10,10 @@ Semua perubahan penting pada proyek KETANTECH VPN akan didokumentasikan di file 
 - **Telegram Admin Menu (Interactive)** — Menambahkan menu rahasia khusus Admin di Telegram Bot. Ketik `/admin` untuk memunculkan antarmuka tombol interaktif (*Inline Keyboard*) dengan 4 fitur utama:
   1. **🖥️ Status Server**: Cek daftar server, kapasitas terpakai, dan opsi menyalakan/mematikan server (ON/OFF) hanya dengan 1 kali klik.
   2. **📊 Statistik Hari Ini**: Ringkasan kilat pendapatan hari ini, pendaftar baru, total Topup pending, dan tiket terbuka.
-  3. **💾 Force Backup**: Tombol untuk memerintahkan bot membungkus isi database ke file `.sql.gz` dan mengirimkannya saat itu juga ke Telegram.
-  4. **📢 Broadcast Instan**: Perintah `/broadcast [pesan]` memungkinkan admin mengirim pengumuman massal ke seluruh Telegram pengguna secara instan dari layar HP.
+  3. **💸 Antrean Topup**: Menampilkan 5 antrean topup terlama yang belum dikonfirmasi, lengkap dengan tombol ✅ dan ❌ untuk proses instan.
+  4. **🔍 Cari User Kilat**: Bot akan menampilkan cara menggunakan perintah `/cek [username]` untuk mengecek Saldo, Poin, dan daftar akun VPN aktif milik user tanpa perlu login ke web.
+  5. **💾 Force Backup**: Tombol untuk memerintahkan bot membungkus isi database ke file `.sql.gz` dan mengirimkannya saat itu juga ke Telegram.
+  6. **📢 Broadcast Instan**: Perintah `/broadcast [pesan]` memungkinkan admin mengirim pengumuman massal ke seluruh Telegram pengguna secara instan dari layar HP.
 - **Auto-Cleanup Akun Kedaluwarsa (Ghost Accounts)** — Menambahkan fungsi `cleanupGhostAccounts` ke dalam sistem *Scheduler*. Sistem kini akan otomatis berjalan setiap 3 jam untuk mencari dan menghapus akun VPN dari database web yang sudah lewat masa kedaluwarsanya lebih dari **7 hari**.
 
 ### 🛡️ Security Fixes
