@@ -74,7 +74,10 @@ export async function handleAdminCallback(
         { text: "📢 Broadcast", callback_data: "admin_broadcast_prompt" },
       ],
       [
+        { text: "🎁 Kompensasi", callback_data: "admin_compensation_prompt" },
         { text: "💾 Force Backup", callback_data: "admin_backup" },
+      ],
+      [
         { text: "❌ Tutup", callback_data: "admin_close" }
       ],
     ];
