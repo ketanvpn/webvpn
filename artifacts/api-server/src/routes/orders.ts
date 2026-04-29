@@ -195,7 +195,7 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
         apiUrl: server.apiUrl!,
         apiToken: server.apiToken!,
         protocol: product.protocol,
-        timelimit: "60", // 1 jam = 60 menit
+        timelimit: "60m", // 1 jam = 60 menit
       });
     } else {
       panelResult = await createPanelAccount({
