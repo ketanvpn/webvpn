@@ -195,8 +195,7 @@ async function handleServersList(chatId: number, messageId: number, callbackId: 
       .where(
         and(
           eq(vpnAccountsTable.serverId, server.id),
-          eq(vpnAccountsTable.isActive, true),
-          gte(vpnAccountsTable.expiresAt, new Date())
+          eq(vpnAccountsTable.isActive, true)
         )
       );
 
