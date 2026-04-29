@@ -456,7 +456,7 @@ router.post("/orders", requireAuth, async (req, res) => {
         and(
           eq(ordersTable.userId, userId),
           eq(productsTable.durationDays, 0),
-          ne(ordersTable.status, "cancelled")
+          eq(ordersTable.status, "paid")
         )
       )
       .limit(1);
