@@ -53,10 +53,10 @@ Fitur-fitur baru untuk meningkatkan kualitas produk, akuisisi user, dan keamanan
 
 ### 🔴 Prioritas Tinggi
 
-- [ ] **7. Redesign Landing Page & SEO**
+- [x] **7. Redesign Landing Page & SEO** ✅
   Upgrade tampilan halaman depan agar lebih menarik untuk akuisisi user baru. Optimasi meta tags, heading structure, dan performa loading.
   *Tingkat Risiko: Rendah*
-  *⚠️ Kendala: Harus hati-hati agar perubahan CSS tidak merusak halaman lain yang sudah pakai "Sultan Glassmorphism". Disarankan audit komponen shared sebelum mulai.*
+  *✅ Selesai — SEO: lang="id", title deskriptif, JSON-LD structured data, hapus font duplikat. Landing: +4 section baru (Statistik, Paket Populer, Cara Kerja, FAQ) + Footer 3 kolom.*
 
 - [ ] **8. Notifikasi Email (Transaksional)**
   Konfirmasi topup, order selesai, dan akun VPN siap dikirim via email. Untuk user yang belum link Telegram/WA.
@@ -110,11 +110,11 @@ Fitur-fitur baru untuk meningkatkan kualitas produk, akuisisi user, dan keamanan
 
 | Urutan | Fitur | Estimasi | Butuh DB Migration? | Prasyarat |
 |:------:|-------|----------|:-------------------:|-----------|
-| ① | **#7 Redesign Landing Page & SEO** | 1-2 sesi | ❌ | Tidak ada — bisa langsung mulai |
+| ~~①~~ | ~~**#7 Redesign Landing Page & SEO**~~ | ~~1-2 sesi~~ | ❌ | ✅ Selesai |
 | ② | **#8 Notifikasi Email** | 2-3 sesi | ✅ (kolom `emailVerified`) | Pilih SMTP provider dulu (Resend/Brevo/Gmail) |
 | ③ | **#10 Dashboard Analytics** | 1-2 sesi | ❌ | Cek library chart yang sudah dipakai di frontend |
 | ④ | **#9 Login Security & 2FA** | 2-3 sesi | ✅ (tabel `login_logs`, kolom `totpSecret`) | Install `otplib`, siapkan UI QR code |
 | ⑤ | **#11 Promo Terjadwal** | 1-2 sesi | ✅ (kolom jadwal di `vouchers`) | Pastikan scheduler timezone WIB sudah stabil |
 | ⑥ | **#12 Multi-bahasa (i18n)** | 3-4 sesi | ❌ | Semua fitur lain harus stabil dulu |
 
-> **Langkah pertama:** Mulai dari **#7 Redesign Landing Page & SEO** — tanpa risiko database, dampak langsung ke akuisisi user.
+> **Langkah selanjutnya:** Mulai **#8 Notifikasi Email** — pilih SMTP provider terlebih dahulu.
