@@ -483,11 +483,12 @@ export default function AdminProducts() {
               <Input
                 id="prod-duration"
                 type="number"
-                min={1}
+                min={0}
                 placeholder="30"
                 value={form.durationDays}
                 onChange={(e) => { const v = e.target.value; setForm((f) => ({ ...f, durationDays: v })); }}
               />
+              <p className="text-xs text-muted-foreground">Isi <strong>0</strong> untuk membuat paket Trial (1 Jam, limit 1 per user).</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

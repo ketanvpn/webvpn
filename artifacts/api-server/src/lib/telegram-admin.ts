@@ -30,13 +30,16 @@ export async function showAdminMenu(chatId: number) {
     ],
     [
       { text: "💸 Antrean Topup", callback_data: "admin_topups" },
+      { text: "📩 Tiket Terbuka", callback_data: "admin_tickets" },
+    ],
+    [
       { text: "🔍 Cari User", callback_data: "admin_search_prompt" },
+      { text: "📢 Broadcast", callback_data: "admin_broadcast_prompt" },
     ],
     [
       { text: "💾 Force Backup", callback_data: "admin_backup" },
-      { text: "📢 Broadcast", callback_data: "admin_broadcast_prompt" },
+      { text: "❌ Tutup", callback_data: "admin_close" }
     ],
-    [{ text: "❌ Tutup", callback_data: "admin_close" }],
   ];
   await sendMessageWithButtons(chatId, text, buttons);
 }
@@ -56,13 +59,16 @@ export async function handleAdminCallback(
       ],
       [
         { text: "💸 Antrean Topup", callback_data: "admin_topups" },
+        { text: "📩 Tiket Terbuka", callback_data: "admin_tickets" },
+      ],
+      [
         { text: "🔍 Cari User", callback_data: "admin_search_prompt" },
+        { text: "📢 Broadcast", callback_data: "admin_broadcast_prompt" },
       ],
       [
         { text: "💾 Force Backup", callback_data: "admin_backup" },
-        { text: "📢 Broadcast", callback_data: "admin_broadcast_prompt" },
+        { text: "❌ Tutup", callback_data: "admin_close" }
       ],
-      [{ text: "❌ Tutup", callback_data: "admin_close" }],
     ];
     await answerCallbackQuery(callbackId);
     await editMessageText(chatId, messageId, text, buttons);
@@ -109,6 +115,11 @@ export async function handleAdminCallback(
 
   if (data === "admin_topups") {
     await handlePendingTopups(chatId, messageId, callbackId);
+    return;
+  }
+
+  if (data === "admin_tickets") {
+    await handleOpenTickets(chatId, messageId, callbackId);
     return;
   }
 
@@ -268,6 +279,41 @@ async function handlePendingTopups(chatId: number, messageId: number, callbackId
 
   buttons.push([{ text: "🔙 Kembali", callback_data: "admin_menu" }]);
 
+  await answerCallbackQuery(callbackId);
+  await editMessageText(chatId, messageId, text, buttons);
+}
+
+async function handleOpenTickets(chatId: number, messageId: number, callbackId: string) {
+  const openTickets = await db
+    .select({
+      id: ticketsTable.id,
+      subject: ticketsTable.subject,
+      username: usersTable.username,
+      createdAt: ticketsTable.createdAt,
+    })
+    .from(ticketsTable)
+    .innerJoin(usersTable, eq(ticketsTable.userId, usersTable.id))
+    .where(eq(ticketsTable.status, "open"))
+    .orderBy(sql`${ticketsTable.createdAt} ASC`)
+    .limit(5);
+
+  if (openTickets.length === 0) {
+    await answerCallbackQuery(callbackId, "Semua tiket sudah beres!");
+    await editMessageText(chatId, messageId, "✨ <b>Tiket Kosong</b>\n\nTidak ada tiket support yang terbuka saat ini.", [
+      [{ text: "🔙 Kembali", callback_data: "admin_menu" }],
+    ]);
+    return;
+  }
+
+  let text = `📩 <b>TIKET TERBUKA (5 Terlama)</b>\n\n`;
+  openTickets.forEach((t) => {
+    text += `<b>#${t.id} - ${t.username}</b>\n`;
+    text += `Subjek: ${t.subject}\n`;
+    text += `👉 Balas: <code>/reply_${t.id} pesan balasan kamu</code>\n`;
+    text += `--------------------------\n`;
+  });
+
+  const buttons = [[{ text: "🔙 Kembali", callback_data: "admin_menu" }]];
   await answerCallbackQuery(callbackId);
   await editMessageText(chatId, messageId, text, buttons);
 }

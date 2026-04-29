@@ -1,5 +1,5 @@
 import { db } from "@workspace/db";
-import { vpnAccountsTable, usersTable, settingsTable, ordersTable, serversTable } from "@workspace/db";
+import { vpnAccountsTable, usersTable, settingsTable, ordersTable, serversTable, topupsTable } from "@workspace/db";
 import { eq, and, lte, gte, lt, sql, sum, ne } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendWhatsapp } from "./fonnte";
@@ -158,6 +158,36 @@ async function cancelExpiredQrisOrders(): Promise<void> {
   }
 }
 
+/**
+ * Auto-cancel topup manual (Bank/E-Wallet) yang sudah lewat 24 jam tapi masih pending.
+ * Dijalankan setiap jam.
+ */
+async function cancelExpiredTopups(): Promise<void> {
+  try {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const result = await db
+      .update(topupsTable)
+      .set({ 
+        status: "rejected", 
+        rejectionNote: "Auto-cleanup: Melewati batas waktu 24 jam", 
+        updatedAt: new Date() 
+      })
+      .where(
+        and(
+          eq(topupsTable.status, "pending"),
+          lt(topupsTable.createdAt, twentyFourHoursAgo)
+        )
+      )
+      .returning({ id: topupsTable.id });
+
+    if (result.length > 0) {
+      logger.info({ count: result.length }, "Auto-expire: topup manual melewati batas waktu 24 jam");
+    }
+  } catch (err) {
+    logger.error({ err }, "Error saat auto-cancel topup manual expired");
+  }
+}
+
 async function checkResellerTargets(): Promise<void> {
   try {
     const nowWib = new Date(Date.now() + 7 * 60 * 60 * 1000);
@@ -264,12 +294,14 @@ export function startScheduler(): void {
 
   checkExpiringAccounts().catch(() => {});
   cancelExpiredQrisOrders().catch(() => {});
+  cancelExpiredTopups().catch(() => {});
   checkResellerTargets().catch(() => {});
   checkAndAutoDisableServers().catch(() => {});
   cleanupGhostAccounts().catch(() => {});
 
   setInterval(() => {
     checkExpiringAccounts().catch(() => {});
+    cancelExpiredTopups().catch(() => {});
   }, ONE_HOUR);
 
   setInterval(() => {

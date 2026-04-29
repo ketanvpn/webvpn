@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { ordersTable, productsTable, usersTable, vpnAccountsTable, serversTable, vouchersTable } from "@workspace/db";
-import { eq, and, desc, sql, gte, count, gt } from "drizzle-orm";
+import { eq, and, desc, sql, gte, count, gt, ne } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { CreateOrderBody } from "@workspace/api-zod";
 import { formatProduct } from "./products";
@@ -165,7 +165,12 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
 
   if (!server) throw new Error("Tidak ada server yang tersedia saat ini");
 
-  const expiresAt = new Date(Date.now() + product.durationDays * 24 * 60 * 60 * 1000);
+  // Jika durationDays = 0, anggap sebagai Trial 1 Jam
+  const isTrial = product.durationDays === 0;
+  const durationMs = isTrial
+    ? 1 * 60 * 60 * 1000 // 1 jam
+    : product.durationDays * 24 * 60 * 60 * 1000;
+  const expiresAt = new Date(Date.now() + durationMs);
   const rawUsername = sanitizeVpnUsername(order.notes ?? user.username);
   const vpnPassword = randomUUID().replace(/-/g, "").slice(0, 12);
   const vpnUuid = randomUUID();
@@ -186,7 +191,7 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
       protocol: product.protocol,
       username: rawUsername,
       password: vpnPassword,
-      durationDays: product.durationDays,
+      durationDays: isTrial ? 1 : product.durationDays, // VPN Panel butuh minimal 1 hari
       quota: product.quota ? Number(product.quota) : null,
       maxConnections: product.maxConnections ?? null,
       uuid: vpnUuid,
@@ -437,6 +442,27 @@ router.post("/orders", requireAuth, async (req, res) => {
   if (product.serverId && productRow.serverActive === false) {
     res.status(400).json({ error: "Server untuk produk ini sedang offline/maintenance" });
     return;
+  }
+
+  // Cek apakah produk ini Trial 1 Jam (durationDays = 0)
+  if (product.durationDays === 0) {
+    const [existingTrial] = await db
+      .select({ id: ordersTable.id })
+      .from(ordersTable)
+      .innerJoin(productsTable, eq(ordersTable.productId, productsTable.id))
+      .where(
+        and(
+          eq(ordersTable.userId, userId),
+          eq(productsTable.durationDays, 0),
+          ne(ordersTable.status, "cancelled")
+        )
+      )
+      .limit(1);
+
+    if (existingTrial) {
+      res.status(400).json({ error: "Kamu sudah pernah mengambil paket Trial 1 Jam. Trial hanya berlaku 1 kali per akun." });
+      return;
+    }
   }
 
   // ─── Cek ketersediaan stok ─────────────────────────────────────────────────
