@@ -14,7 +14,7 @@ import {
   lookupTicketByMessage,
   broadcastMessage,
 } from "../lib/telegram";
-import { showAdminMenu, handleAdminCallback, handleCekUser, handleGiftSaldo } from "../lib/telegram-admin";
+import { showAdminMenu, handleAdminCallback, handleCekUser, handleGiftSaldo, handleExtendServer } from "../lib/telegram-admin";
 
 const router = Router();
 
@@ -169,6 +169,32 @@ async function handleMessage(message: any) {
     const username = args[0];
     const amount = parseInt(args[1], 10);
     await handleGiftSaldo(chatId, username, amount);
+    return;
+  }
+
+  // Perintah /extend <id_server> <hari> [jeda_detik] (Hanya Admin)
+  if (text.startsWith("/extend ")) {
+    const adminChatId = await getAdminChatId();
+    if (!adminChatId || String(chatId) !== String(adminChatId)) {
+      await sendMessage(chatId, "⛔ Perintah ini hanya untuk admin.");
+      return;
+    }
+    const args = text.replace("/extend ", "").trim().split(/\s+/);
+    if (args.length < 2) {
+      await sendMessage(chatId, "ℹ️ <b>Cara penggunaan:</b>\n<code>/extend id_server jumlah_hari [jeda_detik]</code>\nContoh: <code>/extend 1 2</code> (menambah 2 hari ke server ID 1 dengan jeda default 3 detik)\nContoh: <code>/extend 1 2 5</code> (jeda 5 detik)");
+      return;
+    }
+    const serverId = parseInt(args[0], 10);
+    const days = parseInt(args[1], 10);
+    const delaySec = args[2] ? parseInt(args[2], 10) : 3; // Default 3 detik
+
+    if (isNaN(serverId) || isNaN(days) || isNaN(delaySec)) {
+      await sendMessage(chatId, "❌ Parameter harus berupa angka.");
+      return;
+    }
+
+    // Eksekusi secara background agar webhook telegram tidak timeout
+    handleExtendServer(chatId, serverId, days, delaySec).catch(console.error);
     return;
   }
 

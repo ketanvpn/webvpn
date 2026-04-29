@@ -18,6 +18,9 @@ import {
   editMessageText,
 } from "./telegram";
 import { performBackup } from "./backup";
+import { renewPanelAccount } from "./vpn-panel";
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID");
@@ -39,7 +42,10 @@ export async function showAdminMenu(chatId: number) {
       { text: "📢 Broadcast", callback_data: "admin_broadcast_prompt" },
     ],
     [
+      { text: "🎁 Kompensasi", callback_data: "admin_compensation_prompt" },
       { text: "💾 Force Backup", callback_data: "admin_backup" },
+    ],
+    [
       { text: "❌ Tutup", callback_data: "admin_close" }
     ],
   ];
@@ -142,6 +148,27 @@ export async function handleAdminCallback(
       chatId,
       messageId,
       "📢 <b>Fitur Broadcast</b>\n\nUntuk mengirim pesan massal ke semua user, ketik pesanmu dengan format berikut:\n\n<code>/broadcast [isi pesan kamu]</code>\n\nContoh:\n<code>/broadcast Server SG 1 sedang maintenance. Mohon maaf atas ketidaknyamanannya.</code>",
+      [[{ text: "🔙 Kembali", callback_data: "admin_menu" }]]
+    );
+    return;
+  }
+
+  if (data === "admin_compensation_prompt") {
+    await answerCallbackQuery(callbackId);
+    const text = `🎁 <b>Menu Kompensasi</b>\n\nPilih metode kompensasi dengan mengetik salah satu perintah berikut di chat:\n\n` +
+      `<b>1. Kompensasi Saldo (Personal)</b>\n` +
+      `Memberikan saldo ke spesifik user.\n` +
+      `👉 <code>/gift [username] [nominal]</code>\n` +
+      `<i>Contoh: /gift user1 5000</i>\n\n` +
+      `<b>2. Kompensasi Masa Aktif (Massal)</b>\n` +
+      `Menambah masa aktif semua akun VPN di suatu server.\n` +
+      `👉 <code>/extend [id_server] [jumlah_hari] [jeda_detik]</code>\n` +
+      `<i>Contoh: /extend 1 2 3</i>\n(Menambah 2 hari ke Server 1, dengan jeda 3 detik/akun)`;
+
+    await editMessageText(
+      chatId,
+      messageId,
+      text,
       [[{ text: "🔙 Kembali", callback_data: "admin_menu" }]]
     );
     return;
@@ -414,4 +441,88 @@ export async function handleGiftSaldo(chatId: number, username: string, amount: 
     const userMsg = `🎁 <b>Kompensasi Saldo Masuk!</b>\n\nMohon maaf atas ketidaknyamanannya. Admin telah memberikan kompensasi saldo sebesar <b>${formatRupiah(amount)}</b> ke akun kamu.\n\nSaldo kamu sekarang: <b>${formatRupiah(newBalance)}</b>\n\nTerima kasih telah menggunakan layanan KETANTECH VPN!`;
     await sendMessage(Number(user.telegramId), userMsg).catch(() => {});
   }
+}
+
+export async function handleExtendServer(chatId: number, serverId: number, days: number, delaySec: number) {
+  if (days <= 0) {
+    await sendMessage(chatId, `❌ Jumlah hari perpanjangan harus lebih dari 0.`);
+    return;
+  }
+
+  const [server] = await db.select().from(serversTable).where(eq(serversTable.id, serverId)).limit(1);
+  if (!server) {
+    await sendMessage(chatId, `❌ Server dengan ID <b>${serverId}</b> tidak ditemukan.`);
+    return;
+  }
+
+  const activeAccounts = await db
+    .select({
+      id: vpnAccountsTable.id,
+      userId: vpnAccountsTable.userId,
+      username: vpnAccountsTable.username,
+      protocol: vpnAccountsTable.protocol,
+      uuid: vpnAccountsTable.uuid,
+      expiresAt: vpnAccountsTable.expiresAt,
+    })
+    .from(vpnAccountsTable)
+    .where(and(eq(vpnAccountsTable.serverId, serverId), eq(vpnAccountsTable.isActive, true)));
+
+  if (activeAccounts.length === 0) {
+    await sendMessage(chatId, `ℹ️ Tidak ada akun VPN yang aktif di server <b>${server.name}</b>.`);
+    return;
+  }
+
+  await sendMessage(chatId, `⏳ <b>Memulai Kompensasi Massal</b>\n\nDitemukan <b>${activeAccounts.length}</b> akun aktif di server <b>${server.name}</b>.\nSistem akan memproses penambahan <b>${days} hari</b> dengan jeda <b>${delaySec} detik</b> per akun agar tidak terblokir (Anti-Spam).\n\n<i>Mohon tunggu, laporan akhir akan dikirim otomatis setelah selesai.</i>`);
+
+  let successCount = 0;
+  let failedCount = 0;
+  let failedUsers: string[] = [];
+
+  for (let i = 0; i < activeAccounts.length; i++) {
+    const account = activeAccounts[i];
+    try {
+      const newExpiresAt = new Date(account.expiresAt.getTime() + days * 24 * 60 * 60 * 1000);
+
+      if (server.apiUrl && server.apiToken) {
+        // Renew di panel (tambahkan durasi dalam hari ke panel)
+        await renewPanelAccount({
+          apiUrl: server.apiUrl,
+          apiToken: server.apiToken,
+          protocol: account.protocol,
+          username: account.username,
+          uuid: account.uuid,
+          durationDays: days,
+        });
+      }
+
+      // Update database lokal
+      await db.update(vpnAccountsTable)
+        .set({ expiresAt: newExpiresAt })
+        .where(eq(vpnAccountsTable.id, account.id));
+
+      successCount++;
+    } catch (e) {
+      console.error(`Gagal extend akun ${account.username}:`, e);
+      failedCount++;
+      failedUsers.push(account.username);
+    }
+
+    // Jeda delaySec detik sebelum lanjut ke akun berikutnya (kecuali akun terakhir)
+    if (i < activeAccounts.length - 1) {
+      await delay(delaySec * 1000);
+    }
+  }
+
+  let finalReport = `✅ <b>Proses Kompensasi Selesai</b>\n\n`;
+  finalReport += `Server: <b>${server.name}</b>\n`;
+  finalReport += `Durasi Ditambah: <b>${days} Hari</b>\n`;
+  finalReport += `Total Akun: <b>${activeAccounts.length}</b>\n`;
+  finalReport += `Berhasil: <b>${successCount}</b>\n`;
+  finalReport += `Gagal: <b>${failedCount}</b>\n`;
+
+  if (failedCount > 0) {
+    finalReport += `\n⚠️ <i>Akun yang gagal: ${failedUsers.join(", ")}</i>`;
+  }
+
+  await sendMessage(chatId, finalReport);
 }
