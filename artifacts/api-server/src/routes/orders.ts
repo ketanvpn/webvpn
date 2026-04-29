@@ -438,9 +438,10 @@ router.post("/orders", requireAuth, async (req, res) => {
     isTrialProduct = checkProduct?.durationDays === 0;
   }
 
-  // Untuk Trial: remarks tidak wajib, auto-generate jika kosong
-  if (isTrialProduct) {
-    req.body.remarks = req.body.remarks || `trial${Date.now().toString(36)}`;
+  // Untuk Trial: remarks tidak wajib, auto-generate yang pasti lolos validasi
+  // Format: "trial" (huruf) + 6 digit terakhir timestamp (angka) = selalu valid
+  if (isTrialProduct && (!req.body.remarks || req.body.remarks.trim().length < 5)) {
+    req.body.remarks = `trial${String(Date.now()).slice(-6)}`;
   }
 
   const parsed = CreateOrderBody.safeParse(req.body);
