@@ -83,6 +83,23 @@ export async function editMessageReplyMarkup(
   });
 }
 
+export async function editMessageText(
+  chatId: number | string,
+  messageId: number,
+  text: string,
+  buttons?: { text: string; callback_data: string }[][] | null,
+) {
+  const { token } = await getTelegramConfig();
+  if (!token) return;
+  await callTelegramApi(token, "editMessageText", {
+    chat_id: chatId,
+    message_id: messageId,
+    text,
+    parse_mode: "HTML",
+    reply_markup: buttons ? { inline_keyboard: buttons } : {},
+  });
+}
+
 export async function answerCallbackQuery(callbackQueryId: string, text?: string) {
   const { token } = await getTelegramConfig();
   if (!token) return;

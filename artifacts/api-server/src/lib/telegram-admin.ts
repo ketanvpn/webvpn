@@ -13,6 +13,7 @@ import {
   sendMessageWithButtons,
   editMessageReplyMarkup,
   answerCallbackQuery,
+  editMessageText,
 } from "./telegram";
 import { performBackup } from "./backup";
 
@@ -55,16 +56,14 @@ export async function handleAdminCallback(
       ],
       [{ text: "❌ Tutup", callback_data: "admin_close" }],
     ];
-    await editMessageReplyMarkup(chatId, messageId, buttons);
-    // Kita harus edit text juga kalau perlu, tapi lib kita editMessageReplyMarkup hanya ubah button.
-    // Jika perlu edit text, kita bisa gunakan fungsi baru editMessageText.
     await answerCallbackQuery(callbackId);
+    await editMessageText(chatId, messageId, text, buttons);
     return;
   }
 
   if (data === "admin_close") {
-    await editMessageReplyMarkup(chatId, messageId, null);
     await answerCallbackQuery(callbackId, "Menu ditutup");
+    await editMessageText(chatId, messageId, "Menu admin ditutup. Ketik /admin untuk membuka kembali.");
     return;
   }
 
@@ -102,9 +101,11 @@ export async function handleAdminCallback(
 
   if (data === "admin_broadcast_prompt") {
     await answerCallbackQuery(callbackId);
-    await sendMessage(
+    await editMessageText(
       chatId,
-      "📢 <b>Fitur Broadcast</b>\n\nUntuk mengirim pesan massal ke semua user, ketik pesanmu dengan format berikut:\n\n<code>/broadcast [isi pesan kamu]</code>\n\nContoh:\n<code>/broadcast Server SG 1 sedang maintenance. Mohon maaf atas ketidaknyamanannya.</code>"
+      messageId,
+      "📢 <b>Fitur Broadcast</b>\n\nUntuk mengirim pesan massal ke semua user, ketik pesanmu dengan format berikut:\n\n<code>/broadcast [isi pesan kamu]</code>\n\nContoh:\n<code>/broadcast Server SG 1 sedang maintenance. Mohon maaf atas ketidaknyamanannya.</code>",
+      [[{ text: "🔙 Kembali", callback_data: "admin_menu" }]]
     );
     return;
   }
@@ -148,9 +149,8 @@ async function handleStats(chatId: number, messageId: number, callbackId: string
 
   const buttons = [[{ text: "🔙 Kembali", callback_data: "admin_menu" }]];
 
-  // Mengirim pesan baru karena kita tidak punya fungsi editMessageText (hanya edit markup)
   await answerCallbackQuery(callbackId);
-  await sendMessageWithButtons(chatId, text, buttons);
+  await editMessageText(chatId, messageId, text, buttons);
 }
 
 async function handleServersList(chatId: number, messageId: number, callbackId: string) {
@@ -193,7 +193,7 @@ async function handleServersList(chatId: number, messageId: number, callbackId: 
   buttons.push([{ text: "🔙 Kembali", callback_data: "admin_menu" }]);
 
   await answerCallbackQuery(callbackId);
-  await sendMessageWithButtons(chatId, text, buttons);
+  await editMessageText(chatId, messageId, text, buttons);
 }
 
 async function handleServerToggle(serverId: number, chatId: number, messageId: number, callbackId: string) {
