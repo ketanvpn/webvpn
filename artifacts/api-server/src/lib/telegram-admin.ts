@@ -4,6 +4,7 @@ import {
   ordersTable,
   topupsTable,
   ticketsTable,
+  ticketMessagesTable,
   serversTable,
   vpnAccountsTable,
 } from "@workspace/db";
@@ -306,12 +307,30 @@ async function handleOpenTickets(chatId: number, messageId: number, callbackId: 
   }
 
   let text = `📩 <b>TIKET TERBUKA (5 Terlama)</b>\n\n`;
-  openTickets.forEach((t) => {
+  for (const t of openTickets) {
+    const [latestMessage] = await db
+      .select({ message: ticketMessagesTable.message, isAdmin: ticketMessagesTable.isAdmin })
+      .from(ticketMessagesTable)
+      .where(eq(ticketMessagesTable.ticketId, t.id))
+      .orderBy(sql`${ticketMessagesTable.createdAt} DESC`)
+      .limit(1);
+
     text += `<b>#${t.id} - ${t.username}</b>\n`;
     text += `Subjek: ${t.subject}\n`;
+    
+    if (latestMessage) {
+      const sender = latestMessage.isAdmin ? "👨‍💻 Admin" : "👤 User";
+      let shortMsg = latestMessage.message.length > 50 
+        ? latestMessage.message.substring(0, 50) + "..." 
+        : latestMessage.message;
+      text += `Pesan terakhir (${sender}): <i>"${shortMsg}"</i>\n`;
+    } else {
+      text += `Pesan terakhir: <i>(Belum ada pesan)</i>\n`;
+    }
+
     text += `👉 Balas: <code>/reply_${t.id} pesan balasan kamu</code>\n`;
     text += `--------------------------\n`;
-  });
+  }
 
   const buttons = [[{ text: "🔙 Kembali", callback_data: "admin_menu" }]];
   await answerCallbackQuery(callbackId);

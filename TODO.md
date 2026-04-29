@@ -6,7 +6,7 @@ Daftar fitur *"Next-Level"* yang akan dikembangkan untuk meningkatkan otomatisas
   Sistem otomatis untuk membatalkan topup manual (Bank/E-Wallet) yang berstatus *pending* lebih dari 24 jam agar database dan antrean panel Admin tetap bersih.
   *Tingkat Risiko: Sangat Rendah*
 
-- [ ] **2. Alarm "Saldo Sekarat" untuk Reseller**
+- [~] **2. Alarm "Saldo Sekarat" untuk Reseller** *(Dibatalkan)*
   Robot pengingat otomatis via Telegram/WA untuk menyenggol Reseller jika saldo mereka berada di bawah batas kritis (misal: Rp 20.000).
   *Tingkat Risiko: Rendah*
 
