@@ -664,7 +664,6 @@ async function testPaymentGateway(): Promise<DiagnosticResult> {
 
     const enabled = map["autoGopayEnabled"] === "true";
     const apiUrl = map["autoGopayApiUrl"];
-    const merchantId = map["autoGopayMerchantId"];
     const secretKey = map["autoGopaySecretKey"];
 
     if (!enabled) {
@@ -685,11 +684,11 @@ async function testPaymentGateway(): Promise<DiagnosticResult> {
       };
     }
 
-    if (!merchantId || !secretKey) {
+    if (!secretKey) {
       return {
         name: "💳 Payment Gateway (AutoGoPay)",
         status: "warn",
-        detail: `API URL: ${apiUrl}\nMerchant ID: ${merchantId ? "✅" : "❌ Belum diatur"}\nSecret Key: ${secretKey ? "✅" : "❌ Belum diatur"}`,
+        detail: `API URL: ✅ ${apiUrl}\nSecret Key: ❌ Belum diatur`,
         latencyMs: Date.now() - start,
       };
     }
@@ -707,7 +706,7 @@ async function testPaymentGateway(): Promise<DiagnosticResult> {
       return {
         name: "💳 Payment Gateway (AutoGoPay)",
         status: "ok",
-        detail: `API reachable (HTTP ${pingResp.status})\nMerchant ID: ✅ Terisi\nSecret Key: ✅ Terisi`,
+        detail: `API reachable (HTTP ${pingResp.status})\nAPI URL: ✅\nSecret Key: ✅`,
         latencyMs: latency,
       };
     }
