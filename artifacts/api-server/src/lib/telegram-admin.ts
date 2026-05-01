@@ -22,6 +22,8 @@ import {
 import { performBackup } from "./backup";
 import { renewPanelAccount, checkPanelHealth } from "./vpn-panel";
 import { logger } from "./logger";
+import os from "os";
+import { exec } from "child_process";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -49,6 +51,7 @@ function buildAdminMenuButtons() {
     ],
     [
       { text: "🔧 System Test", callback_data: "admin_diagnostics" },
+      { text: "📊 VPS Monitor", callback_data: "admin_vps_monitor" },
     ],
     [
       { text: "❌ Tutup", callback_data: "admin_close" }
@@ -172,6 +175,18 @@ export async function handleAdminCallback(
     const report = await runSystemDiagnostics();
     await editMessageText(chatId, messageId, report, [
       [{ text: "🔄 Tes Ulang", callback_data: "admin_diagnostics" }],
+      [{ text: "🔙 Kembali", callback_data: "admin_menu" }],
+    ]);
+    return;
+  }
+
+  // ─── VPS Resource Monitor ───────────────────────────────────────────────────
+  if (data === "admin_vps_monitor") {
+    await answerCallbackQuery(callbackId, "Mengecek resource VPS...");
+    await editMessageText(chatId, messageId, "⏳ <b>Membaca resource VPS...</b>");
+    const report = await getVpsResourceReport();
+    await editMessageText(chatId, messageId, report, [
+      [{ text: "🔄 Refresh", callback_data: "admin_vps_monitor" }],
       [{ text: "🔙 Kembali", callback_data: "admin_menu" }],
     ]);
     return;
