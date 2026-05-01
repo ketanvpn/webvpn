@@ -291,6 +291,7 @@ export function startScheduler(): void {
   const ONE_HOUR = 60 * 60 * 1000;
   const THREE_HOURS = 3 * 60 * 60 * 1000;
   const FIVE_MIN = 5 * 60 * 1000;
+  const FIFTEEN_MIN = 15 * 60 * 1000;
 
   checkExpiringAccounts().catch(() => {});
   cancelExpiredQrisOrders().catch(() => {});
@@ -302,6 +303,7 @@ export function startScheduler(): void {
   setInterval(() => {
     checkExpiringAccounts().catch(() => {});
     cancelExpiredTopups().catch(() => {});
+    sendDailyReport().catch(() => {});
   }, ONE_HOUR);
 
   setInterval(() => {
@@ -321,11 +323,19 @@ export function startScheduler(): void {
     cleanupGhostAccounts().catch(() => {});
   }, THREE_HOURS);
 
+  // Proactive alert setiap 15 menit
+  setTimeout(() => runProactiveAlerts().catch(() => {}), 2 * 60 * 1000);
+  setInterval(() => {
+    runProactiveAlerts().catch(() => {});
+  }, FIFTEEN_MIN);
+
   logger.info("Scheduler notifikasi kedaluwarsa aktif (cek setiap jam, kirim sesuai jam WIB yang dikonfigurasi)");
   logger.info("Scheduler auto-cancel QRIS expired aktif (interval: 5 menit)");
   logger.info("Scheduler cek target reseller aktif (cek setiap jam, eksekusi tanggal 1 jam 07.00 WIB)");
   logger.info("Scheduler auto-disable server penuh aktif (interval: 5 menit)");
   logger.info("Scheduler auto-cleanup akun hantu aktif (cek setiap 3 jam)");
+  logger.info("Scheduler proactive alerts aktif (interval: 15 menit)");
+  logger.info("Scheduler laporan harian aktif (cek setiap jam, kirim jam 08.00 WIB)");
 
   // Auto-backup: cek setiap jam apakah sudah waktunya backup
   import("./backup").then(({ isBackupDue, performBackup }) => {
@@ -351,6 +361,231 @@ export function startScheduler(): void {
   }).catch((err) => {
     logger.error({ err }, "Failed to load backup module for scheduler");
   });
+}
+
+// ─── Laporan Harian Otomatis ─────────────────────────────────────────────────
+
+let lastDailyReportDate = "";
+
+async function sendDailyReport(): Promise<void> {
+  try {
+    const nowWIB = new Date(Date.now() + 7 * 60 * 60 * 1000);
+    const hourWIB = nowWIB.getUTCHours();
+
+    // Kirim jam 8 pagi WIB saja
+    if (hourWIB !== 8) return;
+
+    // Cegah kirim ganda di jam yang sama
+    const todayKey = nowWIB.toISOString().slice(0, 10);
+    if (lastDailyReportDate === todayKey) return;
+    lastDailyReportDate = todayKey;
+
+    const [adminChatRow] = await db
+      .select({ value: settingsTable.value })
+      .from(settingsTable)
+      .where(eq(settingsTable.key, "telegramAdminChatId"))
+      .limit(1);
+    const adminChatId = adminChatRow?.value;
+    if (!adminChatId) return;
+
+    // Hitung data kemarin
+    const yesterday = new Date(nowWIB);
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    yesterday.setUTCHours(0, 0, 0, 0);
+    const todayStart = new Date(nowWIB);
+    todayStart.setUTCHours(0, 0, 0, 0);
+
+    // Revenue kemarin
+    const [revRow] = await db
+      .select({ total: sum(ordersTable.amount) })
+      .from(ordersTable)
+      .where(and(eq(ordersTable.status, "paid"), gte(ordersTable.createdAt, yesterday), lt(ordersTable.createdAt, todayStart)));
+    const revenue = Number(revRow?.total ?? 0);
+
+    // User baru kemarin
+    const [newUserRow] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(usersTable)
+      .where(and(gte(usersTable.createdAt, yesterday), lt(usersTable.createdAt, todayStart)));
+    const newUsers = newUserRow?.count ?? 0;
+
+    // Total user
+    const [totalUserRow] = await db.select({ count: sql<number>`count(*)::int` }).from(usersTable);
+    const totalUsers = totalUserRow?.count ?? 0;
+
+    // Akun VPN akan expired hari ini
+    const todayEnd = new Date(todayStart);
+    todayEnd.setUTCDate(todayEnd.getUTCDate() + 1);
+    const [expTodayRow] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(vpnAccountsTable)
+      .where(and(eq(vpnAccountsTable.isActive, true), gte(vpnAccountsTable.expiresAt, todayStart), lt(vpnAccountsTable.expiresAt, todayEnd)));
+    const expiringToday = expTodayRow?.count ?? 0;
+
+    // Akun expired dalam 3 hari ke depan
+    const threeDaysLater = new Date(todayStart);
+    threeDaysLater.setUTCDate(threeDaysLater.getUTCDate() + 3);
+    const [exp3Row] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(vpnAccountsTable)
+      .where(and(eq(vpnAccountsTable.isActive, true), gte(vpnAccountsTable.expiresAt, todayStart), lt(vpnAccountsTable.expiresAt, threeDaysLater)));
+    const expiring3Days = exp3Row?.count ?? 0;
+
+    // Topup pending
+    const [pendingRow] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(topupsTable)
+      .where(eq(topupsTable.status, "pending"));
+    const pendingTopups = pendingRow?.count ?? 0;
+
+    // Total akun VPN aktif
+    const [activeVpnRow] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(vpnAccountsTable)
+      .where(eq(vpnAccountsTable.isActive, true));
+    const activeVpn = activeVpnRow?.count ?? 0;
+
+    const tanggal = nowWIB.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    const fmtRp = (n: number) => "Rp " + n.toLocaleString("id-ID");
+
+    let text = `📋 <b>Laporan Harian KETANTECH VPN</b>\n`;
+    text += `📅 ${tanggal}\n`;
+    text += `━━━━━━━━━━━━━━━━━━\n\n`;
+
+    text += `💰 <b>Revenue Kemarin:</b> <b>${fmtRp(revenue)}</b>\n`;
+    text += `👥 <b>User Baru Kemarin:</b> ${newUsers}\n`;
+    text += `👤 <b>Total User:</b> ${totalUsers}\n\n`;
+
+    text += `🔌 <b>Akun VPN Aktif:</b> ${activeVpn}\n`;
+    text += `⚠️ <b>Expired Hari Ini:</b> ${expiringToday}\n`;
+    text += `📆 <b>Expired 3 Hari Ke Depan:</b> ${expiring3Days}\n\n`;
+
+    if (pendingTopups > 0) {
+      text += `💸 <b>Topup Pending:</b> ${pendingTopups} ⚠️\n\n`;
+    }
+
+    text += `<i>Selamat pagi, semoga harinya produktif! 💪</i>`;
+
+    await sendMessage(adminChatId, text);
+    logger.info("Laporan harian terkirim ke admin");
+  } catch (err) {
+    logger.error({ err }, "Error saat mengirim laporan harian");
+  }
+}
+
+// ─── Proactive Alert Monitoring ──────────────────────────────────────────────
+
+import os from "os";
+import { exec as execCb } from "child_process";
+import { checkPanelHealth } from "./vpn-panel";
+
+// Cooldown: jangan spam alert yang sama berulang kali
+const alertCooldowns = new Map<string, number>();
+const ALERT_COOLDOWN_MS = 30 * 60 * 1000; // 30 menit cooldown per alert
+
+function shouldAlert(key: string): boolean {
+  const last = alertCooldowns.get(key);
+  if (last && Date.now() - last < ALERT_COOLDOWN_MS) return false;
+  alertCooldowns.set(key, Date.now());
+  return true;
+}
+
+async function getAdminChatIdForAlert(): Promise<string | null> {
+  const [row] = await db
+    .select({ value: settingsTable.value })
+    .from(settingsTable)
+    .where(eq(settingsTable.key, "telegramAdminChatId"))
+    .limit(1);
+  return row?.value ?? null;
+}
+
+async function runProactiveAlerts(): Promise<void> {
+  try {
+    const adminChatId = await getAdminChatIdForAlert();
+    if (!adminChatId) return;
+
+    const alerts: string[] = [];
+
+    // 1. Cek RAM
+    const totalMem = os.totalmem();
+    const freeMem = os.freemem();
+    const memPercent = Math.round(((totalMem - freeMem) / totalMem) * 100);
+    if (memPercent >= 90 && shouldAlert("ram_critical")) {
+      alerts.push(`🔴 <b>RAM KRITIS: ${memPercent}%</b> terpakai!\nFree: ${(freeMem / 1024 / 1024 / 1024).toFixed(2)} GB`);
+    } else if (memPercent >= 80 && shouldAlert("ram_warning")) {
+      alerts.push(`🟡 <b>RAM Warning: ${memPercent}%</b> terpakai`);
+    }
+
+    // 2. Cek CPU
+    const cpuCount = os.cpus().length;
+    const load1m = os.loadavg()[0];
+    const cpuPercent = Math.min(100, Math.round((load1m / cpuCount) * 100));
+    if (cpuPercent >= 90 && shouldAlert("cpu_critical")) {
+      alerts.push(`🔴 <b>CPU KRITIS: Load ${load1m.toFixed(2)}</b> (${cpuPercent}% dari ${cpuCount} core)`);
+    }
+
+    // 3. Cek Disk
+    try {
+      const diskPercent = await new Promise<number | null>((resolve) => {
+        execCb("df / | tail -1 | awk '{print $5}'", { timeout: 5000 }, (err, stdout) => {
+          if (err) { resolve(null); return; }
+          const p = parseInt(stdout.trim().replace("%", ""), 10);
+          resolve(isNaN(p) ? null : p);
+        });
+      });
+      if (diskPercent !== null && diskPercent >= 90 && shouldAlert("disk_critical")) {
+        alerts.push(`🔴 <b>DISK KRITIS: ${diskPercent}%</b> terpakai!\nSegera bersihkan log/backup lama.`);
+      } else if (diskPercent !== null && diskPercent >= 80 && shouldAlert("disk_warning")) {
+        alerts.push(`🟡 <b>Disk Warning: ${diskPercent}%</b> terpakai`);
+      }
+    } catch { /* skip disk check */ }
+
+    // 4. Cek Fonnte (WhatsApp)
+    try {
+      const [tokenRow] = await db
+        .select({ value: settingsTable.value })
+        .from(settingsTable)
+        .where(eq(settingsTable.key, "fonnteToken"))
+        .limit(1);
+      const fonnteToken = tokenRow?.value;
+      if (fonnteToken) {
+        const resp = await fetch("https://api.fonnte.com/device", {
+          method: "POST",
+          headers: { Authorization: fonnteToken },
+        });
+        const data = await resp.json() as { status?: boolean; device_status?: string };
+        if (data.device_status === "disconnect" && shouldAlert("fonnte_disconnect")) {
+          alerts.push(`🔴 <b>WhatsApp (Fonnte) TERPUTUS!</b>\nDevice tidak terhubung. Segera login ulang di dashboard Fonnte.`);
+        }
+      }
+    } catch { /* skip fonnte check */ }
+
+    // 5. Cek VPN Panel
+    try {
+      const servers = await db.select().from(serversTable).where(eq(serversTable.isActive, true));
+      for (const server of servers) {
+        if (!server.apiUrl || !server.apiToken) continue;
+        const health = await checkPanelHealth({ apiUrl: server.apiUrl, apiToken: server.apiToken });
+        if (!health.online && shouldAlert(`panel_down_${server.id}`)) {
+          alerts.push(`🔴 <b>VPN Panel "${server.name}" DOWN!</b>\nTidak dapat terhubung ke panel server.`);
+        }
+      }
+    } catch { /* skip panel check */ }
+
+    // Kirim alert jika ada
+    if (alerts.length > 0) {
+      let text = `🚨 <b>ALERT — KETANTECH VPN</b>\n━━━━━━━━━━━━━━━━━━\n\n`;
+      text += alerts.join("\n\n");
+      const now = new Date().toLocaleString("id-ID", {
+        hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta",
+      });
+      text += `\n\n🕐 ${now} WIB`;
+      await sendMessage(adminChatId, text);
+      logger.info({ alertCount: alerts.length }, "Proactive alerts sent to admin");
+    }
+  } catch (err) {
+    logger.error({ err }, "Error saat proactive alert monitoring");
+  }
 }
 
 export { getReferralBonusAmount };

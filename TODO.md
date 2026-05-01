@@ -36,6 +36,16 @@ Daftar fitur *"Next-Level"* yang akan dikembangkan untuk meningkatkan otomatisas
   *Tingkat Risiko: Sangat Rendah (read-only, tidak mengubah apa pun)*
   *✅ Selesai — 1 Mei 2026.*
 
+- [x] **15. Alert Otomatis (Proactive Monitoring)** ✅
+  Bot **otomatis kirim pesan** ke admin Telegram setiap 15 menit jika terdeteksi: RAM/CPU/Disk > threshold, Fonnte disconnect, atau VPN Panel down. Termasuk cooldown 30 menit agar tidak spam.
+  *Tingkat Risiko: Sangat Rendah (read-only monitoring)*
+  *✅ Selesai — 1 Mei 2026.*
+
+- [x] **16. Laporan Harian Otomatis** ✅
+  Bot otomatis kirim ringkasan harian ke admin Telegram setiap jam **08.00 WIB**: revenue kemarin, user baru, total user, akun VPN aktif, akun expired hari ini & 3 hari ke depan, topup pending.
+  *Tingkat Risiko: Sangat Rendah (read-only, otomatis)*
+  *✅ Selesai — 1 Mei 2026.*
+
 ## 🛠️ Fase Pembersihan Kode (Technical Debt & Refactoring)
 
 Penyelesaian *error* TypeScript yang menumpuk agar performa dan stabilitas aplikasi lebih terjaga untuk pengembangan ke depan.
@@ -166,3 +176,16 @@ Fitur-fitur baru untuk meningkatkan kualitas produk, akuisisi user, dan keamanan
    - Tombol **🔄 Refresh** untuk update real-time
    - Menggunakan Node.js `os` module + `child_process` (read-only, tanpa library tambahan)
    - File: `artifacts/api-server/src/lib/telegram-admin.ts`
+
+5. ✅ **#15 Alert Otomatis (Proactive Monitoring)**
+   - Scheduler berjalan setiap **15 menit**, cek: RAM, CPU, Disk, Fonnte, semua VPN Panel
+   - Otomatis kirim 🚨 alert ke admin Telegram jika ada masalah
+   - Threshold: 🟢 < 80% → 🟡 80-90% → 🔴 > 90%
+   - Cooldown 30 menit per alert agar tidak spam
+   - File: `artifacts/api-server/src/lib/scheduler.ts`
+
+6. ✅ **#16 Laporan Harian Otomatis**
+   - Otomatis kirim setiap **jam 08.00 WIB** ke admin Telegram
+   - Isi: revenue kemarin, user baru, total user, akun VPN aktif, expired hari ini & 3 hari, topup pending
+   - Perlindungan anti kirim ganda (1x per hari)
+   - File: `artifacts/api-server/src/lib/scheduler.ts`
