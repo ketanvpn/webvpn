@@ -26,6 +26,11 @@ Daftar fitur *"Next-Level"* yang akan dikembangkan untuk meningkatkan otomatisas
   Fitur cerdas untuk menambah masa aktif seluruh akun VPN aktif di sebuah server yang bermasalah. Termasuk proteksi *anti-spam* panel dan pelaporan via telegram background-job.
   *Tingkat Risiko: Menengah*
 
+- [x] **13. System Diagnostics (Menu Admin Telegram)** ✅
+  Menu **🔧 System Test** di bot Telegram `/admin` untuk mengecek kesehatan semua integrasi dengan 1 klik: Database, Telegram Bot, WhatsApp (Fonnte), Payment Gateway (AutoGoPay), dan semua VPN Panel Server.
+  *Tingkat Risiko: Sangat Rendah*
+  *✅ Selesai — 1 Mei 2026. Tes berjalan paralel, laporan real-time, tombol tes ulang. Merchant ID dihapus dari pengecekan (tidak dipakai di flow webhook).*
+
 ## 🛠️ Fase Pembersihan Kode (Technical Debt & Refactoring)
 
 Penyelesaian *error* TypeScript yang menumpuk agar performa dan stabilitas aplikasi lebih terjaga untuk pengembangan ke depan.
@@ -118,3 +123,29 @@ Fitur-fitur baru untuk meningkatkan kualitas produk, akuisisi user, dan keamanan
 | ⑥ | **#12 Multi-bahasa (i18n)** | 3-4 sesi | ❌ | Semua fitur lain harus stabil dulu |
 
 > **Langkah selanjutnya:** Mulai **#8 Notifikasi Email** — pilih SMTP provider terlebih dahulu.
+
+---
+
+## 📝 Log Sesi Kerja
+
+### 🗓️ 1 Mei 2026 (Sore)
+
+**Yang dikerjakan:**
+
+1. ✅ **#13 System Diagnostics — Menu Admin Telegram**
+   - Menambahkan tombol **🔧 System Test** di menu `/admin`
+   - Mengecek 5 integrasi secara paralel: Database, Telegram Bot, WhatsApp (Fonnte), Payment Gateway (AutoGoPay), VPN Panel (semua server)
+   - Laporan lengkap dengan status (✅/⚠️/❌), latency, dan detail error
+   - Tombol **🔄 Tes Ulang** untuk re-check tanpa ketik `/admin` lagi
+   - File: `artifacts/api-server/src/lib/telegram-admin.ts`
+
+2. ✅ **Fix: Hapus Pengecekan Merchant ID di Diagnostik**
+   - `autoGopayMerchantId` adalah dead config — tidak dipakai di flow webhook AutoGoPay
+   - Diagnostik sekarang hanya cek **API URL** + **Secret Key** (yang memang dipakai)
+   - Admin panel UI juga memang tidak punya field Merchant ID
+
+3. 🎨 **Eksplorasi Logo Bot Telegram**
+   - Generate beberapa opsi logo (shield, globe, monogram KT)
+   - Diskusi prinsip logo permanen: simpel, timeless, scalable, unik
+   - Rekomendasi: **Monogram KT flat** sebagai identitas jangka panjang
+   - Belum final — user masih memilih
