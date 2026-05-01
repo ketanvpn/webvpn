@@ -6,6 +6,7 @@ import {
   ticketsTable,
   ticketMessagesTable,
   serversTable,
+  settingsTable,
   vpnAccountsTable,
   balanceLogsTable,
 } from "@workspace/db";
@@ -16,9 +17,11 @@ import {
   editMessageReplyMarkup,
   answerCallbackQuery,
   editMessageText,
+  getBotInfo,
 } from "./telegram";
 import { performBackup } from "./backup";
-import { renewPanelAccount } from "./vpn-panel";
+import { renewPanelAccount, checkPanelHealth } from "./vpn-panel";
+import { logger } from "./logger";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -26,9 +29,8 @@ function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID");
 }
 
-export async function showAdminMenu(chatId: number) {
-  const text = `👨‍💻 <b>Menu Admin KETANTECH VPN</b>\n\nSilakan pilih menu di bawah ini:`;
-  const buttons = [
+function buildAdminMenuButtons() {
+  return [
     [
       { text: "🖥️ Status Server", callback_data: "admin_servers" },
       { text: "📊 Statistik", callback_data: "admin_stats" },
@@ -46,10 +48,17 @@ export async function showAdminMenu(chatId: number) {
       { text: "💾 Force Backup", callback_data: "admin_backup" },
     ],
     [
+      { text: "🔧 System Test", callback_data: "admin_diagnostics" },
+    ],
+    [
       { text: "❌ Tutup", callback_data: "admin_close" }
     ],
   ];
-  await sendMessageWithButtons(chatId, text, buttons);
+}
+
+export async function showAdminMenu(chatId: number) {
+  const text = `👨‍💻 <b>Menu Admin KETANTECH VPN</b>\n\nSilakan pilih menu di bawah ini:`;
+  await sendMessageWithButtons(chatId, text, buildAdminMenuButtons());
 }
 
 export async function handleAdminCallback(
@@ -60,29 +69,8 @@ export async function handleAdminCallback(
 ) {
   if (data === "admin_menu") {
     const text = `👨‍💻 <b>Menu Admin KETANTECH VPN</b>\n\nSilakan pilih menu di bawah ini:`;
-    const buttons = [
-      [
-        { text: "🖥️ Status Server", callback_data: "admin_servers" },
-        { text: "📊 Statistik", callback_data: "admin_stats" },
-      ],
-      [
-        { text: "💸 Antrean Topup", callback_data: "admin_topups" },
-        { text: "📩 Tiket Terbuka", callback_data: "admin_tickets" },
-      ],
-      [
-        { text: "🔍 Cari User", callback_data: "admin_search_prompt" },
-        { text: "📢 Broadcast", callback_data: "admin_broadcast_prompt" },
-      ],
-      [
-        { text: "🎁 Kompensasi", callback_data: "admin_compensation_prompt" },
-        { text: "💾 Force Backup", callback_data: "admin_backup" },
-      ],
-      [
-        { text: "❌ Tutup", callback_data: "admin_close" }
-      ],
-    ];
     await answerCallbackQuery(callbackId);
-    await editMessageText(chatId, messageId, text, buttons);
+    await editMessageText(chatId, messageId, text, buildAdminMenuButtons());
     return;
   }
 
@@ -174,6 +162,18 @@ export async function handleAdminCallback(
       text,
       [[{ text: "🔙 Kembali", callback_data: "admin_menu" }]]
     );
+    return;
+  }
+
+  // ─── System Diagnostics ──────────────────────────────────────────────────────
+  if (data === "admin_diagnostics") {
+    await answerCallbackQuery(callbackId, "Menjalankan diagnostik...");
+    await editMessageText(chatId, messageId, "⏳ <b>Menjalankan System Test...</b>\n\nMengecek semua integrasi, mohon tunggu...");
+    const report = await runSystemDiagnostics();
+    await editMessageText(chatId, messageId, report, [
+      [{ text: "🔄 Tes Ulang", callback_data: "admin_diagnostics" }],
+      [{ text: "🔙 Kembali", callback_data: "admin_menu" }],
+    ]);
     return;
   }
 }
@@ -527,4 +527,312 @@ export async function handleExtendServer(chatId: number, serverId: number, days:
   }
 
   await sendMessage(chatId, finalReport);
+}
+
+// ─── System Diagnostics ──────────────────────────────────────────────────────
+
+interface DiagnosticResult {
+  name: string;
+  status: "ok" | "warn" | "error";
+  detail: string;
+  latencyMs?: number;
+}
+
+async function testDatabase(): Promise<DiagnosticResult> {
+  const start = Date.now();
+  try {
+    const [row] = await db.select({ val: sql<number>`1` }).from(settingsTable).limit(1);
+    return {
+      name: "💾 Database (PostgreSQL)",
+      status: "ok",
+      detail: "Koneksi aktif",
+      latencyMs: Date.now() - start,
+    };
+  } catch (e: any) {
+    return {
+      name: "💾 Database (PostgreSQL)",
+      status: "error",
+      detail: e.message?.substring(0, 80) ?? "Tidak dapat terhubung",
+      latencyMs: Date.now() - start,
+    };
+  }
+}
+
+async function testTelegramBot(): Promise<DiagnosticResult> {
+  const start = Date.now();
+  try {
+    const info = await getBotInfo();
+    if (info?.ok && info?.result?.username) {
+      return {
+        name: "🤖 Telegram Bot",
+        status: "ok",
+        detail: `@${info.result.username} aktif`,
+        latencyMs: Date.now() - start,
+      };
+    }
+    return {
+      name: "🤖 Telegram Bot",
+      status: "error",
+      detail: info?.description ?? "Token tidak valid atau bot tidak responsif",
+      latencyMs: Date.now() - start,
+    };
+  } catch (e: any) {
+    return {
+      name: "🤖 Telegram Bot",
+      status: "error",
+      detail: e.message?.substring(0, 80) ?? "Gagal terhubung",
+      latencyMs: Date.now() - start,
+    };
+  }
+}
+
+async function testWhatsappFonnte(): Promise<DiagnosticResult> {
+  const start = Date.now();
+  try {
+    // Get fonnte token from settings
+    const [tokenRow] = await db
+      .select({ value: settingsTable.value })
+      .from(settingsTable)
+      .where(eq(settingsTable.key, "fonnteToken"))
+      .limit(1);
+
+    const token = tokenRow?.value;
+    if (!token) {
+      return {
+        name: "📱 WhatsApp (Fonnte)",
+        status: "warn",
+        detail: "Token Fonnte belum diatur",
+        latencyMs: Date.now() - start,
+      };
+    }
+
+    // Check device status via Fonnte API
+    const resp = await fetch("https://api.fonnte.com/device", {
+      method: "POST",
+      headers: { Authorization: token },
+    });
+    const data = await resp.json() as {
+      status?: boolean;
+      device_status?: string;
+      reason?: string;
+      detail?: string;
+      quota?: number;
+      expired?: string;
+      device?: string;
+    };
+
+    const latency = Date.now() - start;
+
+    if (data.status === true || data.device_status === "connect") {
+      let detail = "Device terhubung ✅";
+      if (data.device) detail += ` (${data.device})`;
+      if (data.quota !== undefined) detail += `\nSisa kuota: ${data.quota}`;
+      if (data.expired) detail += `\nExpired: ${data.expired}`;
+      return { name: "📱 WhatsApp (Fonnte)", status: "ok", detail, latencyMs: latency };
+    }
+
+    if (data.device_status === "disconnect") {
+      return {
+        name: "📱 WhatsApp (Fonnte)",
+        status: "error",
+        detail: `Device TERPUTUS ❌${data.reason ? `\nAlasan: ${data.reason}` : ""}\n\n⚠️ Segera login ulang di dashboard Fonnte!`,
+        latencyMs: latency,
+      };
+    }
+
+    return {
+      name: "📱 WhatsApp (Fonnte)",
+      status: "warn",
+      detail: data.reason ?? data.detail ?? `Status tidak diketahui (${JSON.stringify(data).substring(0, 60)})`,
+      latencyMs: latency,
+    };
+  } catch (e: any) {
+    return {
+      name: "📱 WhatsApp (Fonnte)",
+      status: "error",
+      detail: e.message?.substring(0, 80) ?? "Gagal terhubung ke API Fonnte",
+      latencyMs: Date.now() - start,
+    };
+  }
+}
+
+async function testPaymentGateway(): Promise<DiagnosticResult> {
+  const start = Date.now();
+  try {
+    const rows = await db.select().from(settingsTable);
+    const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
+
+    const enabled = map["autoGopayEnabled"] === "true";
+    const apiUrl = map["autoGopayApiUrl"];
+    const merchantId = map["autoGopayMerchantId"];
+    const secretKey = map["autoGopaySecretKey"];
+
+    if (!enabled) {
+      return {
+        name: "💳 Payment Gateway (AutoGoPay)",
+        status: "warn",
+        detail: "AutoGoPay dinonaktifkan di pengaturan",
+        latencyMs: Date.now() - start,
+      };
+    }
+
+    if (!apiUrl) {
+      return {
+        name: "💳 Payment Gateway (AutoGoPay)",
+        status: "error",
+        detail: "API URL belum diatur",
+        latencyMs: Date.now() - start,
+      };
+    }
+
+    if (!merchantId || !secretKey) {
+      return {
+        name: "💳 Payment Gateway (AutoGoPay)",
+        status: "warn",
+        detail: `API URL: ${apiUrl}\nMerchant ID: ${merchantId ? "✅" : "❌ Belum diatur"}\nSecret Key: ${secretKey ? "✅" : "❌ Belum diatur"}`,
+        latencyMs: Date.now() - start,
+      };
+    }
+
+    // Ping the API URL to check if it's reachable
+    const baseUrl = apiUrl.replace(/\/+$/, "");
+    const pingResp = await fetch(baseUrl, {
+      method: "GET",
+      signal: AbortSignal.timeout(8000),
+    }).catch(() => null);
+
+    const latency = Date.now() - start;
+
+    if (pingResp) {
+      return {
+        name: "💳 Payment Gateway (AutoGoPay)",
+        status: "ok",
+        detail: `API reachable (HTTP ${pingResp.status})\nMerchant ID: ✅ Terisi\nSecret Key: ✅ Terisi`,
+        latencyMs: latency,
+      };
+    }
+
+    return {
+      name: "💳 Payment Gateway (AutoGoPay)",
+      status: "error",
+      detail: `Tidak dapat terhubung ke ${baseUrl}\nPastikan URL API benar di pengaturan.`,
+      latencyMs: latency,
+    };
+  } catch (e: any) {
+    return {
+      name: "💳 Payment Gateway (AutoGoPay)",
+      status: "error",
+      detail: e.message?.substring(0, 80) ?? "Error tidak diketahui",
+      latencyMs: Date.now() - start,
+    };
+  }
+}
+
+async function testVpnPanels(): Promise<DiagnosticResult[]> {
+  const servers = await db.select().from(serversTable);
+
+  if (servers.length === 0) {
+    return [{
+      name: "🖥️ VPN Panel",
+      status: "warn",
+      detail: "Belum ada server terdaftar",
+    }];
+  }
+
+  const results: DiagnosticResult[] = [];
+
+  for (const server of servers) {
+    if (!server.apiUrl || !server.apiToken) {
+      results.push({
+        name: `🖥️ ${server.name}`,
+        status: "warn",
+        detail: "API URL atau Token belum diatur",
+      });
+      continue;
+    }
+
+    try {
+      const health = await checkPanelHealth({
+        apiUrl: server.apiUrl,
+        apiToken: server.apiToken,
+      });
+
+      if (health.online) {
+        results.push({
+          name: `🖥️ ${server.name}`,
+          status: "ok",
+          detail: `Panel online`,
+          latencyMs: health.latencyMs,
+        });
+      } else {
+        results.push({
+          name: `🖥️ ${server.name}`,
+          status: "error",
+          detail: health.error ?? "Panel tidak merespons",
+        });
+      }
+    } catch (e: any) {
+      results.push({
+        name: `🖥️ ${server.name}`,
+        status: "error",
+        detail: e.message?.substring(0, 80) ?? "Gagal terhubung ke panel",
+      });
+    }
+  }
+
+  return results;
+}
+
+async function runSystemDiagnostics(): Promise<string> {
+  const startTime = Date.now();
+
+  // Run all tests concurrently
+  const [dbResult, tgResult, waResult, pgResult, panelResults] = await Promise.all([
+    testDatabase(),
+    testTelegramBot(),
+    testWhatsappFonnte(),
+    testPaymentGateway(),
+    testVpnPanels(),
+  ]);
+
+  const allResults: DiagnosticResult[] = [dbResult, tgResult, waResult, pgResult, ...panelResults];
+
+  const statusIcon = (s: DiagnosticResult["status"]) => {
+    if (s === "ok") return "✅";
+    if (s === "warn") return "⚠️";
+    return "❌";
+  };
+
+  const totalTime = Date.now() - startTime;
+  const okCount = allResults.filter((r) => r.status === "ok").length;
+  const warnCount = allResults.filter((r) => r.status === "warn").length;
+  const errorCount = allResults.filter((r) => r.status === "error").length;
+
+  let overallIcon = "✅";
+  if (errorCount > 0) overallIcon = "🔴";
+  else if (warnCount > 0) overallIcon = "🟡";
+
+  let text = `🔧 <b>System Diagnostics Report</b>\n`;
+  text += `${overallIcon} Status: <b>${errorCount > 0 ? "ADA MASALAH" : warnCount > 0 ? "PERLU PERHATIAN" : "SEMUA NORMAL"}</b>\n`;
+  text += `⏱ Waktu tes: ${totalTime}ms\n`;
+  text += `━━━━━━━━━━━━━━━━━━\n\n`;
+
+  for (const result of allResults) {
+    const icon = statusIcon(result.status);
+    const latency = result.latencyMs ? ` (${result.latencyMs}ms)` : "";
+    text += `${icon} <b>${result.name}</b>${latency}\n`;
+    text += `${result.detail}\n\n`;
+  }
+
+  text += `━━━━━━━━━━━━━━━━━━\n`;
+  text += `📋 Summary: ✅ ${okCount} OK | ⚠️ ${warnCount} Warning | ❌ ${errorCount} Error\n`;
+
+  const now = new Date().toLocaleString("id-ID", {
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    timeZone: "Asia/Jakarta",
+  });
+  text += `🕐 Dijalankan: ${now} WIB`;
+
+  return text;
 }
