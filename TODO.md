@@ -31,6 +31,11 @@ Daftar fitur *"Next-Level"* yang akan dikembangkan untuk meningkatkan otomatisas
   *Tingkat Risiko: Sangat Rendah*
   *✅ Selesai — 1 Mei 2026. Tes berjalan paralel, laporan real-time, tombol tes ulang. Merchant ID dihapus dari pengecekan (tidak dipakai di flow webhook).*
 
+- [x] **14. VPS Resource Monitor (Menu Admin Telegram)** ✅
+  Menu **📊 VPS Monitor** di bot Telegram `/admin` untuk memantau resource VPS secara real-time: CPU Load & Usage, RAM, Disk, Uptime (VPS & App), dan Node.js Memory. Termasuk visual progress bar dan threshold warning (🟢/🟡/🔴).
+  *Tingkat Risiko: Sangat Rendah (read-only, tidak mengubah apa pun)*
+  *✅ Selesai — 1 Mei 2026.*
+
 ## 🛠️ Fase Pembersihan Kode (Technical Debt & Refactoring)
 
 Penyelesaian *error* TypeScript yang menumpuk agar performa dan stabilitas aplikasi lebih terjaga untuk pengembangan ke depan.
@@ -149,3 +154,15 @@ Fitur-fitur baru untuk meningkatkan kualitas produk, akuisisi user, dan keamanan
    - Diskusi prinsip logo permanen: simpel, timeless, scalable, unik
    - Rekomendasi: **Monogram KT flat** sebagai identitas jangka panjang
    - Belum final — user masih memilih
+
+### 🗓️ 1 Mei 2026 (Malam)
+
+**Yang dikerjakan:**
+
+4. ✅ **#14 VPS Resource Monitor — Menu Admin Telegram**
+   - Tombol **📊 VPS Monitor** di menu `/admin`
+   - Info CPU (load average, cores, model, usage %), RAM, Disk, Uptime VPS & App, Node.js heap
+   - Visual progress bar (`████████░░░░`) + threshold warning (🟢 Normal / 🟡 Warning / 🔴 Kritis)
+   - Tombol **🔄 Refresh** untuk update real-time
+   - Menggunakan Node.js `os` module + `child_process` (read-only, tanpa library tambahan)
+   - File: `artifacts/api-server/src/lib/telegram-admin.ts`
