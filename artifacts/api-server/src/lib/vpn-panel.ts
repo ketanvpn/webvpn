@@ -17,7 +17,13 @@ export interface VpnProvisionResult {
   expiryInfo?: string;
 }
 
-const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+const allowInsecurePanelTls = process.env.ALLOW_INSECURE_PANEL_TLS === "true";
+
+if (allowInsecurePanelTls) {
+  console.warn("[vpn-panel] WARNING: ALLOW_INSECURE_PANEL_TLS=true (TLS certificate verification is disabled)");
+}
+
+const httpsAgent = new https.Agent({ rejectUnauthorized: !allowInsecurePanelTls });
 
 function buildHeaders(apiToken: string) {
   return {
