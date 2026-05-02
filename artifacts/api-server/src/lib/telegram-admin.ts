@@ -130,7 +130,7 @@ export async function handleAdminCallback(
     await editMessageText(
       chatId,
       messageId,
-      "🔍 <b>Fitur Cari User</b>\n\nUntuk mengecek detail user (saldo, status, dll), ketik perintah berikut di chat:\n\n<code>/cek [username]</code>\n\nContoh:\n<code>/cek budi123</code>",
+      "🔍 <b>Mode Cari User Aktif</b>\n\nSilakan kirim <b>username</b> langsung di chat ini (tanpa <code>/cek</code>).\n\nContoh: <code>budi123</code>\n\nKetik <b>batal</b> untuk keluar dari mode ini.",
       [[{ text: "🔙 Kembali", callback_data: "admin_menu" }]]
     );
     return;
@@ -149,21 +149,42 @@ export async function handleAdminCallback(
 
   if (data === "admin_compensation_prompt") {
     await answerCallbackQuery(callbackId);
-    const text = `🎁 <b>Menu Kompensasi</b>\n\nPilih metode kompensasi dengan mengetik salah satu perintah berikut di chat:\n\n` +
-      `<b>1. Kompensasi Saldo (Personal)</b>\n` +
-      `Memberikan saldo ke spesifik user.\n` +
-      `👉 <code>/gift [username] [nominal]</code>\n` +
-      `<i>Contoh: /gift user1 5000</i>\n\n` +
-      `<b>2. Kompensasi Masa Aktif (Massal)</b>\n` +
-      `Menambah masa aktif semua akun VPN di suatu server.\n` +
-      `👉 <code>/extend [id_server] [jumlah_hari] [jeda_detik]</code>\n` +
-      `<i>Contoh: /extend 1 2 3</i>\n(Menambah 2 hari ke Server 1, dengan jeda 3 detik/akun)`;
+    const text =
+      `🎁 <b>Menu Kompensasi Interaktif</b>\n\n` +
+      `Pilih mode di bawah. Setelah mode aktif, kamu tinggal kirim input biasa di chat (tanpa slash command).\n\n` +
+      `Ketik <b>batal</b> kapan saja untuk keluar dari mode input.`;
 
     await editMessageText(
       chatId,
       messageId,
       text,
-      [[{ text: "🔙 Kembali", callback_data: "admin_menu" }]]
+      [
+        [{ text: "🎁 Gift Saldo", callback_data: "admin_comp_gift_prompt" }],
+        [{ text: "⏱ Extend Massal", callback_data: "admin_comp_extend_prompt" }],
+        [{ text: "🔙 Kembali", callback_data: "admin_menu" }],
+      ]
+    );
+    return;
+  }
+
+  if (data === "admin_comp_gift_prompt") {
+    await answerCallbackQuery(callbackId);
+    await editMessageText(
+      chatId,
+      messageId,
+      "🎁 <b>Mode Gift Saldo Aktif</b>\n\nKirim format berikut di chat:\n<code>username nominal</code>\nContoh: <code>user1 5000</code>\n\nKetik <b>batal</b> untuk keluar.",
+      [[{ text: "🔙 Kembali", callback_data: "admin_compensation_prompt" }]],
+    );
+    return;
+  }
+
+  if (data === "admin_comp_extend_prompt") {
+    await answerCallbackQuery(callbackId);
+    await editMessageText(
+      chatId,
+      messageId,
+      "⏱ <b>Mode Extend Massal Aktif</b>\n\nKirim format berikut di chat:\n<code>id_server jumlah_hari [jeda_detik]</code>\nContoh: <code>1 2 3</code>\n\nKetik <b>batal</b> untuk keluar.",
+      [[{ text: "🔙 Kembali", callback_data: "admin_compensation_prompt" }]],
     );
     return;
   }

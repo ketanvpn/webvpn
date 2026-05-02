@@ -38,6 +38,11 @@ Semua perubahan penting pada proyek KETANTECH VPN akan didokumentasikan di file 
 - **Topup callback protection** — Callback `confirm_topup_*` dan `reject_topup_*` sekarang tegas menolak non-admin, mencegah aksi via callback injection dari chat lain.
 - **Broadcast confirm step** — Perintah `/broadcast` sekarang tidak langsung kirim. Bot akan kirim preview + tombol konfirmasi (`Ya, kirim` / `Batal`) dengan token sementara (TTL 5 menit).
 - **Broadcast anti-replay ringan** — Draft broadcast disimpan sementara dengan token unik dan dihapus saat confirm/cancel/expired untuk mencegah eksekusi ganda tidak sengaja.
+- **Mode input interaktif admin** — Menu bot sekarang mendukung mode input tanpa slash command berulang:
+  - `Cari User`: klik menu, lalu cukup kirim `username` (tanpa `/cek`).
+  - `Gift Saldo`: klik menu kompensasi, lalu kirim `username nominal`.
+  - `Extend Massal`: klik menu kompensasi, lalu kirim `id_server jumlah_hari [jeda_detik]`.
+  - Ketik `batal` untuk keluar dari mode input interaktif.
 
 ### ✅ Verifikasi Manual
 - Uji webhook berhasil dengan hasil:
@@ -50,6 +55,7 @@ Semua perubahan penting pada proyek KETANTECH VPN akan didokumentasikan di file 
 
 ### 📁 File yang Diubah
 - `artifacts/api-server/src/routes/telegram-bot.ts`
+- `artifacts/api-server/src/lib/telegram-admin.ts`
 - `artifacts/api-server/src/lib/auth.ts`
 - `artifacts/api-server/src/routes/auth.ts`
 - `artifacts/api-server/src/routes/admin.ts`

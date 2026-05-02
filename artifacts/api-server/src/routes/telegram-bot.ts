@@ -20,6 +20,8 @@ import { showAdminMenu, handleAdminCallback, handleCekUser, handleGiftSaldo, han
 const router = Router();
 const pendingBroadcasts = new Map<string, { chatId: number; message: string; createdAt: number }>();
 const PENDING_BROADCAST_TTL_MS = 5 * 60 * 1000;
+const adminInputSessions = new Map<number, { mode: "cek_user" | "gift" | "extend"; createdAt: number }>();
+const ADMIN_INPUT_SESSION_TTL_MS = 10 * 60 * 1000;
 
 // ─── User: Generate Telegram Link Token ──────────────────────────────────────
 
@@ -111,10 +113,31 @@ function cleanupPendingBroadcasts(): void {
   }
 }
 
+function cleanupAdminInputSessions(): void {
+  const now = Date.now();
+  for (const [chatId, session] of adminInputSessions) {
+    if (now - session.createdAt > ADMIN_INPUT_SESSION_TTL_MS) {
+      adminInputSessions.delete(chatId);
+    }
+  }
+}
+
+function setAdminInputSession(chatId: number, mode: "cek_user" | "gift" | "extend"): void {
+  cleanupAdminInputSessions();
+  adminInputSessions.set(chatId, { mode, createdAt: Date.now() });
+}
+
+function clearAdminInputSession(chatId: number): void {
+  adminInputSessions.delete(chatId);
+}
+
 async function handleMessage(message: any) {
   const text: string = message.text ?? "";
   const chatId: number = message.chat.id;
   const telegramId: number = message.from?.id ?? chatId;
+  const adminChat = await isAdminChat(chatId);
+
+  cleanupAdminInputSessions();
 
   if (text.startsWith("/start link_")) {
     const token = text.replace("/start link_", "").trim();
@@ -130,9 +153,66 @@ async function handleMessage(message: any) {
     return;
   }
 
-  // Perintah /admin (Hanya Admin)
+  if (adminChat) {
+    const normalized = text.trim().toLowerCase();
+    if (normalized === "batal" || normalized === "/batal") {
+      clearAdminInputSession(chatId);
+      await sendMessage(chatId, "✅ Mode input interaktif dibatalkan.");
+      return;
+    }
+
+    const pending = adminInputSessions.get(chatId);
+    if (pending && !text.trim().startsWith("/")) {
+      if (pending.mode === "cek_user") {
+        const username = text.trim();
+        if (!username) {
+          await sendMessage(chatId, "❌ Username tidak boleh kosong. Ketik username, atau <b>batal</b>.");
+          return;
+        }
+        await handleCekUser(chatId, username);
+        clearAdminInputSession(chatId);
+        return;
+      }
+
+      if (pending.mode === "gift") {
+        const args = text.trim().split(/\s+/);
+        if (args.length !== 2) {
+          await sendMessage(chatId, "❌ Format salah. Kirim: <code>username nominal</code>\nContoh: <code>daaw12 5000</code>\nAtau ketik <b>batal</b>.");
+          return;
+        }
+        const username = args[0];
+        const amount = parseInt(args[1], 10);
+        if (isNaN(amount)) {
+          await sendMessage(chatId, "❌ Nominal harus berupa angka. Contoh: <code>daaw12 5000</code>");
+          return;
+        }
+        await handleGiftSaldo(chatId, username, amount);
+        clearAdminInputSession(chatId);
+        return;
+      }
+
+      if (pending.mode === "extend") {
+        const args = text.trim().split(/\s+/);
+        if (args.length < 2) {
+          await sendMessage(chatId, "❌ Format salah. Kirim: <code>id_server jumlah_hari [jeda_detik]</code>\nContoh: <code>1 2 3</code>\nAtau ketik <b>batal</b>.");
+          return;
+        }
+        const serverId = parseInt(args[0], 10);
+        const days = parseInt(args[1], 10);
+        const delaySec = args[2] ? parseInt(args[2], 10) : 3;
+        if (isNaN(serverId) || isNaN(days) || isNaN(delaySec)) {
+          await sendMessage(chatId, "❌ Semua parameter harus angka. Contoh: <code>1 2 3</code>");
+          return;
+        }
+        handleExtendServer(chatId, serverId, days, delaySec).catch(console.error);
+        clearAdminInputSession(chatId);
+        return;
+      }
+    }
+  }
+
   if (text === "/admin") {
-    if (!await isAdminChat(chatId)) {
+    if (!adminChat) {
       await sendMessage(chatId, "⛔ Perintah ini hanya untuk admin.");
       return;
     }
@@ -140,13 +220,12 @@ async function handleMessage(message: any) {
     return;
   }
 
-  // Perintah /broadcast (Hanya Admin)
   if (text.startsWith("/broadcast ")) {
-    if (!await isAdminChat(chatId)) {
+    if (!adminChat) {
       await sendMessage(chatId, "⛔ Perintah ini hanya untuk admin.");
       return;
     }
-    
+
     const message = text.replace("/broadcast ", "").trim();
     if (!message) return;
 
@@ -165,9 +244,8 @@ async function handleMessage(message: any) {
     return;
   }
 
-  // Perintah /cek [username] (Hanya Admin)
   if (text.startsWith("/cek ")) {
-    if (!await isAdminChat(chatId)) {
+    if (!adminChat) {
       await sendMessage(chatId, "⛔ Perintah ini hanya untuk admin.");
       return;
     }
@@ -177,9 +255,8 @@ async function handleMessage(message: any) {
     return;
   }
 
-  // Perintah /gift <username> <nominal> (Hanya Admin)
   if (text.startsWith("/gift ")) {
-    if (!await isAdminChat(chatId)) {
+    if (!adminChat) {
       await sendMessage(chatId, "⛔ Perintah ini hanya untuk admin.");
       return;
     }
@@ -194,9 +271,8 @@ async function handleMessage(message: any) {
     return;
   }
 
-  // Perintah /extend <id_server> <hari> [jeda_detik] (Hanya Admin)
   if (text.startsWith("/extend ")) {
-    if (!await isAdminChat(chatId)) {
+    if (!adminChat) {
       await sendMessage(chatId, "⛔ Perintah ini hanya untuk admin.");
       return;
     }
@@ -207,22 +283,20 @@ async function handleMessage(message: any) {
     }
     const serverId = parseInt(args[0], 10);
     const days = parseInt(args[1], 10);
-    const delaySec = args[2] ? parseInt(args[2], 10) : 3; // Default 3 detik
+    const delaySec = args[2] ? parseInt(args[2], 10) : 3;
 
     if (isNaN(serverId) || isNaN(days) || isNaN(delaySec)) {
       await sendMessage(chatId, "❌ Parameter harus berupa angka.");
       return;
     }
 
-    // Eksekusi secara background agar webhook telegram tidak timeout
     handleExtendServer(chatId, serverId, days, delaySec).catch(console.error);
     return;
   }
 
-  // /reply_<ticketId> <message> — hanya dari admin chat (fallback manual)
   const replyMatch = text.match(/^\/reply_(\d+)\s+([\s\S]+)$/);
   if (replyMatch) {
-    if (!await isAdminChat(chatId)) {
+    if (!adminChat) {
       await sendMessage(chatId, "⛔ Perintah ini hanya untuk admin.");
       return;
     }
@@ -230,9 +304,8 @@ async function handleMessage(message: any) {
     return;
   }
 
-  // Native reply (geser pesan) ke notifikasi tiket — hanya dari admin chat
   if (message.reply_to_message && text.trim()) {
-    if (await isAdminChat(chatId)) {
+    if (adminChat) {
       const replyToMsgId: number = message.reply_to_message.message_id;
       const ticketId = lookupTicketByMessage(replyToMsgId);
       if (ticketId) {
@@ -375,6 +448,10 @@ async function handleCallbackQuery(callbackQuery: any) {
   if (data.startsWith("admin_")) {
     const adminChatId = await getAdminChatId();
     if (adminChatId && String(chatId) === String(adminChatId)) {
+      if (data === "admin_search_prompt") setAdminInputSession(chatId, "cek_user");
+      if (data === "admin_comp_gift_prompt") setAdminInputSession(chatId, "gift");
+      if (data === "admin_comp_extend_prompt") setAdminInputSession(chatId, "extend");
+      if (data === "admin_menu" || data === "admin_close") clearAdminInputSession(chatId);
       await handleAdminCallback(data, chatId, messageId, callbackId);
     }
     return;
