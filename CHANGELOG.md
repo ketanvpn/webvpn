@@ -4,6 +4,43 @@ Semua perubahan penting pada proyek KETANTECH VPN akan didokumentasikan di file 
 
 ---
 
+## [2026-05-02] - Hardening Auth & Webhook Security
+
+### 🛡️ Security Fixes
+- **Admin endpoint protection** — Endpoint `POST /api/admin/telegram/register-webhook` sekarang wajib `requireAdmin` (sebelumnya masih `requireAuth`).
+- **JWT session revocation** — Menambahkan `sessionVersion` pada user dan payload JWT. Token lama sekarang otomatis invalid setelah:
+  1. Logout
+  2. Ubah password sendiri
+  3. Reset password via OTP
+  4. Reset password oleh admin
+- **Suspend enforcement** — Middleware `requireAuth` sekarang cek `isActive` ke database agar akun suspended tidak bisa akses endpoint protected walau token belum expired.
+- **Production secret policy** — API sekarang fail-fast di production jika `SESSION_SECRET` kosong atau kurang dari 32 karakter.
+- **Rate limit endpoint sensitif** — Menambahkan limiter untuk `GET /api/auth/check-username` dan `POST /api/auth/forgot-password/reset`.
+
+### 💳 Payment/Webhook Hardening
+- **Signature wajib (fail-closed)** — Webhook AutoGoPay sekarang menolak request jika secret key belum dikonfigurasi, signature tidak ada, atau signature tidak valid.
+- **Validasi nominal transaksi** — Menambahkan verifikasi `amount` payload webhook terhadap nominal topup/order di database sebelum proses konfirmasi.
+- **Replay guard** — Menambahkan proteksi replay in-memory (TTL) untuk menahan event webhook duplikat cepat.
+- **Log payload dipersempit** — Logging webhook tidak lagi menyimpan full payload object; sekarang diringkas ke field inti (`event`, `transactionId`, `status`, `amount`).
+
+### ✅ Verifikasi Manual
+- Uji webhook berhasil dengan hasil:
+  - tanpa signature -> `401`
+  - signature salah -> `401`
+  - signature valid + transaksi tidak dikenal -> `200` (`success: true`)
+- Uji session revocation berhasil:
+  - login -> `/auth/me` `200`
+  - logout -> `/auth/me` `401`
+
+### 📁 File yang Diubah
+- `artifacts/api-server/src/routes/telegram-bot.ts`
+- `artifacts/api-server/src/lib/auth.ts`
+- `artifacts/api-server/src/routes/auth.ts`
+- `artifacts/api-server/src/routes/admin.ts`
+- `artifacts/api-server/src/routes/webhook.ts`
+- `lib/db/src/schema/users.ts`
+- `TODO.md`
+
 ## [2026-04-29] - Telegram Admin Menu & Auto-Cleanup
 
 ### ✨ Fitur Baru (Backend & Bot)
