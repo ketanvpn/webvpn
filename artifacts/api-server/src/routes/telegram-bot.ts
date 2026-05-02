@@ -7,6 +7,7 @@ import { randomBytes } from "crypto";
 import {
   callTelegramApi,
   sendMessage,
+  sendMessageWithButtons,
   answerCallbackQuery,
   editMessageReplyMarkup,
   getBotInfo,
@@ -17,6 +18,8 @@ import {
 import { showAdminMenu, handleAdminCallback, handleCekUser, handleGiftSaldo, handleExtendServer } from "../lib/telegram-admin";
 
 const router = Router();
+const pendingBroadcasts = new Map<string, { chatId: number; message: string; createdAt: number }>();
+const PENDING_BROADCAST_TTL_MS = 5 * 60 * 1000;
 
 // ─── User: Generate Telegram Link Token ──────────────────────────────────────
 
@@ -94,6 +97,20 @@ async function getAdminChatId(): Promise<string | null> {
   return map["telegramAdminChatId"] ?? null;
 }
 
+async function isAdminChat(chatId: number): Promise<boolean> {
+  const adminChatId = await getAdminChatId();
+  return Boolean(adminChatId && String(chatId) === String(adminChatId));
+}
+
+function cleanupPendingBroadcasts(): void {
+  const now = Date.now();
+  for (const [token, item] of pendingBroadcasts) {
+    if (now - item.createdAt > PENDING_BROADCAST_TTL_MS) {
+      pendingBroadcasts.delete(token);
+    }
+  }
+}
+
 async function handleMessage(message: any) {
   const text: string = message.text ?? "";
   const chatId: number = message.chat.id;
@@ -115,8 +132,7 @@ async function handleMessage(message: any) {
 
   // Perintah /admin (Hanya Admin)
   if (text === "/admin") {
-    const adminChatId = await getAdminChatId();
-    if (!adminChatId || String(chatId) !== String(adminChatId)) {
+    if (!await isAdminChat(chatId)) {
       await sendMessage(chatId, "⛔ Perintah ini hanya untuk admin.");
       return;
     }
@@ -126,8 +142,7 @@ async function handleMessage(message: any) {
 
   // Perintah /broadcast (Hanya Admin)
   if (text.startsWith("/broadcast ")) {
-    const adminChatId = await getAdminChatId();
-    if (!adminChatId || String(chatId) !== String(adminChatId)) {
+    if (!await isAdminChat(chatId)) {
       await sendMessage(chatId, "⛔ Perintah ini hanya untuk admin.");
       return;
     }
@@ -135,16 +150,24 @@ async function handleMessage(message: any) {
     const message = text.replace("/broadcast ", "").trim();
     if (!message) return;
 
-    await sendMessage(chatId, "⏳ Sedang mengirim broadcast...");
-    const { sent, failed } = await broadcastMessage(message);
-    await sendMessage(chatId, `✅ <b>Broadcast Selesai</b>\n\nBerhasil terkirim: ${sent}\nGagal: ${failed}`);
+    cleanupPendingBroadcasts();
+    const token = randomBytes(10).toString("hex");
+    pendingBroadcasts.set(token, { chatId, message, createdAt: Date.now() });
+
+    await sendMessageWithButtons(
+      chatId,
+      `📢 <b>Konfirmasi Broadcast</b>\n\nPesan berikut akan dikirim ke semua user Telegram terhubung:\n\n${message}\n\nLanjut kirim?`,
+      [[
+        { text: "✅ Ya, kirim", callback_data: `broadcast_confirm_${token}` },
+        { text: "❌ Batal", callback_data: `broadcast_cancel_${token}` },
+      ]],
+    );
     return;
   }
 
   // Perintah /cek [username] (Hanya Admin)
   if (text.startsWith("/cek ")) {
-    const adminChatId = await getAdminChatId();
-    if (!adminChatId || String(chatId) !== String(adminChatId)) {
+    if (!await isAdminChat(chatId)) {
       await sendMessage(chatId, "⛔ Perintah ini hanya untuk admin.");
       return;
     }
@@ -156,8 +179,7 @@ async function handleMessage(message: any) {
 
   // Perintah /gift <username> <nominal> (Hanya Admin)
   if (text.startsWith("/gift ")) {
-    const adminChatId = await getAdminChatId();
-    if (!adminChatId || String(chatId) !== String(adminChatId)) {
+    if (!await isAdminChat(chatId)) {
       await sendMessage(chatId, "⛔ Perintah ini hanya untuk admin.");
       return;
     }
@@ -174,8 +196,7 @@ async function handleMessage(message: any) {
 
   // Perintah /extend <id_server> <hari> [jeda_detik] (Hanya Admin)
   if (text.startsWith("/extend ")) {
-    const adminChatId = await getAdminChatId();
-    if (!adminChatId || String(chatId) !== String(adminChatId)) {
+    if (!await isAdminChat(chatId)) {
       await sendMessage(chatId, "⛔ Perintah ini hanya untuk admin.");
       return;
     }
@@ -201,8 +222,7 @@ async function handleMessage(message: any) {
   // /reply_<ticketId> <message> — hanya dari admin chat (fallback manual)
   const replyMatch = text.match(/^\/reply_(\d+)\s+([\s\S]+)$/);
   if (replyMatch) {
-    const adminChatId = await getAdminChatId();
-    if (!adminChatId || String(chatId) !== String(adminChatId)) {
+    if (!await isAdminChat(chatId)) {
       await sendMessage(chatId, "⛔ Perintah ini hanya untuk admin.");
       return;
     }
@@ -212,8 +232,7 @@ async function handleMessage(message: any) {
 
   // Native reply (geser pesan) ke notifikasi tiket — hanya dari admin chat
   if (message.reply_to_message && text.trim()) {
-    const adminChatId = await getAdminChatId();
-    if (adminChatId && String(chatId) === String(adminChatId)) {
+    if (await isAdminChat(chatId)) {
       const replyToMsgId: number = message.reply_to_message.message_id;
       const ticketId = lookupTicketByMessage(replyToMsgId);
       if (ticketId) {
@@ -296,14 +315,60 @@ async function handleCallbackQuery(callbackQuery: any) {
   const callbackId: string = callbackQuery.id;
 
   if (data.startsWith("confirm_topup_")) {
+    if (!await isAdminChat(chatId)) {
+      await answerCallbackQuery(callbackId, "⛔ Hanya admin yang dapat melakukan aksi ini.");
+      return;
+    }
     const topupId = parseInt(data.replace("confirm_topup_", ""), 10);
     await handleConfirmTopup(topupId, chatId, messageId, callbackId);
     return;
   }
 
   if (data.startsWith("reject_topup_")) {
+    if (!await isAdminChat(chatId)) {
+      await answerCallbackQuery(callbackId, "⛔ Hanya admin yang dapat melakukan aksi ini.");
+      return;
+    }
     const topupId = parseInt(data.replace("reject_topup_", ""), 10);
     await handleRejectTopup(topupId, chatId, messageId, callbackId);
+    return;
+  }
+
+  if (data.startsWith("broadcast_confirm_")) {
+    if (!await isAdminChat(chatId)) {
+      await answerCallbackQuery(callbackId, "⛔ Hanya admin yang dapat melakukan aksi ini.");
+      return;
+    }
+
+    cleanupPendingBroadcasts();
+    const token = data.replace("broadcast_confirm_", "");
+    const pending = pendingBroadcasts.get(token);
+    if (!pending || pending.chatId !== chatId) {
+      await answerCallbackQuery(callbackId, "❌ Draft broadcast tidak ditemukan/expired.");
+      return;
+    }
+
+    pendingBroadcasts.delete(token);
+    await answerCallbackQuery(callbackId, "Broadcast diproses...");
+    await editMessageReplyMarkup(chatId, messageId, null);
+    await sendMessage(chatId, "⏳ Sedang mengirim broadcast...");
+    const { sent, failed } = await broadcastMessage(pending.message);
+    await sendMessage(chatId, `✅ <b>Broadcast Selesai</b>\n\nBerhasil terkirim: ${sent}\nGagal: ${failed}`);
+    return;
+  }
+
+  if (data.startsWith("broadcast_cancel_")) {
+    if (!await isAdminChat(chatId)) {
+      await answerCallbackQuery(callbackId, "⛔ Hanya admin yang dapat melakukan aksi ini.");
+      return;
+    }
+
+    cleanupPendingBroadcasts();
+    const token = data.replace("broadcast_cancel_", "");
+    pendingBroadcasts.delete(token);
+    await answerCallbackQuery(callbackId, "Broadcast dibatalkan.");
+    await editMessageReplyMarkup(chatId, messageId, null);
+    await sendMessage(chatId, "❌ Broadcast dibatalkan.");
     return;
   }
 

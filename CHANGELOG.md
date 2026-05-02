@@ -31,6 +31,13 @@ Semua perubahan penting pada proyek KETANTECH VPN akan didokumentasikan di file 
 - **Bulk delete partial-safe** — `POST /api/admin/accounts/bulk-delete` kini hanya menghapus akun dari database jika delete di panel sukses. Akun yang gagal di panel dikembalikan di response `failed[]`.
 - **Toggle akun sinkron panel** — `POST /api/admin/accounts/:id/toggle` sekarang sinkron ke panel juga: OFF memanggil lock, ON memanggil unlock. Jika panel gagal, perubahan DB dibatalkan (fail-closed).
 - **Panel client update** — Menambahkan `unlockPanelAccount` dan mengubah `lockPanelAccount` agar melempar error saat gagal, sehingga route dapat menjaga konsistensi state panel vs DB.
+- **TLS hardening untuk panel API** — Koneksi HTTPS ke panel VPS sekarang strict secara default (verifikasi sertifikat aktif). Ditambahkan override eksplisit `ALLOW_INSECURE_PANEL_TLS=true` hanya untuk kondisi darurat/self-signed cert, beserta warning log saat mode insecure dipakai.
+
+### 🤖 Telegram Admin Bot Hardening
+- **Admin guard terpusat** — Pemeriksaan admin chat kini dipusatkan ke helper `isAdminChat()` untuk command sensitif (`/admin`, `/broadcast`, `/cek`, `/gift`, `/extend`, dan reply tiket).
+- **Topup callback protection** — Callback `confirm_topup_*` dan `reject_topup_*` sekarang tegas menolak non-admin, mencegah aksi via callback injection dari chat lain.
+- **Broadcast confirm step** — Perintah `/broadcast` sekarang tidak langsung kirim. Bot akan kirim preview + tombol konfirmasi (`Ya, kirim` / `Batal`) dengan token sementara (TTL 5 menit).
+- **Broadcast anti-replay ringan** — Draft broadcast disimpan sementara dengan token unik dan dihapus saat confirm/cancel/expired untuk mencegah eksekusi ganda tidak sengaja.
 
 ### ✅ Verifikasi Manual
 - Uji webhook berhasil dengan hasil:
@@ -52,6 +59,7 @@ Semua perubahan penting pada proyek KETANTECH VPN akan didokumentasikan di file 
 - `artifacts/api-server/src/routes/accounts.ts`
 - `artifacts/api-server/src/routes/admin.ts`
 - `artifacts/api-server/src/lib/vpn-panel.ts`
+- `artifacts/api-server/src/routes/telegram-bot.ts`
 
 ## [2026-04-29] - Telegram Admin Menu & Auto-Cleanup
 
