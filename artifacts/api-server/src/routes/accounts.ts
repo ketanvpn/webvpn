@@ -12,6 +12,24 @@ import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 
 const router = Router();
+const renewLocks = new Map<number, number>();
+const RENEW_LOCK_TTL_MS = 30 * 1000;
+
+function acquireRenewLock(accountId: number): boolean {
+  const now = Date.now();
+
+  for (const [id, ts] of renewLocks) {
+    if (now - ts > RENEW_LOCK_TTL_MS) renewLocks.delete(id);
+  }
+
+  if (renewLocks.has(accountId)) return false;
+  renewLocks.set(accountId, now);
+  return true;
+}
+
+function releaseRenewLock(accountId: number): void {
+  renewLocks.delete(accountId);
+}
 
 async function formatAccount(a: typeof vpnAccountsTable.$inferSelect) {
   const [server] = await db
@@ -90,10 +108,16 @@ router.post("/accounts/:id/renew", requireAuth, async (req, res) => {
   const userId = req.user!.userId;
   const parsed = RenewAccountBody.safeParse(req.body);
 
-  if (!parsed.success) {
-    res.status(400).json({ error: "Invalid input" });
+  if (!acquireRenewLock(id)) {
+    res.status(409).json({ error: "Akun ini sedang diproses renew. Coba lagi beberapa detik." });
     return;
   }
+
+  try {
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid input" });
+      return;
+    }
 
   const [account] = await db
     .select()
@@ -280,7 +304,10 @@ router.post("/accounts/:id/renew", requireAuth, async (req, res) => {
     sendWhatsapp(user!.whatsapp, waMsg).catch(() => {});
   }
 
-  res.json(await formatAccount(updated));
+    res.json(await formatAccount(updated));
+  } finally {
+    releaseRenewLock(id);
+  }
 });
 
 export { formatAccount };

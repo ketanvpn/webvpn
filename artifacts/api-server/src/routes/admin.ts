@@ -810,6 +810,11 @@ router.post("/admin/orders/:id/confirm", requireAdmin, async (req, res) => {
       allServers.find(supportsProtocol) ??
       allServers[0];
 
+    if (!product || !user || !server) {
+      res.status(400).json({ error: "Data order tidak lengkap untuk provisioning akun VPN" });
+      return;
+    }
+
     if (product && user && server) {
       const isTrial = product.durationDays === 0;
       const durationMs = isTrial
@@ -827,8 +832,8 @@ router.post("/admin/orders/:id/confirm", requireAdmin, async (req, res) => {
       let allLinks: Record<string, string | null> | null = null;
 
       if (server.apiUrl && server.apiToken) {
+        let panelResult: any;
         try {
-          let panelResult;
           if (isTrial) {
             panelResult = await createTrialPanelAccount({
               apiUrl: server.apiUrl,
@@ -849,19 +854,26 @@ router.post("/admin/orders/:id/confirm", requireAdmin, async (req, res) => {
               uuid: vpnUuid,
             });
           }
-          finalUsername = panelResult.username;
-          finalPassword = panelResult.password ?? vpnPassword;
-          finalUuid = panelResult.uuid ?? vpnUuid;
-          configLink = panelResult.configLink ?? null;
-          if (panelResult.allLinks) {
-            const links: Record<string, string | null> = {};
-            for (const [k, v] of Object.entries(panelResult.allLinks)) links[k] = v ?? null;
-            allLinks = links;
-          }
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           console.error(`[admin/confirm] Panel API error: ${msg}`);
-          // Continue — admin confirmation still marks order paid even if panel fails
+          res.status(502).json({ error: `Gagal provisioning akun di server VPS: ${msg}` });
+          return;
+        }
+
+        if (!panelResult) {
+          res.status(502).json({ error: "Gagal provisioning akun di server VPS" });
+          return;
+        }
+
+        finalUsername = panelResult.username;
+        finalPassword = panelResult.password ?? vpnPassword;
+        finalUuid = panelResult.uuid ?? vpnUuid;
+        configLink = panelResult.configLink ?? null;
+        if (panelResult.allLinks) {
+          const links: Record<string, string | null> = {};
+          for (const [k, v] of Object.entries(panelResult.allLinks)) links[k] = v ?? null;
+          allLinks = links;
         }
       }
 
