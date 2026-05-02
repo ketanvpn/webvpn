@@ -54,6 +54,10 @@ function buildAdminMenuButtons() {
       { text: "📊 VPS Monitor", callback_data: "admin_vps_monitor" },
     ],
     [
+      { text: "🚦 Status Sekarang", callback_data: "admin_status_now" },
+      { text: "🧯 Error Terakhir", callback_data: "admin_recent_errors" },
+    ],
+    [
       { text: "❌ Tutup", callback_data: "admin_close" }
     ],
   ];
@@ -217,6 +221,28 @@ export async function handleAdminCallback(
     const report = await getVpsResourceReport();
     await editMessageText(chatId, messageId, report, [
       [{ text: "🔄 Refresh", callback_data: "admin_vps_monitor" }],
+      [{ text: "🔙 Kembali", callback_data: "admin_menu" }],
+    ]);
+    return;
+  }
+
+  if (data === "admin_status_now") {
+    await answerCallbackQuery(callbackId, "Mengumpulkan status... ");
+    await editMessageText(chatId, messageId, "⏳ <b>Mengambil status sekarang...</b>");
+    const report = await getStatusNowReport();
+    await editMessageText(chatId, messageId, report, [
+      [{ text: "🔄 Refresh", callback_data: "admin_status_now" }],
+      [{ text: "🔙 Kembali", callback_data: "admin_menu" }],
+    ]);
+    return;
+  }
+
+  if (data === "admin_recent_errors") {
+    await answerCallbackQuery(callbackId, "Membaca error terakhir...");
+    await editMessageText(chatId, messageId, "⏳ <b>Mengambil ringkasan error terakhir...</b>");
+    const report = await getRecentErrorDigest();
+    await editMessageText(chatId, messageId, report, [
+      [{ text: "🔄 Refresh", callback_data: "admin_recent_errors" }],
       [{ text: "🔙 Kembali", callback_data: "admin_menu" }],
     ]);
     return;
@@ -939,6 +965,98 @@ function getDiskUsage(): Promise<{ total: string; used: string; free: string; pe
       }
     });
   });
+}
+
+function execShell(command: string, timeout = 7000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    exec(command, { timeout }, (err, stdout, stderr) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve((stdout || stderr || "").toString());
+    });
+  });
+}
+
+async function getStatusNowReport(): Promise<string> {
+  const start = Date.now();
+
+  const [
+    dbResult,
+    pgResult,
+    panelResults,
+    qrisPendingCount,
+    topupPendingCount,
+    ticketOpenCount,
+  ] = await Promise.all([
+    testDatabase(),
+    testPaymentGateway(),
+    testVpnPanels(),
+    db.select({ count: sql<number>`count(*)::int` }).from(ordersTable).where(and(eq(ordersTable.status, "pending"), eq(ordersTable.paymentMethod, "qris"))),
+    db.select({ count: sql<number>`count(*)::int` }).from(topupsTable).where(eq(topupsTable.status, "pending")),
+    db.select({ count: sql<number>`count(*)::int` }).from(ticketsTable).where(eq(ticketsTable.status, "open")),
+  ]);
+
+  const panelsDown = panelResults.filter((r) => r.status === "error").length;
+  const warnCount = [dbResult, pgResult, ...panelResults].filter((r) => r.status === "warn").length;
+  const errorCount = [dbResult, pgResult, ...panelResults].filter((r) => r.status === "error").length;
+
+  const overall = errorCount > 0 ? "🔴 ADA MASALAH" : warnCount > 0 ? "🟡 PERLU PERHATIAN" : "🟢 NORMAL";
+
+  let text = `🚦 <b>Status Sekarang</b>\n`;
+  text += `━━━━━━━━━━━━━━━━━━\n\n`;
+  text += `Overall: <b>${overall}</b>\n`;
+  text += `💾 Database: ${dbResult.status === "ok" ? "✅" : dbResult.status === "warn" ? "⚠️" : "❌"} ${dbResult.detail}\n`;
+  text += `💳 Payment: ${pgResult.status === "ok" ? "✅" : pgResult.status === "warn" ? "⚠️" : "❌"} ${pgResult.detail}\n`;
+  text += `🖥️ Panel VPN: ${panelsDown > 0 ? `❌ ${panelsDown} down` : "✅ semua online"}\n\n`;
+
+  text += `📦 QRIS pending: <b>${qrisPendingCount[0]?.count ?? 0}</b>\n`;
+  text += `💸 Topup pending: <b>${topupPendingCount[0]?.count ?? 0}</b>\n`;
+  text += `🎫 Tiket terbuka: <b>${ticketOpenCount[0]?.count ?? 0}</b>\n\n`;
+
+  text += `📋 Ringkas panel:\n`;
+  for (const p of panelResults.slice(0, 6)) {
+    const icon = p.status === "ok" ? "✅" : p.status === "warn" ? "⚠️" : "❌";
+    text += `${icon} ${p.name.replace("🖥️ ", "")} - ${p.detail}\n`;
+  }
+
+  text += `\n⏱ Disusun dalam ${Date.now() - start}ms`;
+  return text;
+}
+
+async function getRecentErrorDigest(): Promise<string> {
+  try {
+    const appName = process.env.PM2_APP_NAME || "ketantech-api";
+    const raw = await execShell(`pm2 logs ${appName} --lines 250 --nostream`, 12000);
+    const lines = raw
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    const interesting = lines.filter((l) => /\berror\b|\bfailed\b|\bexception\b|\btimeout\b|\bdenied\b|\binvalid\b/i.test(l));
+    const latest = interesting.slice(-10);
+
+    let text = `🧯 <b>Error Terakhir</b>\n`;
+    text += `━━━━━━━━━━━━━━━━━━\n\n`;
+
+    if (latest.length === 0) {
+      text += `✅ Tidak ada baris error yang terdeteksi pada 250 log terakhir.\n`;
+      text += `ℹ️ Sumber: PM2 app <b>${appName}</b>`;
+      return text;
+    }
+
+    latest.forEach((line, idx) => {
+      const clipped = line.length > 180 ? `${line.slice(0, 177)}...` : line;
+      text += `${idx + 1}. ${clipped}\n\n`;
+    });
+
+    text += `ℹ️ Sumber: PM2 app <b>${appName}</b>`;
+    return text;
+  } catch (e: any) {
+    return `🧯 <b>Error Terakhir</b>\n\n⚠️ Gagal membaca log PM2.\nError: ${e?.message?.substring(0, 120) ?? "Unknown"}\n\n` +
+      `Pastikan PM2 terpasang dan app name benar (env <code>PM2_APP_NAME</code>).`;
+  }
 }
 
 async function getVpsResourceReport(): Promise<string> {

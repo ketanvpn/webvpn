@@ -52,6 +52,9 @@ Semua perubahan penting pada proyek KETANTECH VPN akan didokumentasikan di file 
   - Perbaikan Selesai 🎉
   - Tetap tersedia opsi Custom Message ✍️
 - **Broadcast wizard + preview** — Setelah pilih template/custom, bot meminta input field secara interaktif, menampilkan preview final, lalu tetap meminta konfirmasi kirim/batal sebelum broadcast dieksekusi.
+- **Incident Center (Tahap 1)** — Menambahkan dua menu cepat untuk triage operasional:
+  - `🚦 Status Sekarang`: ringkasan kondisi DB, payment, panel VPN, dan antrean penting (QRIS pending, topup pending, tiket terbuka).
+  - `🧯 Error Terakhir`: menampilkan ringkasan baris error/failure terbaru dari log PM2 (dengan refresh button).
 
 ### ✅ Verifikasi Manual
 - Uji webhook berhasil dengan hasil:
