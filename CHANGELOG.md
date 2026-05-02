@@ -23,6 +23,15 @@ Semua perubahan penting pada proyek KETANTECH VPN akan didokumentasikan di file 
 - **Replay guard** — Menambahkan proteksi replay in-memory (TTL) untuk menahan event webhook duplikat cepat.
 - **Log payload dipersempit** — Logging webhook tidak lagi menyimpan full payload object; sekarang diringkas ke field inti (`event`, `transactionId`, `status`, `amount`).
 
+### 🔧 Provisioning & Account Sync Hardening
+- **Admin confirm order fail-closed** — `POST /api/admin/orders/:id/confirm` sekarang tidak lagi menandai order `paid` jika provisioning akun ke panel VPS gagal. Endpoint akan mengembalikan `502` dan menghentikan proses.
+- **Renew idempotency guard** — `POST /api/accounts/:id/renew` sekarang memakai lock sementara per akun (TTL) untuk mencegah renew paralel akibat double-click/retry cepat.
+- **Admin extend akun fail-closed** — `POST /api/admin/accounts/:id/extend` kini mewajibkan renew panel sukses terlebih dahulu, baru update `expiresAt` di database.
+- **Admin delete akun panel-first** — `DELETE /api/admin/accounts/:id` sekarang menghapus akun di panel terlebih dahulu (jika server punya API panel), baru menghapus row database.
+- **Bulk delete partial-safe** — `POST /api/admin/accounts/bulk-delete` kini hanya menghapus akun dari database jika delete di panel sukses. Akun yang gagal di panel dikembalikan di response `failed[]`.
+- **Toggle akun sinkron panel** — `POST /api/admin/accounts/:id/toggle` sekarang sinkron ke panel juga: OFF memanggil lock, ON memanggil unlock. Jika panel gagal, perubahan DB dibatalkan (fail-closed).
+- **Panel client update** — Menambahkan `unlockPanelAccount` dan mengubah `lockPanelAccount` agar melempar error saat gagal, sehingga route dapat menjaga konsistensi state panel vs DB.
+
 ### ✅ Verifikasi Manual
 - Uji webhook berhasil dengan hasil:
   - tanpa signature -> `401`
@@ -40,6 +49,9 @@ Semua perubahan penting pada proyek KETANTECH VPN akan didokumentasikan di file 
 - `artifacts/api-server/src/routes/webhook.ts`
 - `lib/db/src/schema/users.ts`
 - `TODO.md`
+- `artifacts/api-server/src/routes/accounts.ts`
+- `artifacts/api-server/src/routes/admin.ts`
+- `artifacts/api-server/src/lib/vpn-panel.ts`
 
 ## [2026-04-29] - Telegram Admin Menu & Auto-Cleanup
 
