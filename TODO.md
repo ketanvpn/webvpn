@@ -189,3 +189,50 @@ Fitur-fitur baru untuk meningkatkan kualitas produk, akuisisi user, dan keamanan
    - Isi: revenue kemarin, user baru, total user, akun VPN aktif, expired hari ini & 3 hari, topup pending
    - Perlindungan anti kirim ganda (1x per hari)
    - File: `artifacts/api-server/src/lib/scheduler.ts`
+
+---
+
+## 🔍 Catatan Audit Keamanan (2 Mei 2026)
+
+### A. Auth (sudah diaudit)
+
+- [x] **[Critical]** Endpoint `POST /admin/telegram/register-webhook` sudah diganti dari `requireAuth` ke `requireAdmin`.
+  - Dampak: user login biasa bisa trigger aksi admin Telegram webhook.
+  - File: `artifacts/api-server/src/routes/telegram-bot.ts`
+
+- [x] **[High]** Token JWT sudah pakai mekanisme revocation berbasis `sessionVersion` user.
+  - Dampak: token lama tetap valid sampai expiry meskipun user logout, password direset, atau akun diubah status.
+  - File: `artifacts/api-server/src/lib/auth.ts`, `artifacts/api-server/src/routes/auth.ts`
+
+- [x] **[High]** `requireAuth` sudah validasi `isActive` user ke database.
+  - Dampak: user suspended yang masih pegang token bisa tetap akses endpoint protected sampai token expired.
+  - File: `artifacts/api-server/src/lib/auth.ts`
+
+- [x] **[Medium]** Endpoint reset password OTP sudah diberi limiter khusus.
+  - Dampak: memperbesar ruang brute-force OTP / abuse reset endpoint.
+  - File: `artifacts/api-server/src/routes/auth.ts`
+
+- [x] **[Medium]** Production sekarang fail-fast jika `SESSION_SECRET` kosong atau kurang dari 32 karakter.
+  - Dampak: jika env production misconfigured, JWT secret bisa lemah/prediktabel.
+  - File: `artifacts/api-server/src/lib/auth.ts`, `artifacts/api-server/src/index.ts`
+
+### B. Payment/Webhook (audit berjalan)
+
+- [x] **[High]** Verifikasi signature webhook AutoGoPay sudah fail-closed (secret/signature wajib ada dan valid).
+  - Dampak: webhook bisa tetap diproses tanpa autentikasi kriptografis pada kondisi salah konfigurasi.
+  - File: `artifacts/api-server/src/routes/webhook.ts`
+
+- [x] **[Medium]** Sudah ada verifikasi nilai `amount` payload webhook terhadap nominal topup/order di DB.
+  - Dampak: potensi mismatch nominal tidak terdeteksi (terutama jika provider kirim data tidak konsisten).
+  - File: `artifacts/api-server/src/routes/webhook.ts`
+
+- [x] **[Medium]** Sudah ditambah proteksi replay in-memory (TTL) berbasis kombinasi transaction/event/status/signature.
+  - Catatan: sebagian idempotency sudah ditangani lewat lock status `pending -> confirmed/processing`, tapi replay event tetap bisa membebani sistem/log.
+  - File: `artifacts/api-server/src/routes/webhook.ts`
+
+- [x] **[Medium]** Logging webhook sudah diringkas (event, transactionId, status, amount), tidak lagi full payload object.
+  - Dampak: meningkatkan risiko data leakage di log jika payload berubah berisi data sensitif.
+  - File: `artifacts/api-server/src/routes/webhook.ts`
+
+- **[Positif]** Sudah ada idempotency/anti-race condition yang baik untuk topup dan order (`where status = pending`, lock `processing`, fallback release lock).
+  - File: `artifacts/api-server/src/routes/webhook.ts`, `artifacts/api-server/src/routes/orders.ts`

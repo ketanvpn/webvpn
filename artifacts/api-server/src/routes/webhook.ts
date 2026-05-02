@@ -12,6 +12,30 @@ import { addPoints, getPointsSettings } from "./points";
 
 const router = Router();
 
+const WEBHOOK_REPLAY_TTL_MS = 10 * 60 * 1000;
+const replayCache = new Map<string, number>();
+
+function markReplay(key: string): boolean {
+  const now = Date.now();
+
+  for (const [k, ts] of replayCache) {
+    if (now - ts > WEBHOOK_REPLAY_TTL_MS) replayCache.delete(k);
+  }
+
+  if (replayCache.has(key)) return true;
+  replayCache.set(key, now);
+  return false;
+}
+
+function toNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
 router.post("/webhooks/autogopay", async (req, res) => {
   const rawBody: string = (req as any).rawBody ?? "";
   const reserializedBody: string = JSON.stringify(req.body);
@@ -20,30 +44,40 @@ router.post("/webhooks/autogopay", async (req, res) => {
   const settingsMap = await getPaymentSettingsMap();
   const apiKey = settingsMap["autoGopaySecretKey"];
 
-  if (apiKey && signature) {
-    // Try both raw body (PHP docs) and re-serialized (Node.js docs) for compatibility
-    const sigFromRaw = crypto.createHmac("sha256", apiKey).update(rawBody).digest("hex");
-    const sigFromReserialized = crypto.createHmac("sha256", apiKey).update(reserializedBody).digest("hex");
-
-    const sigBuffer = Buffer.from(signature, "hex");
-    const sigRawBuffer = Buffer.from(sigFromRaw, "hex");
-    const sigReserializedBuffer = Buffer.from(sigFromReserialized, "hex");
-
-    const validRaw = sigBuffer.length === sigRawBuffer.length && crypto.timingSafeEqual(sigBuffer, sigRawBuffer);
-    const validReserialized = sigBuffer.length === sigReserializedBuffer.length && crypto.timingSafeEqual(sigBuffer, sigReserializedBuffer);
-
-    if (!validRaw && !validReserialized) {
-      logger.warn({
-        receivedSig: signature.substring(0, 16) + "...",
-        expectedRaw: sigFromRaw.substring(0, 16) + "...",
-        expectedReserialized: sigFromReserialized.substring(0, 16) + "...",
-      }, "AutoGoPay webhook: invalid signature — periksa API Key di Admin > Payment Gateway");
-      res.status(401).json({ error: "Invalid signature" });
-      return;
-    }
-
-    logger.info({ method: validRaw ? "rawBody" : "reserialized" }, "AutoGoPay webhook: signature valid");
+  if (!apiKey) {
+    logger.error("AutoGoPay webhook rejected: secret key not configured");
+    res.status(503).json({ error: "Payment gateway not configured" });
+    return;
   }
+
+  if (!signature) {
+    logger.warn("AutoGoPay webhook rejected: missing signature");
+    res.status(401).json({ error: "Missing signature" });
+    return;
+  }
+
+  // Try both raw body (PHP docs) and re-serialized (Node.js docs) for compatibility
+  const sigFromRaw = crypto.createHmac("sha256", apiKey).update(rawBody).digest("hex");
+  const sigFromReserialized = crypto.createHmac("sha256", apiKey).update(reserializedBody).digest("hex");
+
+  const sigBuffer = Buffer.from(signature, "hex");
+  const sigRawBuffer = Buffer.from(sigFromRaw, "hex");
+  const sigReserializedBuffer = Buffer.from(sigFromReserialized, "hex");
+
+  const validRaw = sigBuffer.length === sigRawBuffer.length && crypto.timingSafeEqual(sigBuffer, sigRawBuffer);
+  const validReserialized = sigBuffer.length === sigReserializedBuffer.length && crypto.timingSafeEqual(sigBuffer, sigReserializedBuffer);
+
+  if (!validRaw && !validReserialized) {
+    logger.warn({
+      receivedSig: signature.substring(0, 16) + "...",
+      expectedRaw: sigFromRaw.substring(0, 16) + "...",
+      expectedReserialized: sigFromReserialized.substring(0, 16) + "...",
+    }, "AutoGoPay webhook: invalid signature — periksa API Key di Admin > Payment Gateway");
+    res.status(401).json({ error: "Invalid signature" });
+    return;
+  }
+
+  logger.info({ method: validRaw ? "rawBody" : "reserialized" }, "AutoGoPay webhook: signature valid");
 
   let body: Record<string, unknown>;
   try {
@@ -52,9 +86,6 @@ router.post("/webhooks/autogopay", async (req, res) => {
     res.status(400).json({ error: "Invalid JSON" });
     return;
   }
-
-  // Log full payload for diagnosis (masked amount only)
-  logger.info({ webhookBody: body }, "AutoGoPay webhook: payload received");
 
   const event = body.event as string | undefined;
   const transaction = (body.transaction ?? body.data ?? body) as {
@@ -85,6 +116,27 @@ router.post("/webhooks/autogopay", async (req, res) => {
     transaction?.status?.toLowerCase() === "completed";
 
   const transactionId = transaction?.id ?? transaction?.transaction_id;
+  const transactionStatus = transaction?.status?.toLowerCase();
+  const transactionAmount = toNumber(transaction?.amount);
+
+  logger.info(
+    {
+      event: event ?? null,
+      transactionId: transactionId ?? null,
+      status: transactionStatus ?? null,
+      amount: transactionAmount,
+    },
+    "AutoGoPay webhook: payload received",
+  );
+
+  if (transactionId) {
+    const replayKey = `${transactionId}:${event ?? "none"}:${transactionStatus ?? "none"}:${signature}`;
+    if (markReplay(replayKey)) {
+      logger.warn({ transactionId, event: event ?? null }, "AutoGoPay webhook: replay detected");
+      res.json({ success: true });
+      return;
+    }
+  }
 
   if ((isPaidEvent || isPaidStatus) && transactionId) {
     logger.info({ transactionId }, "AutoGoPay webhook: settlement received");
@@ -97,6 +149,16 @@ router.post("/webhooks/autogopay", async (req, res) => {
       .limit(1);
 
     if (topup) {
+      const expectedAmount = Number(topup.amount);
+      if (transactionAmount === null || Math.abs(transactionAmount - expectedAmount) > 0.01) {
+        logger.warn(
+          { topupId: topup.id, transactionId, expectedAmount, receivedAmount: transactionAmount },
+          "AutoGoPay webhook: topup amount mismatch",
+        );
+        res.status(400).json({ error: "Amount mismatch" });
+        return;
+      }
+
       if (topup.status !== "pending") {
         logger.info({ transactionId, status: topup.status }, "AutoGoPay webhook: topup already processed");
         res.json({ success: true });
@@ -184,6 +246,16 @@ router.post("/webhooks/autogopay", async (req, res) => {
       .limit(1);
 
     if (order) {
+      const expectedAmount = Number(order.amount);
+      if (transactionAmount === null || Math.abs(transactionAmount - expectedAmount) > 0.01) {
+        logger.warn(
+          { orderId: order.id, transactionId, expectedAmount, receivedAmount: transactionAmount },
+          "AutoGoPay webhook: order amount mismatch",
+        );
+        res.status(400).json({ error: "Amount mismatch" });
+        return;
+      }
+
       if (order.status !== "pending") {
         logger.info({ transactionId, orderId: order.id, status: order.status }, "AutoGoPay webhook: order already processed");
         res.json({ success: true });

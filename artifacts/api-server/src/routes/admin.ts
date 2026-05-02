@@ -420,7 +420,10 @@ router.post("/admin/users/:id/reset-password", requireAdmin, async (req, res) =>
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 12);
-  await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, id));
+  await db
+    .update(usersTable)
+    .set({ passwordHash, sessionVersion: sql`session_version + 1` })
+    .where(eq(usersTable.id, id));
 
   res.json({ success: true });
 });

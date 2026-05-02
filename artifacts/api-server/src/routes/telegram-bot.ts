@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { usersTable, topupsTable, settingsTable, ticketsTable, ticketMessagesTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
-import { requireAuth } from "../lib/auth";
+import { requireAuth, requireAdmin } from "../lib/auth";
 import { randomBytes } from "crypto";
 import {
   callTelegramApi,
@@ -52,7 +52,7 @@ router.delete("/telegram/link", requireAuth, async (req, res) => {
 
 // ─── Admin: Register Webhook ──────────────────────────────────────────────────
 
-router.post("/admin/telegram/register-webhook", requireAuth, async (req, res) => {
+router.post("/admin/telegram/register-webhook", requireAdmin, async (req, res) => {
   const { url } = req.body as { url?: string };
   if (!url) {
     res.status(400).json({ error: "url is required" });

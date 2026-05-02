@@ -2,7 +2,7 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
-import { eq, or } from "drizzle-orm";
+import { eq, or, sql } from "drizzle-orm";
 import { signToken, requireAuth } from "../lib/auth";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
 import { randomBytes } from "crypto";
@@ -163,7 +163,12 @@ router.post("/auth/register", registerLimiter, async (req, res) => {
     })
     .returning();
 
-  const token = signToken({ userId: user.id, username: user.username, role: user.role });
+  const token = signToken({
+    userId: user.id,
+    username: user.username,
+    role: user.role,
+    sessionVersion: user.sessionVersion,
+  });
 
   // Notifikasi Telegram ke admin (fire and forget)
   notifyAdminNewUser({
@@ -202,7 +207,15 @@ router.post("/auth/register", registerLimiter, async (req, res) => {
     });
 });
 
-router.get("/auth/check-username", async (req, res) => {
+const checkUsernameLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Terlalu banyak pengecekan username. Coba lagi sebentar." },
+});
+
+router.get("/auth/check-username", checkUsernameLimiter, async (req, res) => {
   const username = (req.query.username as string ?? "").trim().toLowerCase();
   if (!username || username.length < 3) {
     res.status(400).json({ error: "Username terlalu pendek" });
@@ -279,7 +292,12 @@ router.post("/auth/login", loginLimiter, async (req, res) => {
     return;
   }
 
-  const token = signToken({ userId: user.id, username: user.username, role: user.role });
+  const token = signToken({
+    userId: user.id,
+    username: user.username,
+    role: user.role,
+    sessionVersion: user.sessionVersion,
+  });
 
   res
     .cookie("token", token, {
@@ -307,7 +325,13 @@ router.post("/auth/login", loginLimiter, async (req, res) => {
     });
 });
 
-router.post("/auth/logout", (_req, res) => {
+router.post("/auth/logout", requireAuth, async (req, res) => {
+  const userId = req.user!.userId;
+  await db
+    .update(usersTable)
+    .set({ sessionVersion: sql`session_version + 1` })
+    .where(eq(usersTable.id, userId));
+
   res.clearCookie("token").json({ message: "Logged out" });
 });
 
@@ -390,7 +414,7 @@ router.post("/auth/change-password", requireAuth, async (req, res) => {
   const passwordHash = await bcrypt.hash(String(newPassword), 12);
   await db
     .update(usersTable)
-    .set({ passwordHash })
+    .set({ passwordHash, sessionVersion: sql`session_version + 1` })
     .where(eq(usersTable.id, userId));
 
   res.json({ message: "Password berhasil diubah" });
@@ -435,6 +459,14 @@ const forgotPasswordLimiter = rateLimit({
   message: { error: "Terlalu banyak permintaan. Coba lagi dalam 15 menit." },
 });
 
+const forgotPasswordResetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Terlalu banyak percobaan reset password. Coba lagi dalam 15 menit." },
+});
+
 router.post("/auth/forgot-password/send-otp", forgotPasswordLimiter, async (req, res) => {
   const { whatsapp } = req.body ?? {};
   if (!whatsapp || typeof whatsapp !== "string") {
@@ -470,7 +502,7 @@ router.post("/auth/forgot-password/send-otp", forgotPasswordLimiter, async (req,
 
 // ─── Forgot Password: Reset with OTP ──────────────────────────────────────────
 
-router.post("/auth/forgot-password/reset", async (req, res) => {
+router.post("/auth/forgot-password/reset", forgotPasswordResetLimiter, async (req, res) => {
   const { whatsapp, otpCode, newPassword } = req.body ?? {};
 
   if (!whatsapp || typeof whatsapp !== "string") {
@@ -505,7 +537,10 @@ router.post("/auth/forgot-password/reset", async (req, res) => {
   }
 
   const hashed = await bcrypt.hash(newPassword, 12);
-  await db.update(usersTable).set({ passwordHash: hashed }).where(eq(usersTable.id, user.id));
+  await db
+    .update(usersTable)
+    .set({ passwordHash: hashed, sessionVersion: sql`session_version + 1` })
+    .where(eq(usersTable.id, user.id));
 
   res.json({ message: "Password berhasil direset. Silakan login dengan password baru." });
 });

@@ -13,6 +13,7 @@ export const usersTable = pgTable("users", {
   role: text("role").notNull().default("user"),
   balance: numeric("balance", { precision: 12, scale: 2 }).notNull().default("0"),
   isActive: boolean("is_active").notNull().default(true),
+  sessionVersion: integer("session_version").notNull().default(0),
   referralCode: text("referral_code").unique(),
   referredBy: text("referred_by"),
   referralBonusClaimed: boolean("referral_bonus_claimed").notNull().default(false),
