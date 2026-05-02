@@ -497,6 +497,41 @@ export async function lockPanelAccount(params: {
     });
   } catch (e) {
     const err = e as AxiosError;
-    console.warn(`[vpn-panel] Failed to lock ${protocol} account ${username}: ${err.message}`);
+    throw new Error(`[vpn-panel] Failed to lock ${protocol} account ${username}: ${err.message}`);
+  }
+}
+
+/**
+ * Unlock a VPN account on the panel (enable without recreating).
+ */
+export async function unlockPanelAccount(params: {
+  apiUrl: string;
+  apiToken: string;
+  protocol: string;
+  username: string;
+}): Promise<void> {
+  const { apiUrl, apiToken, protocol, username } = params;
+  const baseUrl = apiUrl.replace(/\/+$/, "");
+  const headers = buildHeaders(apiToken);
+
+  const endpointMap: Record<string, string> = {
+    ssh: "sshvpn",
+    vmess: "vmess",
+    vless: "vless",
+    trojan: "trojan",
+  };
+
+  const endpoint = endpointMap[protocol];
+  if (!endpoint) return;
+
+  try {
+    await axios.patch(`${baseUrl}/vps/unlock${endpoint}/${username}`, null, {
+      headers,
+      timeout: 10000,
+      httpsAgent,
+    });
+  } catch (e) {
+    const err = e as AxiosError;
+    throw new Error(`[vpn-panel] Failed to unlock ${protocol} account ${username}: ${err.message}`);
   }
 }

@@ -17,7 +17,7 @@ import { formatOrder } from "./orders";
 import { formatAccount } from "./accounts";
 import { formatTopup } from "./balance";
 import { formatFullServer } from "./servers";
-import { createPanelAccount, createTrialPanelAccount, sanitizeVpnUsername, renewPanelAccount, deletePanelAccount, checkPanelHealth, syncPanelAccount } from "../lib/vpn-panel";
+import { createPanelAccount, createTrialPanelAccount, sanitizeVpnUsername, renewPanelAccount, deletePanelAccount, checkPanelHealth, syncPanelAccount, lockPanelAccount, unlockPanelAccount } from "../lib/vpn-panel";
 import { notifyUserTopupConfirmed, notifyUserTopupRejected, notifyUserVpnAccountCreated, notifyAdminOrderFulfilled } from "../lib/telegram";
 import { addBalanceLog } from "./balance-logs";
 import { tryAutoUpgradeReseller } from "../lib/reseller-upgrade";
@@ -1366,17 +1366,47 @@ router.post("/admin/accounts/:id/toggle", requireAdmin, async (req, res) => {
     return;
   }
 
-  const [updated] = await db
-    .update(vpnAccountsTable)
-    .set({ isActive: !account.isActive, updatedAt: new Date() })
-    .where(eq(vpnAccountsTable.id, id))
-    .returning();
-
   const [server] = await db
     .select()
     .from(serversTable)
-    .where(eq(serversTable.id, updated.serverId))
+    .where(eq(serversTable.id, account.serverId))
     .limit(1);
+
+  if (!server) {
+    res.status(404).json({ error: "Server not found" });
+    return;
+  }
+
+  const nextIsActive = !account.isActive;
+
+  if (server.apiUrl && server.apiToken) {
+    try {
+      if (nextIsActive) {
+        await unlockPanelAccount({
+          apiUrl: server.apiUrl,
+          apiToken: server.apiToken,
+          protocol: account.protocol,
+          username: account.username,
+        });
+      } else {
+        await lockPanelAccount({
+          apiUrl: server.apiUrl,
+          apiToken: server.apiToken,
+          protocol: account.protocol,
+          username: account.username,
+        });
+      }
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : "Gagal sinkron toggle akun ke panel VPS" });
+      return;
+    }
+  }
+
+  const [updated] = await db
+    .update(vpnAccountsTable)
+    .set({ isActive: nextIsActive, updatedAt: new Date() })
+    .where(eq(vpnAccountsTable.id, id))
+    .returning();
 
   res.json({
     id: updated.id,
