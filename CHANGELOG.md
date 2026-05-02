@@ -43,6 +43,15 @@ Semua perubahan penting pada proyek KETANTECH VPN akan didokumentasikan di file 
   - `Gift Saldo`: klik menu kompensasi, lalu kirim `username nominal`.
   - `Extend Massal`: klik menu kompensasi, lalu kirim `id_server jumlah_hari [jeda_detik]`.
   - Ketik `batal` untuk keluar dari mode input interaktif.
+- **Broadcast template profesional** — Menu Broadcast kini menyediakan template siap pakai dengan emoji dan alur isi langkah-per-langkah:
+  - Pengumuman Umum 📣
+  - Informasi ℹ️
+  - Server Down 🚨
+  - Server Pulih ✅
+  - Maintenance 🛠️
+  - Perbaikan Selesai 🎉
+  - Tetap tersedia opsi Custom Message ✍️
+- **Broadcast wizard + preview** — Setelah pilih template/custom, bot meminta input field secara interaktif, menampilkan preview final, lalu tetap meminta konfirmasi kirim/batal sebelum broadcast dieksekusi.
 
 ### ✅ Verifikasi Manual
 - Uji webhook berhasil dengan hasil:

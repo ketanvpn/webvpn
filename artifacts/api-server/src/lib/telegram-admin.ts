@@ -141,8 +141,17 @@ export async function handleAdminCallback(
     await editMessageText(
       chatId,
       messageId,
-      "📢 <b>Fitur Broadcast</b>\n\nUntuk mengirim pesan massal ke semua user, ketik pesanmu dengan format berikut:\n\n<code>/broadcast [isi pesan kamu]</code>\n\nContoh:\n<code>/broadcast Server SG 1 sedang maintenance. Mohon maaf atas ketidaknyamanannya.</code>",
-      [[{ text: "🔙 Kembali", callback_data: "admin_menu" }]]
+      "📢 <b>Broadcast Interaktif</b>\n\nPilih metode broadcast di bawah:\n- Template siap pakai\n- Custom message\n\nSetelah memilih, bot akan pandu langkah berikutnya.",
+      [
+        [{ text: "📣 Template Pengumuman", callback_data: "admin_broadcast_tpl_announcement" }],
+        [{ text: "ℹ️ Template Informasi", callback_data: "admin_broadcast_tpl_info" }],
+        [{ text: "🚨 Template Server Down", callback_data: "admin_broadcast_tpl_down" }],
+        [{ text: "✅ Template Server Pulih", callback_data: "admin_broadcast_tpl_up" }],
+        [{ text: "🛠️ Template Maintenance", callback_data: "admin_broadcast_tpl_maintenance" }],
+        [{ text: "🎉 Template Perbaikan Selesai", callback_data: "admin_broadcast_tpl_fixed" }],
+        [{ text: "✍️ Custom Message", callback_data: "admin_broadcast_custom_prompt" }],
+        [{ text: "🔙 Kembali", callback_data: "admin_menu" }],
+      ]
     );
     return;
   }
