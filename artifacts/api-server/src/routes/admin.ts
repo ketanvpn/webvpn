@@ -1183,29 +1183,47 @@ router.post("/admin/accounts/:id/extend", requireAdmin, async (req, res) => {
 
   const newExpiry = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
 
-  const [updated] = await db
-    .update(vpnAccountsTable)
-    .set({ expiresAt: newExpiry, isActive: true, updatedAt: new Date() })
-    .where(eq(vpnAccountsTable.id, id))
-    .returning();
-
-  // Notify VPS panel to extend account on the actual server (best-effort)
+  // Notify VPS panel to extend account on the actual server (fail-closed)
   const [server] = await db
-    .select({ apiUrl: serversTable.apiUrl, apiToken: serversTable.apiToken })
+    .select({ apiUrl: serversTable.apiUrl, apiToken: serversTable.apiToken, isActive: serversTable.isActive })
     .from(serversTable)
     .where(eq(serversTable.id, account.serverId))
     .limit(1);
 
-  if (server?.apiUrl && server?.apiToken) {
-    renewPanelAccount({
+  if (!server) {
+    res.status(404).json({ error: "Server akun tidak ditemukan" });
+    return;
+  }
+
+  if (!server.isActive) {
+    res.status(400).json({ error: "Server sedang maintenance/offline. Extend dibatalkan agar data tetap sinkron." });
+    return;
+  }
+
+  if (!server.apiUrl || !server.apiToken) {
+    res.status(400).json({ error: "Server tidak memiliki konfigurasi API panel yang valid" });
+    return;
+  }
+
+  try {
+    await renewPanelAccount({
       apiUrl: server.apiUrl,
       apiToken: server.apiToken,
       protocol: account.protocol,
       username: account.username,
       durationDays: days,
       quota: account.quota ? Number(account.quota) : null,
-    }).catch(() => {});
+    });
+  } catch (err) {
+    res.status(502).json({ error: err instanceof Error ? err.message : "Gagal extend akun di panel VPS" });
+    return;
   }
+
+  const [updated] = await db
+    .update(vpnAccountsTable)
+    .set({ expiresAt: newExpiry, isActive: true, updatedAt: new Date() })
+    .where(eq(vpnAccountsTable.id, id))
+    .returning();
 
   res.json({ id: updated.id, expiresAt: updated.expiresAt, isActive: updated.isActive });
 });
@@ -1224,9 +1242,7 @@ router.delete("/admin/accounts/:id", requireAdmin, async (req, res) => {
     return;
   }
 
-  await db.delete(vpnAccountsTable).where(eq(vpnAccountsTable.id, id));
-
-  // Remove account from VPS panel server (best-effort)
+  // Remove account from VPS panel server first (fail-closed when panel configured)
   const [server] = await db
     .select({ apiUrl: serversTable.apiUrl, apiToken: serversTable.apiToken })
     .from(serversTable)
@@ -1234,13 +1250,21 @@ router.delete("/admin/accounts/:id", requireAdmin, async (req, res) => {
     .limit(1);
 
   if (server?.apiUrl && server?.apiToken) {
-    deletePanelAccount({
-      apiUrl: server.apiUrl,
-      apiToken: server.apiToken,
-      protocol: account.protocol,
-      username: account.username,
-    }).catch(() => {});
+    try {
+      await deletePanelAccount({
+        apiUrl: server.apiUrl,
+        apiToken: server.apiToken,
+        protocol: account.protocol,
+        username: account.username,
+        bestEffort: false,
+      });
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : "Gagal menghapus akun dari panel VPS" });
+      return;
+    }
   }
+
+  await db.delete(vpnAccountsTable).where(eq(vpnAccountsTable.id, id));
 
   res.json({ success: true });
 });
@@ -1262,7 +1286,8 @@ router.post("/admin/accounts/bulk-delete", requireAdmin, async (req, res) => {
     .from(vpnAccountsTable)
     .where(inArray(vpnAccountsTable.id, numIds));
 
-  await db.delete(vpnAccountsTable).where(inArray(vpnAccountsTable.id, numIds));
+  const deletableIds: number[] = [];
+  const failed: Array<{ id: number; username: string; reason: string }> = [];
 
   for (const account of accounts) {
     const [server] = await db
@@ -1270,17 +1295,38 @@ router.post("/admin/accounts/bulk-delete", requireAdmin, async (req, res) => {
       .from(serversTable)
       .where(eq(serversTable.id, account.serverId))
       .limit(1);
+
     if (server?.apiUrl && server?.apiToken) {
-      deletePanelAccount({
-        apiUrl: server.apiUrl,
-        apiToken: server.apiToken,
-        protocol: account.protocol,
-        username: account.username,
-      }).catch(() => {});
+      try {
+        await deletePanelAccount({
+          apiUrl: server.apiUrl,
+          apiToken: server.apiToken,
+          protocol: account.protocol,
+          username: account.username,
+          bestEffort: false,
+        });
+      } catch (err) {
+        failed.push({
+          id: account.id,
+          username: account.username,
+          reason: err instanceof Error ? err.message : "Gagal hapus di panel VPS",
+        });
+        continue;
+      }
     }
+
+    deletableIds.push(account.id);
   }
 
-  res.json({ deleted: numIds.length });
+  if (deletableIds.length > 0) {
+    await db.delete(vpnAccountsTable).where(inArray(vpnAccountsTable.id, deletableIds));
+  }
+
+  res.json({
+    requested: numIds.length,
+    deleted: deletableIds.length,
+    failed,
+  });
 });
 
 router.delete("/admin/orders/:id", requireAdmin, async (req, res) => {

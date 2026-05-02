@@ -240,8 +240,9 @@ export async function deletePanelAccount(params: {
   apiToken: string;
   protocol: string;
   username: string;
+  bestEffort?: boolean;
 }): Promise<void> {
-  const { apiUrl, apiToken, protocol, username } = params;
+  const { apiUrl, apiToken, protocol, username, bestEffort = true } = params;
   const baseUrl = apiUrl.replace(/\/+$/, "");
   const headers = buildHeaders(apiToken);
 
@@ -263,7 +264,12 @@ export async function deletePanelAccount(params: {
     });
   } catch (e) {
     const err = e as AxiosError;
-    console.warn(`[vpn-panel] Failed to delete ${protocol} account ${username}: ${err.message}`);
+    const msg = `[vpn-panel] Failed to delete ${protocol} account ${username}: ${err.message}`;
+    if (bestEffort) {
+      console.warn(msg);
+      return;
+    }
+    throw new Error(msg);
   }
 }
 
