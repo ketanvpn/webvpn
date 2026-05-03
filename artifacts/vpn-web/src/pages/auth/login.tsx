@@ -15,29 +15,74 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, EyeOff, Shield } from "lucide-react";
 
 const loginSchema = z.object({
   username: z.string().min(3, "Username minimal 3 karakter"),
   password: z.string().min(6, "Password minimal 6 karakter"),
+  turnstileToken: z.string().optional(),
 });
+
+declare global {
+  interface Window {
+    onTurnstileSuccess?: (token: string) => void;
+    onTurnstileExpired?: () => void;
+  }
+}
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const login = useLogin();
   const [showPassword, setShowPassword] = useState(false);
+  const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       username: "",
       password: "",
+      turnstileToken: "",
     },
   });
 
+  useEffect(() => {
+    if (!siteKey) return;
+
+    window.onTurnstileSuccess = (token: string) => {
+      form.setValue("turnstileToken", token, { shouldValidate: true });
+    };
+    window.onTurnstileExpired = () => {
+      form.setValue("turnstileToken", "", { shouldValidate: true });
+    };
+
+    const existing = document.querySelector('script[data-turnstile="true"]');
+    if (!existing) {
+      const script = document.createElement("script");
+      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
+      script.async = true;
+      script.defer = true;
+      script.setAttribute("data-turnstile", "true");
+      document.head.appendChild(script);
+    }
+
+    return () => {
+      window.onTurnstileSuccess = undefined;
+      window.onTurnstileExpired = undefined;
+    };
+  }, [form, siteKey]);
+
   function onSubmit(values: z.infer<typeof loginSchema>) {
+    if (siteKey && !values.turnstileToken) {
+      toast({
+        title: "Verifikasi diperlukan",
+        description: "Selesaikan verifikasi keamanan terlebih dahulu.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     login.mutate(
       { data: values },
       {
@@ -146,6 +191,19 @@ export default function Login() {
             >
               {login.isPending ? "Memproses..." : "Masuk"}
             </Button>
+            {siteKey ? (
+              <div className="pt-2">
+                <div
+                  className="cf-turnstile"
+                  data-sitekey={siteKey}
+                  data-callback="onTurnstileSuccess"
+                  data-expired-callback="onTurnstileExpired"
+                />
+                {!form.watch("turnstileToken") ? (
+                  <p className="text-xs text-muted-foreground mt-2">Selesaikan verifikasi keamanan sebelum login.</p>
+                ) : null}
+              </div>
+            ) : null}
           </form>
         </Form>
 

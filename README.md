@@ -178,6 +178,8 @@ DATABASE_URL=postgresql://ketantech:PASSWORD_KAMU@localhost:5432/ketantech_db
 SESSION_SECRET=GANTI_DENGAN_STRING_ACAK_PANJANG
 NODE_ENV=production
 PORT=8080
+TURNSTILE_SECRET_KEY=ISI_DARI_CLOUDFLARE
+TURNSTILE_FAIL_OPEN=false
 ```
 
 **Ganti dua bagian ini:**
@@ -207,6 +209,10 @@ cat /var/www/ketantech-vpn/.env
 ```
 
 Pastikan `DATABASE_URL` sudah berisi password yang benar dan `SESSION_SECRET` sudah terisi string panjang (bukan kata `GANTI_DENGAN_STRING_ACAK_PANJANG`).
+
+Untuk keamanan login anti-bot (Cloudflare Turnstile):
+- `TURNSTILE_SECRET_KEY` → diambil dari Cloudflare Dashboard > Turnstile (bagian Secret Key)
+- `TURNSTILE_FAIL_OPEN=false` → mode paling aman (jika Turnstile tidak bisa diverifikasi, login ditolak)
 
 ---
 
@@ -305,7 +311,10 @@ module.exports = {
         PORT: "8080",
         DATABASE_URL: "postgresql://ketantech:PASSWORD_KAMU@localhost:5432/ketantech_db",
         SESSION_SECRET: "SESSION_SECRET_KAMU",
-        CORS_ORIGIN: "https://DOMAIN_ATAU_IP"
+        CORS_ORIGIN: "https://DOMAIN_ATAU_IP",
+        TRUSTED_PROXIES: "127.0.0.1,::1",
+        TURNSTILE_SECRET_KEY: "ISI_DARI_CLOUDFLARE",
+        TURNSTILE_FAIL_OPEN: "false"
       }
     }
   ]
@@ -313,6 +322,31 @@ module.exports = {
 ```
 
 > **Ganti `DOMAIN_ATAU_IP`** dengan domain atau IP VPS kamu, contoh: `https://vpn.ketanx.com` atau `http://68.183.230.134`. Ini untuk keamanan agar API hanya bisa diakses dari website kamu sendiri.
+>
+> **Catatan `TRUSTED_PROXIES`:**
+> - Jika API di belakang Nginx pada server yang sama, gunakan `127.0.0.1,::1`.
+> - Jangan set ke nilai longgar seperti `true` karena rawan spoofing `X-Forwarded-For`.
+
+### Konfigurasi Frontend untuk Turnstile
+
+Tambahkan Site Key Turnstile ke frontend (`artifacts/vpn-web/.env.production`):
+
+```bash
+nano /var/www/ketantech-vpn/artifacts/vpn-web/.env.production
+```
+
+Isi file:
+
+```env
+VITE_TURNSTILE_SITE_KEY=ISI_SITE_KEY_DARI_CLOUDFLARE
+```
+
+Lalu build ulang frontend:
+
+```bash
+cd /var/www/ketantech-vpn
+pnpm --filter @workspace/vpn-web run build
+```
 
 Simpan dengan **Ctrl+X**, lalu **Y**, lalu **Enter**.
 

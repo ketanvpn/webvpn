@@ -10,6 +10,8 @@ import { sendOtp, verifyOtp, normalizeWhatsapp } from "../lib/fonnte";
 import { notifyAdminNewUser } from "../lib/telegram";
 import rateLimit from "express-rate-limit";
 import { getClientIp } from "../lib/request-ip";
+import { verifyTurnstileToken } from "../lib/turnstile";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -270,6 +272,29 @@ router.get("/auth/check-username", checkUsernameLimiter, async (req, res) => {
 });
 
 router.post("/auth/login", loginLimiter, async (req, res) => {
+  const turnstileSecretConfigured = Boolean(process.env.TURNSTILE_SECRET_KEY);
+  const turnstileToken = typeof req.body?.turnstileToken === "string"
+    ? req.body.turnstileToken.trim()
+    : "";
+
+  if (turnstileSecretConfigured) {
+    if (!turnstileToken) {
+      res.status(400).json({ error: "Verifikasi keamanan wajib diisi" });
+      return;
+    }
+
+    const verify = await verifyTurnstileToken({
+      token: turnstileToken,
+      remoteIp: getClientIp(req),
+    });
+
+    if (!verify.ok) {
+      logger.warn({ errors: verify.errors }, "Turnstile verification failed on login");
+      res.status(400).json({ error: "Verifikasi keamanan gagal. Silakan coba lagi." });
+      return;
+    }
+  }
+
   const parsed = LoginBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid input" });

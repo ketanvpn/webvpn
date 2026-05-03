@@ -56,6 +56,11 @@ Semua perubahan penting pada proyek KETANTECH VPN akan didokumentasikan di file 
   - `🚦 Status Sekarang`: ringkasan kondisi DB, payment, panel VPN, dan antrean penting (QRIS pending, topup pending, tiket terbuka).
   - `🧯 Error Terakhir`: menampilkan ringkasan baris error/failure terbaru dari log PM2 (dengan refresh button).
 
+### 🔐 Login Security (Turnstile)
+- **Cloudflare Turnstile di login web** — Halaman login sekarang menampilkan verifikasi manusia (jika `VITE_TURNSTILE_SITE_KEY` tersedia).
+- **Validasi backend wajib** — Endpoint `POST /api/auth/login` sekarang memverifikasi `turnstileToken` ke Cloudflare (server-side), bukan hanya mengandalkan frontend.
+- **Fail-open terkontrol (opsional)** — Jika verifikasi ke Cloudflare gagal karena gangguan jaringan, perilaku default adalah fail-open dengan warning log; dapat dibuat fail-closed dengan `TURNSTILE_FAIL_OPEN=false`.
+
 ### ✅ Verifikasi Manual
 - Uji webhook berhasil dengan hasil:
   - tanpa signature -> `401`
