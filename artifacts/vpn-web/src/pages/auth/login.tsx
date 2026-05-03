@@ -28,6 +28,9 @@ declare global {
   interface Window {
     onTurnstileSuccess?: (token: string) => void;
     onTurnstileExpired?: () => void;
+    turnstile?: {
+      reset: (container?: string | HTMLElement) => void;
+    };
   }
 }
 
@@ -46,6 +49,15 @@ export default function Login() {
       turnstileToken: "",
     },
   });
+
+  const resetTurnstile = () => {
+    form.setValue("turnstileToken", "", { shouldValidate: true });
+    try {
+      window.turnstile?.reset();
+    } catch {
+      // noop
+    }
+  };
 
   useEffect(() => {
     if (!siteKey) return;
@@ -87,6 +99,7 @@ export default function Login() {
       { data: values },
       {
         onSuccess: (data) => {
+          if (siteKey) resetTurnstile();
           toast({
             title: "Berhasil masuk",
             description: "Selamat datang kembali!",
@@ -96,6 +109,7 @@ export default function Login() {
           window.location.reload();
         },
         onError: (error) => {
+          if (siteKey) resetTurnstile();
           toast({
             title: "Gagal masuk",
             description: getApiError(error) || "Username atau password salah",
