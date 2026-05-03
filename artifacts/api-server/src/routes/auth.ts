@@ -9,8 +9,22 @@ import { randomBytes } from "crypto";
 import { sendOtp, verifyOtp, normalizeWhatsapp } from "../lib/fonnte";
 import { notifyAdminNewUser } from "../lib/telegram";
 import rateLimit from "express-rate-limit";
+import { getClientIp } from "../lib/request-ip";
 
 const router = Router();
+
+function authRateLimitKey(req: any): string {
+  return getClientIp(req);
+}
+
+function loginRateLimitKey(req: any): string {
+  const ip = getClientIp(req);
+  const identifier = typeof req.body?.username === "string"
+    ? req.body.username.trim().toLowerCase()
+    : "";
+  if (!identifier) return ip;
+  return `${ip}:${identifier}`;
+}
 
 // ─── Rate Limiters ────────────────────────────────────────────────────────────
 
@@ -19,6 +33,7 @@ const loginLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: loginRateLimitKey,
   message: { error: "Terlalu banyak percobaan login. Coba lagi dalam 15 menit." },
 });
 
@@ -27,6 +42,7 @@ const otpLimiter = rateLimit({
   max: 3,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: authRateLimitKey,
   message: { error: "Terlalu banyak permintaan OTP. Coba lagi dalam 15 menit." },
 });
 
@@ -35,6 +51,7 @@ const registerLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: authRateLimitKey,
   message: { error: "Terlalu banyak percobaan registrasi. Coba lagi dalam 15 menit." },
 });
 
@@ -212,6 +229,7 @@ const checkUsernameLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: authRateLimitKey,
   message: { error: "Terlalu banyak pengecekan username. Coba lagi sebentar." },
 });
 
@@ -456,6 +474,7 @@ const forgotPasswordLimiter = rateLimit({
   max: 3,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: authRateLimitKey,
   message: { error: "Terlalu banyak permintaan. Coba lagi dalam 15 menit." },
 });
 
@@ -464,6 +483,7 @@ const forgotPasswordResetLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: authRateLimitKey,
   message: { error: "Terlalu banyak percobaan reset password. Coba lagi dalam 15 menit." },
 });
 

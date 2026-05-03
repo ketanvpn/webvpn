@@ -7,6 +7,25 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 
+const trustedProxiesEnv = process.env.TRUSTED_PROXIES?.trim();
+if (trustedProxiesEnv) {
+  const trustedProxies = trustedProxiesEnv
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  if (trustedProxies.length > 0) {
+    app.set("trust proxy", trustedProxies);
+    logger.info({ trustedProxies }, "Trust proxy enabled with strict allowlist");
+  } else {
+    app.set("trust proxy", false);
+    logger.info("Trust proxy disabled (empty TRUSTED_PROXIES)");
+  }
+} else {
+  app.set("trust proxy", false);
+  logger.info("Trust proxy disabled (socket IP mode)");
+}
+
 app.use(
   pinoHttp({
     logger,
