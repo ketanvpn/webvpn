@@ -41,6 +41,24 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    sourcemap: false,
+    chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+          if (id.includes("react") || id.includes("scheduler")) return "vendor-react";
+          if (id.includes("@radix-ui") || id.includes("lucide-react")) return "vendor-ui";
+          if (id.includes("recharts") || id.includes("d3-")) return "vendor-chart";
+          if (id.includes("@tanstack/react-query") || id.includes("axios")) return "vendor-data";
+          return "vendor";
+        },
+      },
+      onwarn(warning, warn) {
+        if (warning.code === "SOURCEMAP_ERROR") return;
+        warn(warning);
+      },
+    },
   },
   server: {
     port,
