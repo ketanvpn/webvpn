@@ -53,3 +53,8 @@ Thumbs.db
 .env.local
 .env.production
 .env.*.local
+
+# Generated debug artifacts (keep out of runtime folders)
+artifacts/**/errors*.txt
+artifacts/**/tsc-errors.txt
+artifacts/**/fix-*.cjs
