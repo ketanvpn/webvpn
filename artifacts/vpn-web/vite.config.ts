@@ -47,11 +47,11 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes("node_modules")) return;
-          if (id.includes("react") || id.includes("scheduler")) return "vendor-react";
-          if (id.includes("@radix-ui") || id.includes("lucide-react")) return "vendor-ui";
           if (id.includes("recharts") || id.includes("d3-")) return "vendor-chart";
+          if (id.includes("@radix-ui") || id.includes("lucide-react")) return "vendor-ui";
           if (id.includes("@tanstack/react-query") || id.includes("axios")) return "vendor-data";
-          return "vendor";
+          // Sisanya biarkan Vite/Rollup tentukan otomatis agar tidak circular chunk.
+          return;
         },
       },
       onwarn(warning, warn) {
