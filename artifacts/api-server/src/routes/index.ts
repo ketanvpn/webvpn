@@ -11,6 +11,10 @@ import adminRouter from "./admin";
 import settingsRouter from "./settings";
 import webhookRouter from "./webhook";
 import telegramBotRouter from "./telegram-bot";
+// Endpoint khusus Bot Telegram (BotVPN repo) untuk fitur "link akun".
+// File terpisah supaya tidak campur dengan handler webhook Telegram bot
+// pengumuman yang sudah ada di telegram-bot.ts.
+import telegramBotApiRouter from "./telegram-bot-api";
 import broadcastRouter from "./broadcast";
 import exportRouter from "./export";
 import balanceLogsRouter from "./balance-logs";
@@ -36,6 +40,7 @@ router.use(adminRouter);
 router.use(settingsRouter);
 router.use(webhookRouter);
 router.use(telegramBotRouter);
+router.use(telegramBotApiRouter);
 router.use(broadcastRouter);
 router.use(exportRouter);
 router.use(balanceLogsRouter);
