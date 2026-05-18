@@ -488,6 +488,9 @@ router.get("/auth/me", requireAuth, async (req, res) => {
     whatsapp: user.whatsapp,
     referralCode: user.referralCode,
     telegramId: user.telegramId ?? null,
+    // vpnTelegramId dipakai UI Profile untuk tampilkan status link Bot VPN
+    // (terpisah dari Bot Notifikasi).
+    vpnTelegramId: user.vpnTelegramId ?? null,
     createdAt: user.createdAt,
   });
 });

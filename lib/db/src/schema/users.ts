@@ -20,6 +20,13 @@ export const usersTable = pgTable("users", {
   points: integer("points").notNull().default(0),
   telegramId: bigint("telegram_id", { mode: "number" }),
   telegramLinkToken: text("telegram_link_token"),
+  // Linkage terpisah untuk Bot VPN (BotVPN repo / @panelketan_bot).
+  // Kolom telegramId di atas dipakai oleh Bot Notifikasi (kirim notif order/topup,
+  // tiket support). Karena Bot VPN punya token & username berbeda, kita pakai
+  // pasangan kolom terpisah supaya 1 user web bisa terhubung ke 2 bot independen
+  // tanpa konflik.
+  vpnTelegramId: bigint("vpn_telegram_id", { mode: "number" }),
+  vpnTelegramLinkToken: text("vpn_telegram_link_token"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

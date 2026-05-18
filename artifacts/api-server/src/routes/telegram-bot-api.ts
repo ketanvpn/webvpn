@@ -2,44 +2,89 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { randomBytes } from "crypto";
+import { requireAuth } from "../lib/auth";
 import { requireBotApiKey } from "../middlewares/bot-auth-key";
 import { logger } from "../lib/logger";
 
 /**
- * Endpoint khusus Bot Telegram (BotVPN repo) untuk fitur "link akun".
+ * Endpoint khusus untuk Bot Telegram VPN (BotVPN repo / @panelketan_bot).
  *
- * Semua endpoint di file ini diproteksi dengan `requireBotApiKey` middleware
- * (header `X-Bot-API-Key`). Bot tidak pakai cookie/JWT user, karena dia panggil
- * API ini sebagai service-to-service, bukan user-to-server.
+ * Penting: TERPISAH dari endpoint /telegram/* di routes/telegram-bot.ts yang
+ * dipakai untuk Bot Notifikasi (kirim notif order/topup, tiket support).
  *
- * Endpoint:
- *   - POST /telegram/verify-link-token
- *       Verify token "link akun" yang di-generate oleh user lewat
- *       `GET /telegram/link` (di routes/telegram-bot.ts), lalu kaitkan
- *       `telegramId` ke user web. Token sekali pakai → di-clear setelah link.
+ * Beda kolom di tabel users:
+ *   - telegramId / telegramLinkToken          → Bot Notifikasi (existing)
+ *   - vpnTelegramId / vpnTelegramLinkToken    → Bot VPN (file ini)
  *
- *   - GET /telegram/user-by-tgid/:telegramId
- *       Ambil info user web berdasarkan telegramId. Untuk bot menampilkan
- *       saldo / username web di menu bot setelah user link.
+ * Ada 2 grup endpoint di file ini:
  *
- *   - GET /telegram/balance/:telegramId
- *       Versi ringkas: cuma balance + pendingTopup (read-only).
+ * GROUP A — Untuk USER WEB (auth pakai cookie session):
+ *   - POST   /telegram/vpn-link        Generate token & URL t.me/<botvpn>?start=link_<token>
+ *   - DELETE /telegram/vpn-link        Putus link akun web ↔ Bot VPN (manual unlink dari web)
  *
- *   - POST /telegram/unlink
- *       Putuskan link telegramId dari user web. Dipanggil saat user pencet
- *       tombol "Putuskan Koneksi" di bot.
- *
- * Catatan: schema users di lib/db/src/schema/users.ts SUDAH punya kolom
- * `telegramId` (bigint) dan `telegramLinkToken` (text), jadi tidak perlu
- * migration tambahan.
+ * GROUP B — Untuk BOT VPN (auth pakai X-Bot-API-Key):
+ *   - POST  /telegram/verify-link-token        Verify token + simpan vpnTelegramId
+ *   - GET   /telegram/user-by-tgid/:telegramId Info user web by vpnTelegramId
+ *   - GET   /telegram/balance/:telegramId      Saldo by vpnTelegramId
+ *   - POST  /telegram/unlink                   Bot trigger unlink (saat user pencet
+ *                                              tombol "Putuskan Koneksi" di bot)
  */
 const router = Router();
 
+// Username Bot VPN. Bisa di-override via env BOT_VPN_USERNAME, default ke
+// "panelketan_bot" sesuai yang sudah running.
+function getBotVpnUsername(): string {
+  return (process.env.BOT_VPN_USERNAME || "panelketan_bot").trim();
+}
+
 // ============================================================================
+// GROUP A: USER-FACING (auth cookie session)
+// ============================================================================
+
+// POST /telegram/vpn-link
+// Body: (kosong)
+// Generate token unik, simpan ke vpn_telegram_link_token, return URL Bot VPN.
+// Response: { token, botUsername, url }
+router.post("/telegram/vpn-link", requireAuth, async (req, res) => {
+  const userId = (req as Request & { user: { userId: number } }).user!.userId;
+  const token = randomBytes(24).toString("hex");
+
+  await db
+    .update(usersTable)
+    .set({ vpnTelegramLinkToken: token, updatedAt: new Date() })
+    .where(eq(usersTable.id, userId));
+
+  const botUsername = getBotVpnUsername();
+  const url = `https://t.me/${botUsername}?start=link_${token}`;
+
+  res.json({ token, botUsername, url });
+});
+
+// DELETE /telegram/vpn-link
+// Putus link akun web ke Bot VPN dari sisi web (user pencet tombol di profile).
+router.delete("/telegram/vpn-link", requireAuth, async (req, res) => {
+  const userId = (req as Request & { user: { userId: number } }).user!.userId;
+
+  await db
+    .update(usersTable)
+    .set({
+      vpnTelegramId: null,
+      vpnTelegramLinkToken: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(usersTable.id, userId));
+
+  res.json({ ok: true });
+});
+
+// ============================================================================
+// GROUP B: BOT-FACING (auth X-Bot-API-Key)
+// ============================================================================
+
 // POST /telegram/verify-link-token
 // Body: { token: string, telegramId: number }
 // Response: { ok: true, user: { id, username, email, balance, fullName, role } }
-// ============================================================================
 router.post("/telegram/verify-link-token", requireBotApiKey, async (req, res) => {
   const tokenRaw = String(req.body?.token || "").trim();
   const telegramIdRaw = Number(req.body?.telegramId || 0);
@@ -53,8 +98,7 @@ router.post("/telegram/verify-link-token", requireBotApiKey, async (req, res) =>
     return;
   }
 
-  // Cari user berdasarkan token. Token unik, di-set saat user klik tombol
-  // "Hubungkan ke Telegram" di web (lihat /telegram/link di telegram-bot.ts).
+  // Cari user web by vpnTelegramLinkToken (token sekali pakai untuk Bot VPN).
   const [foundUser] = await db
     .select({
       id: usersTable.id,
@@ -64,10 +108,10 @@ router.post("/telegram/verify-link-token", requireBotApiKey, async (req, res) =>
       fullName: usersTable.fullName,
       role: usersTable.role,
       isActive: usersTable.isActive,
-      telegramId: usersTable.telegramId,
+      vpnTelegramId: usersTable.vpnTelegramId,
     })
     .from(usersTable)
-    .where(eq(usersTable.telegramLinkToken, tokenRaw))
+    .where(eq(usersTable.vpnTelegramLinkToken, tokenRaw))
     .limit(1);
 
   if (!foundUser) {
@@ -79,42 +123,39 @@ router.post("/telegram/verify-link-token", requireBotApiKey, async (req, res) =>
     return;
   }
 
-  // Cek konflik: telegramId ini sudah linked ke user lain?
-  if (foundUser.telegramId && Number(foundUser.telegramId) !== telegramIdRaw) {
-    // user web ini sudah link ke telegramId yang BEDA → biasanya kasus user
-    // ganti akun Telegram. Kita izinkan untuk overwrite, tapi log warningnya.
+  // Konflik 1: user ini sudah link ke vpnTelegramId yang BEDA.
+  if (foundUser.vpnTelegramId && Number(foundUser.vpnTelegramId) !== telegramIdRaw) {
     logger.warn(
-      { webUserId: foundUser.id, oldTgId: foundUser.telegramId, newTgId: telegramIdRaw },
-      "verify-link-token: overwrite telegramId yang berbeda",
+      { webUserId: foundUser.id, oldTgId: foundUser.vpnTelegramId, newTgId: telegramIdRaw },
+      "verify-link-token (vpn): overwrite vpnTelegramId yang berbeda",
     );
   }
 
-  // Cek konflik: telegramId yang dikirim bot, sudah linked ke user web lain?
-  // Jika iya, putuskan link lama dulu, baru link ke user baru. Ini supaya
-  // 1 telegramId selalu cuma terhubung ke 1 user web (UNIQUE constraint).
+  // Konflik 2: vpnTelegramId yang dikirim bot, sudah linked ke user web LAIN.
+  // Putus link lama dulu, baru link ke user baru. 1 vpnTelegramId = 1 user web.
   const [conflict] = await db
     .select({ id: usersTable.id, username: usersTable.username })
     .from(usersTable)
-    .where(eq(usersTable.telegramId, telegramIdRaw))
+    .where(eq(usersTable.vpnTelegramId, telegramIdRaw))
     .limit(1);
 
   if (conflict && conflict.id !== foundUser.id) {
     await db
       .update(usersTable)
-      .set({ telegramId: null, updatedAt: new Date() })
+      .set({ vpnTelegramId: null, updatedAt: new Date() })
       .where(eq(usersTable.id, conflict.id));
     logger.warn(
       { conflictUserId: conflict.id, newUserId: foundUser.id, telegramId: telegramIdRaw },
-      "verify-link-token: clear telegramId dari user lama yang konflik",
+      "verify-link-token (vpn): clear vpnTelegramId dari user lama yang konflik",
     );
   }
 
-  // Set telegramId, clear token (sekali pakai).
+  // Set vpnTelegramId, clear token (sekali pakai).
   const [updated] = await db
     .update(usersTable)
     .set({
-      telegramId: telegramIdRaw,
-      telegramLinkToken: null,
+      vpnTelegramId: telegramIdRaw,
+      vpnTelegramLinkToken: null,
       updatedAt: new Date(),
     })
     .where(eq(usersTable.id, foundUser.id))
@@ -133,8 +174,8 @@ router.post("/telegram/verify-link-token", requireBotApiKey, async (req, res) =>
   }
 
   logger.info(
-    { webUserId: updated.id, telegramId: telegramIdRaw },
-    "Akun web berhasil di-link ke Telegram",
+    { webUserId: updated.id, vpnTelegramId: telegramIdRaw },
+    "Akun web berhasil di-link ke Bot VPN",
   );
 
   res.json({
@@ -150,10 +191,8 @@ router.post("/telegram/verify-link-token", requireBotApiKey, async (req, res) =>
   });
 });
 
-// ============================================================================
 // GET /telegram/user-by-tgid/:telegramId
-// Response: { user: { id, username, email, balance, fullName, role } }
-// ============================================================================
+// Cari user web by vpnTelegramId (bukan telegramId yang dipakai Bot Notifikasi).
 router.get("/telegram/user-by-tgid/:telegramId", requireBotApiKey, async (req, res) => {
   const tgId = Number(req.params.telegramId);
   if (!tgId || !Number.isFinite(tgId)) {
@@ -172,7 +211,7 @@ router.get("/telegram/user-by-tgid/:telegramId", requireBotApiKey, async (req, r
       isActive: usersTable.isActive,
     })
     .from(usersTable)
-    .where(eq(usersTable.telegramId, tgId))
+    .where(eq(usersTable.vpnTelegramId, tgId))
     .limit(1);
 
   if (!user) {
@@ -194,10 +233,8 @@ router.get("/telegram/user-by-tgid/:telegramId", requireBotApiKey, async (req, r
   });
 });
 
-// ============================================================================
 // GET /telegram/balance/:telegramId
-// Response: { balance: number, pendingTopup: number }
-// ============================================================================
+// Versi ringkas: cuma balance + pendingTopup.
 router.get("/telegram/balance/:telegramId", requireBotApiKey, async (req, res) => {
   const tgId = Number(req.params.telegramId);
   if (!tgId || !Number.isFinite(tgId)) {
@@ -206,11 +243,9 @@ router.get("/telegram/balance/:telegramId", requireBotApiKey, async (req, res) =
   }
 
   const [user] = await db
-    .select({
-      balance: usersTable.balance,
-    })
+    .select({ balance: usersTable.balance })
     .from(usersTable)
-    .where(eq(usersTable.telegramId, tgId))
+    .where(eq(usersTable.vpnTelegramId, tgId))
     .limit(1);
 
   if (!user) {
@@ -218,8 +253,6 @@ router.get("/telegram/balance/:telegramId", requireBotApiKey, async (req, res) =
     return;
   }
 
-  // Note: pendingTopup butuh query topupsTable, tapi untuk Sesi 2 cukup kembalikan 0
-  // supaya endpoint ringan. Kalau butuh real pendingTopup, bisa di-extend di Sesi 3.
   res.setHeader("Cache-Control", "no-store");
   res.json({
     balance: Number(user.balance ?? 0),
@@ -227,11 +260,9 @@ router.get("/telegram/balance/:telegramId", requireBotApiKey, async (req, res) =
   });
 });
 
-// ============================================================================
 // POST /telegram/unlink
 // Body: { telegramId: number }
-// Response: { ok: true }
-// ============================================================================
+// Cuma clear vpnTelegramId — kolom telegramId (Bot Notifikasi) tidak disentuh.
 router.post("/telegram/unlink", requireBotApiKey, async (req, res) => {
   const tgId = Number(req.body?.telegramId || 0);
   if (!tgId || !Number.isFinite(tgId)) {
@@ -242,25 +273,27 @@ router.post("/telegram/unlink", requireBotApiKey, async (req, res) => {
   const updated = await db
     .update(usersTable)
     .set({
-      telegramId: null,
-      telegramLinkToken: null,
+      vpnTelegramId: null,
+      vpnTelegramLinkToken: null,
       updatedAt: new Date(),
     })
-    .where(eq(usersTable.telegramId, tgId))
+    .where(eq(usersTable.vpnTelegramId, tgId))
     .returning({ id: usersTable.id });
 
   if (!updated || updated.length === 0) {
-    // user belum link, anggap idempotent → tetap balas ok
     res.json({ ok: true, message: "Tidak ada user yang ter-link dengan telegramId ini" });
     return;
   }
 
   logger.info(
-    { webUserId: updated[0].id, telegramId: tgId },
-    "Akun web di-unlink dari Telegram",
+    { webUserId: updated[0].id, vpnTelegramId: tgId },
+    "Akun web di-unlink dari Bot VPN",
   );
 
   res.json({ ok: true });
 });
+
+// Helper type untuk req.user (sama pattern dengan auth.ts).
+type Request = import("express").Request;
 
 export default router;
