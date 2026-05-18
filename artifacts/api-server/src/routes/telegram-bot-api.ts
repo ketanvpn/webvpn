@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { usersTable, balanceLogsTable } from "@workspace/db";
+import { eq, sql } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { requireAuth } from "../lib/auth";
 import { requireBotApiKey } from "../middlewares/bot-auth-key";
@@ -258,6 +258,202 @@ router.get("/telegram/balance/:telegramId", requireBotApiKey, async (req, res) =
     balance: Number(user.balance ?? 0),
     pendingTopup: 0,
   });
+});
+
+// ============================================================================
+// POST /telegram/credit
+// Body: { telegramId: number, amount: number, description?: string, refId?: string }
+// Tambah saldo user (untuk migrate saldo lama bot saat link, atau topup masa
+// depan dari bot). Idempotent kalau refId disertakan: kalau refId sudah pernah
+// dipakai sebelumnya, request akan di-skip dan respons.applied=false.
+// Response: { ok: true, applied: boolean, newBalance: number }
+// ============================================================================
+router.post("/telegram/credit", requireBotApiKey, async (req, res) => {
+  const tgId = Number(req.body?.telegramId || 0);
+  const amount = Number(req.body?.amount || 0);
+  const description = String(req.body?.description || "").trim() || "Credit dari Bot VPN";
+  const refId = req.body?.refId ? String(req.body.refId).trim() : null;
+
+  if (!tgId || !Number.isFinite(tgId)) {
+    res.status(400).json({ error: "telegramId tidak valid" });
+    return;
+  }
+  if (!Number.isFinite(amount) || amount <= 0) {
+    res.status(400).json({ error: "amount harus > 0" });
+    return;
+  }
+
+  try {
+    const result = await db.transaction(async (tx) => {
+      // Cari user by vpnTelegramId. Lock baris dengan FOR UPDATE supaya update
+      // saldo aman dari race condition concurrent debit/credit.
+      const [user] = await tx
+        .select({
+          id: usersTable.id,
+          balance: usersTable.balance,
+        })
+        .from(usersTable)
+        .where(eq(usersTable.vpnTelegramId, tgId))
+        .for("update")
+        .limit(1);
+
+      if (!user) {
+        return { error: "User tidak ditemukan untuk telegramId ini", status: 404 };
+      }
+
+      // Idempotency check: kalau refId sudah ada di balance_logs, skip.
+      // (description LIKE 'refId:<refId>' dipakai sebagai marker — kita simpan
+      // refId di description supaya tidak butuh kolom baru di balance_logs).
+      if (refId) {
+        const marker = `[refId:${refId}]`;
+        const [existing] = await tx
+          .select({ id: balanceLogsTable.id })
+          .from(balanceLogsTable)
+          .where(sql`${balanceLogsTable.userId} = ${user.id} AND ${balanceLogsTable.description} LIKE ${"%" + marker + "%"}`)
+          .limit(1);
+        if (existing) {
+          return { ok: true, applied: false, newBalance: Number(user.balance), reason: "duplicate refId" };
+        }
+      }
+
+      const balanceBefore = Number(user.balance);
+      const balanceAfter = balanceBefore + amount;
+      const fullDescription = refId
+        ? `${description} [refId:${refId}]`
+        : description;
+
+      await tx
+        .update(usersTable)
+        .set({
+          balance: balanceAfter.toFixed(2),
+          updatedAt: new Date(),
+        })
+        .where(eq(usersTable.id, user.id));
+
+      await tx.insert(balanceLogsTable).values({
+        userId: user.id,
+        type: "credit_bot",
+        amount: amount.toFixed(2),
+        balanceBefore: balanceBefore.toFixed(2),
+        balanceAfter: balanceAfter.toFixed(2),
+        description: fullDescription,
+      });
+
+      return { ok: true, applied: true, newBalance: balanceAfter };
+    });
+
+    if ("error" in result && result.error) {
+      res.status(result.status ?? 500).json({ error: result.error });
+      return;
+    }
+    logger.info(
+      { tgId, amount, refId, applied: result.applied, newBalance: result.newBalance },
+      "telegram/credit",
+    );
+    res.json(result);
+  } catch (e) {
+    logger.error({ err: e, tgId, amount }, "telegram/credit error");
+    res.status(500).json({ error: "Gagal credit saldo" });
+  }
+});
+
+// ============================================================================
+// POST /telegram/debit
+// Body: { telegramId: number, amount: number, description?: string, refId?: string }
+// Kurangi saldo user (untuk pembelian akun via bot). Idempotent dengan refId.
+// Tolak (400) kalau saldo kurang.
+// Response: { ok: true, applied: boolean, newBalance: number }
+// ============================================================================
+router.post("/telegram/debit", requireBotApiKey, async (req, res) => {
+  const tgId = Number(req.body?.telegramId || 0);
+  const amount = Number(req.body?.amount || 0);
+  const description = String(req.body?.description || "").trim() || "Debit dari Bot VPN";
+  const refId = req.body?.refId ? String(req.body.refId).trim() : null;
+
+  if (!tgId || !Number.isFinite(tgId)) {
+    res.status(400).json({ error: "telegramId tidak valid" });
+    return;
+  }
+  if (!Number.isFinite(amount) || amount <= 0) {
+    res.status(400).json({ error: "amount harus > 0" });
+    return;
+  }
+
+  try {
+    const result = await db.transaction(async (tx) => {
+      const [user] = await tx
+        .select({
+          id: usersTable.id,
+          balance: usersTable.balance,
+        })
+        .from(usersTable)
+        .where(eq(usersTable.vpnTelegramId, tgId))
+        .for("update")
+        .limit(1);
+
+      if (!user) {
+        return { error: "User tidak ditemukan untuk telegramId ini", status: 404 };
+      }
+
+      if (refId) {
+        const marker = `[refId:${refId}]`;
+        const [existing] = await tx
+          .select({ id: balanceLogsTable.id })
+          .from(balanceLogsTable)
+          .where(sql`${balanceLogsTable.userId} = ${user.id} AND ${balanceLogsTable.description} LIKE ${"%" + marker + "%"}`)
+          .limit(1);
+        if (existing) {
+          return { ok: true, applied: false, newBalance: Number(user.balance), reason: "duplicate refId" };
+        }
+      }
+
+      const balanceBefore = Number(user.balance);
+      if (balanceBefore < amount) {
+        return { error: "Saldo tidak cukup", status: 400, newBalance: balanceBefore };
+      }
+      const balanceAfter = balanceBefore - amount;
+      const fullDescription = refId
+        ? `${description} [refId:${refId}]`
+        : description;
+
+      await tx
+        .update(usersTable)
+        .set({
+          balance: balanceAfter.toFixed(2),
+          updatedAt: new Date(),
+        })
+        .where(eq(usersTable.id, user.id));
+
+      await tx.insert(balanceLogsTable).values({
+        userId: user.id,
+        type: "debit_bot",
+        amount: amount.toFixed(2),
+        balanceBefore: balanceBefore.toFixed(2),
+        balanceAfter: balanceAfter.toFixed(2),
+        description: fullDescription,
+      });
+
+      return { ok: true, applied: true, newBalance: balanceAfter };
+    });
+
+    if ("error" in result && result.error) {
+      res
+        .status(result.status ?? 500)
+        .json({
+          error: result.error,
+          ...(result.newBalance !== undefined ? { newBalance: result.newBalance } : {}),
+        });
+      return;
+    }
+    logger.info(
+      { tgId, amount, refId, applied: result.applied, newBalance: result.newBalance },
+      "telegram/debit",
+    );
+    res.json(result);
+  } catch (e) {
+    logger.error({ err: e, tgId, amount }, "telegram/debit error");
+    res.status(500).json({ error: "Gagal debit saldo" });
+  }
 });
 
 // POST /telegram/unlink
