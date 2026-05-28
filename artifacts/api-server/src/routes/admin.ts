@@ -872,7 +872,9 @@ router.post("/admin/orders/:id/confirm", requireAdmin, async (req, res) => {
         configLink = panelResult.configLink ?? null;
         if (panelResult.allLinks) {
           const links: Record<string, string | null> = {};
-          for (const [k, v] of Object.entries(panelResult.allLinks)) links[k] = v ?? null;
+          for (const [k, v] of Object.entries(panelResult.allLinks)) {
+            links[k] = typeof v === "string" ? v : null;
+          }
           allLinks = links;
         }
       }
