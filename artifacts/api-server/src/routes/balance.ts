@@ -122,6 +122,63 @@ router.post("/balance/topup", requireAuth, async (req, res) => {
     autogopayTransactionId = agpData.data.transaction_id;
     qrisUrl = agpData.data.qr_url;
     expiresAt = new Date(agpData.data.expiry_time.replace(" ", "T") + "+07:00");
+  } else if (activeGateway === "ketantechpay") {
+    const baseUrl = (settingsMap["ketantechPayBaseUrl"] ?? "").replace(/\/$/, "");
+    const clientKey = settingsMap["ketantechPayClientKey"];
+    const expiryMinutes = settingsMap["qrisExpiryMinutes"] ? parseInt(settingsMap["qrisExpiryMinutes"], 10) : 15;
+
+    if (!baseUrl) {
+      res.status(503).json({ error: "KetantechPay belum dikonfigurasi. Hubungi admin." });
+      return;
+    }
+
+    const orderId = `VPN-TOPUP-${Date.now()}-${userId}`;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Idempotency-Key": `${orderId}-${Math.random().toString(36).slice(2, 10)}`,
+    };
+    if (clientKey) {
+      headers["X-Client-Key"] = clientKey;
+      headers["x-api-key"] = clientKey;
+    }
+
+    let kpResp: Response;
+    try {
+      kpResp = await fetch(`${baseUrl}/api/v1/payments/charge`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          orderId,
+          amount,
+          currency: "IDR",
+          method: "qris",
+          customer: {
+            name: userInfo?.username ?? `User#${userId}`,
+            email: userInfo?.email ?? "webvpn@local.invalid",
+          },
+          description: `Topup saldo user ${userInfo?.username ?? userId}`,
+        }),
+      });
+    } catch (err) {
+      logger.error({ err }, "KetantechPay: fetch error saat generate QRIS");
+      res.status(503).json({ error: "Gagal menghubungi KetantechPay. Coba lagi." });
+      return;
+    }
+
+    const kpData = (await kpResp.json().catch(() => ({}))) as {
+      data?: { id?: string; paymentUrl?: string };
+      message?: string;
+    };
+
+    if (!kpResp.ok || !kpData?.data?.id || !kpData?.data?.paymentUrl) {
+      logger.error({ kpData, status: kpResp.status }, "KetantechPay: generate QRIS gagal");
+      res.status(502).json({ error: kpData.message ?? "Gagal membuat QRIS. Coba lagi." });
+      return;
+    }
+
+    autogopayTransactionId = kpData.data.id;
+    qrisUrl = kpData.data.paymentUrl;
+    expiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000);
   }
 
   const [topup] = await db
@@ -138,7 +195,7 @@ router.post("/balance/topup", requireAuth, async (req, res) => {
 
   // Untuk QRIS manual, kirim notif ke admin untuk dikonfirmasi manual
   // Untuk AutoGoPay, notif admin dikirim dari webhook setelah auto-konfirmasi
-  if (activeGateway !== "autogopay") {
+  if (activeGateway !== "autogopay" && activeGateway !== "ketantechpay") {
     notifyAdminNewTopup(
       topup.id,
       amount,

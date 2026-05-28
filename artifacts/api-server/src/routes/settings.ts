@@ -18,6 +18,8 @@ const PAYMENT_KEYS = [
   "autoGopayCallbackToken",
   "activeGateway",
   "ketantechPayWebhookSecret",
+  "ketantechPayBaseUrl",
+  "ketantechPayClientKey",
 ] as const;
 
 const TELEGRAM_KEYS = [
@@ -73,6 +75,8 @@ function buildPaymentSettingsResponse(map: Record<string, string | null>) {
     autoGopayCallbackToken: map["autoGopayCallbackToken"] ?? null,
     activeGateway: map["activeGateway"] ?? "qris_static",
     ketantechPayWebhookSecret: map["ketantechPayWebhookSecret"] ?? null,
+    ketantechPayBaseUrl: map["ketantechPayBaseUrl"] ?? null,
+    ketantechPayClientKey: map["ketantechPayClientKey"] ?? null,
   };
 }
 

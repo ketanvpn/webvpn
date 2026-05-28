@@ -52,7 +52,60 @@ async function generateAutoGopayQris(amount: number): Promise<{
   const settingsMap = await getPaymentSettingsMap();
   const activeGateway = settingsMap["activeGateway"] ?? "qris_static";
 
-  if (activeGateway !== "autogopay") return null;
+  if (activeGateway !== "autogopay" && activeGateway !== "ketantechpay") return null;
+
+  if (activeGateway === "ketantechpay") {
+    const baseUrl = (settingsMap["ketantechPayBaseUrl"] ?? "").replace(/\/$/, "");
+    const clientKey = settingsMap["ketantechPayClientKey"];
+    const expiryMinutes = settingsMap["qrisExpiryMinutes"] ? parseInt(settingsMap["qrisExpiryMinutes"], 10) : 15;
+
+    if (!baseUrl) {
+      logger.warn("KetantechPay not configured — missing base URL");
+      return null;
+    }
+
+    const orderId = `VPN-ORD-${Date.now()}`;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Idempotency-Key": `${orderId}-${Math.random().toString(36).slice(2, 10)}`,
+    };
+    if (clientKey) {
+      headers["X-Client-Key"] = clientKey;
+      headers["x-api-key"] = clientKey;
+    }
+
+    const resp = await fetch(`${baseUrl}/api/v1/payments/charge`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        orderId,
+        amount,
+        currency: "IDR",
+        method: "qris",
+        customer: {
+          name: "WebVPN User",
+          email: "webvpn@local.invalid",
+        },
+        description: "WebVPN QRIS order",
+      }),
+    });
+
+    const data = (await resp.json().catch(() => ({}))) as {
+      data?: { id?: string; paymentUrl?: string };
+      message?: string;
+    };
+
+    if (!resp.ok || !data?.data?.id || !data?.data?.paymentUrl) {
+      logger.error({ status: resp.status, data }, "KetantechPay: generate QRIS for order failed");
+      throw new Error(data?.message ?? "Gagal membuat QRIS dari KetantechPay");
+    }
+
+    return {
+      transactionId: data.data.id,
+      qrisUrl: data.data.paymentUrl,
+      expiresAt: new Date(Date.now() + expiryMinutes * 60 * 1000),
+    };
+  }
 
   const apiUrl = (settingsMap["autoGopayApiUrl"] ?? "https://v1-gateway.autogopay.site").replace(/\/$/, "");
   const apiKey = settingsMap["autoGopaySecretKey"];

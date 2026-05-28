@@ -23,13 +23,16 @@ import { useState, useEffect } from "react";
 const EXPIRY_OPTIONS = [5, 10, 15, 30, 60] as const;
 
 const schema = z.object({
-  activeGateway: z.enum(["qris_static", "autogopay"]),
+  activeGateway: z.enum(["qris_static", "autogopay", "ketantechpay"]),
   qrisEnabled: z.boolean(),
   qrisStaticUrl: z.string().optional().nullable(),
   qrisExpiryMinutes: z.number().int().min(1),
   autoGopayEnabled: z.boolean(),
   autoGopayApiUrl: z.string().optional().nullable(),
   autoGopaySecretKey: z.string().optional().nullable(),
+  ketantechPayBaseUrl: z.string().optional().nullable(),
+  ketantechPayClientKey: z.string().optional().nullable(),
+  ketantechPayWebhookSecret: z.string().optional().nullable(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -98,19 +101,25 @@ export default function AdminPaymentSettings() {
       autoGopayEnabled: false,
       autoGopayApiUrl: "https://v1-gateway.autogopay.site",
       autoGopaySecretKey: "",
+      ketantechPayBaseUrl: "https://pay.ketantech.my.id",
+      ketantechPayClientKey: "",
+      ketantechPayWebhookSecret: "",
     },
   });
 
   useEffect(() => {
     if (settings) {
       form.reset({
-        activeGateway: (settings.activeGateway as "qris_static" | "autogopay") ?? "qris_static",
+        activeGateway: (settings.activeGateway as "qris_static" | "autogopay" | "ketantechpay") ?? "qris_static",
         qrisEnabled: settings.qrisEnabled ?? true,
         qrisStaticUrl: settings.qrisStaticUrl ?? "",
         qrisExpiryMinutes: settings.qrisExpiryMinutes ?? 15,
         autoGopayEnabled: settings.autoGopayEnabled ?? false,
         autoGopayApiUrl: settings.autoGopayApiUrl ?? "https://v1-gateway.autogopay.site",
         autoGopaySecretKey: settings.autoGopaySecretKey ?? "",
+        ketantechPayBaseUrl: (settings as any).ketantechPayBaseUrl ?? "https://pay.ketantech.my.id",
+        ketantechPayClientKey: (settings as any).ketantechPayClientKey ?? "",
+        ketantechPayWebhookSecret: (settings as any).ketantechPayWebhookSecret ?? "",
       });
     }
   }, [settings]);
@@ -128,8 +137,11 @@ export default function AdminPaymentSettings() {
           autoGopaySecretKey: values.autoGopaySecretKey || null,
           autoGopayMerchantId: null,
           autoGopayCallbackToken: null,
+          ketantechPayBaseUrl: values.ketantechPayBaseUrl || null,
+          ketantechPayClientKey: values.ketantechPayClientKey || null,
+          ketantechPayWebhookSecret: values.ketantechPayWebhookSecret || null,
         },
-      },
+      } as any,
       {
         onSuccess: () => {
           toast({ title: "Pengaturan payment berhasil disimpan" });
@@ -181,7 +193,7 @@ export default function AdminPaymentSettings() {
                 control={form.control}
                 name="activeGateway"
                 render={({ field }) => (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                     {/* QRIS Statis */}
                     <button
                       type="button"
@@ -225,9 +237,87 @@ export default function AdminPaymentSettings() {
                         QRIS dinamis, konfirmasi otomatis via webhook.
                       </p>
                     </button>
+
+                    {/* KetantechPay */}
+                    <button
+                      type="button"
+                      onClick={() => field.onChange("ketantechpay")}
+                      className={`rounded-xl border border-white/10 p-4 text-left transition-all ${
+                        field.value === "ketantechpay"
+                          ? "border-primary/50 bg-primary/10"
+                          : "hover:border-primary/40 hover:bg-white/5"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <Zap className={`h-5 w-5 ${field.value === "ketantechpay" ? "text-primary" : "text-muted-foreground"}`} />
+                        <span className="font-semibold text-sm">KetantechPay</span>
+                        {field.value === "ketantechpay" && (
+                          <Badge className="ml-auto text-[10px] h-5">Aktif</Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Pakai payment gateway pusat KetantechPay.
+                      </p>
+                    </button>
                   </div>
                 )}
               />
+            </CardContent>
+          </Card>
+
+          {/* ── KetantechPay ───────────────────────────── */}
+          <Card className={`glass-panel transition-opacity ${activeGateway === "ketantechpay" ? "border-primary/50 glow-border-primary" : "border-white/5 opacity-50"}`}>
+            <CardHeader className="pb-3 border-b border-white/5">
+              <div className="flex items-center gap-2">
+                <Zap className="h-5 w-5" />
+                <CardTitle className="text-base">KetantechPay</CardTitle>
+                <Badge variant="secondary" className="text-[10px]">Gateway Pusat</Badge>
+              </div>
+              <CardDescription>
+                Isi sekali: base URL + client key + webhook secret. Setelah itu WebVPN otomatis pakai KetantechPay.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FormField
+                control={form.control}
+                name="ketantechPayBaseUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Base URL KetantechPay</FormLabel>
+                    <FormControl>
+                      <Input placeholder="https://pay.ketantech.my.id" {...field} value={field.value ?? ""} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="ketantechPayClientKey"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Client API Key (opsional)</FormLabel>
+                    <FormControl>
+                      <SecretInput value={field.value ?? ""} onChange={field.onChange} placeholder="ktp_client_..." />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="ketantechPayWebhookSecret"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Webhook Secret (wajib)</FormLabel>
+                    <FormControl>
+                      <SecretInput value={field.value ?? ""} onChange={field.onChange} placeholder="secret_webvpn_..." />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <div className="rounded-lg bg-blue-500/5 border border-blue-500/20 p-3">
+                <p className="text-[11px] font-medium text-muted-foreground mb-1">Webhook URL WebVPN:</p>
+                <CopyableCode value={`${window.location.origin.replace(/:(\d+)$/, "")}/api/webhooks/ketantechpay`} />
+              </div>
             </CardContent>
           </Card>
 
