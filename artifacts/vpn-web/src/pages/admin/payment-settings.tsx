@@ -17,13 +17,11 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { QrCode, Zap, AlertCircle, Eye, EyeOff, Copy, CheckCircle2, Info, Timer } from "lucide-react";
+import { Zap, Eye, EyeOff, Copy, CheckCircle2, Info } from "lucide-react";
 import { useState, useEffect } from "react";
 
-const EXPIRY_OPTIONS = [5, 10, 15, 30, 60] as const;
-
 const schema = z.object({
-  activeGateway: z.enum(["qris_static", "autogopay", "ketantechpay"]),
+  activeGateway: z.enum(["autogopay", "ketantechpay"]),
   qrisEnabled: z.boolean(),
   qrisStaticUrl: z.string().optional().nullable(),
   qrisExpiryMinutes: z.number().int().min(1),
@@ -94,7 +92,7 @@ export default function AdminPaymentSettings() {
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      activeGateway: "qris_static",
+      activeGateway: "ketantechpay",
       qrisEnabled: true,
       qrisStaticUrl: "",
       qrisExpiryMinutes: 15,
@@ -110,7 +108,9 @@ export default function AdminPaymentSettings() {
   useEffect(() => {
     if (settings) {
       form.reset({
-        activeGateway: (settings.activeGateway as "qris_static" | "autogopay" | "ketantechpay") ?? "qris_static",
+        activeGateway: ((settings.activeGateway as "qris_static" | "autogopay" | "ketantechpay") === "qris_static"
+          ? "ketantechpay"
+          : (settings.activeGateway as "autogopay" | "ketantechpay")) ?? "ketantechpay",
         qrisEnabled: settings.qrisEnabled ?? true,
         qrisStaticUrl: settings.qrisStaticUrl ?? "",
         qrisExpiryMinutes: settings.qrisExpiryMinutes ?? 15,
@@ -154,7 +154,7 @@ export default function AdminPaymentSettings() {
   };
 
   const activeGateway = form.watch("activeGateway");
-  const qrisStaticUrl = form.watch("qrisStaticUrl");
+  
 
   const webhookUrl = `${window.location.origin.replace(/:(\d+)$/, "")}/api/webhooks/autogopay`;
 
@@ -193,28 +193,7 @@ export default function AdminPaymentSettings() {
                 control={form.control}
                 name="activeGateway"
                 render={({ field }) => (
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                    {/* QRIS Statis */}
-                    <button
-                      type="button"
-                      onClick={() => field.onChange("qris_static")}
-                      className={`rounded-xl border border-white/10 p-4 text-left transition-all ${
-                        field.value === "qris_static"
-                          ? "border-primary/50 bg-primary/10"
-                          : "hover:border-primary/40 hover:bg-white/5"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <QrCode className={`h-5 w-5 ${field.value === "qris_static" ? "text-primary" : "text-muted-foreground"}`} />
-                        <span className="font-semibold text-sm">QRIS Statis</span>
-                        {field.value === "qris_static" && (
-                          <Badge className="ml-auto text-[10px] h-5">Aktif</Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Gambar QRIS tetap, konfirmasi manual oleh admin.
-                      </p>
-                    </button>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
 
                     {/* AutoGoPay */}
                     <button
@@ -321,108 +300,9 @@ export default function AdminPaymentSettings() {
             </CardContent>
           </Card>
 
-          {/* ── QRIS Statis ──────────────────────────────── */}
-          <Card className={`glass-panel transition-opacity ${activeGateway === "qris_static" ? "border-primary/50 glow-border-primary" : "border-white/5 opacity-50"}`}>
-            <CardHeader className="pb-3 border-b border-white/5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <QrCode className="h-5 w-5" />
-                  <CardTitle className="text-base">QRIS Statis</CardTitle>
-                </div>
-                <FormField
-                  control={form.control}
-                  name="qrisEnabled"
-                  render={({ field }) => (
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor="qris-enabled" className="text-xs text-muted-foreground">Aktifkan</Label>
-                      <Switch id="qris-enabled" checked={field.value} onCheckedChange={field.onChange} />
-                    </div>
-                  )}
-                />
-              </div>
-              <CardDescription>
-                Masukkan URL gambar QRIS kamu. URL ini ditampilkan ke user saat topup.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <FormField
-                control={form.control}
-                name="qrisStaticUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>URL Gambar QRIS</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="https://contoh.com/qris.png"
-                        {...field}
-                        value={field.value ?? ""}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                    <p className="text-xs text-muted-foreground">
-                      Bisa pakai URL dari Google Drive, S3, Imgbb, atau hosting gambar lainnya.
-                    </p>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="qrisExpiryMinutes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center gap-1.5">
-                      <Timer className="h-4 w-4" /> Durasi QRIS Berlaku
-                    </FormLabel>
-                    <FormControl>
-                      <div className="flex flex-wrap gap-2">
-                        {EXPIRY_OPTIONS.map((min) => (
-                          <button
-                            key={min}
-                            type="button"
-                            onClick={() => field.onChange(min)}
-                            className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
-                              field.value === min
-                                ? "border-primary bg-primary text-primary-foreground"
-                                : "border-border hover:border-primary/50 bg-background"
-                            }`}
-                          >
-                            {min} menit
-                          </button>
-                        ))}
-                      </div>
-                    </FormControl>
-                    <p className="text-xs text-muted-foreground">
-                      Berapa lama QRIS valid sejak dibuat. Direkomendasikan 10–15 menit.
-                    </p>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {qrisStaticUrl && (
-                <div className="rounded-xl glass-panel border-white/5 p-4 mt-4">
-                  <p className="text-xs font-medium text-muted-foreground mb-3">Preview QRIS:</p>
-                  <div className="flex justify-center bg-white rounded-lg p-4">
-                    <img
-                      src={qrisStaticUrl}
-                      alt="QRIS Preview"
-                      className="max-h-48 object-contain"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                        const sibling = (e.target as HTMLImageElement).nextElementSibling;
-                        if (sibling) sibling.classList.remove("hidden");
-                      }}
-                    />
-                    <div className="hidden text-center text-sm text-muted-foreground py-4">
-                      <AlertCircle className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
-                      URL gambar tidak valid atau tidak bisa dimuat
-                    </div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+            QRIS statis sudah disederhanakan dan tidak direkomendasikan lagi. Gunakan <strong>KetantechPay</strong> agar status bayar otomatis dan lebih aman.
+          </div>
 
           {/* ── AutoGoPay ───────────────────────────────── */}
           <Card className={`glass-panel transition-opacity ${activeGateway === "autogopay" ? "border-primary/50 glow-border-primary" : "border-white/5 opacity-50"}`}>
