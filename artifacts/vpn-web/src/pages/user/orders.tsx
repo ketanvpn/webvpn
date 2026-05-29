@@ -92,8 +92,8 @@ export default function Orders() {
         <div className="text-center py-16 rounded-xl border border-dashed border-white/20 glass-card">
           <ShoppingBag className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
           <p className="text-sm text-muted-foreground font-medium">Belum ada order.</p>
-          <Link href="/products" className="text-primary hover:underline text-sm mt-1.5 inline-block">
-            Lihat produk →
+          <Link href="/order-vpn" className="text-primary hover:underline text-sm mt-1.5 inline-block">
+            Order VPN sekarang →
           </Link>
         </div>
       )}

@@ -137,8 +137,8 @@ export default function Accounts() {
             {filter === "all" ? "Belum ada akun VPN." : `Tidak ada akun yang ${filter === "active" ? "Aktif" : "Kedaluwarsa"}.`}
           </p>
           {filter === "all" && (
-            <Link href="/products" className="text-primary hover:underline text-sm mt-1.5 inline-block">
-              Beli paket untuk memulai →
+            <Link href="/order-vpn" className="text-primary hover:underline text-sm mt-1.5 inline-block">
+              Order VPN untuk memulai →
             </Link>
           )}
         </div>

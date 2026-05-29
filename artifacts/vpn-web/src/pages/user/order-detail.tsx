@@ -441,7 +441,7 @@ export default function OrderDetail() {
                       </p>
                     </div>
                     <Button variant="outline" size="sm" asChild>
-                      <Link href="/products">Beli VPN Baru</Link>
+                      <Link href="/order-vpn">Order VPN Baru</Link>
                     </Button>
                   </div>
                 ) : order.qrisUrl ? (

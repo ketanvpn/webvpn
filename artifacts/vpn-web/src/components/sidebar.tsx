@@ -68,7 +68,6 @@ type NavItem = {
 
 const userNav: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { title: "Produk VPN", href: "/products", icon: Package },
   { title: "Order VPN", href: "/order-vpn", icon: ShieldPlus },
   { title: "Akun VPN", href: "/accounts", icon: Server },
   { title: "Convert Config", href: "/converter", icon: ArrowRightLeft },
@@ -140,7 +139,6 @@ const mobileBottomNav: NavItem[] = [
 ];
 
 const mobileMoreNav: NavItem[] = [
-  { title: "Produk VPN", href: "/products", icon: Package },
   { title: "Convert Config", href: "/converter", icon: ArrowRightLeft },
   { title: "Bantuan", href: "/tickets", icon: TicketCheck },
   { title: "Program Poin", href: "/points", icon: Star },

@@ -2,7 +2,7 @@ import { useGetDashboardSummary } from "@workspace/api-client-react";
 import { formatRupiah } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { Wallet, Server, ShoppingCart, AlertCircle, ChevronRight, Sparkles, X, Zap, CheckCircle2, Info, Megaphone, AlertTriangle, ShieldPlus, Package } from "lucide-react";
+import { Wallet, Server, ShoppingCart, AlertCircle, ChevronRight, Sparkles, X, Zap, CheckCircle2, Info, Megaphone, AlertTriangle, ShieldPlus } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
@@ -285,12 +285,12 @@ export default function Dashboard() {
             </div>
           </div>
         </Link>
-        <Link href="/products" className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-primary/40">
+        <Link href="/accounts" className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-primary/40">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-white/5 p-2 text-muted-foreground"><Package className="h-5 w-5" /></div>
+            <div className="rounded-xl bg-white/5 p-2 text-muted-foreground"><Server className="h-5 w-5" /></div>
             <div className="min-w-0">
-              <p className="text-sm font-bold">Produk VPN</p>
-              <p className="text-[11px] text-muted-foreground">Paket lama</p>
+              <p className="text-sm font-bold">Akun VPN</p>
+              <p className="text-[11px] text-muted-foreground">Kelola & renew</p>
             </div>
           </div>
         </Link>
