@@ -12,6 +12,8 @@ const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
 type DynamicOrder = {
   id: number;
   userId: number;
+  provider: string;
+  providerServerId: string;
   serverDisplayName: string;
   protocol: string;
   durationType: string;
@@ -58,13 +60,24 @@ function StatusIcon({ status }: { status: string }) {
   return <XCircle className="h-4 w-4" />;
 }
 
+function providerLabel(provider: string) {
+  return provider === "local_panel" ? "Server Saya" : "NadiaVPN";
+}
+
+function providerBadge(provider: string) {
+  return provider === "local_panel"
+    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+    : "border-cyan-500/40 bg-cyan-500/10 text-cyan-300";
+}
+
 export default function AdminDynamicVpnOrders() {
   const [status, setStatus] = useState("all");
+  const [provider, setProvider] = useState("all");
   const [search, setSearch] = useState("");
 
   const ordersQuery = useQuery<{ orders: DynamicOrder[] }>({
-    queryKey: ["admin-dynamic-vpn-orders", status],
-    queryFn: () => apiFetch(`/admin/dynamic-vpn/orders?status=${encodeURIComponent(status)}&limit=100`),
+    queryKey: ["admin-dynamic-vpn-orders", status, provider],
+    queryFn: () => apiFetch(`/admin/dynamic-vpn/orders?status=${encodeURIComponent(status)}&provider=${encodeURIComponent(provider)}&limit=100`),
   });
 
   const orders = ordersQuery.data?.orders ?? [];
@@ -87,6 +100,10 @@ export default function AdminDynamicVpnOrders() {
     total: orders.length,
     paid: orders.filter((order) => order.status === "paid").length,
     pending: orders.filter((order) => order.status === "pending" || order.status === "processing").length,
+    local: orders.filter((order) => order.provider === "local_panel").length,
+    nadia: orders.filter((order) => order.provider === "nadiavpn").length,
+    localRevenue: orders.filter((order) => order.status === "paid" && order.provider === "local_panel").reduce((sum, order) => sum + order.amount, 0),
+    nadiaRevenue: orders.filter((order) => order.status === "paid" && order.provider === "nadiavpn").reduce((sum, order) => sum + order.amount, 0),
     revenue: orders.filter((order) => order.status === "paid").reduce((sum, order) => sum + order.amount, 0),
   };
 
@@ -102,6 +119,14 @@ export default function AdminDynamicVpnOrders() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari username, server, voucher..." />
           </div>
+          <Select value={provider} onValueChange={setProvider}>
+            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Semua provider</SelectItem>
+              <SelectItem value="local_panel">Server Saya</SelectItem>
+              <SelectItem value="nadiavpn">NadiaVPN</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={status} onValueChange={setStatus}>
             <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -118,11 +143,11 @@ export default function AdminDynamicVpnOrders() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card className="glass-panel border-white/5"><CardContent className="pt-5"><p className="text-xs text-muted-foreground">Total Order</p><p className="mt-1 text-2xl font-bold">{stats.total}</p></CardContent></Card>
-        <Card className="glass-panel border-emerald-500/20"><CardContent className="pt-5"><p className="text-xs text-muted-foreground">Paid</p><p className="mt-1 text-2xl font-bold text-emerald-300">{stats.paid}</p></CardContent></Card>
-        <Card className="glass-panel border-amber-500/20"><CardContent className="pt-5"><p className="text-xs text-muted-foreground">Pending/Processing</p><p className="mt-1 text-2xl font-bold text-amber-300">{stats.pending}</p></CardContent></Card>
-        <Card className="glass-panel border-primary/20"><CardContent className="pt-5"><p className="text-xs text-muted-foreground">Omzet Paid</p><p className="mt-1 text-2xl font-bold text-primary">{rupiah(stats.revenue)}</p></CardContent></Card>
+        <Card className="glass-panel border-emerald-500/20"><CardContent className="pt-5"><p className="text-xs text-muted-foreground">Server Saya</p><p className="mt-1 text-2xl font-bold text-emerald-300">{stats.local}</p><p className="mt-1 text-xs text-muted-foreground">{rupiah(stats.localRevenue)}</p></CardContent></Card>
+        <Card className="glass-panel border-cyan-500/20"><CardContent className="pt-5"><p className="text-xs text-muted-foreground">NadiaVPN</p><p className="mt-1 text-2xl font-bold text-cyan-300">{stats.nadia}</p><p className="mt-1 text-xs text-muted-foreground">{rupiah(stats.nadiaRevenue)}</p></CardContent></Card>
+        <Card className="glass-panel border-primary/20"><CardContent className="pt-5"><p className="text-xs text-muted-foreground">Omzet Paid</p><p className="mt-1 text-2xl font-bold text-primary">{rupiah(stats.revenue)}</p><p className="mt-1 text-xs text-muted-foreground">Paid: {stats.paid} • Proses: {stats.pending}</p></CardContent></Card>
       </div>
 
       <Card className="glass-panel border-white/5">
@@ -145,6 +170,7 @@ export default function AdminDynamicVpnOrders() {
                     <div className="min-w-0 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline">#{order.id}</Badge>
+                        <Badge variant="outline" className={providerBadge(order.provider)}>{providerLabel(order.provider)}</Badge>
                         <Badge className={`${statusBadge(order.status)} gap-1 uppercase`}><StatusIcon status={order.status} /> {order.status}</Badge>
                         <Badge variant="secondary" className="uppercase">{order.protocol}</Badge>
                         {order.voucherCode && <Badge className="gap-1 bg-green-500/10 text-green-300 border-green-500/30"><Tag className="h-3 w-3" /> {order.voucherCode}</Badge>}

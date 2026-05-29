@@ -596,8 +596,11 @@ router.post("/admin/dynamic-vpn/servers/sync/local-panel", requireAdmin, async (
 
 router.get("/admin/dynamic-vpn/orders", requireAdmin, async (req, res) => {
   const status = typeof req.query.status === "string" ? req.query.status : "";
+  const provider = typeof req.query.provider === "string" ? req.query.provider : "";
   const limit = Math.min(parseInt(String(req.query.limit ?? "50"), 10) || 50, 100);
-  const conditions = status && status !== "all" ? [eq(dynamicVpnOrdersTable.status, status)] : [];
+  const conditions = [];
+  if (status && status !== "all") conditions.push(eq(dynamicVpnOrdersTable.status, status));
+  if (provider && provider !== "all") conditions.push(eq(dynamicVpnOrdersTable.provider, provider));
 
   const rows = await db
     .select({
