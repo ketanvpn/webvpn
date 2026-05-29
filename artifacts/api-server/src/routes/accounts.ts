@@ -95,6 +95,73 @@ function extractNadiaAccountDetails(response: any): Record<string, string | null
   return Object.values(details).some(Boolean) ? details : null;
 }
 
+function hasProviderDomain(allLinks: unknown) {
+  const links = (allLinks ?? {}) as Record<string, string | null | undefined>;
+  return !!pickDisplayHost({
+    domain: links.domain,
+    cloudfront: links.cloudfront,
+  });
+}
+
+async function syncNadiaAccountDetails(account: typeof vpnAccountsTable.$inferSelect) {
+  const [dynamicOrder] = await db
+    .select()
+    .from(dynamicVpnOrdersTable)
+    .where(eq(dynamicVpnOrdersTable.vpnAccountId, account.id))
+    .limit(1);
+
+  if (!dynamicOrder || dynamicOrder.provider !== "nadiavpn" || !dynamicOrder.providerAccountId) {
+    return account;
+  }
+
+  const detailResponse: any = await getNadiaVpnAccountDetails(dynamicOrder.providerAccountId);
+  const details = extractNadiaAccountDetails(detailResponse);
+  if (!details) return account;
+
+  const data = detailResponse?.data ?? {};
+  const config = data.config_data ?? data.config ?? {};
+  const mergedLinks = {
+    ...((account.allLinks ?? {}) as Record<string, string | null>),
+    ...details,
+  };
+  const expiresAt = parseNadiaExpireAt(data.expire_at, account.expiresAt);
+
+  const [updated] = await db
+    .update(vpnAccountsTable)
+    .set({
+      username: data.username ?? config.username ?? account.username,
+      password: data.password ?? config.password ?? account.password,
+      uuid: data.uuid ?? config.uuid ?? account.uuid,
+      allLinks: mergedLinks,
+      expiresAt,
+      updatedAt: new Date(),
+    })
+    .where(eq(vpnAccountsTable.id, account.id))
+    .returning();
+
+  await db
+    .update(dynamicVpnOrdersTable)
+    .set({
+      providerResponse: {
+        previous: dynamicOrder.providerResponse ?? null,
+        syncedDetails: detailResponse,
+      },
+      updatedAt: new Date(),
+    })
+    .where(eq(dynamicVpnOrdersTable.id, dynamicOrder.id));
+
+  return updated ?? account;
+}
+
+async function maybeAutoSyncProviderDetails(account: typeof vpnAccountsTable.$inferSelect) {
+  if (hasProviderDomain(account.allLinks)) return account;
+  try {
+    return await syncNadiaAccountDetails(account);
+  } catch {
+    return account;
+  }
+}
+
 async function formatAccount(a: typeof vpnAccountsTable.$inferSelect) {
   const [server] = await db
     .select()
@@ -189,7 +256,8 @@ router.get("/accounts/:id", requireAuth, async (req, res) => {
     return;
   }
 
-  res.json(await formatAccount(account));
+  const syncedAccount = await maybeAutoSyncProviderDetails(account);
+  res.json(await formatAccount(syncedAccount));
 });
 
 router.post("/accounts/:id/sync-provider", requireAuth, async (req, res) => {
@@ -223,45 +291,7 @@ router.post("/accounts/:id/sync-provider", requireAuth, async (req, res) => {
     return;
   }
 
-  const detailResponse: any = await getNadiaVpnAccountDetails(dynamicOrder.providerAccountId);
-  const details = extractNadiaAccountDetails(detailResponse);
-  if (!details) {
-    res.status(502).json({ error: "Detail provider tidak berisi config akun" });
-    return;
-  }
-
-  const data = detailResponse?.data ?? {};
-  const config = data.config_data ?? data.config ?? {};
-  const mergedLinks = {
-    ...((account.allLinks ?? {}) as Record<string, string | null>),
-    ...details,
-  };
-  const expiresAt = parseNadiaExpireAt(data.expire_at, account.expiresAt);
-
-  const [updated] = await db
-    .update(vpnAccountsTable)
-    .set({
-      username: data.username ?? config.username ?? account.username,
-      password: data.password ?? config.password ?? account.password,
-      uuid: data.uuid ?? config.uuid ?? account.uuid,
-      allLinks: mergedLinks,
-      expiresAt,
-      updatedAt: new Date(),
-    })
-    .where(eq(vpnAccountsTable.id, account.id))
-    .returning();
-
-  await db
-    .update(dynamicVpnOrdersTable)
-    .set({
-      providerResponse: {
-        previous: dynamicOrder.providerResponse ?? null,
-        syncedDetails: detailResponse,
-      },
-      updatedAt: new Date(),
-    })
-    .where(eq(dynamicVpnOrdersTable.id, dynamicOrder.id));
-
+  const updated = await syncNadiaAccountDetails(account);
   res.json(await formatAccount(updated));
 });
 
