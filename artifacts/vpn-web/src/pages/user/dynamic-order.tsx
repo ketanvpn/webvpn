@@ -1,12 +1,13 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { CheckCircle2, CreditCard, RefreshCw, Server, Shield, UserRound, Wallet } from "lucide-react";
+import { CheckCircle2, CreditCard, HardDrive, PackageX, RefreshCw, Server, Shield, UserRound, Wallet, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 
 const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
@@ -23,6 +24,9 @@ type DynamicServer = {
   maxDays: number;
   minMonths: number;
   maxMonths: number;
+  capacityLimit: string | null;
+  capacityUsed: number;
+  capacityIsFull: boolean;
 };
 
 type Quote = { unitPrice: number; amount: number; durationLabel: string };
@@ -36,6 +40,62 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 
 function rupiah(value: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value || 0);
+}
+
+function countryFlag(location?: string | null) {
+  const loc = (location ?? "").toUpperCase();
+  if (loc.includes("SG")) return "🇸🇬";
+  if (loc.includes("ID")) return "🇮🇩";
+  return "🌐";
+}
+
+function ServerCard({ server, active, onSelect }: { server: DynamicServer; active: boolean; onSelect: () => void }) {
+  return (
+    <div className={`relative flex flex-col rounded-xl overflow-hidden transition-all duration-300 border ${active ? "border-primary/60 shadow-[0_0_18px_rgba(16,185,129,0.18)]" : "border-white/5 hover:border-primary/30"} glass-card`}>
+      <div className="p-4 flex gap-3">
+        <div className="flex flex-col items-center gap-1.5 w-16 shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-white/90 flex items-center justify-center text-3xl shadow-lg border border-white/20">
+            {countryFlag(server.location)}
+          </div>
+          <span className="text-[8px] sm:text-[9px] font-bold bg-primary/10 text-primary px-1 py-0.5 rounded w-full text-center border border-primary/20 flex items-center justify-center gap-0.5">
+            <Zap className="w-2 h-2" /> READY
+          </span>
+        </div>
+
+        <div className="flex-1 min-w-0 py-0.5">
+          <h3 className="font-semibold text-sm sm:text-base leading-snug text-foreground truncate mb-1.5">{server.displayName}</h3>
+          <div className="flex flex-wrap gap-1.5">
+            {server.enabledProtocols.slice(0, 4).map((protocol) => (
+              <span key={protocol} className="text-[9px] sm:text-[10px] bg-white/5 text-muted-foreground px-1.5 py-0.5 rounded border border-white/5 uppercase">
+                {protocol}
+              </span>
+            ))}
+            <span className="text-[9px] sm:text-[10px] bg-emerald-500/10 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
+              <Server className="w-2.5 h-2.5" /> {server.capacityUsed}/{server.capacityLimit ?? "∞"}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-col items-end justify-between shrink-0 py-0.5">
+          <Badge variant="outline" className="text-[9px] border-white/10 bg-white/5">MAX 3 IP</Badge>
+          <Button size="sm" className="h-8 px-3 text-xs shadow-[0_0_10px_rgba(16,185,129,0.2)]" onClick={onSelect}>
+            <CreditCard className="h-3.5 w-3.5 mr-1" /> Order
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 p-3 bg-black/20 border-t border-white/5">
+        <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center">
+          <p className="text-[9px] font-bold tracking-widest text-muted-foreground uppercase">Harian</p>
+          <p className="text-xs font-bold text-foreground mt-0.5">{rupiah(server.sellPricePerDay)}</p>
+        </div>
+        <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center">
+          <p className="text-[9px] font-bold tracking-widest text-muted-foreground uppercase">Bulanan</p>
+          <p className="text-xs font-bold text-foreground mt-0.5">{rupiah(server.sellPricePerMonth)}</p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function DynamicOrderPage() {
@@ -76,6 +136,13 @@ export default function DynamicOrderPage() {
     onError: (err: unknown) => toast({ title: "Order gagal", description: err instanceof Error ? err.message : "Gagal membuat order", variant: "destructive" }),
   });
 
+  const selectServer = (server: DynamicServer) => {
+    setServerId(String(server.id));
+    setProtocol(server.enabledProtocols?.[0] ?? "");
+    if (!server.supportedTypes.includes(durationType)) setDurationType(server.supportedTypes[0] ?? "month");
+    setPaidOrderId(null);
+  };
+
   const durationHelp = selectedServer
     ? durationType === "day"
       ? `Batas ${selectedServer.minDays}-${selectedServer.maxDays} hari`
@@ -83,47 +150,97 @@ export default function DynamicOrderPage() {
     : "Pilih server dahulu";
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="relative overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950/70 p-6 shadow-2xl">
-        <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-cyan-500/20 blur-3xl" />
-        <div className="relative">
-          <Badge className="mb-3 bg-cyan-500/10 text-cyan-200 border-cyan-400/40">KETANTECH Premium</Badge>
-          <h1 className="text-3xl font-black text-white flex items-center gap-3"><Shield className="text-cyan-300" /> Order VPN</h1>
-          <p className="mt-2 text-sm text-slate-300">Pilih server, protocol, dan durasi sesuai kebutuhan. Akun dibuat otomatis setelah pembayaran saldo.</p>
-        </div>
+    <div className="space-y-4 pb-8">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Order VPN</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Pilih server premium, lalu atur protocol dan durasi sesuai kebutuhanmu.</p>
       </div>
 
       {paidOrderId && (
         <Card className="glass-panel border-emerald-500/30 bg-emerald-500/10">
-          <CardContent className="py-4 flex items-center gap-3 text-emerald-200"><CheckCircle2 /> Order #{paidOrderId} berhasil. Silakan buka menu Akun VPN untuk melihat config.</CardContent>
+          <CardContent className="py-4 flex items-center gap-3 text-emerald-200 text-sm"><CheckCircle2 /> Order #{paidOrderId} berhasil. Silakan buka menu Akun VPN untuk melihat config.</CardContent>
         </Card>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <Card className="glass-panel border-white/5">
-          <CardHeader><CardTitle className="flex items-center gap-2"><Server className="h-5 w-5" /> Detail Order</CardTitle><CardDescription>Semua harga akan dihitung otomatis.</CardDescription></CardHeader>
-          <CardContent className="space-y-5">
-            <div className="grid gap-2"><Label>Server</Label><Select value={serverId} onValueChange={(v) => { setServerId(v); const s = servers.find((srv) => String(srv.id) === v); setProtocol(s?.enabledProtocols?.[0] ?? ""); }}><SelectTrigger><SelectValue placeholder="Pilih server" /></SelectTrigger><SelectContent>{servers.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.displayName} {s.location ? `(${s.location})` : ""}</SelectItem>)}</SelectContent></Select></div>
-            <div className="grid gap-2"><Label>Protocol</Label><Select value={protocol} onValueChange={setProtocol} disabled={!selectedServer}><SelectTrigger><SelectValue placeholder="Pilih protocol" /></SelectTrigger><SelectContent>{(selectedServer?.enabledProtocols ?? []).map((p) => <SelectItem key={p} value={p}>{p.toUpperCase()}</SelectItem>)}</SelectContent></Select></div>
-            <div className="grid gap-3 sm:grid-cols-2"><div className="grid gap-2"><Label>Tipe Durasi</Label><Select value={durationType} onValueChange={setDurationType}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{selectedServer?.supportedTypes.includes("day") && <SelectItem value="day">Harian</SelectItem>}{selectedServer?.supportedTypes.includes("month") && <SelectItem value="month">Bulanan</SelectItem>}</SelectContent></Select></div><div className="grid gap-2"><Label>Jumlah</Label><Input type="number" min={1} value={duration} onChange={(e) => setDuration(e.target.value)} /><p className="text-xs text-muted-foreground">{durationHelp}</p></div></div>
-            <div className="grid gap-2"><Label>Username VPN</Label><div className="relative"><UserRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input className="pl-9" value={username} onChange={(e) => setUsername(e.target.value.toLowerCase())} placeholder="contoh: ketan123" /></div><p className="text-xs text-muted-foreground">Minimal 5 karakter, huruf kecil/angka, dan minimal 2 angka.</p></div>
-          </CardContent>
-        </Card>
+      {serversQuery.isLoading ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-2">
+          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-36 w-full rounded-xl" />)}
+        </div>
+      ) : servers.length === 0 ? (
+        <div className="text-center py-16 rounded-xl glass-panel border-white/5 flex flex-col items-center justify-center gap-3">
+          <PackageX className="h-10 w-10 text-muted-foreground/50" />
+          <p className="text-sm text-muted-foreground">Belum ada server aktif. Hubungi admin.</p>
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-2">
+          {servers.map((server) => (
+            <ServerCard key={server.id} server={server} active={serverId === String(server.id)} onSelect={() => selectServer(server)} />
+          ))}
+        </div>
+      )}
 
-        <Card className="glass-panel border-primary/20 h-fit sticky top-6">
-          <CardHeader><CardTitle className="flex items-center gap-2"><Wallet className="h-5 w-5 text-primary" /> Ringkasan</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Server</span><span className="font-medium text-right">{selectedServer?.displayName ?? "-"}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Protocol</span><span className="font-medium uppercase">{protocol || "-"}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Durasi</span><span className="font-medium">{quote?.durationLabel ?? "-"}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Harga satuan</span><span className="font-medium">{quote ? rupiah(quote.unitPrice) : "-"}</span></div>
-            </div>
-            <div className="rounded-2xl bg-primary/10 p-4"><p className="text-xs text-muted-foreground">Total Bayar</p><p className="text-3xl font-black text-primary">{quote ? rupiah(quote.amount) : "Rp 0"}</p></div>
-            <Button className="w-full gap-2" disabled={!serverId || !protocol || !quote || username.length < 5 || orderMut.isPending} onClick={() => orderMut.mutate()}><CreditCard className="h-4 w-4" />{orderMut.isPending ? <><RefreshCw className="h-4 w-4 animate-spin" /> Memproses...</> : "Bayar Pakai Saldo"}</Button>
-          </CardContent>
-        </Card>
-      </div>
+      {selectedServer && (
+        <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
+          <Card className="glass-panel border-white/5">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2"><Shield className="h-5 w-5 text-primary" /> Konfigurasi Order</CardTitle>
+              <CardDescription>{selectedServer.displayName}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label>Protocol</Label>
+                  <Select value={protocol} onValueChange={setProtocol}>
+                    <SelectTrigger><SelectValue placeholder="Pilih protocol" /></SelectTrigger>
+                    <SelectContent>{selectedServer.enabledProtocols.map((p) => <SelectItem key={p} value={p}>{p.toUpperCase()}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Tipe Durasi</Label>
+                  <Select value={durationType} onValueChange={setDurationType}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {selectedServer.supportedTypes.includes("day") && <SelectItem value="day">Harian</SelectItem>}
+                      {selectedServer.supportedTypes.includes("month") && <SelectItem value="month">Bulanan</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label>Jumlah</Label>
+                  <Input type="number" min={1} value={duration} onChange={(e) => setDuration(e.target.value)} />
+                  <p className="text-xs text-muted-foreground">{durationHelp}</p>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Username VPN</Label>
+                  <div className="relative">
+                    <UserRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input className="pl-9" value={username} onChange={(e) => setUsername(e.target.value.toLowerCase())} placeholder="contoh: ketan123" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Minimal 5 karakter dan minimal 2 angka.</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-panel border-primary/20 h-fit">
+            <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Wallet className="h-5 w-5 text-primary" /> Ringkasan</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between"><span className="text-muted-foreground">Protocol</span><span className="font-medium uppercase">{protocol || "-"}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Durasi</span><span className="font-medium">{quote?.durationLabel ?? "-"}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Harga satuan</span><span className="font-medium">{quote ? rupiah(quote.unitPrice) : "-"}</span></div>
+              </div>
+              <div className="rounded-xl bg-primary/10 p-4"><p className="text-xs text-muted-foreground">Total Bayar</p><p className="text-2xl font-black text-primary">{quote ? rupiah(quote.amount) : "Rp 0"}</p></div>
+              <Button className="w-full gap-2" disabled={!serverId || !protocol || !quote || username.length < 5 || orderMut.isPending} onClick={() => orderMut.mutate()}>
+                {orderMut.isPending ? <><RefreshCw className="h-4 w-4 animate-spin" /> Memproses...</> : <><CreditCard className="h-4 w-4" /> Bayar Pakai Saldo</>}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
