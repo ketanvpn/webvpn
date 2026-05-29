@@ -41,6 +41,7 @@ function sanitizeUsername(raw: unknown) {
 function formatServer(row: typeof dynamicProviderServersTable.$inferSelect, admin = false) {
   const base = {
     id: row.id,
+    provider: row.provider,
     displayName: row.displayName,
     location: row.location,
     enabledProtocols: row.enabledProtocols,

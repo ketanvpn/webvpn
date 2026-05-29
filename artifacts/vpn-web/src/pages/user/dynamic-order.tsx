@@ -16,6 +16,7 @@ const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
 
 type DynamicServer = {
   id: number;
+  provider: string;
   displayName: string;
   location: string | null;
   enabledProtocols: string[];
@@ -89,9 +90,11 @@ function ServerCard({ server, onSelect }: { server: DynamicServer; onSelect: () 
         </div>
 
         <div className="flex flex-col items-end justify-between shrink-0 py-0.5">
-          <Badge variant="outline" className="text-[9px] border-white/10 bg-white/5">
-            {server.maxConnections > 0 ? `MAX ${server.maxConnections} IP` : "UNLIMITED IP"}
-          </Badge>
+          {server.provider === "local_panel" ? (
+            <Badge variant="outline" className="text-[9px] border-white/10 bg-white/5">
+              {server.maxConnections > 0 ? `MAX ${server.maxConnections} IP` : "UNLIMITED IP"}
+            </Badge>
+          ) : <span />}
           <span className="mt-4 h-8 px-3 rounded-md text-xs font-semibold inline-flex items-center justify-center bg-primary/90 text-primary-foreground">
             <CreditCard className="h-3.5 w-3.5 mr-1" /> Order
           </span>
