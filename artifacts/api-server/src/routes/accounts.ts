@@ -62,7 +62,7 @@ async function formatAccount(a: typeof vpnAccountsTable.$inferSelect) {
     .limit(1);
 
   const allLinks = (a.allLinks ?? null) as Record<string, string | null | undefined> | null;
-  const dynamicHost = allLinks?.hostname ?? allLinks?.host ?? allLinks?.domain ?? allLinks?.server ?? allLinks?.servername ?? null;
+  const dynamicHost = allLinks?.domain ?? allLinks?.cloudfront ?? allLinks?.host ?? allLinks?.server ?? allLinks?.sni ?? allLinks?.servername ?? allLinks?.hostname ?? null;
 
   return {
     id: a.id,

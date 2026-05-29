@@ -330,7 +330,7 @@ export default function AccountDetail() {
 
   const allLinks = account.allLinks as Record<string, string | null> | null | undefined;
   const isSsh = account.protocol === "ssh";
-  const accountHost = allLinks?.hostname ?? allLinks?.host ?? allLinks?.domain ?? allLinks?.server ?? allLinks?.cloudfront ?? allLinks?.sni ?? allLinks?.servername ?? account.server.host ?? "";
+  const accountHost = allLinks?.domain ?? allLinks?.cloudfront ?? allLinks?.host ?? allLinks?.server ?? allLinks?.sni ?? allLinks?.servername ?? allLinks?.hostname ?? account.server.host ?? "";
   const hasAllLinks = !isSsh && allLinks && Object.entries(allLinks).some(([key, value]) => !["hostname", "servername", "host", "domain", "server", "cloudfront", "sni"].includes(key) && !!value);
   const sshHost = accountHost;
   const sshPortText = [allLinks?.port_tls, allLinks?.port_none].filter(Boolean).join(" / ") || "22 / 443";
