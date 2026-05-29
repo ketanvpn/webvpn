@@ -318,7 +318,22 @@ export default function AccountDetail() {
   }
 
   const allLinks = account.allLinks as Record<string, string | null> | null | undefined;
-  const hasAllLinks = allLinks && Object.values(allLinks).some(v => !!v);
+  const isSsh = account.protocol === "ssh";
+  const hasAllLinks = !isSsh && allLinks && Object.values(allLinks).some(v => !!v);
+  const sshHost = allLinks?.hostname ?? account.server.host ?? "";
+  const sshPortText = [allLinks?.port_tls, allLinks?.port_none].filter(Boolean).join(" / ") || "22 / 443";
+  const sshDetails = [
+    { label: "Hostname", value: allLinks?.hostname },
+    { label: "Server Name / SNI", value: allLinks?.servername },
+    { label: "Port TLS", value: allLinks?.port_tls },
+    { label: "Port Non TLS", value: allLinks?.port_none },
+    { label: "Port Any", value: allLinks?.port_any },
+    { label: "SlowDNS", value: allLinks?.slowdns },
+    { label: "UDP Custom", value: allLinks?.udp_custom },
+    { label: "UDPGW", value: allLinks?.udpgw },
+    { label: "Squid", value: allLinks?.squid },
+    { label: "Public Key", value: allLinks?.pubkey },
+  ].filter((item) => !!item.value);
 
   const daysLeft = differenceInCalendarDays(new Date(account.expiresAt), new Date());
 
@@ -394,9 +409,9 @@ export default function AccountDetail() {
                 <h3 className="font-semibold text-lg border-b pb-2">Detail Koneksi</h3>
 
                 <div className="space-y-4">
-                  {account.uuid && (
+                  {!isSsh && account.uuid && (
                     <div className="space-y-1.5">
-                      <Label>UUID / Password</Label>
+                      <Label>UUID</Label>
                       <div className="flex gap-2">
                         <Input value={account.uuid} readOnly className="font-mono bg-muted/50" />
                         <Button
@@ -432,12 +447,12 @@ export default function AccountDetail() {
                     <div className="space-y-1.5">
                       <Label>Host / IP</Label>
                       <div className="flex gap-2">
-                        <Input value={account.server.host ?? ""} readOnly className="font-mono bg-muted/50 text-sm" />
-                        {account.server.host && (
+                        <Input value={isSsh ? sshHost : account.server.host ?? ""} readOnly className="font-mono bg-muted/50 text-sm" />
+                        {(isSsh ? sshHost : account.server.host) && (
                           <Button
                             variant="outline"
                             size="icon"
-                            onClick={() => copyToClipboard(account.server.host!, "Host")}
+                            onClick={() => copyToClipboard((isSsh ? sshHost : account.server.host)!, "Host")}
                             title="Salin Host"
                           >
                             <Copy className="h-4 w-4" />
@@ -448,7 +463,7 @@ export default function AccountDetail() {
                     <div className="space-y-1.5">
                       <Label>Port TLS / Non TLS</Label>
                       <Input
-                        value={account.protocol === "ssh" ? "22 / 443" : "443 / 80"}
+                        value={isSsh ? sshPortText : "443 / 80"}
                         readOnly
                         className="font-mono bg-muted/50 text-sm"
                       />
@@ -459,118 +474,147 @@ export default function AccountDetail() {
             </CardContent>
           </Card>
 
-          {/* Config Links / QR Code */}
-          <Card className="glass-panel border-primary/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
-            <CardHeader className="border-b border-white/5 pb-4">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <ShieldCheck className="h-5 w-5 text-primary" />
-                Link Import Cepat
-              </CardTitle>
-              <CardDescription>Salin atau scan QR untuk import ke aplikasi VPN (V2Ray, Clash, NekoBox, dll)</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {hasAllLinks ? (
-                <div className="space-y-4">
-                  {[
-                    ...LINK_ORDER.filter(k => !!allLinks![k]),
-                    ...Object.keys(allLinks!).filter(k => !LINK_ORDER.includes(k) && !!allLinks![k]),
-                  ].map((key) => {
-                    const link = allLinks![key];
-                    if (!link) return null;
-                    const label = LINK_LABELS[key] ?? key.toUpperCase();
-                    return (
-                      <div key={key} className="space-y-2 p-3 rounded-lg bg-background border">
-                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{label}</div>
-                        <div className="flex gap-2">
-                          <Input value={link} readOnly className="font-mono text-xs bg-muted/50" />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="shrink-0 gap-1"
-                            onClick={() => copyToClipboard(link, label)}
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                            Salin
-                          </Button>
-                        </div>
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="w-full gap-2 text-xs text-muted-foreground hover:text-foreground"
-                            >
-                              <QrCode className="h-3.5 w-3.5" />
-                              Tampilkan QR Code
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="sm:max-w-sm flex flex-col items-center justify-center p-8 gap-4">
-                            <DialogHeader>
-                              <DialogTitle className="text-center">QR Code — {label}</DialogTitle>
-                            </DialogHeader>
-                            <QrCodeImage data={link} label={label} />
+          {!isSsh ? (
+            <Card className="glass-panel border-primary/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+              <CardHeader className="border-b border-white/5 pb-4">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-primary" />
+                  Link Import Cepat
+                </CardTitle>
+                <CardDescription>Salin atau scan QR untuk import ke aplikasi VPN (V2Ray, Clash, NekoBox, dll)</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {hasAllLinks ? (
+                  <div className="space-y-4">
+                    {[
+                      ...LINK_ORDER.filter(k => !!allLinks![k]),
+                      ...Object.keys(allLinks!).filter(k => !LINK_ORDER.includes(k) && !!allLinks![k]),
+                    ].map((key) => {
+                      const link = allLinks![key];
+                      if (!link) return null;
+                      const label = LINK_LABELS[key] ?? key.toUpperCase();
+                      return (
+                        <div key={key} className="space-y-2 p-3 rounded-lg bg-background border">
+                          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{label}</div>
+                          <div className="flex gap-2">
+                            <Input value={link} readOnly className="font-mono text-xs bg-muted/50" />
                             <Button
                               variant="outline"
                               size="sm"
-                              className="gap-2"
+                              className="shrink-0 gap-1"
                               onClick={() => copyToClipboard(link, label)}
                             >
                               <Copy className="h-3.5 w-3.5" />
-                              Salin Link
+                              Salin
                             </Button>
-                          </DialogContent>
-                        </Dialog>
+                          </div>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full gap-2 text-xs text-muted-foreground hover:text-foreground"
+                              >
+                                <QrCode className="h-3.5 w-3.5" />
+                                Tampilkan QR Code
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-sm flex flex-col items-center justify-center p-8 gap-4">
+                              <DialogHeader>
+                                <DialogTitle className="text-center">QR Code — {label}</DialogTitle>
+                              </DialogHeader>
+                              <QrCodeImage data={link} label={label} />
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-2"
+                                onClick={() => copyToClipboard(link, label)}
+                              >
+                                <Copy className="h-3.5 w-3.5" />
+                                Salin Link
+                              </Button>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : account.configLink ? (
+                  <div className="space-y-4">
+                    <div className="p-3 rounded-lg bg-background border space-y-2">
+                      <div className="flex gap-2">
+                        <Input value={account.configLink} readOnly className="font-mono text-xs bg-muted/50" />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1 shrink-0"
+                          onClick={() => copyToClipboard(account.configLink!, "Config Link")}
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          Salin
+                        </Button>
                       </div>
-                    );
-                  })}
-                </div>
-              ) : account.configLink ? (
-                <div className="space-y-4">
-                  <div className="p-3 rounded-lg bg-background border space-y-2">
+                    </div>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" className="w-full gap-2">
+                          <QrCode className="h-4 w-4" />
+                          Tampilkan QR Code
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-sm flex flex-col items-center justify-center p-8 gap-4">
+                        <DialogHeader>
+                          <DialogTitle className="text-center">Scan dengan Aplikasi VPN</DialogTitle>
+                        </DialogHeader>
+                        <QrCodeImage data={account.configLink} label="Config" />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          onClick={() => copyToClipboard(account.configLink!, "Config Link")}
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          Salin Link
+                        </Button>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Config link belum tersedia. Silakan hubungi admin.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          ) : sshDetails.length > 0 && (
+            <Card className="glass-panel border-primary/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+              <CardHeader className="border-b border-white/5 pb-4">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-primary" />
+                  Detail SSH Tambahan
+                </CardTitle>
+                <CardDescription>Informasi host, port, SlowDNS, dan public key untuk konfigurasi SSH.</CardDescription>
+              </CardHeader>
+              <CardContent className="grid sm:grid-cols-2 gap-3">
+                {sshDetails.map((item) => (
+                  <div key={item.label} className="space-y-1.5 p-3 rounded-lg bg-background border">
+                    <Label className="text-xs text-muted-foreground">{item.label}</Label>
                     <div className="flex gap-2">
-                      <Input value={account.configLink} readOnly className="font-mono text-xs bg-muted/50" />
+                      <Input value={item.value ?? ""} readOnly className="font-mono text-xs bg-muted/50" />
                       <Button
                         variant="outline"
-                        size="sm"
-                        className="gap-1 shrink-0"
-                        onClick={() => copyToClipboard(account.configLink!, "Config Link")}
+                        size="icon"
+                        onClick={() => copyToClipboard(item.value ?? "", item.label)}
+                        title={`Salin ${item.label}`}
                       >
-                        <Copy className="h-3.5 w-3.5" />
-                        Salin
+                        <Copy className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" className="w-full gap-2">
-                        <QrCode className="h-4 w-4" />
-                        Tampilkan QR Code
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-sm flex flex-col items-center justify-center p-8 gap-4">
-                      <DialogHeader>
-                        <DialogTitle className="text-center">Scan dengan Aplikasi VPN</DialogTitle>
-                      </DialogHeader>
-                      <QrCodeImage data={account.configLink} label="Config" />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2"
-                        onClick={() => copyToClipboard(account.configLink!, "Config Link")}
-                      >
-                        <Copy className="h-3.5 w-3.5" />
-                        Salin Link
-                      </Button>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Config link belum tersedia. Silakan hubungi admin.
-                </p>
-              )}
-            </CardContent>
-          </Card>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Sidebar kanan */}
@@ -591,9 +635,11 @@ export default function AccountDetail() {
                   serverIsActive={account.server.isActive}
                 />
               )}
-              <Button variant="outline" className="w-full" asChild>
-                <Link href={`/orders/${account.orderId}`}>Lihat Order Asli</Link>
-              </Button>
+              {account.orderId && (
+                <Button variant="outline" className="w-full" asChild>
+                  <Link href={`/orders/${account.orderId}`}>Lihat Order Asli</Link>
+                </Button>
+              )}
             </CardContent>
           </Card>
 

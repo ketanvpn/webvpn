@@ -130,14 +130,46 @@ function parseNadiaExpireAt(value: unknown, fallback: Date) {
   return Number.isNaN(parsed.getTime()) ? fallback : parsed;
 }
 
-function extractLinks(response: any): Record<string, string | null> | null {
-  const rawLinks = response?.data?.config?.link;
-  if (!rawLinks || typeof rawLinks !== "object") return null;
-  const links: Record<string, string | null> = {};
-  for (const [key, value] of Object.entries(rawLinks)) {
-    links[key] = typeof value === "string" ? value : null;
+function stringifyConfigValue(value: unknown): string | null {
+  if (value === undefined || value === null || value === "") return null;
+  return String(value);
+}
+
+function extractConnectionDetails(response: any, protocol: string): Record<string, string | null> | null {
+  const config = response?.data?.config;
+  const rawLinks = config?.link;
+
+  if (rawLinks && typeof rawLinks === "object") {
+    const links: Record<string, string | null> = {};
+    for (const [key, value] of Object.entries(rawLinks)) {
+      links[key] = typeof value === "string" ? value : null;
+    }
+    return links;
   }
-  return links;
+
+  if (protocol !== "ssh" || !config || typeof config !== "object") return null;
+
+  const port = config.port && typeof config.port === "object" ? config.port : {};
+  const sshDetails: Record<string, string | null> = {
+    hostname: stringifyConfigValue(config.hostname),
+    servername: stringifyConfigValue(config.servername),
+    pubkey: stringifyConfigValue(config.pubkey),
+    isp: stringifyConfigValue(config.ISP),
+    city: stringifyConfigValue(config.CITY),
+    port_tls: stringifyConfigValue(port.tls),
+    port_none: stringifyConfigValue(port.none),
+    port_any: stringifyConfigValue(port.any),
+    openvpn_tcp: stringifyConfigValue(port.ovpntcp),
+    openvpn_udp: stringifyConfigValue(port.ovpnudp),
+    slowdns: stringifyConfigValue(port.slowdns),
+    ssh_ohp: stringifyConfigValue(port.sshohp),
+    ovpn_ohp: stringifyConfigValue(port.ovpnohp),
+    squid: stringifyConfigValue(port.squid),
+    udp_custom: stringifyConfigValue(port.udpcustom),
+    udpgw: stringifyConfigValue(port.udpgw),
+  };
+
+  return Object.values(sshDetails).some(Boolean) ? sshDetails : null;
 }
 
 async function fulfillDynamicOrder(orderId: number, userId: number) {
@@ -186,8 +218,10 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
 
   const fallbackExpiry = new Date(Date.now() + (order.durationType === "day" ? order.duration : order.duration * 30) * 24 * 60 * 60 * 1000);
   const data = providerResponse?.data ?? {};
-  const allLinks = extractLinks(providerResponse);
-  const configLink = allLinks?.tls ?? Object.values(allLinks ?? {}).find(Boolean) ?? null;
+  const accountProtocol = normalizeProtocol(data.protocol ?? order.protocol);
+  const allLinks = extractConnectionDetails(providerResponse, accountProtocol);
+  const configLink = accountProtocol === "ssh" ? null : allLinks?.tls ?? Object.values(allLinks ?? {}).find(Boolean) ?? null;
+  const providerPassword = data.password ?? data.config?.password ?? order.password ?? null;
   const localServerId = await getKetantechProviderServerId();
 
   try {
@@ -197,9 +231,9 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
         .values({
           userId,
           orderId: null,
-          protocol: normalizeProtocol(data.protocol ?? order.protocol),
+          protocol: accountProtocol,
           username: data.username ?? order.username,
-          password: data.password ?? order.password ?? null,
+          password: providerPassword,
           uuid: data.uuid ?? null,
           serverId: localServerId,
           configLink,
