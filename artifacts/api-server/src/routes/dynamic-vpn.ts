@@ -388,6 +388,37 @@ router.post("/admin/dynamic-vpn/servers/sync/nadiavpn", requireAdmin, async (_re
   res.json({ success: true, total: synced.length, servers: synced });
 });
 
+router.get("/admin/dynamic-vpn/orders", requireAdmin, async (req, res) => {
+  const status = typeof req.query.status === "string" ? req.query.status : "";
+  const limit = Math.min(parseInt(String(req.query.limit ?? "50"), 10) || 50, 100);
+  const conditions = status && status !== "all" ? [eq(dynamicVpnOrdersTable.status, status)] : [];
+
+  const rows = await db
+    .select({
+      order: dynamicVpnOrdersTable,
+      buyerUsername: usersTable.username,
+      buyerEmail: usersTable.email,
+      voucherCode: vouchersTable.code,
+    })
+    .from(dynamicVpnOrdersTable)
+    .leftJoin(usersTable, eq(dynamicVpnOrdersTable.userId, usersTable.id))
+    .leftJoin(vouchersTable, eq(dynamicVpnOrdersTable.voucherId, vouchersTable.id))
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(asc(dynamicVpnOrdersTable.id))
+    .limit(limit);
+
+  res.json({
+    orders: rows.map(({ order, buyerUsername, buyerEmail, voucherCode }) => ({
+      ...order,
+      amount: Number(order.amount),
+      discountAmount: Number(order.discountAmount ?? 0),
+      providerResponse: undefined,
+      buyer: { username: buyerUsername, email: buyerEmail },
+      voucherCode: voucherCode ?? null,
+    })),
+  });
+});
+
 router.patch("/admin/dynamic-vpn/servers/:id", requireAdmin, async (req, res) => {
   const id = parseInt(String(req.params.id), 10);
   const body = req.body ?? {};

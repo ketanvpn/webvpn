@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import AdminDynamicVpn from "./dynamic-vpn";
+import AdminDynamicVpnOrders from "./dynamic-vpn-orders";
 
 const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
 
@@ -174,9 +175,10 @@ export default function AdminNadiaVpn() {
       </div>
 
       <Tabs defaultValue="monitoring" className="space-y-6">
-        <TabsList className="grid w-full max-w-xl grid-cols-2 bg-white/5">
+        <TabsList className="grid w-full max-w-3xl grid-cols-3 bg-white/5">
           <TabsTrigger value="monitoring">Monitoring NadiaVPN</TabsTrigger>
           <TabsTrigger value="order-settings">Pengaturan Order VPN</TabsTrigger>
+          <TabsTrigger value="order-history">Riwayat Order VPN</TabsTrigger>
         </TabsList>
 
         <TabsContent value="monitoring" className="space-y-6">
@@ -383,6 +385,10 @@ export default function AdminNadiaVpn() {
 
         <TabsContent value="order-settings">
           <AdminDynamicVpn />
+        </TabsContent>
+
+        <TabsContent value="order-history">
+          <AdminDynamicVpnOrders />
         </TabsContent>
       </Tabs>
     </div>
