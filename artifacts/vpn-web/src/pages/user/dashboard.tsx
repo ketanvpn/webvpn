@@ -2,7 +2,7 @@ import { useGetDashboardSummary } from "@workspace/api-client-react";
 import { formatRupiah } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { Wallet, Server, ShoppingCart, AlertCircle, ChevronRight, Sparkles, X, Zap, CheckCircle2, Info, Megaphone, AlertTriangle } from "lucide-react";
+import { Wallet, Server, ShoppingCart, AlertCircle, ChevronRight, Sparkles, X, Zap, CheckCircle2, Info, Megaphone, AlertTriangle, ShieldPlus, Package } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
@@ -273,6 +273,28 @@ export default function Dashboard() {
       {user?.role === "user" && !promoRequested && (
         <ReselerPromoBanner onRequest={() => setPromoRequested(true)} />
       )}
+
+      <div className="grid grid-cols-2 gap-3">
+        <Link href="/order-vpn" className="group relative overflow-hidden rounded-2xl border border-primary/30 bg-primary/10 p-4 shadow-[0_0_18px_rgba(16,185,129,0.12)] transition hover:border-primary/60">
+          <div className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-primary/20 blur-2xl" />
+          <div className="relative flex items-center gap-3">
+            <div className="rounded-xl bg-primary/20 p-2 text-primary"><ShieldPlus className="h-5 w-5" /></div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold">Order VPN</p>
+              <p className="text-[11px] text-muted-foreground">Server dynamic</p>
+            </div>
+          </div>
+        </Link>
+        <Link href="/products" className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-primary/40">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-white/5 p-2 text-muted-foreground"><Package className="h-5 w-5" /></div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold">Produk VPN</p>
+              <p className="text-[11px] text-muted-foreground">Paket lama</p>
+            </div>
+          </div>
+        </Link>
+      </div>
 
       {/* Stat Cards — 2 kolom di mobile, 4 di desktop */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

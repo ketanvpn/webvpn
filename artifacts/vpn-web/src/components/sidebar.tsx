@@ -132,12 +132,13 @@ const adminPageTitles: Record<string, string> = {
 
 const mobileBottomNav: NavItem[] = [
   { title: "Beranda", href: "/dashboard", icon: LayoutDashboard },
-  { title: "Produk", href: "/products", icon: Package },
+  { title: "Order", href: "/order-vpn", icon: ShieldPlus },
   { title: "Akun", href: "/accounts", icon: Server },
   { title: "Saldo", href: "/balance", icon: Wallet },
 ];
 
 const mobileMoreNav: NavItem[] = [
+  { title: "Produk VPN", href: "/products", icon: Package },
   { title: "Convert Config", href: "/converter", icon: ArrowRightLeft },
   { title: "Bantuan", href: "/tickets", icon: TicketCheck },
   { title: "Program Poin", href: "/points", icon: Star },

@@ -104,11 +104,11 @@ export default function Accounts() {
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                       <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border shrink-0 ${protocolColor}`}>
                         {account.protocol}
                       </span>
-                      <span className="font-semibold text-sm font-mono truncate">{account.username}</span>
+                      <span className="min-w-0 flex-1 font-semibold text-sm font-mono break-all sm:truncate">{account.username}</span>
                       {!account.isActive && (
                         <Badge variant="destructive" className="text-[9px] h-4 px-1 shrink-0">Nonaktif</Badge>
                       )}
@@ -121,7 +121,7 @@ export default function Accounts() {
                   </div>
 
                   {/* Expiry + Arrow */}
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex flex-col items-end gap-1 shrink-0 text-right sm:flex-row sm:items-center sm:gap-1.5">
                     <ExpiryBadge expiresAt={account.expiresAt} isActive={account.isActive} />
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>
