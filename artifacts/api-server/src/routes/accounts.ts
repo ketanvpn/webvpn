@@ -336,6 +336,52 @@ router.post("/accounts/:id/sync-provider", requireAuth, async (req, res) => {
   res.json(await formatAccount(updated));
 });
 
+router.post("/accounts/:id/renew-dynamic/quote", requireAuth, async (req, res) => {
+  const id = parseInt(req.params.id as string, 10);
+  const userId = req.user!.userId;
+  const durationType = String(req.body?.durationType ?? "").trim().toLowerCase();
+  const duration = parseInt(String(req.body?.duration ?? ""), 10);
+
+  if (!["day", "month"].includes(durationType) || !Number.isInteger(duration) || duration < 1) {
+    res.status(400).json({ error: "Durasi renew tidak valid" });
+    return;
+  }
+
+  const [account] = await db
+    .select()
+    .from(vpnAccountsTable)
+    .where(and(eq(vpnAccountsTable.id, id), eq(vpnAccountsTable.userId, userId)))
+    .limit(1);
+
+  if (!account) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+
+  const [dynamicOrder] = await db
+    .select()
+    .from(dynamicVpnOrdersTable)
+    .where(eq(dynamicVpnOrdersTable.vpnAccountId, account.id))
+    .limit(1);
+
+  if (!dynamicOrder || dynamicOrder.provider !== "nadiavpn") {
+    res.status(400).json({ error: "Quote renew dynamic saat ini hanya mendukung akun NadiaVPN" });
+    return;
+  }
+
+  try {
+    const price = await calculateDynamicRenewAmount({ dynamicServerId: dynamicOrder.dynamicServerId, durationType, duration, userId });
+    res.json({
+      ...price,
+      durationType,
+      duration,
+      durationLabel: `${duration} ${durationType === "day" ? "Hari" : "Bulan"}`,
+    });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Quote renew gagal" });
+  }
+});
+
 router.post("/accounts/:id/renew-dynamic", requireAuth, async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const userId = req.user!.userId;
