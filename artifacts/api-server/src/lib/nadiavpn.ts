@@ -17,6 +17,7 @@ export interface NadiaVpnOrderPayload {
   type: NadiaVpnDurationType;
   duration: number;
   username: string;
+  password?: string;
 }
 
 export interface NadiaVpnRenewPayload {

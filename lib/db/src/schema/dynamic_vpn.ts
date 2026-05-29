@@ -46,6 +46,7 @@ export const dynamicVpnOrdersTable = pgTable("dynamic_vpn_orders", {
   durationType: text("duration_type").notNull(),
   duration: integer("duration").notNull(),
   username: text("username").notNull(),
+  password: text("password"),
   amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
   status: text("status").notNull().default("pending"),
   paymentMethod: text("payment_method").notNull().default("balance"),

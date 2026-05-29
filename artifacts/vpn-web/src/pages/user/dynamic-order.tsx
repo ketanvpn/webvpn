@@ -106,6 +106,7 @@ export default function DynamicOrderPage() {
   const [durationType, setDurationType] = useState("month");
   const [duration, setDuration] = useState("1");
   const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [paidOrderId, setPaidOrderId] = useState<number | null>(null);
 
   const serversQuery = useQuery<{ servers: DynamicServer[] }>({ queryKey: ["dynamic-vpn-servers"], queryFn: () => apiFetch("/dynamic-vpn/servers") });
@@ -126,7 +127,7 @@ export default function DynamicOrderPage() {
       const created = await apiFetch<{ order: { id: number } }>("/dynamic-vpn/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ serverId: selectedServer.id, protocol, durationType, duration: durationNum, username, paymentMethod: "balance" }),
+        body: JSON.stringify({ serverId: selectedServer.id, protocol, durationType, duration: durationNum, username, password: protocol === "ssh" ? password : undefined, paymentMethod: "balance" }),
       });
       return apiFetch<{ order: { id: number; vpnAccountId: number | null } }>(`/dynamic-vpn/orders/${created.order.id}/pay`, { method: "POST" });
     },
@@ -144,6 +145,7 @@ export default function DynamicOrderPage() {
     setDurationType(server.supportedTypes.includes("month") ? "month" : server.supportedTypes[0] ?? "day");
     setDuration("1");
     setUsername("");
+    setPassword("");
     setPaidOrderId(null);
   };
 
@@ -237,6 +239,14 @@ export default function DynamicOrderPage() {
                   </div>
                 </div>
 
+                {protocol === "ssh" && (
+                  <div className="grid gap-2">
+                    <Label>Password SSH</Label>
+                    <Input type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Minimal 6 karakter" />
+                    <p className="text-xs text-muted-foreground">Wajib untuk akun SSH. Password akan disimpan agar user bisa melihatnya di Akun VPN.</p>
+                  </div>
+                )}
+
                 <div className="rounded-2xl border border-primary/20 bg-primary/10 p-4">
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <div className="space-y-1">
@@ -250,7 +260,7 @@ export default function DynamicOrderPage() {
                   </div>
                 </div>
 
-                <Button className="w-full gap-2" disabled={!protocol || !quote || username.length < 5 || orderMut.isPending} onClick={() => orderMut.mutate()}>
+                <Button className="w-full gap-2" disabled={!protocol || !quote || username.length < 5 || (protocol === "ssh" && password.length < 6) || orderMut.isPending} onClick={() => orderMut.mutate()}>
                   {orderMut.isPending ? <><RefreshCw className="h-4 w-4 animate-spin" /> Memproses...</> : <><Wallet className="h-4 w-4" /> Bayar Pakai Saldo</>}
                 </Button>
               </div>

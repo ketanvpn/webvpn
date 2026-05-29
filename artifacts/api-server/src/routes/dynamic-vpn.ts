@@ -177,6 +177,7 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
       type: order.durationType,
       duration: order.duration,
       username: order.username,
+      ...(order.password ? { password: order.password } : {}),
     });
   } catch (error) {
     await db.update(usersTable).set({ balance: sql`balance + ${amount}` }).where(eq(usersTable.id, userId)).catch(() => {});
@@ -198,7 +199,7 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
           orderId: null,
           protocol: normalizeProtocol(data.protocol ?? order.protocol),
           username: data.username ?? order.username,
-          password: data.password ?? null,
+          password: data.password ?? order.password ?? null,
           uuid: data.uuid ?? null,
           serverId: localServerId,
           configLink,
@@ -350,10 +351,15 @@ router.post("/dynamic-vpn/orders", requireAuth, async (req, res) => {
   const durationType = normalizeDurationType(req.body?.durationType);
   const duration = parseInt(String(req.body?.duration ?? ""), 10);
   const username = sanitizeUsername(req.body?.username);
+  const rawPassword = req.body?.password;
+  const password = typeof rawPassword === "string" ? rawPassword.trim() : "";
   const paymentMethod = String(req.body?.paymentMethod ?? "balance");
 
   if (username.length < 5 || !/[a-z]/.test(username) || !/\d{2,}/.test(username)) {
     return sendError(res, 400, "Username minimal 5 karakter, huruf kecil/angka, dan minimal 2 angka");
+  }
+  if (protocol === "ssh" && (password.length < 6 || password.length > 32)) {
+    return sendError(res, 400, "Password SSH wajib diisi 6-32 karakter");
   }
   if (paymentMethod !== "balance") return sendError(res, 400, "Dynamic order saat ini baru mendukung pembayaran saldo");
 
@@ -388,6 +394,7 @@ router.post("/dynamic-vpn/orders", requireAuth, async (req, res) => {
       durationType,
       duration,
       username,
+      password: protocol === "ssh" ? password : null,
       amount: String(quote.amount),
       status: "pending",
       paymentMethod,
