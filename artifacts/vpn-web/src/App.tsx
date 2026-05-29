@@ -49,7 +49,7 @@ import AdminTickets from "@/pages/admin/tickets";
 import AdminTicketDetail from "@/pages/admin/ticket-detail";
 import AdminServerMonitor from "@/pages/admin/server-monitor";
 import AdminNadiaVpn from "@/pages/admin/nadiavpn";
-import AdminDynamicVpn from "@/pages/admin/dynamic-vpn";
+import AdminDynamicVpnHub from "@/pages/admin/dynamic-vpn-hub";
 import AdminVouchers from "@/pages/admin/vouchers";
 import AdminBugPresets from "@/pages/admin/bug-presets";
 
@@ -185,7 +185,7 @@ function Router() {
         <Layout requireAdmin><AdminNadiaVpn /></Layout>
       </Route>
       <Route path="/admin/dynamic-vpn">
-        <Layout requireAdmin><AdminDynamicVpn /></Layout>
+        <Layout requireAdmin><AdminDynamicVpnHub /></Layout>
       </Route>
       <Route path="/admin/vouchers">
         <Layout requireAdmin><AdminVouchers /></Layout>
