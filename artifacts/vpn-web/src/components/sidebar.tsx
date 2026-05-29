@@ -70,11 +70,8 @@ const userNav: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Order VPN", href: "/order-vpn", icon: ShieldPlus },
   { title: "Akun VPN", href: "/accounts", icon: Server },
-  { title: "Convert Config", href: "/converter", icon: ArrowRightLeft },
   { title: "Riwayat Order", href: "/orders", icon: ShoppingCart },
   { title: "Saldo", href: "/balance", icon: Wallet },
-  { title: "Riwayat Saldo", href: "/balance/logs", icon: History },
-  { title: "Program Poin", href: "/points", icon: Star },
   { title: "Bantuan", href: "/tickets", icon: TicketCheck },
   { title: "Profil", href: "/profile", icon: Settings },
 ];
