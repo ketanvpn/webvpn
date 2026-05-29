@@ -9,7 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import AdminDynamicVpn from "./dynamic-vpn";
 
 const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
 
@@ -171,7 +173,14 @@ export default function AdminNadiaVpn() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <Tabs defaultValue="monitoring" className="space-y-6">
+        <TabsList className="grid w-full max-w-xl grid-cols-2 bg-white/5">
+          <TabsTrigger value="monitoring">Monitoring NadiaVPN</TabsTrigger>
+          <TabsTrigger value="order-settings">Pengaturan Order VPN</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="monitoring" className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card className="glass-panel border-cyan-500/20">
           <CardContent className="pt-5">
             <div className="flex items-center justify-between">
@@ -370,6 +379,12 @@ export default function AdminNadiaVpn() {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="order-settings">
+          <AdminDynamicVpn />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

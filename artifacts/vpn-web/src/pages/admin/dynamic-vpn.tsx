@@ -87,8 +87,8 @@ export default function AdminDynamicVpn() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2"><SlidersHorizontal className="text-primary" /> Dynamic VPN</h1>
-          <p className="text-muted-foreground mt-1">Atur server, protocol, harga, dan durasi untuk halaman Order VPN user.</p>
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2"><SlidersHorizontal className="text-primary" /> Pengaturan Order VPN</h1>
+          <p className="text-muted-foreground mt-1">Atur server, protocol, harga, dan durasi yang tampil di halaman Order VPN user.</p>
         </div>
         <Button onClick={() => syncMut.mutate()} disabled={syncMut.isPending} className="gap-2">
           <RefreshCw className={`h-4 w-4 ${syncMut.isPending ? "animate-spin" : ""}`} /> Sync Server NadiaVPN
