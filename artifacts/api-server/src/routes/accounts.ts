@@ -31,6 +31,22 @@ function releaseRenewLock(accountId: number): void {
   renewLocks.delete(accountId);
 }
 
+function pickDisplayHost(allLinks: Record<string, string | null | undefined> | null) {
+  const values = [
+    allLinks?.domain,
+    allLinks?.cloudfront,
+    allLinks?.host,
+    allLinks?.server,
+    allLinks?.sni,
+    allLinks?.servername,
+    allLinks?.hostname,
+  ];
+  return values.find((value) => {
+    const normalized = String(value ?? "").trim().toLowerCase();
+    return normalized && !["no", "none", "null", "undefined", "-"].includes(normalized);
+  }) ?? null;
+}
+
 async function formatAccount(a: typeof vpnAccountsTable.$inferSelect) {
   const [server] = await db
     .select()
@@ -62,7 +78,7 @@ async function formatAccount(a: typeof vpnAccountsTable.$inferSelect) {
     .limit(1);
 
   const allLinks = (a.allLinks ?? null) as Record<string, string | null | undefined> | null;
-  const dynamicHost = allLinks?.domain ?? allLinks?.cloudfront ?? allLinks?.host ?? allLinks?.server ?? allLinks?.sni ?? allLinks?.servername ?? allLinks?.hostname ?? null;
+  const dynamicHost = pickDisplayHost(allLinks);
 
   return {
     id: a.id,
