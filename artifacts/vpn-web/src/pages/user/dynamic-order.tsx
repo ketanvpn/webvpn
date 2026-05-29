@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
-import { CheckCircle2, CreditCard, PackageX, RefreshCw, Server, UserRound, Wallet, Zap } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { CheckCircle2, CreditCard, PackageX, RefreshCw, Server, Tag, UserRound, Wallet, X, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,7 +30,16 @@ type DynamicServer = {
   capacityIsFull: boolean;
 };
 
-type Quote = { unitPrice: number; amount: number; durationLabel: string };
+type Quote = {
+  unitPrice: number;
+  baseAmount: number;
+  amount: number;
+  durationLabel: string;
+  resellerDiscountAmount: number;
+  voucherDiscountAmount: number;
+  discountAmount: number;
+  voucherCode: string | null;
+};
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API}${path}`, { credentials: "include", ...options });
@@ -107,19 +116,62 @@ export default function DynamicOrderPage() {
   const [duration, setDuration] = useState("1");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [voucherInput, setVoucherInput] = useState("");
+  const [appliedVoucher, setAppliedVoucher] = useState("");
+  const [voucherError, setVoucherError] = useState("");
   const [paidOrderId, setPaidOrderId] = useState<number | null>(null);
 
   const serversQuery = useQuery<{ servers: DynamicServer[] }>({ queryKey: ["dynamic-vpn-servers"], queryFn: () => apiFetch("/dynamic-vpn/servers") });
   const servers = serversQuery.data?.servers ?? [];
   const durationNum = parseInt(duration || "0", 10);
 
-  const quote = useMemo<Quote | null>(() => {
+  const localQuote = useMemo<Quote | null>(() => {
     if (!selectedServer || !durationNum || durationNum < 1) return null;
-    if (durationType === "day") {
-      return { unitPrice: selectedServer.sellPricePerDay, amount: selectedServer.sellPricePerDay * durationNum, durationLabel: `${durationNum} Hari` };
-    }
-    return { unitPrice: selectedServer.sellPricePerMonth, amount: selectedServer.sellPricePerMonth * durationNum, durationLabel: `${durationNum} Bulan` };
+    const unitPrice = durationType === "day" ? selectedServer.sellPricePerDay : selectedServer.sellPricePerMonth;
+    const baseAmount = unitPrice * durationNum;
+    return {
+      unitPrice,
+      baseAmount,
+      amount: baseAmount,
+      durationLabel: `${durationNum} ${durationType === "day" ? "Hari" : "Bulan"}`,
+      resellerDiscountAmount: 0,
+      voucherDiscountAmount: 0,
+      discountAmount: 0,
+      voucherCode: null,
+    };
   }, [selectedServer, durationType, durationNum]);
+
+  const quoteQuery = useQuery<Quote>({
+    queryKey: ["dynamic-vpn-quote", selectedServer?.id, durationType, durationNum, appliedVoucher],
+    enabled: !!selectedServer && !!durationNum && durationNum > 0,
+    queryFn: () => apiFetch("/dynamic-vpn/quote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        serverId: selectedServer!.id,
+        protocol,
+        durationType,
+        duration: durationNum,
+        voucherCode: appliedVoucher || undefined,
+      }),
+    }),
+    retry: false,
+  });
+  const quote = quoteQuery.data ?? localQuote;
+
+  useEffect(() => {
+    if (appliedVoucher) {
+      setAppliedVoucher("");
+      setVoucherError("");
+    }
+  }, [selectedServer?.id, durationType, duration]);
+
+  useEffect(() => {
+    if (quoteQuery.error && appliedVoucher) {
+      setVoucherError(quoteQuery.error instanceof Error ? quoteQuery.error.message : "Voucher tidak valid");
+      setAppliedVoucher("");
+    }
+  }, [quoteQuery.error, appliedVoucher]);
 
   const orderMut = useMutation({
     mutationFn: async () => {
@@ -127,13 +179,24 @@ export default function DynamicOrderPage() {
       const created = await apiFetch<{ order: { id: number } }>("/dynamic-vpn/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ serverId: selectedServer.id, protocol, durationType, duration: durationNum, username, password: protocol === "ssh" ? password : undefined, paymentMethod: "balance" }),
+        body: JSON.stringify({
+          serverId: selectedServer.id,
+          protocol,
+          durationType,
+          duration: durationNum,
+          username,
+          password: protocol === "ssh" ? password : undefined,
+          voucherCode: appliedVoucher || undefined,
+          paymentMethod: "balance",
+        }),
       });
       return apiFetch<{ order: { id: number; vpnAccountId: number | null } }>(`/dynamic-vpn/orders/${created.order.id}/pay`, { method: "POST" });
     },
     onSuccess: (data) => {
       setPaidOrderId(data.order.id);
       setSelectedServer(null);
+      setAppliedVoucher("");
+      setVoucherInput("");
       serversQuery.refetch();
       toast({ title: "Order berhasil", description: "Akun VPN sudah dibuat dan masuk ke menu Akun VPN." });
     },
@@ -147,7 +210,23 @@ export default function DynamicOrderPage() {
     setDuration("1");
     setUsername("");
     setPassword("");
+    setVoucherInput("");
+    setAppliedVoucher("");
+    setVoucherError("");
     setPaidOrderId(null);
+  };
+
+  const applyVoucher = () => {
+    const code = voucherInput.trim().toUpperCase();
+    if (!code) return;
+    setVoucherError("");
+    setAppliedVoucher(code);
+  };
+
+  const removeVoucher = () => {
+    setVoucherInput("");
+    setAppliedVoucher("");
+    setVoucherError("");
   };
 
   const durationHelp = selectedServer
@@ -234,7 +313,7 @@ export default function DynamicOrderPage() {
                     <Label>Username VPN</Label>
                     <div className="relative">
                       <UserRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input className="pl-9" value={username} onChange={(e) => setUsername(e.target.value.toLowerCase())} placeholder="contoh: ketan123" />
+                      <Input className="pl-9" value={username} onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ""))} placeholder="contoh: ketan123" />
                     </div>
                     <p className="text-xs text-muted-foreground">Minimal 5 karakter dan minimal 2 angka.</p>
                   </div>
@@ -248,7 +327,40 @@ export default function DynamicOrderPage() {
                   </div>
                 )}
 
-                <div className="rounded-2xl border border-primary/20 bg-primary/10 p-4">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5"><Tag className="h-3.5 w-3.5 text-primary" /> Kode Voucher / Promo</Label>
+                  {appliedVoucher ? (
+                    <div className="flex items-center justify-between rounded-lg border border-green-500/40 bg-green-500/10 px-3 py-2.5">
+                      <div className="flex items-center gap-2 text-sm">
+                        <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                        <span className="font-mono font-semibold text-green-600">{appliedVoucher}</span>
+                        {quote?.voucherDiscountAmount ? <span className="text-muted-foreground">— hemat {rupiah(quote.voucherDiscountAmount)}</span> : null}
+                      </div>
+                      <button onClick={removeVoucher} className="text-muted-foreground hover:text-destructive transition-colors ml-2" aria-label="Hapus voucher">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Masukkan kode voucher"
+                        value={voucherInput}
+                        onChange={(e) => {
+                          setVoucherInput(e.target.value.toUpperCase());
+                          setVoucherError("");
+                        }}
+                        onKeyDown={(e) => e.key === "Enter" && applyVoucher()}
+                        className="font-mono uppercase"
+                      />
+                      <Button variant="outline" onClick={applyVoucher} disabled={!voucherInput.trim() || quoteQuery.isFetching} className="shrink-0">
+                        {quoteQuery.isFetching ? "..." : "Terapkan"}
+                      </Button>
+                    </div>
+                  )}
+                  {voucherError && <p className="text-xs text-destructive">{voucherError}</p>}
+                </div>
+
+                <div className="rounded-2xl border border-primary/20 bg-primary/10 p-4 space-y-3">
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <div className="space-y-1">
                       <p className="text-muted-foreground">{protocol ? protocol.toUpperCase() : "-"} • {quote?.durationLabel ?? "-"}</p>
@@ -259,9 +371,17 @@ export default function DynamicOrderPage() {
                       <p className="text-2xl font-black text-primary">{quote ? rupiah(quote.amount) : "Rp 0"}</p>
                     </div>
                   </div>
+                  {quote && (
+                    <div className="rounded-lg bg-background/60 border border-white/10 p-3 space-y-2 text-sm">
+                      <div className="flex justify-between"><span className="text-muted-foreground">Harga dasar</span><span>{rupiah(quote.baseAmount)}</span></div>
+                      {quote.resellerDiscountAmount > 0 && <div className="flex justify-between text-green-600"><span>Diskon reseller</span><span>- {rupiah(quote.resellerDiscountAmount)}</span></div>}
+                      {quote.voucherDiscountAmount > 0 && <div className="flex justify-between text-green-600"><span>Diskon voucher</span><span>- {rupiah(quote.voucherDiscountAmount)}</span></div>}
+                      <div className="flex justify-between pt-2 border-t font-semibold"><span>Total bayar</span><span>{rupiah(quote.amount)}</span></div>
+                    </div>
+                  )}
                 </div>
 
-                <Button className="w-full gap-2" disabled={!protocol || !quote || username.length < 5 || (protocol === "ssh" && password.length < 6) || orderMut.isPending} onClick={() => orderMut.mutate()}>
+                <Button className="w-full gap-2" disabled={!protocol || !quote || username.length < 5 || (protocol === "ssh" && password.length < 6) || orderMut.isPending || quoteQuery.isFetching} onClick={() => orderMut.mutate()}>
                   {orderMut.isPending ? <><RefreshCw className="h-4 w-4 animate-spin" /> Memproses...</> : <><Wallet className="h-4 w-4" /> Bayar Pakai Saldo</>}
                 </Button>
               </div>

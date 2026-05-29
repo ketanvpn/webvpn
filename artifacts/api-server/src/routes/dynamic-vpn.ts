@@ -5,12 +5,14 @@ import {
   dynamicVpnOrdersTable,
   serversTable,
   usersTable,
+  vouchersTable,
   vpnAccountsTable,
 } from "@workspace/db";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { requireAdmin, requireAuth } from "../lib/auth";
 import { createNadiaVpnOrder, getNadiaVpnServers } from "../lib/nadiavpn";
 import { addBalanceLog } from "./balance-logs";
+import { getResellerSettings } from "./settings";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -72,7 +74,7 @@ function formatServer(row: typeof dynamicProviderServersTable.$inferSelect, admi
   };
 }
 
-function calculateQuote(server: typeof dynamicProviderServersTable.$inferSelect, durationType: string, duration: number) {
+function calculateBaseQuote(server: typeof dynamicProviderServersTable.$inferSelect, durationType: string, duration: number) {
   if (durationType === "day") {
     if (!server.supportedTypes.includes("day")) throw new Error("Server ini tidak mendukung durasi harian");
     if (duration < server.minDays || duration > server.maxDays) {
@@ -80,7 +82,7 @@ function calculateQuote(server: typeof dynamicProviderServersTable.$inferSelect,
     }
     const unitPrice = Number(server.sellPricePerDay ?? 0);
     if (unitPrice <= 0) throw new Error("Harga harian belum diatur admin");
-    return { unitPrice, amount: unitPrice * duration, durationLabel: `${duration} Hari` };
+    return { unitPrice, baseAmount: unitPrice * duration, durationLabel: `${duration} Hari` };
   }
 
   if (durationType === "month") {
@@ -90,10 +92,55 @@ function calculateQuote(server: typeof dynamicProviderServersTable.$inferSelect,
     }
     const unitPrice = Number(server.sellPricePerMonth ?? 0);
     if (unitPrice <= 0) throw new Error("Harga bulanan belum diatur admin");
-    return { unitPrice, amount: unitPrice * duration, durationLabel: `${duration} Bulan` };
+    return { unitPrice, baseAmount: unitPrice * duration, durationLabel: `${duration} Bulan` };
   }
 
   throw new Error("Tipe durasi tidak valid");
+}
+
+async function calculateDynamicPrice(server: typeof dynamicProviderServersTable.$inferSelect, durationType: string, duration: number, userId: number, voucherCode?: unknown) {
+  const base = calculateBaseQuote(server, durationType, duration);
+  let amountAfterReseller = base.baseAmount;
+  let resellerDiscountAmount = 0;
+
+  const [dbUser] = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  if (dbUser?.role === "reseller") {
+    const resellerSettings = await getResellerSettings();
+    if (resellerSettings.resellerEnabled && resellerSettings.resellerDiscountPercent > 0) {
+      resellerDiscountAmount = Math.floor(base.baseAmount * (resellerSettings.resellerDiscountPercent / 100));
+      amountAfterReseller = Math.max(0, base.baseAmount - resellerDiscountAmount);
+    }
+  }
+
+  const code = typeof voucherCode === "string" ? voucherCode.trim().toUpperCase() : "";
+  let voucherId: number | null = null;
+  let voucherDiscountAmount = 0;
+
+  if (code) {
+    const [voucher] = await db.select().from(vouchersTable).where(eq(vouchersTable.code, code)).limit(1);
+    if (!voucher || !voucher.isActive) throw new Error("Voucher tidak valid atau sudah tidak aktif");
+    if (voucher.maxUses && voucher.currentUses >= voucher.maxUses) throw new Error("Voucher telah mencapai batas maksimal penggunaan");
+    if (voucher.expiresAt && new Date() > voucher.expiresAt) throw new Error("Voucher sudah kedaluwarsa");
+
+    voucherId = voucher.id;
+    if (voucher.discountType === "percent") {
+      voucherDiscountAmount = Math.floor(amountAfterReseller * (Number(voucher.discountValue) / 100));
+    } else if (voucher.discountType === "fixed") {
+      voucherDiscountAmount = Number(voucher.discountValue);
+    }
+    voucherDiscountAmount = Math.min(voucherDiscountAmount, amountAfterReseller);
+  }
+
+  const amount = Math.max(0, amountAfterReseller - voucherDiscountAmount);
+  return {
+    ...base,
+    amount,
+    resellerDiscountAmount,
+    voucherDiscountAmount,
+    discountAmount: resellerDiscountAmount + voucherDiscountAmount,
+    voucherId,
+    voucherCode: code || null,
+  };
 }
 
 async function getKetantechProviderServerId() {
@@ -253,6 +300,13 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
           updatedAt: new Date(),
         })
         .where(eq(dynamicVpnOrdersTable.id, orderId));
+
+      if (order.voucherId) {
+        await tx
+          .update(vouchersTable)
+          .set({ currentUses: sql`current_uses + 1`, updatedAt: new Date() })
+          .where(eq(vouchersTable.id, order.voucherId));
+      }
     });
   } catch (error) {
     logger.error({ err: error, orderId }, "[dynamic-vpn] DB insert failed after provider order");
@@ -383,7 +437,8 @@ router.post("/dynamic-vpn/quote", requireAuth, async (req, res) => {
   if (!Number.isInteger(duration) || duration < 1) return sendError(res, 400, "Durasi tidak valid");
 
   try {
-    res.json(calculateQuote(server, durationType, duration));
+    const quote = await calculateDynamicPrice(server, durationType, duration, req.user!.userId, req.body?.voucherCode);
+    res.json(quote);
   } catch (error) {
     sendError(res, 400, error instanceof Error ? error.message : "Quote gagal");
   }
@@ -399,6 +454,7 @@ router.post("/dynamic-vpn/orders", requireAuth, async (req, res) => {
   const rawPassword = req.body?.password;
   const password = typeof rawPassword === "string" ? rawPassword.trim() : "";
   const paymentMethod = String(req.body?.paymentMethod ?? "balance");
+  const voucherCode = req.body?.voucherCode;
 
   if (username.length < 5 || !/[a-z]/.test(username) || !/\d{2,}/.test(username)) {
     return sendError(res, 400, "Username minimal 5 karakter, huruf kecil/angka, dan minimal 2 angka");
@@ -421,7 +477,7 @@ router.post("/dynamic-vpn/orders", requireAuth, async (req, res) => {
 
   let quote;
   try {
-    quote = calculateQuote(server, durationType, duration);
+    quote = await calculateDynamicPrice(server, durationType, duration, userId, voucherCode);
   } catch (error) {
     return sendError(res, 400, error instanceof Error ? error.message : "Quote gagal");
   }
@@ -447,6 +503,8 @@ router.post("/dynamic-vpn/orders", requireAuth, async (req, res) => {
       username,
       password: protocol === "ssh" ? password : null,
       amount: String(quote.amount),
+      voucherId: quote.voucherId,
+      discountAmount: String(quote.discountAmount),
       status: "pending",
       paymentMethod,
     })

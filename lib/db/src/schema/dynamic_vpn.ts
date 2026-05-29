@@ -3,6 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
 import { vpnAccountsTable } from "./vpn_accounts";
+import { vouchersTable } from "./vouchers";
 
 export const dynamicProviderServersTable = pgTable("dynamic_provider_servers", {
   id: serial("id").primaryKey(),
@@ -48,6 +49,8 @@ export const dynamicVpnOrdersTable = pgTable("dynamic_vpn_orders", {
   username: text("username").notNull(),
   password: text("password"),
   amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+  voucherId: integer("voucher_id").references(() => vouchersTable.id),
+  discountAmount: numeric("discount_amount", { precision: 12, scale: 2 }).default("0"),
   status: text("status").notNull().default("pending"),
   paymentMethod: text("payment_method").notNull().default("balance"),
   vpnAccountId: integer("vpn_account_id").references(() => vpnAccountsTable.id),
