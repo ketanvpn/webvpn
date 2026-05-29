@@ -5,7 +5,7 @@ import { eq, and, desc, sql, gte } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { RenewAccountBody } from "@workspace/api-zod";
 import { getResellerSettings } from "./settings";
-import { renewPanelAccount } from "../lib/vpn-panel";
+import { renewPanelAccount, syncPanelAccount } from "../lib/vpn-panel";
 import { getNadiaVpnAccountDetails, renewNadiaVpnAccount } from "../lib/nadiavpn";
 import { sendWhatsapp } from "../lib/fonnte";
 import { addBalanceLog } from "./balance-logs";
@@ -228,6 +228,7 @@ async function formatAccount(a: typeof vpnAccountsTable.$inferSelect) {
       providerServerId: dynamicVpnOrdersTable.providerServerId,
       serverDisplayName: dynamicVpnOrdersTable.serverDisplayName,
       providerAccountId: dynamicVpnOrdersTable.providerAccountId,
+      dynamicServerId: dynamicVpnOrdersTable.dynamicServerId,
     })
     .from(dynamicVpnOrdersTable)
     .where(eq(dynamicVpnOrdersTable.vpnAccountId, a.id))
@@ -364,8 +365,8 @@ router.post("/accounts/:id/renew-dynamic/quote", requireAuth, async (req, res) =
     .where(eq(dynamicVpnOrdersTable.vpnAccountId, account.id))
     .limit(1);
 
-  if (!dynamicOrder || dynamicOrder.provider !== "nadiavpn") {
-    res.status(400).json({ error: "Quote renew dynamic saat ini hanya mendukung akun NadiaVPN" });
+  if (!dynamicOrder || !["nadiavpn", "local_panel"].includes(dynamicOrder.provider)) {
+    res.status(400).json({ error: "Quote renew dynamic tidak tersedia untuk akun ini" });
     return;
   }
 
@@ -416,11 +417,11 @@ router.post("/accounts/:id/renew-dynamic", requireAuth, async (req, res) => {
       .where(eq(dynamicVpnOrdersTable.vpnAccountId, account.id))
       .limit(1);
 
-    if (!dynamicOrder || dynamicOrder.provider !== "nadiavpn") {
-      res.status(400).json({ error: "Renew dynamic saat ini hanya mendukung akun NadiaVPN" });
+    if (!dynamicOrder || !["nadiavpn", "local_panel"].includes(dynamicOrder.provider)) {
+      res.status(400).json({ error: "Renew dynamic tidak tersedia untuk akun ini" });
       return;
     }
-    if (!dynamicOrder.providerAccountId) {
+    if (dynamicOrder.provider === "nadiavpn" && !dynamicOrder.providerAccountId) {
       res.status(400).json({ error: "Account ID provider belum tersimpan untuk akun ini" });
       return;
     }
@@ -432,9 +433,55 @@ router.post("/accounts/:id/renew-dynamic", requireAuth, async (req, res) => {
       return;
     }
 
-    await renewNadiaVpnAccount({ account_id: dynamicOrder.providerAccountId, type: durationType, duration });
-    const synced = await syncNadiaAccountDetails(account);
-    const finalExpiresAt = synced.expiresAt ?? new Date(account.expiresAt.getTime() + (durationType === "day" ? duration : duration * 30) * 24 * 60 * 60 * 1000);
+    let synced = account;
+    let finalExpiresAt = new Date(account.expiresAt.getTime() + (durationType === "day" ? duration : duration * 30) * 24 * 60 * 60 * 1000);
+
+    if (dynamicOrder.provider === "nadiavpn") {
+      await renewNadiaVpnAccount({ account_id: dynamicOrder.providerAccountId!, type: durationType, duration });
+      synced = await syncNadiaAccountDetails(account);
+      finalExpiresAt = synced.expiresAt ?? finalExpiresAt;
+    } else {
+      const [dynamicServer] = await db.select().from(dynamicProviderServersTable).where(eq(dynamicProviderServersTable.id, dynamicOrder.dynamicServerId!)).limit(1);
+      const localServerId = parseInt(String(dynamicServer?.providerServerId ?? account.serverId), 10);
+      const [localServer] = await db.select().from(serversTable).where(eq(serversTable.id, localServerId)).limit(1);
+      if (!localServer || !localServer.isActive) throw new Error("Server sedang tidak aktif");
+      if (!localServer.apiUrl || !localServer.apiToken) throw new Error("API panel server belum diatur");
+
+      await renewPanelAccount({
+        apiUrl: localServer.apiUrl,
+        apiToken: localServer.apiToken,
+        protocol: account.protocol,
+        username: account.username,
+        durationDays: durationType === "day" ? duration : duration * 30,
+        quota: account.quota ? Number(account.quota) : null,
+      });
+
+      const panelInfo = await syncPanelAccount({
+        apiUrl: localServer.apiUrl,
+        apiToken: localServer.apiToken,
+        protocol: account.protocol,
+        username: account.username,
+      }).catch(() => null);
+
+      if (panelInfo) {
+        const mergedLinks = {
+          ...((account.allLinks ?? {}) as Record<string, string | null>),
+          ...((panelInfo.allLinks ?? {}) as Record<string, string | null>),
+          hostname: panelInfo.hostname ?? (account.allLinks as Record<string, string | null> | null)?.hostname ?? null,
+        };
+        const [updatedLocal] = await db
+          .update(vpnAccountsTable)
+          .set({
+            uuid: panelInfo.uuid ?? account.uuid,
+            configLink: panelInfo.configLink ?? account.configLink,
+            allLinks: mergedLinks,
+            updatedAt: new Date(),
+          })
+          .where(eq(vpnAccountsTable.id, account.id))
+          .returning();
+        synced = updatedLocal ?? account;
+      }
+    }
 
     let balanceBefore = 0;
     let balanceAfter = 0;
@@ -461,7 +508,7 @@ router.post("/accounts/:id/renew-dynamic", requireAuth, async (req, res) => {
       amount: -price.amount,
       balanceBefore,
       balanceAfter,
-      description: `Renew dynamic NadiaVPN: ${account.username} (+${duration} ${durationType === "day" ? "hari" : "bulan"})`,
+      description: `Renew dynamic VPN: ${account.username} (+${duration} ${durationType === "day" ? "hari" : "bulan"})`,
       relatedId: account.id,
     }).catch(() => {});
 

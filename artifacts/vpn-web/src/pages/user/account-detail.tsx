@@ -596,6 +596,7 @@ export default function AccountDetail() {
 
   const allLinks = account.allLinks as Record<string, string | null> | null | undefined;
   const dynamicOrder = (account as typeof account & { dynamicOrder?: { provider?: string | null } | null }).dynamicOrder;
+  const isDynamicAccount = dynamicOrder?.provider === "nadiavpn" || dynamicOrder?.provider === "local_panel";
   const isSsh = account.protocol === "ssh";
   const accountHost = pickDisplayHost(allLinks, account.server.host ?? "");
   const hasAllLinks = !isSsh && allLinks && Object.entries(allLinks).some(([key, value]) => !["hostname", "servername", "host", "domain", "server", "cloudfront", "sni"].includes(key) && !!value);
@@ -931,7 +932,7 @@ export default function AccountDetail() {
             </CardHeader>
             <CardContent className="space-y-3">
               {account.isActive && new Date(account.expiresAt) > new Date() && (
-                dynamicOrder?.provider === "nadiavpn" ? (
+                isDynamicAccount ? (
                   <DynamicRenewDialog
                     accountId={accountId}
                     protocol={account.protocol}
