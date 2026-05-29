@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
-import { CheckCircle2, CreditCard, HardDrive, PackageX, RefreshCw, Server, Shield, UserRound, Wallet, Zap } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { CheckCircle2, CreditCard, PackageX, RefreshCw, Server, Shield, UserRound, Wallet, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,15 +44,15 @@ function rupiah(value: number) {
 
 function countryFlag(location?: string | null) {
   const loc = (location ?? "").toUpperCase();
-  if (loc.includes("SG")) return "🇸🇬";
-  if (loc.includes("ID")) return "🇮🇩";
+  if (loc === "SG" || loc.includes("SINGAPORE") || loc.includes("SG-")) return "🇸🇬";
+  if (loc === "ID" || loc.includes("INDONESIA") || loc.includes("ID-")) return "🇮🇩";
   return "🌐";
 }
 
 function ServerCard({ server, active, onSelect }: { server: DynamicServer; active: boolean; onSelect: () => void }) {
   return (
     <div className={`relative flex flex-col rounded-xl overflow-hidden transition-all duration-300 border ${active ? "border-primary/60 shadow-[0_0_18px_rgba(16,185,129,0.18)]" : "border-white/5 hover:border-primary/30"} glass-card`}>
-      <div className="p-4 flex gap-3">
+      <button type="button" onClick={onSelect} className="p-4 flex gap-3 text-left w-full">
         <div className="flex flex-col items-center gap-1.5 w-16 shrink-0">
           <div className="w-12 h-12 rounded-xl bg-white/90 flex items-center justify-center text-3xl shadow-lg border border-white/20">
             {countryFlag(server.location)}
@@ -78,11 +78,11 @@ function ServerCard({ server, active, onSelect }: { server: DynamicServer; activ
 
         <div className="flex flex-col items-end justify-between shrink-0 py-0.5">
           <Badge variant="outline" className="text-[9px] border-white/10 bg-white/5">MAX 3 IP</Badge>
-          <Button size="sm" className="h-8 px-3 text-xs shadow-[0_0_10px_rgba(16,185,129,0.2)]" onClick={onSelect}>
-            <CreditCard className="h-3.5 w-3.5 mr-1" /> Order
-          </Button>
+          <span className={`mt-4 h-8 px-3 rounded-md text-xs font-semibold inline-flex items-center justify-center ${active ? "bg-primary text-primary-foreground" : "bg-primary/90 text-primary-foreground"}`}>
+            <CreditCard className="h-3.5 w-3.5 mr-1" /> {active ? "Dipilih" : "Order"}
+          </span>
         </div>
-      </div>
+      </button>
 
       <div className="grid grid-cols-2 gap-3 p-3 bg-black/20 border-t border-white/5">
         <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center">
@@ -100,6 +100,7 @@ function ServerCard({ server, active, onSelect }: { server: DynamicServer; activ
 
 export default function DynamicOrderPage() {
   const { toast } = useToast();
+  const configRef = useRef<HTMLDivElement>(null);
   const [serverId, setServerId] = useState("");
   const [protocol, setProtocol] = useState("");
   const [durationType, setDurationType] = useState("month");
@@ -132,6 +133,7 @@ export default function DynamicOrderPage() {
     onSuccess: (data) => {
       setPaidOrderId(data.order.id);
       toast({ title: "Order berhasil", description: "Akun VPN sudah dibuat dan masuk ke menu Akun VPN." });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     },
     onError: (err: unknown) => toast({ title: "Order gagal", description: err instanceof Error ? err.message : "Gagal membuat order", variant: "destructive" }),
   });
@@ -141,6 +143,7 @@ export default function DynamicOrderPage() {
     setProtocol(server.enabledProtocols?.[0] ?? "");
     if (!server.supportedTypes.includes(durationType)) setDurationType(server.supportedTypes[0] ?? "month");
     setPaidOrderId(null);
+    window.setTimeout(() => configRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
   };
 
   const durationHelp = selectedServer
@@ -150,7 +153,7 @@ export default function DynamicOrderPage() {
     : "Pilih server dahulu";
 
   return (
-    <div className="space-y-4 pb-8">
+    <div className="space-y-4 pb-24 lg:pb-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Order VPN</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Pilih server premium, lalu atur protocol dan durasi sesuai kebutuhanmu.</p>
@@ -163,7 +166,7 @@ export default function DynamicOrderPage() {
       )}
 
       {serversQuery.isLoading ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-36 w-full rounded-xl" />)}
         </div>
       ) : servers.length === 0 ? (
@@ -172,7 +175,7 @@ export default function DynamicOrderPage() {
           <p className="text-sm text-muted-foreground">Belum ada server aktif. Hubungi admin.</p>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {servers.map((server) => (
             <ServerCard key={server.id} server={server} active={serverId === String(server.id)} onSelect={() => selectServer(server)} />
           ))}
@@ -180,7 +183,7 @@ export default function DynamicOrderPage() {
       )}
 
       {selectedServer && (
-        <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
+        <div ref={configRef} className="scroll-mt-20 grid gap-4 lg:grid-cols-[1fr_340px]">
           <Card className="glass-panel border-white/5">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2"><Shield className="h-5 w-5 text-primary" /> Konfigurasi Order</CardTitle>
@@ -225,7 +228,7 @@ export default function DynamicOrderPage() {
             </CardContent>
           </Card>
 
-          <Card className="glass-panel border-primary/20 h-fit">
+          <Card className="glass-panel border-primary/20 h-fit lg:sticky lg:top-6">
             <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Wallet className="h-5 w-5 text-primary" /> Ringkasan</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2 text-sm">
@@ -239,6 +242,20 @@ export default function DynamicOrderPage() {
               </Button>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {selectedServer && quote && (
+        <div className="lg:hidden fixed bottom-16 left-0 right-0 z-40 px-4 pointer-events-none">
+          <div className="glass-panel border-primary/30 rounded-2xl p-3 shadow-2xl pointer-events-auto flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] text-muted-foreground">Total Bayar</p>
+              <p className="text-lg font-black text-primary">{rupiah(quote.amount)}</p>
+            </div>
+            <Button size="sm" disabled={!serverId || !protocol || username.length < 5 || orderMut.isPending} onClick={() => orderMut.mutate()}>
+              {orderMut.isPending ? "Memproses..." : "Bayar"}
+            </Button>
+          </div>
         </div>
       )}
     </div>
