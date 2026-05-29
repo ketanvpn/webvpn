@@ -400,7 +400,7 @@ function DynamicRenewDialog({ accountId, protocol, serverName, serverFlag, serve
         <DialogHeader>
           <DialogTitle>Perpanjang Akun Dynamic</DialogTitle>
           <DialogDescription>
-            Renew akun NadiaVPN langsung ke provider. Harga final dihitung dari pengaturan server dynamic dan saldo akan dipotong setelah provider berhasil.
+            Pilih durasi perpanjangan akun. Pastikan nominal pembayaran sudah sesuai sebelum konfirmasi renew.
           </DialogDescription>
         </DialogHeader>
 
