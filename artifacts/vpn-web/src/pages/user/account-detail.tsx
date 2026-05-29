@@ -18,6 +18,17 @@ import { getApiError } from "@/lib/utils";
 
 const LINK_ORDER = ["tls", "none", "grpc", "uptls", "upntls"];
 
+const SSH_WS_PAYLOADS = [
+  {
+    title: "CDN",
+    payload: "GET / HTTP/1.1[crlf]Host: [host_port][crlf]User-Agent: [ua][crlf]Upgrade: websocket[crlf][crlf]",
+  },
+  {
+    title: "WITHPATH",
+    payload: "GET /worryfree/ssh HTTP/1.1[crlf]Host: BUG[crlf]User-Agent: [ua][crlf]Upgrade: websocket[crlf][crlf]",
+  },
+];
+
 const LINK_LABELS: Record<string, string> = {
   tls: "WS TLS",
   none: "WS No TLS",
@@ -324,7 +335,6 @@ export default function AccountDetail() {
   const sshHost = accountHost;
   const sshPortText = [allLinks?.port_tls, allLinks?.port_none].filter(Boolean).join(" / ") || "22 / 443";
   const sshDetails = [
-    { label: "Hostname", value: allLinks?.hostname },
     { label: "Server Name / SNI", value: allLinks?.servername },
     { label: "Port TLS", value: allLinks?.port_tls },
     { label: "Port Non TLS", value: allLinks?.port_none },
@@ -410,65 +420,58 @@ export default function AccountDetail() {
                 <h3 className="font-semibold text-lg border-b pb-2">Detail Koneksi</h3>
 
                 <div className="space-y-4">
-                  {!isSsh && account.uuid && (
-                    <div className="space-y-1.5">
-                      <Label>UUID</Label>
-                      <div className="flex min-w-0 gap-2">
-                        <Input value={account.uuid} readOnly className="font-mono bg-muted/50" />
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => copyToClipboard(account.uuid!, "UUID")}
-                          title="Salin UUID"
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      </div>
+                  <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-3">
+                    <div>
+                      <div className="text-sm font-semibold text-emerald-300">Data Akun {account.protocol.toUpperCase()}</div>
+                      <p className="text-xs text-muted-foreground">Salin data utama ini ke aplikasi VPN kamu agar tidak tertukar.</p>
                     </div>
-                  )}
-
-                  {account.protocol === "ssh" && account.password && (
-                    <div className="space-y-1.5">
-                      <Label>Password SSH</Label>
-                      <div className="flex min-w-0 gap-2">
-                        <Input value={account.password} readOnly className="font-mono bg-muted/50" />
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => copyToClipboard(account.password!, "Password")}
-                          title="Salin Password"
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5 min-w-0">
+                        <Label>Host / IP</Label>
+                        <div className="flex min-w-0 gap-2">
+                          <Input value={accountHost} readOnly className="min-w-0 font-mono bg-muted/50 text-sm" />
+                          {accountHost && (
+                            <Button variant="outline" size="icon" className="shrink-0" onClick={() => copyToClipboard(accountHost, "Host")} title="Salin Host">
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
-
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-1.5 min-w-0">
-                      <Label>Host / IP</Label>
-                      <div className="flex min-w-0 gap-2">
-                        <Input value={accountHost} readOnly className="min-w-0 font-mono bg-muted/50 text-sm" />
-                        {accountHost && (
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="shrink-0"
-                            onClick={() => copyToClipboard(accountHost, "Host")}
-                            title="Salin Host"
-                          >
+                      <div className="space-y-1.5 min-w-0">
+                        <Label>Username</Label>
+                        <div className="flex min-w-0 gap-2">
+                          <Input value={account.username} readOnly className="min-w-0 font-mono bg-muted/50 text-sm" />
+                          <Button variant="outline" size="icon" className="shrink-0" onClick={() => copyToClipboard(account.username, "Username")} title="Salin Username">
                             <Copy className="h-4 w-4" />
                           </Button>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                    <div className="space-y-1.5 min-w-0">
-                      <Label>Port TLS / Non TLS</Label>
-                      <Input
-                        value={isSsh ? sshPortText : "443 / 80"}
-                        readOnly
-                        className="min-w-0 font-mono bg-muted/50 text-sm"
-                      />
+                      {account.password && (
+                        <div className="space-y-1.5 min-w-0">
+                          <Label>Password</Label>
+                          <div className="flex min-w-0 gap-2">
+                            <Input value={account.password} readOnly className="min-w-0 font-mono bg-muted/50 text-sm" />
+                            <Button variant="outline" size="icon" className="shrink-0" onClick={() => copyToClipboard(account.password!, "Password")} title="Salin Password">
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      {!isSsh && account.uuid && (
+                        <div className="space-y-1.5 min-w-0">
+                          <Label>UUID</Label>
+                          <div className="flex min-w-0 gap-2">
+                            <Input value={account.uuid} readOnly className="min-w-0 font-mono bg-muted/50 text-sm" />
+                            <Button variant="outline" size="icon" className="shrink-0" onClick={() => copyToClipboard(account.uuid!, "UUID")} title="Salin UUID">
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      <div className="space-y-1.5 min-w-0">
+                        <Label>Port TLS / Non TLS</Label>
+                        <Input value={isSsh ? sshPortText : "443 / 80"} readOnly className="min-w-0 font-mono bg-muted/50 text-sm" />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -613,6 +616,39 @@ export default function AccountDetail() {
                         <Copy className="h-4 w-4" />
                       </Button>
                     </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {isSsh && (
+            <Card className="glass-panel overflow-hidden border-cyan-500/30 shadow-[0_0_20px_rgba(34,211,238,0.08)]">
+              <CardHeader className="border-b border-white/5 pb-4">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-cyan-300" />
+                  PAYLOAD WEBSOCKET
+                </CardTitle>
+                <CardDescription>Payload umum untuk konfigurasi SSH WebSocket.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {SSH_WS_PAYLOADS.map((item) => (
+                  <div key={item.title} className="space-y-2 rounded-lg border bg-background p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="text-xs font-bold uppercase tracking-wider text-cyan-300">{item.title}</Label>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 shrink-0 gap-1 px-2 text-xs"
+                        onClick={() => copyToClipboard(item.payload, `Payload ${item.title}`)}
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        Salin
+                      </Button>
+                    </div>
+                    <pre className="min-w-0 whitespace-pre-wrap break-all rounded-md bg-muted/50 p-3 font-mono text-xs leading-relaxed text-muted-foreground">
+                      {item.payload}
+                    </pre>
                   </div>
                 ))}
               </CardContent>
