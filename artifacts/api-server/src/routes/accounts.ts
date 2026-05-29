@@ -6,6 +6,7 @@ import { requireAuth } from "../lib/auth";
 import { RenewAccountBody } from "@workspace/api-zod";
 import { getResellerSettings } from "./settings";
 import { renewPanelAccount } from "../lib/vpn-panel";
+import { getNadiaVpnAccountDetails } from "../lib/nadiavpn";
 import { sendWhatsapp } from "../lib/fonnte";
 import { addBalanceLog } from "./balance-logs";
 import { format } from "date-fns";
@@ -45,6 +46,53 @@ function pickDisplayHost(allLinks: Record<string, string | null | undefined> | n
     const normalized = String(value ?? "").trim().toLowerCase();
     return normalized && !["no", "none", "null", "undefined", "-"].includes(normalized);
   }) ?? null;
+}
+
+function stringifyConfigValue(value: unknown): string | null {
+  if (value === undefined || value === null || value === "") return null;
+  return String(value);
+}
+
+function parseNadiaExpireAt(value: unknown, fallback: Date) {
+  if (typeof value !== "string" || !value.trim()) return fallback;
+  const parsed = new Date(value.replace(" ", "T") + "+07:00");
+  return Number.isNaN(parsed.getTime()) ? fallback : parsed;
+}
+
+function extractNadiaAccountDetails(response: any): Record<string, string | null> | null {
+  const data = response?.data ?? {};
+  const config = data.config_data ?? data.config;
+  if (!config || typeof config !== "object") return null;
+
+  const serverInfo = data.server && typeof data.server === "object" ? data.server : {};
+  const port = config.port && typeof config.port === "object" ? config.port : {};
+  const payloadws = config.payloadws && typeof config.payloadws === "object" ? config.payloadws : {};
+  const details: Record<string, string | null> = {
+    hostname: stringifyConfigValue(config.hostname ?? data.hostname),
+    servername: stringifyConfigValue(config.servername ?? data.servername),
+    domain: stringifyConfigValue(serverInfo.domain ?? config.domain ?? data.domain),
+    host: stringifyConfigValue(config.host ?? data.host),
+    cloudfront: stringifyConfigValue(config.cloudfront ?? data.cloudfront),
+    sni: stringifyConfigValue(config.sni ?? data.sni),
+    pubkey: stringifyConfigValue(config.pubkey),
+    isp: stringifyConfigValue(config.ISP),
+    city: stringifyConfigValue(config.CITY),
+    port_tls: stringifyConfigValue(port.tls),
+    port_none: stringifyConfigValue(port.none),
+    port_any: stringifyConfigValue(port.any),
+    openvpn_tcp: stringifyConfigValue(port.ovpntcp),
+    openvpn_udp: stringifyConfigValue(port.ovpnudp),
+    slowdns: stringifyConfigValue(port.slowdns),
+    ssh_ohp: stringifyConfigValue(port.sshohp),
+    ovpn_ohp: stringifyConfigValue(port.ovpnohp),
+    squid: stringifyConfigValue(port.squid),
+    udp_custom: stringifyConfigValue(port.udpcustom),
+    udpgw: stringifyConfigValue(port.udpgw),
+    payload_cdn: stringifyConfigValue(payloadws.payloadcdn),
+    payload_with_path: stringifyConfigValue(payloadws.payloadwithpath),
+  };
+
+  return Object.values(details).some(Boolean) ? details : null;
 }
 
 async function formatAccount(a: typeof vpnAccountsTable.$inferSelect) {
@@ -142,6 +190,79 @@ router.get("/accounts/:id", requireAuth, async (req, res) => {
   }
 
   res.json(await formatAccount(account));
+});
+
+router.post("/accounts/:id/sync-provider", requireAuth, async (req, res) => {
+  const id = parseInt(req.params.id as string, 10);
+  const userId = req.user!.userId;
+
+  const [account] = await db
+    .select()
+    .from(vpnAccountsTable)
+    .where(and(eq(vpnAccountsTable.id, id), eq(vpnAccountsTable.userId, userId)))
+    .limit(1);
+
+  if (!account) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+
+  const [dynamicOrder] = await db
+    .select()
+    .from(dynamicVpnOrdersTable)
+    .where(eq(dynamicVpnOrdersTable.vpnAccountId, account.id))
+    .limit(1);
+
+  if (!dynamicOrder || dynamicOrder.provider !== "nadiavpn") {
+    res.status(400).json({ error: "Akun ini bukan akun dynamic NadiaVPN" });
+    return;
+  }
+
+  if (!dynamicOrder.providerAccountId) {
+    res.status(400).json({ error: "Account ID provider belum tersimpan untuk akun ini" });
+    return;
+  }
+
+  const detailResponse: any = await getNadiaVpnAccountDetails(dynamicOrder.providerAccountId);
+  const details = extractNadiaAccountDetails(detailResponse);
+  if (!details) {
+    res.status(502).json({ error: "Detail provider tidak berisi config akun" });
+    return;
+  }
+
+  const data = detailResponse?.data ?? {};
+  const config = data.config_data ?? data.config ?? {};
+  const mergedLinks = {
+    ...((account.allLinks ?? {}) as Record<string, string | null>),
+    ...details,
+  };
+  const expiresAt = parseNadiaExpireAt(data.expire_at, account.expiresAt);
+
+  const [updated] = await db
+    .update(vpnAccountsTable)
+    .set({
+      username: data.username ?? config.username ?? account.username,
+      password: data.password ?? config.password ?? account.password,
+      uuid: data.uuid ?? config.uuid ?? account.uuid,
+      allLinks: mergedLinks,
+      expiresAt,
+      updatedAt: new Date(),
+    })
+    .where(eq(vpnAccountsTable.id, account.id))
+    .returning();
+
+  await db
+    .update(dynamicVpnOrdersTable)
+    .set({
+      providerResponse: {
+        previous: dynamicOrder.providerResponse ?? null,
+        syncedDetails: detailResponse,
+      },
+      updatedAt: new Date(),
+    })
+    .where(eq(dynamicVpnOrdersTable.id, dynamicOrder.id));
+
+  res.json(await formatAccount(updated));
 });
 
 router.post("/accounts/:id/renew", requireAuth, async (req, res) => {

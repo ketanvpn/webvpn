@@ -11,10 +11,12 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { formatRupiah } from "@/lib/format";
 import { useState } from "react";
 import { getApiError } from "@/lib/utils";
+
+const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
 
 const LINK_ORDER = ["tls", "none", "grpc", "uptls", "upntls"];
 
@@ -325,6 +327,26 @@ export default function AccountDetail() {
     });
   };
 
+  const queryClient = useQueryClient();
+  const syncProviderMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${API}/accounts/${accountId}/sync-provider`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const body = await res.json().catch(() => ({ error: "Response tidak valid" }));
+      if (!res.ok) throw new Error(body?.error ?? "Gagal sync detail provider");
+      return body;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey(accountId) });
+      toast({ title: "Detail provider diperbarui", description: "Data akun berhasil disinkronkan dari NadiaVPN." });
+    },
+    onError: (err: unknown) => {
+      toast({ title: "Sync gagal", description: err instanceof Error ? err.message : "Gagal sync detail provider", variant: "destructive" });
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="space-y-6 max-w-4xl mx-auto">
@@ -346,6 +368,7 @@ export default function AccountDetail() {
   }
 
   const allLinks = account.allLinks as Record<string, string | null> | null | undefined;
+  const dynamicOrder = (account as typeof account & { dynamicOrder?: { provider?: string | null } | null }).dynamicOrder;
   const isSsh = account.protocol === "ssh";
   const accountHost = pickDisplayHost(allLinks, account.server.host ?? "");
   const hasAllLinks = !isSsh && allLinks && Object.entries(allLinks).some(([key, value]) => !["hostname", "servername", "host", "domain", "server", "cloudfront", "sni"].includes(key) && !!value);
@@ -690,6 +713,17 @@ export default function AccountDetail() {
                   serverLocation={account.server.location}
                   serverIsActive={account.server.isActive}
                 />
+              )}
+              {dynamicOrder?.provider === "nadiavpn" && (
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={() => syncProviderMutation.mutate()}
+                  disabled={syncProviderMutation.isPending}
+                >
+                  <RefreshCw className={`h-4 w-4 ${syncProviderMutation.isPending ? "animate-spin" : ""}`} />
+                  {syncProviderMutation.isPending ? "Sync Detail..." : "Sync Detail Provider"}
+                </Button>
               )}
               {account.orderId && (
                 <Button variant="outline" className="w-full" asChild>
