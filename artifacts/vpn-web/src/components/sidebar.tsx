@@ -32,6 +32,7 @@ import {
   Bug,
   ArrowRightLeft,
   Cloud,
+  ShieldPlus,
 } from "lucide-react";
 import {
   Sheet,
@@ -68,6 +69,7 @@ type NavItem = {
 const userNav: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Produk VPN", href: "/products", icon: Package },
+  { title: "Order VPN", href: "/order-vpn", icon: ShieldPlus },
   { title: "Akun VPN", href: "/accounts", icon: Server },
   { title: "Convert Config", href: "/converter", icon: ArrowRightLeft },
   { title: "Riwayat Order", href: "/orders", icon: ShoppingCart },
@@ -94,6 +96,7 @@ const adminNav: NavItem[] = [
   { title: "Notifikasi Kedaluwarsa", href: "/admin/settings/expiry-notif", icon: Bell },
   { title: "Monitor Server", href: "/admin/server-monitor", icon: Activity },
   { title: "NadiaVPN", href: "/admin/nadiavpn", icon: Cloud },
+  { title: "Dynamic VPN", href: "/admin/dynamic-vpn", icon: ShieldPlus },
   { title: "Voucher / Kode Promo", href: "/admin/vouchers", icon: Tag },
   { title: "Tiket Bantuan", href: "/admin/tickets", icon: TicketCheck, badgeKey: "pendingTickets" },
   { title: "Pengumuman", href: "/admin/announcements", icon: Megaphone },
@@ -119,6 +122,7 @@ const adminPageTitles: Record<string, string> = {
   "/admin/settings/expiry-notif": "Notifikasi Kedaluwarsa",
   "/admin/server-monitor": "Monitor Server",
   "/admin/nadiavpn": "NadiaVPN",
+  "/admin/dynamic-vpn": "Dynamic VPN",
   "/admin/vouchers": "Voucher / Kode Promo",
   "/admin/tickets": "Tiket Bantuan",
   "/admin/announcements": "Pengumuman",

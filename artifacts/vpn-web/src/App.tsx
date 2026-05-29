@@ -25,6 +25,7 @@ import UserPoints from "@/pages/user/points";
 import UserTickets from "@/pages/user/tickets";
 import UserTicketDetail from "@/pages/user/ticket-detail";
 import ConfigConverter from "@/pages/user/converter";
+import DynamicOrderPage from "@/pages/user/dynamic-order";
 
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminUsers from "@/pages/admin/users";
@@ -48,6 +49,7 @@ import AdminTickets from "@/pages/admin/tickets";
 import AdminTicketDetail from "@/pages/admin/ticket-detail";
 import AdminServerMonitor from "@/pages/admin/server-monitor";
 import AdminNadiaVpn from "@/pages/admin/nadiavpn";
+import AdminDynamicVpn from "@/pages/admin/dynamic-vpn";
 import AdminVouchers from "@/pages/admin/vouchers";
 import AdminBugPresets from "@/pages/admin/bug-presets";
 
@@ -110,6 +112,9 @@ function Router() {
       </Route>
       <Route path="/converter">
         <Layout><ConfigConverter /></Layout>
+      </Route>
+      <Route path="/order-vpn">
+        <Layout><DynamicOrderPage /></Layout>
       </Route>
 
       {/* Admin Routes */}
@@ -178,6 +183,9 @@ function Router() {
       </Route>
       <Route path="/admin/nadiavpn">
         <Layout requireAdmin><AdminNadiaVpn /></Layout>
+      </Route>
+      <Route path="/admin/dynamic-vpn">
+        <Layout requireAdmin><AdminDynamicVpn /></Layout>
       </Route>
       <Route path="/admin/vouchers">
         <Layout requireAdmin><AdminVouchers /></Layout>
