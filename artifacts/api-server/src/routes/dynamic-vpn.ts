@@ -57,6 +57,7 @@ function formatServer(row: typeof dynamicProviderServersTable.$inferSelect, admi
     capacityLimit: row.capacityLimit,
     capacityUsed: row.capacityUsed,
     capacityIsFull: row.capacityIsFull,
+    maxConnections: row.maxConnections,
     sortOrder: row.sortOrder,
   };
 
@@ -361,6 +362,7 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
         password: order.password ?? undefined,
         durationDays: getDurationDays(order.durationType, order.duration),
         uuid: randomUUID(),
+        maxConnections: server.maxConnections ?? null,
       });
 
       rollbackPanelAccount = {
@@ -607,6 +609,7 @@ async function syncLocalPanelServers() {
       capacityLimit: capacityLimit > 0 ? String(capacityLimit) : null,
       capacityUsed,
       capacityIsFull,
+      maxConnections: existing?.maxConnections ?? 0,
       isActive: existing?.isActive ?? false,
       sortOrder: existing?.sortOrder ?? srv.sortOrder ?? 0,
       lastSyncedAt: now,
@@ -689,6 +692,7 @@ router.patch("/admin/dynamic-vpn/servers/:id", requireAdmin, async (req, res) =>
   if (body.maxDays !== undefined) update.maxDays = Math.max(1, parseInt(String(body.maxDays), 10));
   if (body.minMonths !== undefined) update.minMonths = Math.max(1, parseInt(String(body.minMonths), 10));
   if (body.maxMonths !== undefined) update.maxMonths = Math.max(1, parseInt(String(body.maxMonths), 10));
+  if (body.maxConnections !== undefined) update.maxConnections = Math.max(0, parseInt(String(body.maxConnections), 10) || 0);
   if (body.sortOrder !== undefined) update.sortOrder = parseInt(String(body.sortOrder), 10) || 0;
 
   const [row] = await db.update(dynamicProviderServersTable).set(update).where(eq(dynamicProviderServersTable.id, id)).returning();

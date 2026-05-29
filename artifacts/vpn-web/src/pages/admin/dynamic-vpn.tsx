@@ -34,6 +34,7 @@ type DynamicServer = {
   capacityLimit: string | null;
   capacityUsed: number;
   capacityIsFull: boolean;
+  maxConnections: number;
 };
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
@@ -165,6 +166,13 @@ export default function AdminDynamicVpn() {
                     <div className="grid gap-2"><Label>Harga jual / bulan</Label><Input type="number" value={s.sellPricePerMonth} onChange={(e) => setDraft(server.id, { sellPricePerMonth: Number(e.target.value) })} /><p className="text-xs text-muted-foreground">Modal: {rupiah(server.costPerMonth)}</p></div>
                     <div className="grid grid-cols-2 gap-2"><div><Label>Min hari</Label><Input type="number" value={s.minDays} onChange={(e) => setDraft(server.id, { minDays: Number(e.target.value) })} /></div><div><Label>Max hari</Label><Input type="number" value={s.maxDays} onChange={(e) => setDraft(server.id, { maxDays: Number(e.target.value) })} /></div></div>
                     <div className="grid grid-cols-2 gap-2"><div><Label>Min bulan</Label><Input type="number" value={s.minMonths} onChange={(e) => setDraft(server.id, { minMonths: Number(e.target.value) })} /></div><div><Label>Max bulan</Label><Input type="number" value={s.maxMonths} onChange={(e) => setDraft(server.id, { maxMonths: Number(e.target.value) })} /></div></div>
+                    {server.provider === "local_panel" && (
+                      <div className="grid gap-2 sm:col-span-2">
+                        <Label>Limit IP</Label>
+                        <Input type="number" min={0} value={s.maxConnections ?? 0} onChange={(e) => setDraft(server.id, { maxConnections: Math.max(0, Number(e.target.value) || 0) })} />
+                        <p className="text-xs text-muted-foreground">0 = unlimited. Berlaku untuk akun baru dari Server Saya.</p>
+                      </div>
+                    )}
                   </div>
 
                   <Button disabled={!dirty || saveMut.isPending} onClick={() => saveMut.mutate({ id: server.id, data: drafts[server.id] })} className="gap-2"><Save className="h-4 w-4" /> Simpan Server</Button>

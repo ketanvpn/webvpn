@@ -30,6 +30,7 @@ export const dynamicProviderServersTable = pgTable("dynamic_provider_servers", {
   capacityLimit: text("capacity_limit"),
   capacityUsed: integer("capacity_used").notNull().default(0),
   capacityIsFull: boolean("capacity_is_full").notNull().default(false),
+  maxConnections: integer("max_connections").notNull().default(0),
   sortOrder: integer("sort_order").notNull().default(0),
   lastSyncedAt: timestamp("last_synced_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
