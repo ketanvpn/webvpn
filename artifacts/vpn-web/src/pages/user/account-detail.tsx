@@ -330,8 +330,8 @@ export default function AccountDetail() {
 
   const allLinks = account.allLinks as Record<string, string | null> | null | undefined;
   const isSsh = account.protocol === "ssh";
-  const accountHost = allLinks?.hostname ?? account.server.host ?? "";
-  const hasAllLinks = !isSsh && allLinks && Object.entries(allLinks).some(([key, value]) => !["hostname", "servername"].includes(key) && !!value);
+  const accountHost = allLinks?.hostname ?? allLinks?.host ?? allLinks?.domain ?? allLinks?.server ?? allLinks?.cloudfront ?? allLinks?.sni ?? allLinks?.servername ?? account.server.host ?? "";
+  const hasAllLinks = !isSsh && allLinks && Object.entries(allLinks).some(([key, value]) => !["hostname", "servername", "host", "domain", "server", "cloudfront", "sni"].includes(key) && !!value);
   const sshHost = accountHost;
   const sshPortText = [allLinks?.port_tls, allLinks?.port_none].filter(Boolean).join(" / ") || "22 / 443";
   const sshDetails = [
@@ -493,7 +493,7 @@ export default function AccountDetail() {
                   <div className="space-y-4">
                     {[
                       ...LINK_ORDER.filter(k => !!allLinks![k]),
-                      ...Object.keys(allLinks!).filter(k => !LINK_ORDER.includes(k) && !["hostname", "servername"].includes(k) && !!allLinks![k]),
+                      ...Object.keys(allLinks!).filter(k => !LINK_ORDER.includes(k) && !["hostname", "servername", "host", "domain", "server", "cloudfront", "sni"].includes(k) && !!allLinks![k]),
                     ].map((key) => {
                       const link = allLinks![key];
                       if (!link) return null;

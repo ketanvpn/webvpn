@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { vpnAccountsTable, serversTable, ordersTable, productsTable, usersTable } from "@workspace/db";
+import { vpnAccountsTable, serversTable, ordersTable, productsTable, usersTable, dynamicVpnOrdersTable } from "@workspace/db";
 import { eq, and, desc, sql, gte } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { RenewAccountBody } from "@workspace/api-zod";
@@ -49,24 +49,49 @@ async function formatAccount(a: typeof vpnAccountsTable.$inferSelect) {
     productName = row?.productName ?? null;
   }
 
+  const [dynamicOrder] = await db
+    .select({
+      id: dynamicVpnOrdersTable.id,
+      provider: dynamicVpnOrdersTable.provider,
+      providerServerId: dynamicVpnOrdersTable.providerServerId,
+      serverDisplayName: dynamicVpnOrdersTable.serverDisplayName,
+      providerAccountId: dynamicVpnOrdersTable.providerAccountId,
+    })
+    .from(dynamicVpnOrdersTable)
+    .where(eq(dynamicVpnOrdersTable.vpnAccountId, a.id))
+    .limit(1);
+
+  const allLinks = (a.allLinks ?? null) as Record<string, string | null | undefined> | null;
+  const dynamicHost = allLinks?.hostname ?? allLinks?.host ?? allLinks?.domain ?? allLinks?.server ?? allLinks?.servername ?? null;
+
   return {
     id: a.id,
     userId: a.userId,
     orderId: a.orderId,
+    dynamicOrder: dynamicOrder ?? null,
     protocol: a.protocol,
     username: a.username,
     password: a.password,
     uuid: a.uuid,
     serverId: a.serverId,
     server: server
-      ? { id: server.id, name: server.name, host: server.host, location: server.location, flag: server.flag, isActive: server.isActive }
+      ? {
+          id: server.id,
+          name: dynamicOrder?.serverDisplayName ?? server.name,
+          host: dynamicHost ?? server.host,
+          location: server.location,
+          flag: server.flag,
+          isActive: server.isActive,
+          originalName: server.name,
+          originalHost: server.host,
+        }
       : null,
     configLink: a.configLink,
     allLinks: a.allLinks ?? null,
     expiresAt: a.expiresAt,
     quota: a.quota != null ? Number(a.quota) : null,
     usedQuota: a.usedQuota != null ? Number(a.usedQuota) : null,
-    productName,
+    productName: productName ?? (dynamicOrder ? "Order VPN Dynamic" : null),
     isActive: a.isActive,
     createdAt: a.createdAt,
   };

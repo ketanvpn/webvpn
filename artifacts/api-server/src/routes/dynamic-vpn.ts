@@ -191,8 +191,13 @@ function extractConnectionDetails(response: any, protocol: string): Record<strin
 
   if (rawLinks && typeof rawLinks === "object") {
     const links: Record<string, string | null> = {
-      hostname: stringifyConfigValue(config?.hostname),
-      servername: stringifyConfigValue(config?.servername),
+      hostname: stringifyConfigValue(config?.hostname ?? response?.data?.hostname),
+      servername: stringifyConfigValue(config?.servername ?? response?.data?.servername),
+      host: stringifyConfigValue(config?.host ?? response?.data?.host),
+      domain: stringifyConfigValue(config?.domain ?? response?.data?.domain),
+      server: stringifyConfigValue(config?.server ?? response?.data?.server),
+      sni: stringifyConfigValue(config?.sni ?? response?.data?.sni),
+      cloudfront: stringifyConfigValue(config?.cloudfront ?? response?.data?.cloudfront),
     };
     for (const [key, value] of Object.entries(rawLinks)) {
       links[key] = typeof value === "string" ? value : null;
