@@ -175,11 +175,13 @@ export default function AdminNadiaVpn() {
       </div>
 
       <Tabs defaultValue="monitoring" className="space-y-6">
-        <TabsList className="grid w-full max-w-3xl grid-cols-3 bg-white/5">
-          <TabsTrigger value="monitoring">Monitoring NadiaVPN</TabsTrigger>
-          <TabsTrigger value="order-settings">Pengaturan Order VPN</TabsTrigger>
-          <TabsTrigger value="order-history">Riwayat Order VPN</TabsTrigger>
-        </TabsList>
+        <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+          <TabsList className="inline-flex h-auto min-w-max gap-1 bg-white/5 p-1 sm:grid sm:w-full sm:max-w-3xl sm:grid-cols-3">
+            <TabsTrigger value="monitoring" className="min-w-36 px-3 py-2 text-xs sm:min-w-0 sm:text-sm">Monitoring</TabsTrigger>
+            <TabsTrigger value="order-settings" className="min-w-44 px-3 py-2 text-xs sm:min-w-0 sm:text-sm">Pengaturan Order</TabsTrigger>
+            <TabsTrigger value="order-history" className="min-w-40 px-3 py-2 text-xs sm:min-w-0 sm:text-sm">Riwayat Order</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="monitoring" className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

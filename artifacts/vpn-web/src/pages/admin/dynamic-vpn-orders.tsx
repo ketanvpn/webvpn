@@ -142,7 +142,7 @@ export default function AdminDynamicVpnOrders() {
               {filtered.map((order) => (
                 <div key={order.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-primary/40 hover:bg-white/[0.06]">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="space-y-2">
+                    <div className="min-w-0 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline">#{order.id}</Badge>
                         <Badge className={`${statusBadge(order.status)} gap-1 uppercase`}><StatusIcon status={order.status} /> {order.status}</Badge>
@@ -150,8 +150,8 @@ export default function AdminDynamicVpnOrders() {
                         {order.voucherCode && <Badge className="gap-1 bg-green-500/10 text-green-300 border-green-500/30"><Tag className="h-3 w-3" /> {order.voucherCode}</Badge>}
                       </div>
                       <div>
-                        <h3 className="font-bold text-white">{order.serverDisplayName}</h3>
-                        <p className="text-sm text-muted-foreground">Akun VPN: <span className="font-mono text-foreground">{order.username}</span> • {order.duration} {order.durationType === "day" ? "hari" : "bulan"}</p>
+                        <h3 className="break-words font-bold text-white">{order.serverDisplayName}</h3>
+                        <p className="break-words text-sm text-muted-foreground">Akun VPN: <span className="font-mono text-foreground">{order.username}</span> • {order.duration} {order.durationType === "day" ? "hari" : "bulan"}</p>
                       </div>
                       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1"><UserRound className="h-3.5 w-3.5" /> Pembeli: {order.buyer?.username ?? `User #${order.userId}`}</span>
@@ -160,7 +160,7 @@ export default function AdminDynamicVpnOrders() {
                         {order.vpnAccountId && <span>VPN Account ID: <span className="font-mono text-foreground">{order.vpnAccountId}</span></span>}
                       </div>
                     </div>
-                    <div className="min-w-44 rounded-xl border border-white/10 bg-black/20 p-3 text-sm">
+                    <div className="w-full rounded-xl border border-white/10 bg-black/20 p-3 text-sm lg:w-44 lg:min-w-44">
                       <div className="flex justify-between gap-4"><span className="text-muted-foreground">Total</span><span className="font-bold text-primary">{rupiah(order.amount)}</span></div>
                       {order.discountAmount > 0 && <div className="mt-1 flex justify-between gap-4 text-green-400"><span>Diskon</span><span>- {rupiah(order.discountAmount)}</span></div>}
                       <div className="mt-1 flex justify-between gap-4"><span className="text-muted-foreground">Bayar</span><span className="capitalize">{order.paymentMethod}</span></div>
