@@ -339,7 +339,7 @@ export default function AccountDetail() {
   const daysLeft = differenceInCalendarDays(new Date(account.expiresAt), new Date());
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="w-full max-w-4xl mx-auto space-y-6 overflow-hidden">
       <div className="flex justify-between items-center">
         <Button variant="ghost" size="sm" asChild>
           <Link href="/accounts" className="flex items-center gap-2">
@@ -355,11 +355,11 @@ export default function AccountDetail() {
         </Badge>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
+      <div className="grid min-w-0 gap-6 md:grid-cols-3">
+        <div className="min-w-0 space-y-6 md:col-span-2">
 
           {/* Info Akun */}
-          <Card className="glass-panel border-white/5 shadow-lg">
+          <Card className="glass-panel overflow-hidden border-white/5 shadow-lg">
             <CardHeader className="border-b border-white/5 pb-6">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
@@ -413,7 +413,7 @@ export default function AccountDetail() {
                   {!isSsh && account.uuid && (
                     <div className="space-y-1.5">
                       <Label>UUID</Label>
-                      <div className="flex gap-2">
+                      <div className="flex min-w-0 gap-2">
                         <Input value={account.uuid} readOnly className="font-mono bg-muted/50" />
                         <Button
                           variant="outline"
@@ -430,7 +430,7 @@ export default function AccountDetail() {
                   {account.protocol === "ssh" && account.password && (
                     <div className="space-y-1.5">
                       <Label>Password SSH</Label>
-                      <div className="flex gap-2">
+                      <div className="flex min-w-0 gap-2">
                         <Input value={account.password} readOnly className="font-mono bg-muted/50" />
                         <Button
                           variant="outline"
@@ -447,7 +447,7 @@ export default function AccountDetail() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5 min-w-0">
                       <Label>Host / IP</Label>
-                      <div className="flex gap-2">
+                      <div className="flex min-w-0 gap-2">
                         <Input value={accountHost} readOnly className="min-w-0 font-mono bg-muted/50 text-sm" />
                         {accountHost && (
                           <Button
@@ -477,7 +477,7 @@ export default function AccountDetail() {
           </Card>
 
           {!isSsh ? (
-            <Card className="glass-panel border-primary/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+            <Card className="glass-panel overflow-hidden border-primary/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
               <CardHeader className="border-b border-white/5 pb-4">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <ShieldCheck className="h-5 w-5 text-primary" />
@@ -498,12 +498,12 @@ export default function AccountDetail() {
                       return (
                         <div key={key} className="space-y-2 p-3 rounded-lg bg-background border">
                           <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{label}</div>
-                          <div className="flex gap-2">
+                          <div className="flex min-w-0 gap-2">
                             <Input value={link} readOnly className="min-w-0 font-mono text-xs bg-muted/50" />
                             <Button
                               variant="outline"
                               size="sm"
-                              className="shrink-0 gap-1"
+                              className="shrink-0 px-2 sm:px-3 gap-1"
                               onClick={() => copyToClipboard(link, label)}
                             >
                               <Copy className="h-3.5 w-3.5" />
@@ -544,12 +544,12 @@ export default function AccountDetail() {
                 ) : account.configLink ? (
                   <div className="space-y-4">
                     <div className="p-3 rounded-lg bg-background border space-y-2">
-                      <div className="flex gap-2">
+                      <div className="flex min-w-0 gap-2">
                         <Input value={account.configLink} readOnly className="min-w-0 font-mono text-xs bg-muted/50" />
                         <Button
                           variant="outline"
                           size="sm"
-                          className="shrink-0 gap-1"
+                          className="shrink-0 px-2 sm:px-3 gap-1"
                           onClick={() => copyToClipboard(account.configLink!, "Config Link")}
                         >
                           <Copy className="h-3.5 w-3.5" />
@@ -589,7 +589,7 @@ export default function AccountDetail() {
               </CardContent>
             </Card>
           ) : sshDetails.length > 0 && (
-            <Card className="glass-panel border-primary/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+            <Card className="glass-panel overflow-hidden border-primary/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
               <CardHeader className="border-b border-white/5 pb-4">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <ShieldCheck className="h-5 w-5 text-primary" />
@@ -601,7 +601,7 @@ export default function AccountDetail() {
                 {sshDetails.map((item) => (
                   <div key={item.label} className="space-y-1.5 p-3 rounded-lg bg-background border">
                     <Label className="text-xs text-muted-foreground">{item.label}</Label>
-                    <div className="flex gap-2">
+                    <div className="flex min-w-0 gap-2">
                       <Input value={item.value ?? ""} readOnly className="min-w-0 font-mono text-xs bg-muted/50" />
                       <Button
                         variant="outline"
@@ -621,7 +621,7 @@ export default function AccountDetail() {
         </div>
 
         {/* Sidebar kanan */}
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <Card className="glass-panel border-white/5">
             <CardHeader className="border-b border-white/5 pb-4">
               <CardTitle className="text-base">Aksi</CardTitle>
