@@ -26,6 +26,7 @@ import UserTickets from "@/pages/user/tickets";
 import UserTicketDetail from "@/pages/user/ticket-detail";
 import ConfigConverter from "@/pages/user/converter";
 import DynamicOrderPage from "@/pages/user/dynamic-order";
+import DynamicOrderHistory from "@/pages/user/dynamic-order-history";
 
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminUsers from "@/pages/admin/users";
@@ -115,6 +116,9 @@ function Router() {
       </Route>
       <Route path="/order-vpn">
         <Layout><DynamicOrderPage /></Layout>
+      </Route>
+      <Route path="/order-vpn/history">
+        <Layout><DynamicOrderHistory /></Layout>
       </Route>
 
       {/* Admin Routes */}

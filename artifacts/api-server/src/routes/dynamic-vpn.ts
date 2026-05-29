@@ -8,7 +8,7 @@ import {
   vouchersTable,
   vpnAccountsTable,
 } from "@workspace/db";
-import { and, asc, count, eq, gt, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { requireAdmin, requireAuth } from "../lib/auth";
 import { createNadiaVpnOrder, getNadiaVpnAccountDetails, getNadiaVpnServers } from "../lib/nadiavpn";
@@ -656,7 +656,7 @@ router.get("/admin/dynamic-vpn/orders", requireAdmin, async (req, res) => {
     .leftJoin(usersTable, eq(dynamicVpnOrdersTable.userId, usersTable.id))
     .leftJoin(vouchersTable, eq(dynamicVpnOrdersTable.voucherId, vouchersTable.id))
     .where(conditions.length ? and(...conditions) : undefined)
-    .orderBy(asc(dynamicVpnOrdersTable.id))
+    .orderBy(desc(dynamicVpnOrdersTable.id))
     .limit(limit);
 
   res.json({
@@ -839,7 +839,7 @@ router.post("/dynamic-vpn/orders/:id/pay", requireAuth, async (req, res) => {
 
 router.get("/dynamic-vpn/orders", requireAuth, async (req, res) => {
   const userId = req.user!.userId;
-  const rows = await db.select().from(dynamicVpnOrdersTable).where(eq(dynamicVpnOrdersTable.userId, userId)).orderBy(asc(dynamicVpnOrdersTable.id));
+  const rows = await db.select().from(dynamicVpnOrdersTable).where(eq(dynamicVpnOrdersTable.userId, userId)).orderBy(desc(dynamicVpnOrdersTable.id));
   res.json({ orders: rows.map((row) => ({ ...row, amount: Number(row.amount), providerResponse: undefined })) });
 });
 

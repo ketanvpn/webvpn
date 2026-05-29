@@ -11,8 +11,10 @@ import { useState } from "react";
 
 const LIMIT = 30;
 
-function typeLabel(type: string) {
+function typeLabel(type: string, description = "") {
+  const lower = description.toLowerCase();
   if (type === "topup") return { label: "Topup", color: "bg-green-500/10 text-green-700 border-green-200" };
+  if (type === "order" && lower.includes("renew")) return { label: "Renew", color: "bg-amber-500/10 text-amber-700 border-amber-200" };
   if (type === "order") return { label: "Pembelian", color: "bg-red-500/10 text-red-700 border-red-200" };
   if (type === "adjustment") return { label: "Penyesuaian", color: "bg-blue-500/10 text-blue-700 border-blue-200" };
   if (type === "refund") return { label: "Refund", color: "bg-purple-500/10 text-purple-700 border-purple-200" };
@@ -75,7 +77,7 @@ export default function BalanceLogs() {
           ) : (
             <div className="divide-y">
               {logs.map((log) => {
-                const { label, color } = typeLabel(log.type);
+                const { label, color } = typeLabel(log.type, log.description);
                 const isPositive = log.amount >= 0;
                 return (
                   <div key={log.id} className="p-4 flex items-start gap-3 hover:bg-accent/20 transition-colors">

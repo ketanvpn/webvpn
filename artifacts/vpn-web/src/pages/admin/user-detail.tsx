@@ -375,8 +375,11 @@ export default function AdminUserDetail() {
                     <div className="divide-y divide-white/5">
                       {balanceLogsData.data.map((log) => {
                         const isPositive = log.amount >= 0;
+                        const lowerDescription = log.description.toLowerCase();
                         const typeInfo = log.type === "topup"
                           ? { label: "Topup", color: "bg-green-500/10 text-green-700 border-green-200", icon: <ArrowDownLeft className="h-3.5 w-3.5 text-green-600" /> }
+                          : log.type === "order" && lowerDescription.includes("renew")
+                          ? { label: "Renew", color: "bg-amber-500/10 text-amber-700 border-amber-200", icon: <ArrowUpRight className="h-3.5 w-3.5 text-amber-600" /> }
                           : log.type === "order"
                           ? { label: "Pembelian", color: "bg-red-500/10 text-red-700 border-red-200", icon: <ArrowUpRight className="h-3.5 w-3.5 text-red-600" /> }
                           : { label: "Penyesuaian", color: "bg-blue-500/10 text-blue-700 border-blue-200", icon: <Settings2 className="h-3.5 w-3.5 text-blue-600" /> };
