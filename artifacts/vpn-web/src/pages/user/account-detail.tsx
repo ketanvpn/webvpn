@@ -493,7 +493,7 @@ export default function AccountDetail() {
                   <div className="space-y-4">
                     {[
                       ...LINK_ORDER.filter(k => !!allLinks![k]),
-                      ...Object.keys(allLinks!).filter(k => !LINK_ORDER.includes(k) && !!allLinks![k]),
+                      ...Object.keys(allLinks!).filter(k => !LINK_ORDER.includes(k) && !["hostname", "servername"].includes(k) && !!allLinks![k]),
                     ].map((key) => {
                       const link = allLinks![key];
                       if (!link) return null;
