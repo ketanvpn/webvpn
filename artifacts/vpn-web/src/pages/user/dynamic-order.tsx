@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
 const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
@@ -110,6 +111,7 @@ function ServerCard({ server, onSelect }: { server: DynamicServer; onSelect: () 
 
 export default function DynamicOrderPage() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [selectedServer, setSelectedServer] = useState<DynamicServer | null>(null);
   const [protocol, setProtocol] = useState("");
   const [durationType, setDurationType] = useState("month");
@@ -198,7 +200,10 @@ export default function DynamicOrderPage() {
       setAppliedVoucher("");
       setVoucherInput("");
       serversQuery.refetch();
-      toast({ title: "Order berhasil", description: "Akun VPN sudah dibuat dan masuk ke menu Akun VPN." });
+      toast({ title: "Order berhasil", description: "Akun VPN sudah dibuat. Membuka detail akun..." });
+      if (data.order.vpnAccountId) {
+        setLocation(`/accounts/${data.order.vpnAccountId}`);
+      }
     },
     onError: (err: unknown) => toast({ title: "Order gagal", description: err instanceof Error ? err.message : "Gagal membuat order", variant: "destructive" }),
   });

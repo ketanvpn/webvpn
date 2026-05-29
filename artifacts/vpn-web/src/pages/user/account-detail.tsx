@@ -319,8 +319,9 @@ export default function AccountDetail() {
 
   const allLinks = account.allLinks as Record<string, string | null> | null | undefined;
   const isSsh = account.protocol === "ssh";
-  const hasAllLinks = !isSsh && allLinks && Object.values(allLinks).some(v => !!v);
-  const sshHost = allLinks?.hostname ?? account.server.host ?? "";
+  const accountHost = allLinks?.hostname ?? account.server.host ?? "";
+  const hasAllLinks = !isSsh && allLinks && Object.entries(allLinks).some(([key, value]) => !["hostname", "servername"].includes(key) && !!value);
+  const sshHost = accountHost;
   const sshPortText = [allLinks?.port_tls, allLinks?.port_none].filter(Boolean).join(" / ") || "22 / 443";
   const sshDetails = [
     { label: "Hostname", value: allLinks?.hostname },
@@ -447,12 +448,12 @@ export default function AccountDetail() {
                     <div className="space-y-1.5">
                       <Label>Host / IP</Label>
                       <div className="flex gap-2">
-                        <Input value={isSsh ? sshHost : account.server.host ?? ""} readOnly className="font-mono bg-muted/50 text-sm" />
-                        {(isSsh ? sshHost : account.server.host) && (
+                        <Input value={accountHost} readOnly className="font-mono bg-muted/50 text-sm" />
+                        {accountHost && (
                           <Button
                             variant="outline"
                             size="icon"
-                            onClick={() => copyToClipboard((isSsh ? sshHost : account.server.host)!, "Host")}
+                            onClick={() => copyToClipboard(accountHost, "Host")}
                             title="Salin Host"
                           >
                             <Copy className="h-4 w-4" />

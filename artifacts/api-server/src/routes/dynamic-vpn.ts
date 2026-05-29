@@ -187,7 +187,10 @@ function extractConnectionDetails(response: any, protocol: string): Record<strin
   const rawLinks = config?.link;
 
   if (rawLinks && typeof rawLinks === "object") {
-    const links: Record<string, string | null> = {};
+    const links: Record<string, string | null> = {
+      hostname: stringifyConfigValue(config?.hostname),
+      servername: stringifyConfigValue(config?.servername),
+    };
     for (const [key, value] of Object.entries(rawLinks)) {
       links[key] = typeof value === "string" ? value : null;
     }
