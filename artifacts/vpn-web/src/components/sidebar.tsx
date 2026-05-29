@@ -73,7 +73,6 @@ const userNav: NavItem[] = [
   { title: "Akun VPN", href: "/accounts", icon: Server },
   { title: "Convert Config", href: "/converter", icon: ArrowRightLeft },
   { title: "Riwayat Order", href: "/orders", icon: ShoppingCart },
-  { title: "Riwayat Dynamic", href: "/order-vpn/history", icon: History },
   { title: "Saldo", href: "/balance", icon: Wallet },
   { title: "Riwayat Saldo", href: "/balance/logs", icon: History },
   { title: "Program Poin", href: "/points", icon: Star },
@@ -147,7 +146,6 @@ const mobileMoreNav: NavItem[] = [
   { title: "Program Poin", href: "/points", icon: Star },
   { title: "Riwayat Saldo", href: "/balance/logs", icon: History },
   { title: "Riwayat Order", href: "/orders", icon: ShoppingCart },
-  { title: "Riwayat Dynamic", href: "/order-vpn/history", icon: History },
   { title: "Profil", href: "/profile", icon: Settings },
 ];
 

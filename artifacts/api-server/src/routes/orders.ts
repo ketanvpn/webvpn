@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { ordersTable, productsTable, usersTable, vpnAccountsTable, serversTable, vouchersTable } from "@workspace/db";
+import { ordersTable, productsTable, usersTable, vpnAccountsTable, serversTable, vouchersTable, dynamicVpnOrdersTable } from "@workspace/db";
 import { eq, and, desc, sql, gte, count, gt, ne } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { CreateOrderBody } from "@workspace/api-zod";
@@ -465,16 +465,56 @@ router.get("/orders", requireAuth, async (req, res) => {
     .limit(limit)
     .offset(offset);
 
-  const totalResult = await db
+  const staticTotalResult = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(ordersTable)
     .where(and(...conditions));
 
-  const formatted = await Promise.all(orders.map(formatOrder));
+  const dynamicConditions = [eq(dynamicVpnOrdersTable.userId, userId)];
+  if (status) dynamicConditions.push(eq(dynamicVpnOrdersTable.status, status));
+
+  const dynamicOrders = await db
+    .select()
+    .from(dynamicVpnOrdersTable)
+    .where(and(...dynamicConditions))
+    .orderBy(desc(dynamicVpnOrdersTable.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  const dynamicTotalResult = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(dynamicVpnOrdersTable)
+    .where(and(...dynamicConditions));
+
+  const formattedStatic = await Promise.all(orders.map(formatOrder));
+  const formattedDynamic = dynamicOrders.map((order) => ({
+    id: order.id,
+    userId: order.userId,
+    productId: null,
+    product: { name: `Order VPN Dynamic - ${order.serverDisplayName}` },
+    status: order.status,
+    amount: Number(order.amount),
+    vpnAccountId: order.vpnAccountId,
+    paymentMethod: order.paymentMethod,
+    notes: order.username,
+    qrisUrl: null,
+    expiresAt: null,
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
+    isDynamic: true,
+    dynamicProvider: order.provider,
+    protocol: order.protocol,
+    duration: order.duration,
+    durationType: order.durationType,
+  }));
+
+  const merged = [...formattedStatic, ...formattedDynamic]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, limit);
 
   res.json({
-    orders: formatted,
-    total: totalResult[0]?.count ?? 0,
+    orders: merged,
+    total: (staticTotalResult[0]?.count ?? 0) + (dynamicTotalResult[0]?.count ?? 0),
   });
 });
 

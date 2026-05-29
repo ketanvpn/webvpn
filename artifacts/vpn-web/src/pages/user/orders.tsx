@@ -43,13 +43,15 @@ export default function Orders() {
         </div>
       ) : data?.orders && data.orders.length > 0 ? (
         <div className="glass-panel rounded-xl overflow-hidden divide-y divide-white/5">
-          {data.orders.map((order) => (
-            <Link key={order.id} href={`/orders/${order.id}`}>
+          {data.orders.map((order) => {
+            const isDynamic = Boolean((order as typeof order & { isDynamic?: boolean }).isDynamic);
+            const content = (
               <div className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer">
                 {/* Kiri: ID + Produk + Waktu */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold">#{order.id}</span>
+                    {isDynamic && <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-primary/30 text-primary">Dynamic</Badge>}
                     {order.product && (
                       <span className="text-xs text-muted-foreground truncate">
                         · {order.product.name}
@@ -79,11 +81,12 @@ export default function Orders() {
                       {statusLabel[order.status] ?? order.status}
                     </Badge>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  {!isDynamic && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                 </div>
               </div>
-            </Link>
-          ))}
+            );
+            return isDynamic ? <div key={`dynamic-${order.id}`}>{content}</div> : <Link key={`static-${order.id}`} href={`/orders/${order.id}`}>{content}</Link>;
+          })}
         </div>
       ) : (
         <div className="text-center py-16 rounded-xl border border-dashed border-white/20 glass-card">
