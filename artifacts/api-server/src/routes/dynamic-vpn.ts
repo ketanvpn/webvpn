@@ -13,6 +13,7 @@ import { requireAdmin, requireAuth } from "../lib/auth";
 import { createNadiaVpnOrder, getNadiaVpnServers } from "../lib/nadiavpn";
 import { addBalanceLog } from "./balance-logs";
 import { getResellerSettings } from "./settings";
+import { notifyAdminDynamicOrderFulfilled, notifyUserDynamicVpnAccountCreated } from "../lib/telegram";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -250,6 +251,7 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
   if (!updatedUser) throw new Error("INSUFFICIENT_BALANCE");
   const balanceAfter = Number(updatedUser.balance);
   const balanceBefore = balanceAfter + amount;
+  const [buyer] = await db.select({ username: usersTable.username }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
 
   let providerResponse: any;
   try {
@@ -325,6 +327,32 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
     description: `Dynamic VPN order: ${order.serverDisplayName} ${order.protocol.toUpperCase()} ${order.duration} ${order.durationType}`,
     relatedId: order.id,
   }).catch(() => {});
+
+  const expiresAt = parseNadiaExpireAt(data.expire_at, fallbackExpiry);
+  const host = allLinks?.hostname ?? null;
+  notifyUserDynamicVpnAccountCreated({
+    userId,
+    orderId: order.id,
+    serverName: order.serverDisplayName,
+    protocol: accountProtocol,
+    username: data.username ?? order.username,
+    password: providerPassword,
+    host,
+    configLink,
+    expiresAt,
+  }).catch((err) => logger.error({ err, orderId }, "notifyUserDynamicVpnAccountCreated failed"));
+
+  notifyAdminDynamicOrderFulfilled({
+    orderId: order.id,
+    buyerUsername: buyer?.username ?? `User #${userId}`,
+    serverName: order.serverDisplayName,
+    protocol: accountProtocol,
+    vpnUsername: data.username ?? order.username,
+    amount,
+    discountAmount: Number(order.discountAmount ?? 0),
+    paymentMethod: order.paymentMethod,
+    providerAccountId: data.account_id ?? null,
+  }).catch((err) => logger.error({ err, orderId }, "notifyAdminDynamicOrderFulfilled failed"));
 }
 
 async function syncNadiaVpnServersFromProvider() {

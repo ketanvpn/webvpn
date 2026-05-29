@@ -302,6 +302,70 @@ export async function notifyAdminOrderFulfilled(opts: {
   await sendMessage(adminChatId, text);
 }
 
+export async function notifyUserDynamicVpnAccountCreated(opts: {
+  userId: number;
+  orderId: number;
+  serverName: string;
+  protocol: string;
+  username: string;
+  password: string | null;
+  host: string | null;
+  configLink: string | null;
+  expiresAt: Date;
+}) {
+  const [user] = await db
+    .select({ telegramId: usersTable.telegramId })
+    .from(usersTable)
+    .where(eq(usersTable.id, opts.userId))
+    .limit(1);
+
+  if (!user?.telegramId) return;
+
+  const expiry = opts.expiresAt.toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
+  let text =
+    `🎉 <b>Akun VPN Kamu Sudah Siap!</b>\n\n` +
+    `📦 Produk: <b>Order VPN</b>\n` +
+    `🖥️ Server: <b>${opts.serverName}</b>\n` +
+    `🔌 Protokol: <b>${opts.protocol.toUpperCase()}</b>\n` +
+    `👤 Username: <code>${opts.username}</code>\n`;
+
+  if (opts.password) text += `🔑 Password: <code>${opts.password}</code>\n`;
+  if (opts.host) text += `🌐 Host/IP: <code>${opts.host}</code>\n`;
+  text += `📅 Aktif sampai: <b>${expiry}</b>\n`;
+  if (opts.configLink) text += `\n🔗 <b>Config Link:</b>\n<code>${opts.configLink}</code>\n`;
+  text += `\n🆔 Dynamic Order #${opts.orderId}`;
+
+  await sendMessage(user.telegramId, text);
+}
+
+export async function notifyAdminDynamicOrderFulfilled(opts: {
+  orderId: number;
+  buyerUsername: string;
+  serverName: string;
+  protocol: string;
+  vpnUsername: string;
+  amount: number;
+  discountAmount: number;
+  paymentMethod: string;
+  providerAccountId: string | null;
+}) {
+  const { adminChatId } = await getTelegramConfig();
+  if (!adminChatId) return;
+  const payLabel = opts.paymentMethod === "qris" ? "QRIS" : "Saldo Akun";
+  const text =
+    `✅ <b>Order VPN Dynamic Selesai!</b>\n\n` +
+    `👤 User: <b>${opts.buyerUsername}</b>\n` +
+    `🖥️ Server: <b>${opts.serverName}</b>\n` +
+    `🔌 Protokol: <b>${opts.protocol.toUpperCase()}</b>\n` +
+    `📛 Akun VPN: <code>${opts.vpnUsername}</code>\n` +
+    `💰 Pembayaran: <b>${formatRupiah(opts.amount)}</b> via ${payLabel}\n` +
+    (opts.discountAmount > 0 ? `🏷️ Diskon: <b>${formatRupiah(opts.discountAmount)}</b>\n` : "") +
+    (opts.providerAccountId ? `🆔 Provider ID: <code>${opts.providerAccountId}</code>\n` : "") +
+    `🆔 Dynamic Order #${opts.orderId}`;
+
+  await sendMessage(adminChatId, text);
+}
+
 export async function notifyAdminNewUser(opts: {
   username: string;
   fullName: string | null;
