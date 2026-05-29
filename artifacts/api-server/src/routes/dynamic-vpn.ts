@@ -8,9 +8,11 @@ import {
   vouchersTable,
   vpnAccountsTable,
 } from "@workspace/db";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, count, eq, gt, sql } from "drizzle-orm";
+import { randomUUID } from "crypto";
 import { requireAdmin, requireAuth } from "../lib/auth";
 import { createNadiaVpnOrder, getNadiaVpnServers } from "../lib/nadiavpn";
+import { createPanelAccount, deletePanelAccount } from "../lib/vpn-panel";
 import { addBalanceLog } from "./balance-logs";
 import { getResellerSettings } from "./settings";
 import { notifyAdminDynamicOrderFulfilled, notifyUserDynamicVpnAccountCreated } from "../lib/telegram";
@@ -223,6 +225,53 @@ function extractConnectionDetails(response: any, protocol: string): Record<strin
   return Object.values(sshDetails).some(Boolean) ? sshDetails : null;
 }
 
+function extractPanelConnectionDetails(result: Awaited<ReturnType<typeof createPanelAccount>>): Record<string, string | null> | null {
+  const details: Record<string, string | null> = {};
+  if (result.hostname) details.hostname = result.hostname;
+  if (result.allLinks) {
+    for (const [key, value] of Object.entries(result.allLinks)) {
+      details[key] = value ?? null;
+    }
+  }
+  return Object.keys(details).length ? details : null;
+}
+
+function getDurationDays(durationType: string, duration: number) {
+  return durationType === "day" ? duration : duration * 30;
+}
+
+async function getLocalServerCapacity(localServerId: number) {
+  const [{ activeCount }] = await db
+    .select({ activeCount: count(vpnAccountsTable.id) })
+    .from(vpnAccountsTable)
+    .where(and(eq(vpnAccountsTable.serverId, localServerId), eq(vpnAccountsTable.isActive, true), gt(vpnAccountsTable.expiresAt, new Date())));
+  return Number(activeCount ?? 0);
+}
+
+async function refreshLocalDynamicServerCapacity(server: typeof dynamicProviderServersTable.$inferSelect) {
+  if (server.provider !== "local_panel") return server;
+  const localServerId = parseInt(server.providerServerId, 10);
+  if (!Number.isInteger(localServerId)) return server;
+
+  const [localServer] = await db.select().from(serversTable).where(eq(serversTable.id, localServerId)).limit(1);
+  const capacityUsed = await getLocalServerCapacity(localServerId);
+  const capacityLimit = localServer?.maxAccounts ?? Number(server.capacityLimit ?? 0) ?? 0;
+  const capacityIsFull = capacityLimit > 0 ? capacityUsed >= capacityLimit : false;
+
+  const [updated] = await db
+    .update(dynamicProviderServersTable)
+    .set({
+      capacityLimit: capacityLimit > 0 ? String(capacityLimit) : null,
+      capacityUsed,
+      capacityIsFull,
+      updatedAt: new Date(),
+    })
+    .where(eq(dynamicProviderServersTable.id, server.id))
+    .returning();
+
+  return updated ?? server;
+}
+
 async function fulfillDynamicOrder(orderId: number, userId: number) {
   const [order] = await db
     .select()
@@ -233,13 +282,15 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
   if (!order) throw new Error("Order tidak ditemukan");
   if (order.status !== "processing") throw new Error("Order tidak dalam status processing");
 
-  const [server] = await db
+  let [server] = await db
     .select()
     .from(dynamicProviderServersTable)
     .where(eq(dynamicProviderServersTable.id, order.dynamicServerId!))
     .limit(1);
 
   if (!server || !server.isActive) throw new Error("Server tidak aktif");
+  server = await refreshLocalDynamicServerCapacity(server);
+  if (server.capacityIsFull) throw new Error("Server penuh atau sedang tidak tersedia");
 
   const amount = Number(order.amount);
   const [updatedUser] = await db
@@ -254,27 +305,85 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
   const [buyer] = await db.select({ username: usersTable.username }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
 
   let providerResponse: any;
+  let accountProtocol = order.protocol;
+  let accountUsername = order.username;
+  let providerPassword: string | null = order.password ?? null;
+  let providerUuid: string | null = null;
+  let providerAccountId: string | null = null;
+  let configLink: string | null = null;
+  let allLinks: Record<string, string | null> | null = null;
+  let localServerId: number;
+  const fallbackExpiry = new Date(Date.now() + getDurationDays(order.durationType, order.duration) * 24 * 60 * 60 * 1000);
+  let expiresAt = fallbackExpiry;
+  let rollbackPanelAccount: null | { apiUrl: string; apiToken: string; protocol: string; username: string } = null;
+
   try {
-    providerResponse = await createNadiaVpnOrder({
-      server_id: order.providerServerId,
-      protocol: order.protocol,
-      type: order.durationType,
-      duration: order.duration,
-      username: order.username,
-      ...(order.password ? { password: order.password } : {}),
-    });
+    if (server.provider === "local_panel") {
+      localServerId = parseInt(server.providerServerId, 10);
+      if (!Number.isInteger(localServerId)) throw new Error("Mapping server lokal tidak valid");
+
+      const [localServer] = await db.select().from(serversTable).where(eq(serversTable.id, localServerId)).limit(1);
+      if (!localServer || !localServer.isActive) throw new Error("Server lokal tidak aktif");
+      if (!localServer.apiUrl || !localServer.apiToken) throw new Error("API panel server lokal belum diatur");
+      if (!Array.isArray(localServer.supportedProtocols) || !localServer.supportedProtocols.includes(order.protocol)) {
+        throw new Error("Protocol tidak didukung server lokal");
+      }
+
+      const panelResult = await createPanelAccount({
+        apiUrl: localServer.apiUrl,
+        apiToken: localServer.apiToken,
+        protocol: order.protocol,
+        username: order.username,
+        password: order.password ?? undefined,
+        durationDays: getDurationDays(order.durationType, order.duration),
+        uuid: randomUUID(),
+      });
+
+      rollbackPanelAccount = {
+        apiUrl: localServer.apiUrl,
+        apiToken: localServer.apiToken,
+        protocol: order.protocol,
+        username: panelResult.username,
+      };
+      accountUsername = panelResult.username;
+      providerPassword = panelResult.password ?? order.password ?? null;
+      providerUuid = panelResult.uuid ?? null;
+      providerAccountId = panelResult.username;
+      configLink = panelResult.configLink ?? null;
+      allLinks = extractPanelConnectionDetails(panelResult);
+      providerResponse = {
+        provider: "local_panel",
+        serverId: localServer.id,
+        username: panelResult.username,
+        uuid: panelResult.uuid ?? null,
+        hostname: panelResult.hostname ?? null,
+        expiryInfo: panelResult.expiryInfo ?? null,
+      };
+    } else {
+      providerResponse = await createNadiaVpnOrder({
+        server_id: order.providerServerId,
+        protocol: order.protocol,
+        type: order.durationType,
+        duration: order.duration,
+        username: order.username,
+        ...(order.password ? { password: order.password } : {}),
+      });
+
+      const data = providerResponse?.data ?? {};
+      accountProtocol = normalizeProtocol(data.protocol ?? order.protocol);
+      allLinks = extractConnectionDetails(providerResponse, accountProtocol);
+      configLink = accountProtocol === "ssh" ? null : allLinks?.tls ?? Object.values(allLinks ?? {}).find(Boolean) ?? null;
+      providerPassword = data.password ?? data.config?.password ?? order.password ?? null;
+      providerUuid = data.uuid ?? null;
+      providerAccountId = data.account_id ?? null;
+      accountUsername = data.username ?? order.username;
+      localServerId = await getKetantechProviderServerId();
+      expiresAt = parseNadiaExpireAt(data.expire_at, fallbackExpiry);
+    }
   } catch (error) {
     await db.update(usersTable).set({ balance: sql`balance + ${amount}` }).where(eq(usersTable.id, userId)).catch(() => {});
     throw error;
   }
-
-  const fallbackExpiry = new Date(Date.now() + (order.durationType === "day" ? order.duration : order.duration * 30) * 24 * 60 * 60 * 1000);
-  const data = providerResponse?.data ?? {};
-  const accountProtocol = normalizeProtocol(data.protocol ?? order.protocol);
-  const allLinks = extractConnectionDetails(providerResponse, accountProtocol);
-  const configLink = accountProtocol === "ssh" ? null : allLinks?.tls ?? Object.values(allLinks ?? {}).find(Boolean) ?? null;
-  const providerPassword = data.password ?? data.config?.password ?? order.password ?? null;
-  const localServerId = await getKetantechProviderServerId();
 
   try {
     await db.transaction(async (tx: any) => {
@@ -284,13 +393,13 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
           userId,
           orderId: null,
           protocol: accountProtocol,
-          username: data.username ?? order.username,
+          username: accountUsername,
           password: providerPassword,
-          uuid: data.uuid ?? null,
+          uuid: providerUuid,
           serverId: localServerId,
           configLink,
           allLinks,
-          expiresAt: parseNadiaExpireAt(data.expire_at, fallbackExpiry),
+          expiresAt,
           quota: null,
         })
         .returning();
@@ -300,7 +409,7 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
         .set({
           status: "paid",
           vpnAccountId: account.id,
-          providerAccountId: data.account_id ?? null,
+          providerAccountId,
           providerResponse,
           updatedAt: new Date(),
         })
@@ -314,6 +423,11 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
       }
     });
   } catch (error) {
+    if (rollbackPanelAccount) {
+      await deletePanelAccount(rollbackPanelAccount).catch((deleteErr) => {
+        logger.error({ err: deleteErr, orderId, username: rollbackPanelAccount?.username }, "[dynamic-vpn] failed to rollback local panel account");
+      });
+    }
     logger.error({ err: error, orderId }, "[dynamic-vpn] DB insert failed after provider order");
     throw error;
   }
@@ -328,14 +442,18 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
     relatedId: order.id,
   }).catch(() => {});
 
-  const expiresAt = parseNadiaExpireAt(data.expire_at, fallbackExpiry);
+  if (server.provider === "local_panel") {
+    const refreshed = await refreshLocalDynamicServerCapacity(server).catch(() => null);
+    if (refreshed) server = refreshed;
+  }
+
   const host = allLinks?.hostname ?? null;
   notifyUserDynamicVpnAccountCreated({
     userId,
     orderId: order.id,
     serverName: order.serverDisplayName,
     protocol: accountProtocol,
-    username: data.username ?? order.username,
+    username: accountUsername,
     password: providerPassword,
     host,
     configLink,
@@ -347,11 +465,11 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
     buyerUsername: buyer?.username ?? `User #${userId}`,
     serverName: order.serverDisplayName,
     protocol: accountProtocol,
-    vpnUsername: data.username ?? order.username,
+    vpnUsername: accountUsername,
     amount,
     discountAmount: Number(order.discountAmount ?? 0),
     paymentMethod: order.paymentMethod,
-    providerAccountId: data.account_id ?? null,
+    providerAccountId,
   }).catch((err) => logger.error({ err, orderId }, "notifyAdminDynamicOrderFulfilled failed"));
 }
 
@@ -406,6 +524,61 @@ async function syncNadiaVpnServersFromProvider() {
   return synced;
 }
 
+async function syncLocalPanelServers() {
+  const localServers = await db.select().from(serversTable).where(eq(serversTable.isActive, true)).orderBy(asc(serversTable.sortOrder), asc(serversTable.id));
+  const now = new Date();
+  const synced = [];
+
+  for (const srv of localServers) {
+    const providerServerId = String(srv.id);
+    const [existing] = await db
+      .select()
+      .from(dynamicProviderServersTable)
+      .where(and(eq(dynamicProviderServersTable.provider, "local_panel"), eq(dynamicProviderServersTable.providerServerId, providerServerId)))
+      .limit(1);
+
+    const supportedProtocols = Array.isArray(srv.supportedProtocols)
+      ? srv.supportedProtocols.map(normalizeProtocol).filter((p: string) => VALID_PROTOCOLS.includes(p))
+      : [];
+    const capacityUsed = await getLocalServerCapacity(srv.id);
+    const capacityLimit = srv.maxAccounts ?? 0;
+    const capacityIsFull = capacityLimit > 0 ? capacityUsed >= capacityLimit : false;
+    const values = {
+      providerName: srv.name,
+      displayName: existing?.displayName ?? srv.name,
+      location: srv.location ?? null,
+      supportedProtocols,
+      enabledProtocols: existing?.enabledProtocols?.length ? existing.enabledProtocols.filter((p: string) => supportedProtocols.includes(p)) : supportedProtocols,
+      supportedTypes: existing?.supportedTypes?.length ? existing.supportedTypes : ["day", "month"],
+      providerTrialEnabled: false,
+      trialEnabled: existing?.trialEnabled ?? false,
+      trialDuration: existing?.trialDuration ?? null,
+      costPerDay: existing?.costPerDay ?? "0",
+      costPerMonth: existing?.costPerMonth ?? "0",
+      sellPricePerDay: existing?.sellPricePerDay ?? "0",
+      sellPricePerMonth: existing?.sellPricePerMonth ?? "0",
+      minDays: existing?.minDays ?? 1,
+      maxDays: existing?.maxDays ?? 30,
+      minMonths: existing?.minMonths ?? 1,
+      maxMonths: existing?.maxMonths ?? 12,
+      capacityLimit: capacityLimit > 0 ? String(capacityLimit) : null,
+      capacityUsed,
+      capacityIsFull,
+      isActive: existing?.isActive ?? false,
+      sortOrder: existing?.sortOrder ?? srv.sortOrder ?? 0,
+      lastSyncedAt: now,
+      updatedAt: now,
+    };
+
+    const [row] = existing
+      ? await db.update(dynamicProviderServersTable).set(values).where(eq(dynamicProviderServersTable.id, existing.id)).returning()
+      : await db.insert(dynamicProviderServersTable).values({ provider: "local_panel", providerServerId, ...values }).returning();
+    synced.push(formatServer(row, true));
+  }
+
+  return synced;
+}
+
 router.get("/admin/dynamic-vpn/servers", requireAdmin, async (_req, res) => {
   const rows = await db.select().from(dynamicProviderServersTable).orderBy(asc(dynamicProviderServersTable.sortOrder), asc(dynamicProviderServersTable.id));
   res.json({ servers: rows.map((row) => formatServer(row, true)) });
@@ -413,6 +586,11 @@ router.get("/admin/dynamic-vpn/servers", requireAdmin, async (_req, res) => {
 
 router.post("/admin/dynamic-vpn/servers/sync/nadiavpn", requireAdmin, async (_req, res) => {
   const synced = await syncNadiaVpnServersFromProvider();
+  res.json({ success: true, total: synced.length, servers: synced });
+});
+
+router.post("/admin/dynamic-vpn/servers/sync/local-panel", requireAdmin, async (_req, res) => {
+  const synced = await syncLocalPanelServers();
   res.json({ success: true, total: synced.length, servers: synced });
 });
 
@@ -476,7 +654,12 @@ router.get("/dynamic-vpn/servers", requireAuth, async (_req, res) => {
   try {
     await syncNadiaVpnServersFromProvider();
   } catch (error) {
-    logger.warn({ err: error }, "[dynamic-vpn] stock sync failed, using cached servers");
+    logger.warn({ err: error }, "[dynamic-vpn] stock sync failed, using cached Nadia servers");
+  }
+  try {
+    await syncLocalPanelServers();
+  } catch (error) {
+    logger.warn({ err: error }, "[dynamic-vpn] local panel sync failed, using cached local servers");
   }
 
   const rows = await db
@@ -493,8 +676,9 @@ router.post("/dynamic-vpn/quote", requireAuth, async (req, res) => {
   const durationType = normalizeDurationType(req.body?.durationType);
   const duration = parseInt(String(req.body?.duration ?? ""), 10);
 
-  const [server] = await db.select().from(dynamicProviderServersTable).where(eq(dynamicProviderServersTable.id, serverId)).limit(1);
-  if (!server || !server.isActive) return sendError(res, 404, "Server tidak tersedia");
+  let [server] = await db.select().from(dynamicProviderServersTable).where(eq(dynamicProviderServersTable.id, serverId)).limit(1);
+  if (server?.provider === "local_panel") server = await refreshLocalDynamicServerCapacity(server);
+  if (!server || !server.isActive || server.capacityIsFull) return sendError(res, 404, "Server tidak tersedia");
   if (!server.enabledProtocols.includes(protocol)) return sendError(res, 400, "Protocol tidak tersedia untuk server ini");
   if (!Number.isInteger(duration) || duration < 1) return sendError(res, 400, "Durasi tidak valid");
 
@@ -529,10 +713,16 @@ router.post("/dynamic-vpn/orders", requireAuth, async (req, res) => {
   try {
     await syncNadiaVpnServersFromProvider();
   } catch (error) {
-    logger.warn({ err: error }, "[dynamic-vpn] stock sync before order failed, using cached server state");
+    logger.warn({ err: error }, "[dynamic-vpn] stock sync before order failed, using cached Nadia state");
+  }
+  try {
+    await syncLocalPanelServers();
+  } catch (error) {
+    logger.warn({ err: error }, "[dynamic-vpn] local sync before order failed, using cached local state");
   }
 
-  const [server] = await db.select().from(dynamicProviderServersTable).where(eq(dynamicProviderServersTable.id, serverId)).limit(1);
+  let [server] = await db.select().from(dynamicProviderServersTable).where(eq(dynamicProviderServersTable.id, serverId)).limit(1);
+  if (server?.provider === "local_panel") server = await refreshLocalDynamicServerCapacity(server);
   if (!server || !server.isActive || server.capacityIsFull) return sendError(res, 409, "Server penuh atau sedang tidak tersedia. Silakan pilih server lain.");
   if (!server.enabledProtocols.includes(protocol)) return sendError(res, 400, "Protocol tidak tersedia untuk server ini");
   if (!Number.isInteger(duration) || duration < 1) return sendError(res, 400, "Durasi tidak valid");

@@ -15,6 +15,7 @@ const PROTOCOLS = ["ssh", "vmess", "vless", "trojan"];
 
 type DynamicServer = {
   id: number;
+  provider: string;
   providerName: string;
   displayName: string;
   location: string | null;
@@ -46,6 +47,10 @@ function rupiah(value: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value || 0);
 }
 
+function providerLabel(provider: string) {
+  return provider === "local_panel" ? "Server Saya" : "NadiaVPN";
+}
+
 export default function AdminDynamicVpn() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -59,10 +64,19 @@ export default function AdminDynamicVpn() {
   const syncMut = useMutation({
     mutationFn: () => apiFetch<{ total: number }>("/admin/dynamic-vpn/servers/sync/nadiavpn", { method: "POST" }),
     onSuccess: (data) => {
-      toast({ title: "Sync selesai", description: `${data.total} server provider disinkronkan.` });
+      toast({ title: "Sync selesai", description: `${data.total} server NadiaVPN disinkronkan.` });
       qc.invalidateQueries({ queryKey: ["admin-dynamic-vpn-servers"] });
     },
     onError: (err: unknown) => toast({ title: "Sync gagal", description: err instanceof Error ? err.message : "Gagal sync", variant: "destructive" }),
+  });
+
+  const syncLocalMut = useMutation({
+    mutationFn: () => apiFetch<{ total: number }>("/admin/dynamic-vpn/servers/sync/local-panel", { method: "POST" }),
+    onSuccess: (data) => {
+      toast({ title: "Sync server saya selesai", description: `${data.total} server lokal disinkronkan.` });
+      qc.invalidateQueries({ queryKey: ["admin-dynamic-vpn-servers"] });
+    },
+    onError: (err: unknown) => toast({ title: "Sync server saya gagal", description: err instanceof Error ? err.message : "Gagal sync", variant: "destructive" }),
   });
 
   const saveMut = useMutation({
@@ -90,13 +104,18 @@ export default function AdminDynamicVpn() {
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2"><SlidersHorizontal className="text-primary" /> Pengaturan Order VPN</h1>
           <p className="text-muted-foreground mt-1">Atur server, protocol, harga, dan durasi yang tampil di halaman Order VPN user.</p>
         </div>
-        <Button onClick={() => syncMut.mutate()} disabled={syncMut.isPending} className="gap-2">
-          <RefreshCw className={`h-4 w-4 ${syncMut.isPending ? "animate-spin" : ""}`} /> Sync Server NadiaVPN
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Button onClick={() => syncLocalMut.mutate()} disabled={syncLocalMut.isPending} variant="secondary" className="gap-2">
+            <RefreshCw className={`h-4 w-4 ${syncLocalMut.isPending ? "animate-spin" : ""}`} /> Sync Server Saya
+          </Button>
+          <Button onClick={() => syncMut.mutate()} disabled={syncMut.isPending} className="gap-2">
+            <RefreshCw className={`h-4 w-4 ${syncMut.isPending ? "animate-spin" : ""}`} /> Sync NadiaVPN
+          </Button>
+        </div>
       </div>
 
       {serversQuery.isLoading ? <p className="text-muted-foreground">Memuat server...</p> : servers.length === 0 ? (
-        <Card className="glass-panel"><CardContent className="py-12 text-center text-muted-foreground">Belum ada server. Klik Sync Server NadiaVPN.</CardContent></Card>
+        <Card className="glass-panel"><CardContent className="py-12 text-center text-muted-foreground">Belum ada server. Klik Sync Server Saya atau Sync NadiaVPN.</CardContent></Card>
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           {servers.map((server) => {
@@ -107,7 +126,12 @@ export default function AdminDynamicVpn() {
                 <CardHeader>
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <CardTitle className="flex items-center gap-2"><Server className="h-5 w-5" /> {server.providerName}</CardTitle>
+                      <CardTitle className="flex flex-wrap items-center gap-2">
+                        <Server className="h-5 w-5" /> {server.providerName}
+                        <Badge variant="outline" className={server.provider === "local_panel" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-cyan-500/40 bg-cyan-500/10 text-cyan-300"}>
+                          {providerLabel(server.provider)}
+                        </Badge>
+                      </CardTitle>
                       <CardDescription>{server.location ?? "-"} • Kapasitas {server.capacityUsed}/{server.capacityLimit ?? "-"}</CardDescription>
                     </div>
                     <Badge className={server.capacityIsFull ? "bg-red-500/10 text-red-300 border-red-500/30" : "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"}>{server.capacityIsFull ? "Penuh" : "Tersedia"}</Badge>
