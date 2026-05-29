@@ -134,6 +134,7 @@ export default function DynamicOrderPage() {
     onSuccess: (data) => {
       setPaidOrderId(data.order.id);
       setSelectedServer(null);
+      serversQuery.refetch();
       toast({ title: "Order berhasil", description: "Akun VPN sudah dibuat dan masuk ke menu Akun VPN." });
     },
     onError: (err: unknown) => toast({ title: "Order gagal", description: err instanceof Error ? err.message : "Gagal membuat order", variant: "destructive" }),

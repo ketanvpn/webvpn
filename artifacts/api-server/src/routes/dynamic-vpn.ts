@@ -270,12 +270,7 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
   }).catch(() => {});
 }
 
-router.get("/admin/dynamic-vpn/servers", requireAdmin, async (_req, res) => {
-  const rows = await db.select().from(dynamicProviderServersTable).orderBy(asc(dynamicProviderServersTable.sortOrder), asc(dynamicProviderServersTable.id));
-  res.json({ servers: rows.map((row) => formatServer(row, true)) });
-});
-
-router.post("/admin/dynamic-vpn/servers/sync/nadiavpn", requireAdmin, async (_req, res) => {
+async function syncNadiaVpnServersFromProvider() {
   const response: any = await getNadiaVpnServers();
   const servers = response?.data?.servers ?? [];
   const now = new Date();
@@ -323,6 +318,16 @@ router.post("/admin/dynamic-vpn/servers/sync/nadiavpn", requireAdmin, async (_re
     synced.push(formatServer(row, true));
   }
 
+  return synced;
+}
+
+router.get("/admin/dynamic-vpn/servers", requireAdmin, async (_req, res) => {
+  const rows = await db.select().from(dynamicProviderServersTable).orderBy(asc(dynamicProviderServersTable.sortOrder), asc(dynamicProviderServersTable.id));
+  res.json({ servers: rows.map((row) => formatServer(row, true)) });
+});
+
+router.post("/admin/dynamic-vpn/servers/sync/nadiavpn", requireAdmin, async (_req, res) => {
+  const synced = await syncNadiaVpnServersFromProvider();
   res.json({ success: true, total: synced.length, servers: synced });
 });
 
@@ -352,6 +357,12 @@ router.patch("/admin/dynamic-vpn/servers/:id", requireAdmin, async (req, res) =>
 });
 
 router.get("/dynamic-vpn/servers", requireAuth, async (_req, res) => {
+  try {
+    await syncNadiaVpnServersFromProvider();
+  } catch (error) {
+    logger.warn({ err: error }, "[dynamic-vpn] stock sync failed, using cached servers");
+  }
+
   const rows = await db
     .select()
     .from(dynamicProviderServersTable)
@@ -397,8 +408,14 @@ router.post("/dynamic-vpn/orders", requireAuth, async (req, res) => {
   }
   if (paymentMethod !== "balance") return sendError(res, 400, "Dynamic order saat ini baru mendukung pembayaran saldo");
 
+  try {
+    await syncNadiaVpnServersFromProvider();
+  } catch (error) {
+    logger.warn({ err: error }, "[dynamic-vpn] stock sync before order failed, using cached server state");
+  }
+
   const [server] = await db.select().from(dynamicProviderServersTable).where(eq(dynamicProviderServersTable.id, serverId)).limit(1);
-  if (!server || !server.isActive || server.capacityIsFull) return sendError(res, 404, "Server tidak tersedia");
+  if (!server || !server.isActive || server.capacityIsFull) return sendError(res, 409, "Server penuh atau sedang tidak tersedia. Silakan pilih server lain.");
   if (!server.enabledProtocols.includes(protocol)) return sendError(res, 400, "Protocol tidak tersedia untuk server ini");
   if (!Number.isInteger(duration) || duration < 1) return sendError(res, 400, "Durasi tidak valid");
 
