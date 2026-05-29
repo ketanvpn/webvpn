@@ -11,6 +11,8 @@ import { sendWhatsapp } from "../lib/fonnte";
 import { addBalanceLog } from "./balance-logs";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
+import { notifyAdminDynamicOrderFulfilled } from "../lib/telegram";
+import { logger } from "../lib/logger";
 
 const router = Router();
 const renewLocks = new Map<number, number>();
@@ -511,6 +513,34 @@ router.post("/accounts/:id/renew-dynamic", requireAuth, async (req, res) => {
       description: `Renew dynamic VPN: ${account.username} (+${duration} ${durationType === "day" ? "hari" : "bulan"})`,
       relatedId: account.id,
     }).catch(() => {});
+
+    const [buyer] = await db.select({ username: usersTable.username, whatsapp: usersTable.whatsapp }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    const expiryFormatted = format(finalExpiresAt, "d MMM yyyy, HH:mm", { locale: idLocale });
+    const providerLabel = dynamicOrder.provider === "local_panel" ? "Server Saya" : "Dynamic";
+
+    if (buyer?.whatsapp) {
+      const waMsg =
+        `✅ *Renew Akun VPN Berhasil!*\n\n` +
+        `Akun: *${account.username}*\n` +
+        `Protokol: *${account.protocol.toUpperCase()}*\n` +
+        `Paket: *${providerLabel}* (+${duration} ${durationType === "day" ? "hari" : "bulan"})\n` +
+        `Aktif hingga: *${expiryFormatted}*\n` +
+        `Harga: *Rp ${price.amount.toLocaleString("id-ID")}*\n\n` +
+        `Terima kasih telah menggunakan KETANTECH VPN! 🚀`;
+      sendWhatsapp(buyer.whatsapp, waMsg).catch(() => {});
+    }
+
+    notifyAdminDynamicOrderFulfilled({
+      orderId: -dynamicOrder.id,
+      buyerUsername: buyer?.username ?? `User #${userId}`,
+      serverName: `Renew - ${dynamicOrder.serverDisplayName}`,
+      protocol: account.protocol,
+      vpnUsername: account.username,
+      amount: price.amount,
+      discountAmount: price.resellerDiscountAmount,
+      paymentMethod: "balance",
+      providerAccountId: dynamicOrder.providerAccountId,
+    }).catch((err) => logger.error({ err, accountId: account.id }, "notifyAdminDynamicRenew failed"));
 
     const [updated] = await db.select().from(vpnAccountsTable).where(eq(vpnAccountsTable.id, account.id)).limit(1);
     res.json({ account: await formatAccount(updated), amount: price.amount, discountAmount: price.resellerDiscountAmount });
