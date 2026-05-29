@@ -361,15 +361,15 @@ export default function AccountDetail() {
           {/* Info Akun */}
           <Card className="glass-panel border-white/5 shadow-lg">
             <CardHeader className="border-b border-white/5 pb-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-2xl font-mono">{account.username}</CardTitle>
-                  <CardDescription className="mt-1 flex items-center gap-2 text-sm">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <CardTitle className="break-all text-xl font-mono sm:text-2xl">{account.username}</CardTitle>
+                  <CardDescription className="mt-1 flex min-w-0 items-center gap-2 text-sm">
                     <span className="text-xl leading-none">{account.server.flag}</span>
-                    <span>{account.server.name} &bull; {account.server.location}</span>
+                    <span className="min-w-0 truncate">{account.server.name} &bull; {account.server.location}</span>
                   </CardDescription>
                 </div>
-                <Badge variant="secondary" className="uppercase text-lg py-1">{account.protocol}</Badge>
+                <Badge variant="secondary" className="w-fit uppercase text-sm py-1 sm:text-lg">{account.protocol}</Badge>
               </div>
             </CardHeader>
             <CardContent className="pt-6 space-y-6">
@@ -444,15 +444,16 @@ export default function AccountDetail() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5 min-w-0">
                       <Label>Host / IP</Label>
                       <div className="flex gap-2">
-                        <Input value={accountHost} readOnly className="font-mono bg-muted/50 text-sm" />
+                        <Input value={accountHost} readOnly className="min-w-0 font-mono bg-muted/50 text-sm" />
                         {accountHost && (
                           <Button
                             variant="outline"
                             size="icon"
+                            className="shrink-0"
                             onClick={() => copyToClipboard(accountHost, "Host")}
                             title="Salin Host"
                           >
@@ -461,12 +462,12 @@ export default function AccountDetail() {
                         )}
                       </div>
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 min-w-0">
                       <Label>Port TLS / Non TLS</Label>
                       <Input
                         value={isSsh ? sshPortText : "443 / 80"}
                         readOnly
-                        className="font-mono bg-muted/50 text-sm"
+                        className="min-w-0 font-mono bg-muted/50 text-sm"
                       />
                     </div>
                   </div>
@@ -498,7 +499,7 @@ export default function AccountDetail() {
                         <div key={key} className="space-y-2 p-3 rounded-lg bg-background border">
                           <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{label}</div>
                           <div className="flex gap-2">
-                            <Input value={link} readOnly className="font-mono text-xs bg-muted/50" />
+                            <Input value={link} readOnly className="min-w-0 font-mono text-xs bg-muted/50" />
                             <Button
                               variant="outline"
                               size="sm"
@@ -544,11 +545,11 @@ export default function AccountDetail() {
                   <div className="space-y-4">
                     <div className="p-3 rounded-lg bg-background border space-y-2">
                       <div className="flex gap-2">
-                        <Input value={account.configLink} readOnly className="font-mono text-xs bg-muted/50" />
+                        <Input value={account.configLink} readOnly className="min-w-0 font-mono text-xs bg-muted/50" />
                         <Button
                           variant="outline"
                           size="sm"
-                          className="gap-1 shrink-0"
+                          className="shrink-0 gap-1"
                           onClick={() => copyToClipboard(account.configLink!, "Config Link")}
                         >
                           <Copy className="h-3.5 w-3.5" />
@@ -601,10 +602,11 @@ export default function AccountDetail() {
                   <div key={item.label} className="space-y-1.5 p-3 rounded-lg bg-background border">
                     <Label className="text-xs text-muted-foreground">{item.label}</Label>
                     <div className="flex gap-2">
-                      <Input value={item.value ?? ""} readOnly className="font-mono text-xs bg-muted/50" />
+                      <Input value={item.value ?? ""} readOnly className="min-w-0 font-mono text-xs bg-muted/50" />
                       <Button
                         variant="outline"
                         size="icon"
+                        className="shrink-0"
                         onClick={() => copyToClipboard(item.value ?? "", item.label)}
                         title={`Salin ${item.label}`}
                       >
