@@ -1,12 +1,12 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { vpnAccountsTable, serversTable, ordersTable, productsTable, usersTable, dynamicVpnOrdersTable } from "@workspace/db";
+import { vpnAccountsTable, serversTable, ordersTable, productsTable, usersTable, dynamicVpnOrdersTable, dynamicProviderServersTable } from "@workspace/db";
 import { eq, and, desc, sql, gte } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { RenewAccountBody } from "@workspace/api-zod";
 import { getResellerSettings } from "./settings";
 import { renewPanelAccount } from "../lib/vpn-panel";
-import { getNadiaVpnAccountDetails } from "../lib/nadiavpn";
+import { getNadiaVpnAccountDetails, renewNadiaVpnAccount } from "../lib/nadiavpn";
 import { sendWhatsapp } from "../lib/fonnte";
 import { addBalanceLog } from "./balance-logs";
 import { format } from "date-fns";
@@ -162,6 +162,47 @@ async function maybeAutoSyncProviderDetails(account: typeof vpnAccountsTable.$in
   }
 }
 
+async function calculateDynamicRenewAmount(params: {
+  dynamicServerId: number | null;
+  durationType: string;
+  duration: number;
+  userId: number;
+}) {
+  const { dynamicServerId, durationType, duration, userId } = params;
+  if (!dynamicServerId) throw new Error("Dynamic server tidak ditemukan");
+  const [server] = await db.select().from(dynamicProviderServersTable).where(eq(dynamicProviderServersTable.id, dynamicServerId)).limit(1);
+  if (!server || !server.isActive) throw new Error("Server dynamic tidak aktif");
+
+  let unitPrice = 0;
+  if (durationType === "day") {
+    if (!server.supportedTypes.includes("day")) throw new Error("Server ini tidak mendukung renew harian");
+    if (duration < server.minDays || duration > server.maxDays) throw new Error(`Durasi harian harus ${server.minDays}-${server.maxDays} hari`);
+    unitPrice = Number(server.sellPricePerDay ?? 0);
+  } else if (durationType === "month") {
+    if (!server.supportedTypes.includes("month")) throw new Error("Server ini tidak mendukung renew bulanan");
+    if (duration < server.minMonths || duration > server.maxMonths) throw new Error(`Durasi bulanan harus ${server.minMonths}-${server.maxMonths} bulan`);
+    unitPrice = Number(server.sellPricePerMonth ?? 0);
+  } else {
+    throw new Error("Tipe durasi tidak valid");
+  }
+
+  if (unitPrice <= 0) throw new Error("Harga renew belum diatur admin");
+  const baseAmount = unitPrice * duration;
+  let amount = baseAmount;
+  let resellerDiscountAmount = 0;
+
+  const [user] = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  if (user?.role === "reseller") {
+    const settings = await getResellerSettings();
+    if (settings.resellerEnabled && settings.resellerDiscountPercent > 0) {
+      resellerDiscountAmount = Math.floor(baseAmount * (settings.resellerDiscountPercent / 100));
+      amount = Math.max(0, baseAmount - resellerDiscountAmount);
+    }
+  }
+
+  return { amount, baseAmount, resellerDiscountAmount, unitPrice };
+}
+
 async function formatAccount(a: typeof vpnAccountsTable.$inferSelect) {
   const [server] = await db
     .select()
@@ -293,6 +334,103 @@ router.post("/accounts/:id/sync-provider", requireAuth, async (req, res) => {
 
   const updated = await syncNadiaAccountDetails(account);
   res.json(await formatAccount(updated));
+});
+
+router.post("/accounts/:id/renew-dynamic", requireAuth, async (req, res) => {
+  const id = parseInt(req.params.id as string, 10);
+  const userId = req.user!.userId;
+  const durationType = String(req.body?.durationType ?? "").trim().toLowerCase();
+  const duration = parseInt(String(req.body?.duration ?? ""), 10);
+
+  if (!acquireRenewLock(id)) {
+    res.status(409).json({ error: "Akun ini sedang diproses renew. Coba lagi beberapa detik." });
+    return;
+  }
+
+  try {
+    if (!["day", "month"].includes(durationType) || !Number.isInteger(duration) || duration < 1) {
+      res.status(400).json({ error: "Durasi renew tidak valid" });
+      return;
+    }
+
+    const [account] = await db
+      .select()
+      .from(vpnAccountsTable)
+      .where(and(eq(vpnAccountsTable.id, id), eq(vpnAccountsTable.userId, userId)))
+      .limit(1);
+
+    if (!account) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+
+    const [dynamicOrder] = await db
+      .select()
+      .from(dynamicVpnOrdersTable)
+      .where(eq(dynamicVpnOrdersTable.vpnAccountId, account.id))
+      .limit(1);
+
+    if (!dynamicOrder || dynamicOrder.provider !== "nadiavpn") {
+      res.status(400).json({ error: "Renew dynamic saat ini hanya mendukung akun NadiaVPN" });
+      return;
+    }
+    if (!dynamicOrder.providerAccountId) {
+      res.status(400).json({ error: "Account ID provider belum tersimpan untuk akun ini" });
+      return;
+    }
+
+    const price = await calculateDynamicRenewAmount({ dynamicServerId: dynamicOrder.dynamicServerId, durationType, duration, userId });
+    const [user] = await db.select({ balance: usersTable.balance }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    if (!user || Number(user.balance) < price.amount) {
+      res.status(400).json({ error: "Saldo tidak cukup untuk melakukan renew" });
+      return;
+    }
+
+    await renewNadiaVpnAccount({ account_id: dynamicOrder.providerAccountId, type: durationType, duration });
+    const synced = await syncNadiaAccountDetails(account);
+    const finalExpiresAt = synced.expiresAt ?? new Date(account.expiresAt.getTime() + (durationType === "day" ? duration : duration * 30) * 24 * 60 * 60 * 1000);
+
+    let balanceBefore = 0;
+    let balanceAfter = 0;
+    await db.transaction(async (tx: any) => {
+      const [updatedUser] = await tx
+        .update(usersTable)
+        .set({ balance: sql`balance - ${price.amount}` })
+        .where(and(eq(usersTable.id, userId), sql`balance >= ${price.amount}::numeric`))
+        .returning({ balance: usersTable.balance });
+
+      if (!updatedUser) throw new Error("INSUFFICIENT_BALANCE");
+      balanceAfter = Number(updatedUser.balance);
+      balanceBefore = balanceAfter + price.amount;
+
+      await tx
+        .update(vpnAccountsTable)
+        .set({ expiresAt: finalExpiresAt, isActive: true, updatedAt: new Date() })
+        .where(eq(vpnAccountsTable.id, account.id));
+    });
+
+    addBalanceLog({
+      userId,
+      type: "order",
+      amount: -price.amount,
+      balanceBefore,
+      balanceAfter,
+      description: `Renew dynamic NadiaVPN: ${account.username} (+${duration} ${durationType === "day" ? "hari" : "bulan"})`,
+      relatedId: account.id,
+    }).catch(() => {});
+
+    const [updated] = await db.select().from(vpnAccountsTable).where(eq(vpnAccountsTable.id, account.id)).limit(1);
+    res.json({ account: await formatAccount(updated), amount: price.amount, discountAmount: price.resellerDiscountAmount });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Gagal renew dynamic";
+    if (message === "INSUFFICIENT_BALANCE") {
+      res.status(400).json({ error: "Saldo tidak cukup untuk melakukan renew" });
+      return;
+    }
+    res.status(500).json({ error: message });
+  } finally {
+    releaseRenewLock(id);
+  }
 });
 
 router.post("/accounts/:id/renew", requireAuth, async (req, res) => {

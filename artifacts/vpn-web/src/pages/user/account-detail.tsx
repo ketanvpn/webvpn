@@ -310,6 +310,156 @@ function RenewDialog({ accountId, serverId, protocol, serverName, serverFlag, se
   );
 }
 
+function DynamicRenewDialog({ accountId, protocol, serverName, serverFlag, serverLocation }: {
+  accountId: number;
+  protocol: string;
+  serverName: string;
+  serverFlag: string;
+  serverLocation: string;
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [durationType, setDurationType] = useState<"day" | "month">("month");
+  const [duration, setDuration] = useState("1");
+  const [renewedAmount, setRenewedAmount] = useState<number | null>(null);
+
+  const renewMutation = useMutation({
+    mutationFn: async () => {
+      const parsedDuration = parseInt(duration, 10);
+      const res = await fetch(`${API}/accounts/${accountId}/renew-dynamic`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ durationType, duration: parsedDuration }),
+      });
+      const body = await res.json().catch(() => ({ error: "Response tidak valid" }));
+      if (!res.ok) throw new Error(body?.error ?? "Gagal renew dynamic");
+      return body as { amount?: number; discountAmount?: number };
+    },
+    onSuccess: (body) => {
+      setRenewedAmount(body.amount ?? null);
+      queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey(accountId) });
+      queryClient.invalidateQueries({ queryKey: getGetBalanceQueryKey() });
+      toast({
+        title: "Renew dynamic berhasil!",
+        description: body.amount != null ? `${formatRupiah(body.amount)} telah dipotong dari saldo.` : "Akun berhasil diperpanjang dari NadiaVPN.",
+      });
+    },
+    onError: (err: unknown) => {
+      toast({
+        title: "Renew dynamic gagal",
+        description: err instanceof Error ? err.message : "Gagal renew dynamic",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const parsedDuration = parseInt(duration, 10);
+  const isValidDuration = Number.isInteger(parsedDuration) && parsedDuration > 0;
+
+  const handleOpenChange = (val: boolean) => {
+    setOpen(val);
+    if (!val) {
+      setDurationType("month");
+      setDuration("1");
+      setRenewedAmount(null);
+      renewMutation.reset();
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button className="w-full gap-2">
+          <RefreshCw className="h-4 w-4" />
+          Renew Akun
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Perpanjang Akun Dynamic</DialogTitle>
+          <DialogDescription>
+            Renew akun NadiaVPN langsung ke provider. Harga final dihitung dari pengaturan server dynamic dan saldo akan dipotong setelah provider berhasil.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border bg-muted/30 text-sm">
+          <span className="text-2xl leading-none">{serverFlag}</span>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold truncate">{serverName}</div>
+            <div className="text-xs text-muted-foreground">{serverLocation} &bull; {protocol.toUpperCase()} &bull; NadiaVPN</div>
+          </div>
+          <Badge variant="outline" className="text-xs shrink-0">Dynamic</Badge>
+        </div>
+
+        {renewedAmount != null ? (
+          <div className="flex flex-col items-center gap-4 py-6">
+            <CheckCircle2 className="h-16 w-16 text-green-500" />
+            <div className="text-center">
+              <p className="font-semibold text-lg">Renew Berhasil!</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Saldo terpotong {formatRupiah(renewedAmount)} dan detail akun sudah disinkronkan ulang.
+              </p>
+            </div>
+            <Button onClick={() => handleOpenChange(false)} className="w-full">Tutup</Button>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Tipe Durasi</Label>
+                <select
+                  value={durationType}
+                  onChange={(e) => setDurationType(e.target.value as "day" | "month")}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="day">Harian</option>
+                  <option value="month">Bulanan</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Jumlah</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={duration}
+                  onChange={(e) => setDuration(e.target.value)}
+                  placeholder="1"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2 p-3 rounded-lg text-sm bg-amber-500/10 border border-amber-500/20 text-amber-200">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <div>
+                Harga mengikuti pengaturan dynamic server saat ini. Jika saldo kurang atau durasi tidak didukung server, sistem akan menolak sebelum saldo dipotong.
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => handleOpenChange(false)}>Batal</Button>
+              <Button onClick={() => renewMutation.mutate()} disabled={!isValidDuration || renewMutation.isPending} className="gap-2">
+                {renewMutation.isPending ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Memproses...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" />
+                    Konfirmasi Renew
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function AccountDetail() {
   const { id } = useParams<{ id: string }>();
   const accountId = parseInt(id || "0", 10);
@@ -704,15 +854,25 @@ export default function AccountDetail() {
             </CardHeader>
             <CardContent className="space-y-3">
               {account.isActive && new Date(account.expiresAt) > new Date() && (
-                <RenewDialog
-                  accountId={accountId}
-                  serverId={account.serverId!}
-                  protocol={account.protocol}
-                  serverName={account.server.name}
-                  serverFlag={account.server.flag}
-                  serverLocation={account.server.location}
-                  serverIsActive={account.server.isActive}
-                />
+                dynamicOrder?.provider === "nadiavpn" ? (
+                  <DynamicRenewDialog
+                    accountId={accountId}
+                    protocol={account.protocol}
+                    serverName={account.server.name}
+                    serverFlag={account.server.flag}
+                    serverLocation={account.server.location}
+                  />
+                ) : (
+                  <RenewDialog
+                    accountId={accountId}
+                    serverId={account.serverId!}
+                    protocol={account.protocol}
+                    serverName={account.server.name}
+                    serverFlag={account.server.flag}
+                    serverLocation={account.server.location}
+                    serverIsActive={account.server.isActive}
+                  />
+                )
               )}
               {dynamicOrder?.provider === "nadiavpn" && (
                 <Button
