@@ -11,7 +11,7 @@ import {
 import { and, asc, count, eq, gt, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { requireAdmin, requireAuth } from "../lib/auth";
-import { createNadiaVpnOrder, getNadiaVpnServers } from "../lib/nadiavpn";
+import { createNadiaVpnOrder, getNadiaVpnAccountDetails, getNadiaVpnServers } from "../lib/nadiavpn";
 import { createPanelAccount, deletePanelAccount } from "../lib/vpn-panel";
 import { addBalanceLog } from "./balance-logs";
 import { getResellerSettings } from "./settings";
@@ -186,18 +186,20 @@ function stringifyConfigValue(value: unknown): string | null {
 }
 
 function extractConnectionDetails(response: any, protocol: string): Record<string, string | null> | null {
-  const config = response?.data?.config;
+  const data = response?.data ?? {};
+  const config = data.config ?? data.config_data;
   const rawLinks = config?.link;
+  const serverInfo = data.server && typeof data.server === "object" ? data.server : {};
 
   if (rawLinks && typeof rawLinks === "object") {
     const links: Record<string, string | null> = {
-      hostname: stringifyConfigValue(config?.hostname ?? response?.data?.hostname),
-      servername: stringifyConfigValue(config?.servername ?? response?.data?.servername),
-      host: stringifyConfigValue(config?.host ?? response?.data?.host),
-      domain: stringifyConfigValue(config?.domain ?? response?.data?.domain),
-      server: stringifyConfigValue(config?.server ?? response?.data?.server),
-      sni: stringifyConfigValue(config?.sni ?? response?.data?.sni),
-      cloudfront: stringifyConfigValue(config?.cloudfront ?? response?.data?.cloudfront),
+      hostname: stringifyConfigValue(config?.hostname ?? data.hostname),
+      servername: stringifyConfigValue(config?.servername ?? data.servername),
+      host: stringifyConfigValue(config?.host ?? data.host),
+      domain: stringifyConfigValue(serverInfo?.domain ?? config?.domain ?? data.domain),
+      server: stringifyConfigValue(config?.server ?? data.server),
+      sni: stringifyConfigValue(config?.sni ?? data.sni),
+      cloudfront: stringifyConfigValue(config?.cloudfront ?? data.cloudfront),
     };
     for (const [key, value] of Object.entries(rawLinks)) {
       links[key] = typeof value === "string" ? value : null;
@@ -205,12 +207,17 @@ function extractConnectionDetails(response: any, protocol: string): Record<strin
     return links;
   }
 
-  if (protocol !== "ssh" || !config || typeof config !== "object") return null;
+  if (!config || typeof config !== "object") return null;
 
   const port = config.port && typeof config.port === "object" ? config.port : {};
-  const sshDetails: Record<string, string | null> = {
-    hostname: stringifyConfigValue(config.hostname),
-    servername: stringifyConfigValue(config.servername),
+  const payloadws = config.payloadws && typeof config.payloadws === "object" ? config.payloadws : {};
+  const details: Record<string, string | null> = {
+    hostname: stringifyConfigValue(config.hostname ?? data.hostname),
+    servername: stringifyConfigValue(config.servername ?? data.servername),
+    domain: stringifyConfigValue(serverInfo?.domain ?? config.domain ?? data.domain),
+    host: stringifyConfigValue(config.host ?? data.host),
+    cloudfront: stringifyConfigValue(config.cloudfront ?? data.cloudfront),
+    sni: stringifyConfigValue(config.sni ?? data.sni),
     pubkey: stringifyConfigValue(config.pubkey),
     isp: stringifyConfigValue(config.ISP),
     city: stringifyConfigValue(config.CITY),
@@ -225,9 +232,21 @@ function extractConnectionDetails(response: any, protocol: string): Record<strin
     squid: stringifyConfigValue(port.squid),
     udp_custom: stringifyConfigValue(port.udpcustom),
     udpgw: stringifyConfigValue(port.udpgw),
+    payload_cdn: stringifyConfigValue(payloadws.payloadcdn),
+    payload_with_path: stringifyConfigValue(payloadws.payloadwithpath),
   };
 
-  return Object.values(sshDetails).some(Boolean) ? sshDetails : null;
+  return Object.values(details).some(Boolean) ? details : null;
+}
+
+function extractProviderAccountId(data: any): string | null {
+  return stringifyConfigValue(
+    data?.account_id ??
+    data?.accountId ??
+    data?.id ??
+    data?.account?.account_id ??
+    data?.account?.id
+  );
 }
 
 function extractPanelConnectionDetails(result: Awaited<ReturnType<typeof createPanelAccount>>): Record<string, string | null> | null {
@@ -374,14 +393,33 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
         ...(order.password ? { password: order.password } : {}),
       });
 
-      const data = providerResponse?.data ?? {};
+      let data = providerResponse?.data ?? {};
+      let connectionResponse = providerResponse;
+      providerAccountId = extractProviderAccountId(data);
+
+      if (providerAccountId) {
+        try {
+          const detailResponse: any = await getNadiaVpnAccountDetails(providerAccountId);
+          if (detailResponse?.data) {
+            providerResponse = {
+              order: providerResponse,
+              details: detailResponse,
+            };
+            connectionResponse = detailResponse;
+            data = detailResponse.data;
+          }
+        } catch (detailError) {
+          logger.warn({ err: detailError, orderId, providerAccountId }, "[dynamic-vpn] failed to fetch Nadia account details after order");
+        }
+      }
+
       accountProtocol = normalizeProtocol(data.protocol ?? order.protocol);
-      allLinks = extractConnectionDetails(providerResponse, accountProtocol);
+      allLinks = extractConnectionDetails(connectionResponse, accountProtocol);
       configLink = accountProtocol === "ssh" ? null : allLinks?.tls ?? Object.values(allLinks ?? {}).find(Boolean) ?? null;
-      providerPassword = data.password ?? data.config?.password ?? order.password ?? null;
-      providerUuid = data.uuid ?? null;
-      providerAccountId = data.account_id ?? null;
-      accountUsername = data.username ?? order.username;
+      providerPassword = data.password ?? data.config?.password ?? data.config_data?.password ?? order.password ?? null;
+      providerUuid = data.uuid ?? data.config?.uuid ?? data.config_data?.uuid ?? null;
+      providerAccountId = providerAccountId ?? extractProviderAccountId(data);
+      accountUsername = data.username ?? data.config?.username ?? data.config_data?.username ?? order.username;
       localServerId = await getKetantechProviderServerId();
       expiresAt = parseNadiaExpireAt(data.expire_at, fallbackExpiry);
     }
