@@ -1,9 +1,10 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useMemo, useRef, useState } from "react";
-import { CheckCircle2, CreditCard, PackageX, RefreshCw, Server, Shield, UserRound, Wallet, Zap } from "lucide-react";
+import { useMemo, useState } from "react";
+import { CheckCircle2, CreditCard, PackageX, RefreshCw, Server, UserRound, Wallet, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -49,9 +50,9 @@ function countryFlag(location?: string | null) {
   return "🌐";
 }
 
-function ServerCard({ server, active, onSelect }: { server: DynamicServer; active: boolean; onSelect: () => void }) {
+function ServerCard({ server, onSelect }: { server: DynamicServer; onSelect: () => void }) {
   return (
-    <div className={`relative flex flex-col rounded-xl overflow-hidden transition-all duration-300 border ${active ? "border-primary/60 shadow-[0_0_18px_rgba(16,185,129,0.18)]" : "border-white/5 hover:border-primary/30"} glass-card`}>
+    <div className="relative flex flex-col rounded-xl overflow-hidden transition-all duration-300 border border-white/5 hover:border-primary/30 glass-card">
       <button type="button" onClick={onSelect} className="p-4 flex gap-3 text-left w-full">
         <div className="flex flex-col items-center gap-1.5 w-16 shrink-0">
           <div className="w-12 h-12 rounded-xl bg-white/90 flex items-center justify-center text-3xl shadow-lg border border-white/20">
@@ -78,8 +79,8 @@ function ServerCard({ server, active, onSelect }: { server: DynamicServer; activ
 
         <div className="flex flex-col items-end justify-between shrink-0 py-0.5">
           <Badge variant="outline" className="text-[9px] border-white/10 bg-white/5">MAX 3 IP</Badge>
-          <span className={`mt-4 h-8 px-3 rounded-md text-xs font-semibold inline-flex items-center justify-center ${active ? "bg-primary text-primary-foreground" : "bg-primary/90 text-primary-foreground"}`}>
-            <CreditCard className="h-3.5 w-3.5 mr-1" /> {active ? "Dipilih" : "Order"}
+          <span className="mt-4 h-8 px-3 rounded-md text-xs font-semibold inline-flex items-center justify-center bg-primary/90 text-primary-foreground">
+            <CreditCard className="h-3.5 w-3.5 mr-1" /> Order
           </span>
         </div>
       </button>
@@ -100,8 +101,7 @@ function ServerCard({ server, active, onSelect }: { server: DynamicServer; activ
 
 export default function DynamicOrderPage() {
   const { toast } = useToast();
-  const configRef = useRef<HTMLDivElement>(null);
-  const [serverId, setServerId] = useState("");
+  const [selectedServer, setSelectedServer] = useState<DynamicServer | null>(null);
   const [protocol, setProtocol] = useState("");
   const [durationType, setDurationType] = useState("month");
   const [duration, setDuration] = useState("1");
@@ -110,7 +110,6 @@ export default function DynamicOrderPage() {
 
   const serversQuery = useQuery<{ servers: DynamicServer[] }>({ queryKey: ["dynamic-vpn-servers"], queryFn: () => apiFetch("/dynamic-vpn/servers") });
   const servers = serversQuery.data?.servers ?? [];
-  const selectedServer = servers.find((s) => String(s.id) === serverId);
   const durationNum = parseInt(duration || "0", 10);
 
   const quote = useMemo<Quote | null>(() => {
@@ -123,27 +122,29 @@ export default function DynamicOrderPage() {
 
   const orderMut = useMutation({
     mutationFn: async () => {
+      if (!selectedServer) throw new Error("Pilih server terlebih dahulu");
       const created = await apiFetch<{ order: { id: number } }>("/dynamic-vpn/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ serverId: Number(serverId), protocol, durationType, duration: durationNum, username, paymentMethod: "balance" }),
+        body: JSON.stringify({ serverId: selectedServer.id, protocol, durationType, duration: durationNum, username, paymentMethod: "balance" }),
       });
       return apiFetch<{ order: { id: number; vpnAccountId: number | null } }>(`/dynamic-vpn/orders/${created.order.id}/pay`, { method: "POST" });
     },
     onSuccess: (data) => {
       setPaidOrderId(data.order.id);
+      setSelectedServer(null);
       toast({ title: "Order berhasil", description: "Akun VPN sudah dibuat dan masuk ke menu Akun VPN." });
-      window.scrollTo({ top: 0, behavior: "smooth" });
     },
     onError: (err: unknown) => toast({ title: "Order gagal", description: err instanceof Error ? err.message : "Gagal membuat order", variant: "destructive" }),
   });
 
-  const selectServer = (server: DynamicServer) => {
-    setServerId(String(server.id));
+  const openOrder = (server: DynamicServer) => {
+    setSelectedServer(server);
     setProtocol(server.enabledProtocols?.[0] ?? "");
-    if (!server.supportedTypes.includes(durationType)) setDurationType(server.supportedTypes[0] ?? "month");
+    setDurationType(server.supportedTypes.includes("month") ? "month" : server.supportedTypes[0] ?? "day");
+    setDuration("1");
+    setUsername("");
     setPaidOrderId(null);
-    window.setTimeout(() => configRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
   };
 
   const durationHelp = selectedServer
@@ -153,7 +154,7 @@ export default function DynamicOrderPage() {
     : "Pilih server dahulu";
 
   return (
-    <div className="space-y-4 pb-24 lg:pb-8">
+    <div className="space-y-4 pb-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Order VPN</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Pilih server premium, lalu atur protocol dan durasi sesuai kebutuhanmu.</p>
@@ -177,87 +178,86 @@ export default function DynamicOrderPage() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {servers.map((server) => (
-            <ServerCard key={server.id} server={server} active={serverId === String(server.id)} onSelect={() => selectServer(server)} />
+            <ServerCard key={server.id} server={server} onSelect={() => openOrder(server)} />
           ))}
         </div>
       )}
 
-      {selectedServer && (
-        <div ref={configRef} className="scroll-mt-20 grid gap-4 lg:grid-cols-[1fr_340px]">
-          <Card className="glass-panel border-white/5">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2"><Shield className="h-5 w-5 text-primary" /> Konfigurasi Order</CardTitle>
-              <CardDescription>{selectedServer.displayName}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="grid gap-2">
-                  <Label>Protocol</Label>
-                  <Select value={protocol} onValueChange={setProtocol}>
-                    <SelectTrigger><SelectValue placeholder="Pilih protocol" /></SelectTrigger>
-                    <SelectContent>{selectedServer.enabledProtocols.map((p) => <SelectItem key={p} value={p}>{p.toUpperCase()}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label>Tipe Durasi</Label>
-                  <Select value={durationType} onValueChange={setDurationType}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {selectedServer.supportedTypes.includes("day") && <SelectItem value="day">Harian</SelectItem>}
-                      {selectedServer.supportedTypes.includes("month") && <SelectItem value="month">Bulanan</SelectItem>}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="grid gap-2">
-                  <Label>Jumlah</Label>
-                  <Input type="number" min={1} value={duration} onChange={(e) => setDuration(e.target.value)} />
-                  <p className="text-xs text-muted-foreground">{durationHelp}</p>
-                </div>
-                <div className="grid gap-2">
-                  <Label>Username VPN</Label>
-                  <div className="relative">
-                    <UserRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input className="pl-9" value={username} onChange={(e) => setUsername(e.target.value.toLowerCase())} placeholder="contoh: ketan123" />
+      <Dialog open={!!selectedServer} onOpenChange={(open) => !open && setSelectedServer(null)}>
+        <DialogContent className="max-w-xl max-h-[92vh] overflow-y-auto p-0">
+          {selectedServer && (
+            <>
+              <div className="relative overflow-hidden border-b border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950/70 p-5">
+                <div className="absolute -right-12 -top-16 h-40 w-40 rounded-full bg-cyan-500/20 blur-3xl" />
+                <DialogHeader className="relative text-left">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-white/90 flex items-center justify-center text-3xl shadow-lg">{countryFlag(selectedServer.location)}</div>
+                    <div>
+                      <DialogTitle className="text-xl text-white">{selectedServer.displayName}</DialogTitle>
+                      <DialogDescription>Atur detail akun VPN kamu.</DialogDescription>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">Minimal 5 karakter dan minimal 2 angka.</p>
+                </DialogHeader>
+              </div>
+
+              <div className="p-5 space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label>Protocol</Label>
+                    <Select value={protocol} onValueChange={setProtocol}>
+                      <SelectTrigger><SelectValue placeholder="Pilih protocol" /></SelectTrigger>
+                      <SelectContent>{selectedServer.enabledProtocols.map((p) => <SelectItem key={p} value={p}>{p.toUpperCase()}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Tipe Durasi</Label>
+                    <Select value={durationType} onValueChange={setDurationType}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {selectedServer.supportedTypes.includes("day") && <SelectItem value="day">Harian</SelectItem>}
+                        {selectedServer.supportedTypes.includes("month") && <SelectItem value="month">Bulanan</SelectItem>}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
 
-          <Card className="glass-panel border-primary/20 h-fit lg:sticky lg:top-6">
-            <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Wallet className="h-5 w-5 text-primary" /> Ringkasan</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Protocol</span><span className="font-medium uppercase">{protocol || "-"}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Durasi</span><span className="font-medium">{quote?.durationLabel ?? "-"}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Harga satuan</span><span className="font-medium">{quote ? rupiah(quote.unitPrice) : "-"}</span></div>
-              </div>
-              <div className="rounded-xl bg-primary/10 p-4"><p className="text-xs text-muted-foreground">Total Bayar</p><p className="text-2xl font-black text-primary">{quote ? rupiah(quote.amount) : "Rp 0"}</p></div>
-              <Button className="w-full gap-2" disabled={!serverId || !protocol || !quote || username.length < 5 || orderMut.isPending} onClick={() => orderMut.mutate()}>
-                {orderMut.isPending ? <><RefreshCw className="h-4 w-4 animate-spin" /> Memproses...</> : <><CreditCard className="h-4 w-4" /> Bayar Pakai Saldo</>}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-2">
+                    <Label>Jumlah</Label>
+                    <Input type="number" min={1} value={duration} onChange={(e) => setDuration(e.target.value)} />
+                    <p className="text-xs text-muted-foreground">{durationHelp}</p>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Username VPN</Label>
+                    <div className="relative">
+                      <UserRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input className="pl-9" value={username} onChange={(e) => setUsername(e.target.value.toLowerCase())} placeholder="contoh: ketan123" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">Minimal 5 karakter dan minimal 2 angka.</p>
+                  </div>
+                </div>
 
-      {selectedServer && quote && (
-        <div className="lg:hidden fixed bottom-16 left-0 right-0 z-40 px-4 pointer-events-none">
-          <div className="glass-panel border-primary/30 rounded-2xl p-3 shadow-2xl pointer-events-auto flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[10px] text-muted-foreground">Total Bayar</p>
-              <p className="text-lg font-black text-primary">{rupiah(quote.amount)}</p>
-            </div>
-            <Button size="sm" disabled={!serverId || !protocol || username.length < 5 || orderMut.isPending} onClick={() => orderMut.mutate()}>
-              {orderMut.isPending ? "Memproses..." : "Bayar"}
-            </Button>
-          </div>
-        </div>
-      )}
+                <div className="rounded-2xl border border-primary/20 bg-primary/10 p-4">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground">{protocol ? protocol.toUpperCase() : "-"} • {quote?.durationLabel ?? "-"}</p>
+                      <p className="text-xs text-muted-foreground">Harga satuan: {quote ? rupiah(quote.unitPrice) : "-"}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-muted-foreground">Total</p>
+                      <p className="text-2xl font-black text-primary">{quote ? rupiah(quote.amount) : "Rp 0"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <Button className="w-full gap-2" disabled={!protocol || !quote || username.length < 5 || orderMut.isPending} onClick={() => orderMut.mutate()}>
+                  {orderMut.isPending ? <><RefreshCw className="h-4 w-4 animate-spin" /> Memproses...</> : <><Wallet className="h-4 w-4" /> Bayar Pakai Saldo</>}
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
