@@ -47,6 +47,7 @@ import AdminPointsSettings from "@/pages/admin/points-settings";
 import AdminTickets from "@/pages/admin/tickets";
 import AdminTicketDetail from "@/pages/admin/ticket-detail";
 import AdminServerMonitor from "@/pages/admin/server-monitor";
+import AdminNadiaVpn from "@/pages/admin/nadiavpn";
 import AdminVouchers from "@/pages/admin/vouchers";
 import AdminBugPresets from "@/pages/admin/bug-presets";
 
@@ -174,6 +175,9 @@ function Router() {
       </Route>
       <Route path="/admin/server-monitor">
         <Layout requireAdmin><AdminServerMonitor /></Layout>
+      </Route>
+      <Route path="/admin/nadiavpn">
+        <Layout requireAdmin><AdminNadiaVpn /></Layout>
       </Route>
       <Route path="/admin/vouchers">
         <Layout requireAdmin><AdminVouchers /></Layout>

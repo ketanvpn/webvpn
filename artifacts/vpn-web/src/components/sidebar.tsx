@@ -31,6 +31,7 @@ import {
   ChevronRight,
   Bug,
   ArrowRightLeft,
+  Cloud,
 } from "lucide-react";
 import {
   Sheet,
@@ -92,6 +93,7 @@ const adminNav: NavItem[] = [
   { title: "Program Reseller", href: "/admin/settings/reseller", icon: Users },
   { title: "Notifikasi Kedaluwarsa", href: "/admin/settings/expiry-notif", icon: Bell },
   { title: "Monitor Server", href: "/admin/server-monitor", icon: Activity },
+  { title: "NadiaVPN", href: "/admin/nadiavpn", icon: Cloud },
   { title: "Voucher / Kode Promo", href: "/admin/vouchers", icon: Tag },
   { title: "Tiket Bantuan", href: "/admin/tickets", icon: TicketCheck, badgeKey: "pendingTickets" },
   { title: "Pengumuman", href: "/admin/announcements", icon: Megaphone },
@@ -116,6 +118,7 @@ const adminPageTitles: Record<string, string> = {
   "/admin/settings/reseller": "Program Reseller",
   "/admin/settings/expiry-notif": "Notifikasi Kedaluwarsa",
   "/admin/server-monitor": "Monitor Server",
+  "/admin/nadiavpn": "NadiaVPN",
   "/admin/vouchers": "Voucher / Kode Promo",
   "/admin/tickets": "Tiket Bantuan",
   "/admin/announcements": "Pengumuman",
