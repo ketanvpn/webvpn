@@ -36,7 +36,7 @@ app.use(
           id: req.id,
           method: req.method,
           url: req.url?.split("?")[0],
-          ip: getClientIp({ headers: req.headers, socket: req.socket } as any),
+          ip: getClientIp(req as any),
         };
       },
       res(res) {

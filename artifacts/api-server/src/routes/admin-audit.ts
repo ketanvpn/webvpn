@@ -1,0 +1,20 @@
+import { db } from "@workspace/db";
+import { adminAuditLogsTable } from "@workspace/db";
+
+export async function logAdminAction(params: {
+  adminUserId: number;
+  action: string;
+  targetType: string;
+  targetId?: number | null;
+  details?: Record<string, unknown>;
+  ipAddress?: string | null;
+}) {
+  await db.insert(adminAuditLogsTable).values({
+    adminUserId: params.adminUserId,
+    action: params.action,
+    targetType: params.targetType,
+    targetId: params.targetId ?? null,
+    details: params.details ?? {},
+    ipAddress: params.ipAddress ?? null,
+  });
+}

@@ -18,7 +18,7 @@ export function getSocketIp(req: Request): string {
 }
 
 export function getClientIp(req: Request): string {
-  const trustProxy = req.app.get("trust proxy");
+  const trustProxy = req.app?.get("trust proxy");
   const proxyAware = trustProxy !== false && trustProxy !== undefined && trustProxy !== null;
 
   if (!proxyAware) {

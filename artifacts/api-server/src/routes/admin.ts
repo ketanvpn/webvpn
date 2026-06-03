@@ -20,6 +20,8 @@ import { formatFullServer } from "./servers";
 import { createPanelAccount, createTrialPanelAccount, sanitizeVpnUsername, renewPanelAccount, deletePanelAccount, checkPanelHealth, syncPanelAccount, lockPanelAccount, unlockPanelAccount } from "../lib/vpn-panel";
 import { notifyUserTopupConfirmed, notifyUserTopupRejected, notifyUserVpnAccountCreated, notifyAdminOrderFulfilled } from "../lib/telegram";
 import { addBalanceLog } from "./balance-logs";
+import { logAdminAction } from "./admin-audit";
+import { getClientIp } from "../lib/request-ip";
 import { tryAutoUpgradeReseller } from "../lib/reseller-upgrade";
 import { getReferralBonusAmount } from "../lib/scheduler";
 import { addPoints, getPointsSettings } from "./points";
@@ -373,6 +375,19 @@ router.patch("/admin/users/:id", requireAdmin, async (req, res) => {
     }).catch(() => {});
   }
 
+  // Catat aksi admin
+  logAdminAction({
+    adminUserId: (req as any).user?.userId || 0,
+    action: "update_user",
+    targetType: "user",
+    targetId: id,
+    details: {
+      changes: parsed.data,
+      balanceAdjusted: balanceAdjustLog ? balanceAdjustLog.amount : null,
+    },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
+
   res.json(formatUser(updated));
 });
 
@@ -401,12 +416,32 @@ router.delete("/admin/users/:id", requireAdmin, async (req, res) => {
   await db.delete(topupsTable).where(eq(topupsTable.userId, id));
   await db.delete(usersTable).where(eq(usersTable.id, id));
 
+  // Catat aksi admin
+  logAdminAction({
+    adminUserId: (req as any).user?.userId || 0,
+    action: "delete_user",
+    targetType: "user",
+    targetId: id,
+    details: { username: existing.username, role: existing.role },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
+
   res.json({ success: true });
 });
 
 router.post("/admin/users/:id/reset-password", requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const { newPassword } = req.body ?? {};
+
+  // Catat aksi admin
+  logAdminAction({
+    adminUserId: (req as any).user?.userId || 0,
+    action: "reset_user_password",
+    targetType: "user",
+    targetId: id,
+    details: {},
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
 
   if (!newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
     res.status(400).json({ error: "Password baru minimal 6 karakter" });

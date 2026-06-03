@@ -1,6 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db } from "@workspace/db";
-import { sql } from "drizzle-orm";
+import { pool } from "@workspace/db";
 import { HealthCheckResponse } from "@workspace/api-zod";
 import { logger } from "../lib/logger";
 
@@ -27,8 +26,8 @@ router.get("/readyz", async (_req, res) => {
   };
 
   try {
-    // Light DB check — must respond quickly
-    await db.execute(sql`SELECT 1`);
+    // Light DB check — must respond quickly. Using pool.query for reliability.
+    await pool.query("SELECT 1");
     checks.database = "ok";
   } catch (err) {
     logger.error({ err }, "Readiness: database check failed");
