@@ -473,8 +473,19 @@ router.get("/admin/audit-logs", requireAdmin, async (req, res) => {
   const offset = parseInt(String(req.query.offset ?? "0"), 10);
 
   const logs = await db
-    .select()
+    .select({
+      id: adminAuditLogsTable.id,
+      adminUserId: adminAuditLogsTable.adminUserId,
+      adminUsername: usersTable.username,
+      action: adminAuditLogsTable.action,
+      targetType: adminAuditLogsTable.targetType,
+      targetId: adminAuditLogsTable.targetId,
+      details: adminAuditLogsTable.details,
+      ipAddress: adminAuditLogsTable.ipAddress,
+      createdAt: adminAuditLogsTable.createdAt,
+    })
     .from(adminAuditLogsTable)
+    .leftJoin(usersTable, eq(adminAuditLogsTable.adminUserId, usersTable.id))
     .orderBy(desc(adminAuditLogsTable.createdAt))
     .limit(limit)
     .offset(offset);
@@ -1080,6 +1091,17 @@ router.post("/admin/topups/:id/confirm", requireAdmin, async (req, res) => {
     relatedId: topup.id,
   }).catch(() => {});
 
+  // Audit log for admin action
+  const adminIdConfirm = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminIdConfirm,
+    action: "approve_topup",
+    targetType: "topup",
+    targetId: topup.id,
+    details: { amount: Number(topup.amount), userId: topup.userId },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
+
   // Notify user via Telegram (fire and forget)
   notifyUserTopupConfirmed(topup.userId, Number(topup.amount), balanceAfter).catch(() => {});
 
@@ -1126,6 +1148,16 @@ router.post("/admin/topups/:id/reject", requireAdmin, async (req, res) => {
     .set({ status: "rejected", confirmedBy: adminId, rejectionNote, updatedAt: new Date() })
     .where(eq(topupsTable.id, id))
     .returning();
+
+  // Audit log for admin action
+  logAdminAction({
+    adminUserId: adminId,
+    action: "reject_topup",
+    targetType: "topup",
+    targetId: topup.id,
+    details: { amount: Number(topup.amount), userId: topup.userId, rejectionNote },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
 
   // Notify user via Telegram (fire and forget)
   notifyUserTopupRejected(topup.userId, Number(topup.amount), rejectionNote).catch(() => {});
