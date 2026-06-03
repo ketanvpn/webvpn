@@ -49,15 +49,15 @@ export default function AdminAuditLogs() {
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Riwayat Aksi Admin</h1>
-        <p className="text-muted-foreground">Catatan lengkap aktivitas admin di sistem</p>
+        <h1 className="text-2xl md:text-3xl font-bold">Riwayat Aksi Admin</h1>
+        <p className="text-muted-foreground text-sm md:text-base">Catatan lengkap aktivitas admin di sistem</p>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Daftar Aktivitas ({total} total)</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg md:text-xl">Daftar Aktivitas ({total} total)</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading && <div className="py-8 text-center text-muted-foreground">Memuat data...</div>}
@@ -69,40 +69,40 @@ export default function AdminAuditLogs() {
 
           {logs.length > 0 && (
             <>
-              <div className="overflow-x-auto">
+              <div className="rounded-md border overflow-x-auto -mx-1 md:mx-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Waktu</TableHead>
-                      <TableHead>Admin</TableHead>
-                      <TableHead>Aksi</TableHead>
-                      <TableHead>Target</TableHead>
-                      <TableHead>Detail</TableHead>
-                      <TableHead>IP</TableHead>
+                      <TableHead className="min-w-[140px]">Waktu</TableHead>
+                      <TableHead className="min-w-[120px]">Admin</TableHead>
+                      <TableHead className="min-w-[100px]">Aksi</TableHead>
+                      <TableHead className="min-w-[100px]">Target</TableHead>
+                      <TableHead className="min-w-[180px]">Detail</TableHead>
+                      <TableHead className="min-w-[100px]">IP</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {logs.map((log) => (
                       <TableRow key={log.id}>
-                        <TableCell className="whitespace-nowrap">
-                          {format(new Date(log.createdAt), "dd MMM yyyy HH:mm:ss")}
+                        <TableCell className="whitespace-nowrap text-xs md:text-sm">
+                          {format(new Date(log.createdAt), "dd MMM yyyy HH:mm")}
                         </TableCell>
-                        <TableCell>{log.adminUsername || `User #${log.adminUserId}`}</TableCell>
+                        <TableCell className="text-sm">{log.adminUsername || `User #${log.adminUserId}`}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="font-mono text-xs">
+                          <Badge variant="outline" className="font-mono text-[10px] md:text-xs">
                             {log.action}
                           </Badge>
                         </TableCell>
-                        <TableCell className="font-mono text-sm">
+                        <TableCell className="font-mono text-xs md:text-sm">
                           {log.targetType}
                           {log.targetId ? ` #${log.targetId}` : ""}
                         </TableCell>
                         <TableCell>
-                          <pre className="text-[10px] bg-muted p-1 rounded max-w-[280px] overflow-auto whitespace-pre-wrap">
-                            {JSON.stringify(log.details, null, 2)}
+                          <pre className="text-[9px] md:text-[10px] bg-muted p-1.5 rounded max-w-[200px] md:max-w-xs overflow-auto max-h-20 whitespace-pre-wrap leading-tight">
+                            {JSON.stringify(log.details, null, 1)}
                           </pre>
                         </TableCell>
-                        <TableCell className="font-mono text-xs text-muted-foreground">
+                        <TableCell className="font-mono text-[10px] md:text-xs text-muted-foreground">
                           {log.ipAddress || "-"}
                         </TableCell>
                       </TableRow>
@@ -111,26 +111,28 @@ export default function AdminAuditLogs() {
                 </Table>
               </div>
 
-              <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                <div className="text-sm text-muted-foreground">
-                  Halaman {page} dari {totalPages} • Menampilkan {logs.length} dari {total}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 pt-4 border-t">
+                <div className="text-xs md:text-sm text-muted-foreground text-center sm:text-left">
+                  Halaman {page} dari {totalPages} • {logs.length} dari {total}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 w-full sm:w-auto">
                   <Button
                     variant="outline"
                     size="sm"
+                    className="flex-1 sm:flex-none"
                     disabled={page === 1}
                     onClick={() => setPage((p) => p - 1)}
                   >
-                    Sebelumnya
+                    ← Sebelumnya
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
+                    className="flex-1 sm:flex-none"
                     disabled={page >= totalPages}
                     onClick={() => setPage((p) => p + 1)}
                   >
-                    Selanjutnya
+                    Selanjutnya →
                   </Button>
                 </div>
               </div>
