@@ -7,6 +7,7 @@ import {
   ordersTable,
   vpnAccountsTable,
   topupsTable,
+  adminAuditLogsTable,
 } from "@workspace/db";
 import { eq, and, or, ilike, desc, asc, sql, inArray } from "drizzle-orm";
 import { randomUUID, randomBytes } from "crypto";
@@ -22,7 +23,6 @@ import { notifyUserTopupConfirmed, notifyUserTopupRejected, notifyUserVpnAccount
 import { addBalanceLog } from "./balance-logs";
 import { logAdminAction } from "./admin-audit";
 import { getClientIp } from "../lib/request-ip";
-import { logger } from "../lib/logger";
 import { tryAutoUpgradeReseller } from "../lib/reseller-upgrade";
 import { getReferralBonusAmount } from "../lib/scheduler";
 import { addPoints, getPointsSettings } from "./points";
@@ -378,7 +378,6 @@ router.patch("/admin/users/:id", requireAdmin, async (req, res) => {
 
   // Catat aksi admin
   const adminId = (req as any).user?.userId || (req as any).user?.id || 0;
-  logger.info({ adminId, targetId: id }, "Calling logAdminAction for update_user");
   logAdminAction({
     adminUserId: adminId,
     action: "update_user",
@@ -466,6 +465,30 @@ router.post("/admin/users/:id/reset-password", requireAdmin, async (req, res) =>
     .where(eq(usersTable.id, id));
 
   res.json({ success: true });
+});
+
+// --- Admin Audit Logs (view history of admin actions) ---
+router.get("/admin/audit-logs", requireAdmin, async (req, res) => {
+  const limit = Math.min(parseInt(String(req.query.limit ?? "50"), 10), 200);
+  const offset = parseInt(String(req.query.offset ?? "0"), 10);
+
+  const logs = await db
+    .select()
+    .from(adminAuditLogsTable)
+    .orderBy(desc(adminAuditLogsTable.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  const [countResult] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(adminAuditLogsTable);
+
+  res.json({
+    data: logs,
+    total: countResult.count,
+    limit,
+    offset,
+  });
 });
 
 // ─── Admin: Products ──────────────────────────────────────────────────────────
