@@ -3,6 +3,8 @@ import { db } from "@workspace/db";
 import { announcementsTable } from "@workspace/db";
 import { eq, and, lte, gte, or, isNull, desc } from "drizzle-orm";
 import { requireAdmin, requireAuth } from "../lib/auth";
+import { logAdminAction } from "./admin-audit";
+import { getClientIp } from "../lib/request-ip";
 
 const router = Router();
 
@@ -46,6 +48,18 @@ router.post("/admin/announcements", requireAdmin, async (req, res) => {
       endAt: parseDate(endAt),
     })
     .returning();
+
+  // Audit log
+  const adminIdAnnCreate = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminIdAnnCreate,
+    action: "create_announcement",
+    targetType: "announcement",
+    targetId: row.id,
+    details: { title, type: finalType, isActive: isActive !== false },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
+
   res.status(201).json(row);
 });
 
@@ -86,6 +100,18 @@ router.put("/admin/announcements/:id", requireAdmin, async (req, res) => {
     res.status(404).json({ error: "Pengumuman tidak ditemukan" });
     return;
   }
+
+  // Audit log
+  const adminIdAnnUpdate = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminIdAnnUpdate,
+    action: "update_announcement",
+    targetType: "announcement",
+    targetId: id,
+    details: { changes: { title, content, type, isActive, startAt, endAt } },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
+
   res.json(row);
 });
 
@@ -99,6 +125,18 @@ router.delete("/admin/announcements/:id", requireAdmin, async (req, res) => {
     res.status(404).json({ error: "Pengumuman tidak ditemukan" });
     return;
   }
+
+  // Audit log
+  const adminIdAnnDelete = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminIdAnnDelete,
+    action: "delete_announcement",
+    targetType: "announcement",
+    targetId: id,
+    details: { title: deleted.title, type: deleted.type },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
+
   res.json({ message: "Pengumuman berhasil dihapus" });
 });
 

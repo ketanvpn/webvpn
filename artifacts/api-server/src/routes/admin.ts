@@ -274,6 +274,17 @@ router.post("/admin/users", requireAdmin, async (req, res) => {
     })
     .returning();
 
+  // Audit log
+  const adminIdCreateUser = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminIdCreateUser,
+    action: "create_user",
+    targetType: "user",
+    targetId: user.id,
+    details: { username: user.username, role: userRole, email, whatsapp },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
+
   res.status(201).json(formatUser(user));
 });
 
@@ -1098,7 +1109,16 @@ router.post("/admin/orders/:id/confirm", requireAdmin, async (req, res) => {
     .where(eq(ordersTable.id, id))
     .returning();
 
-
+  // Audit log
+  const adminIdOrderConfirm = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminIdOrderConfirm,
+    action: "confirm_order",
+    targetType: "order",
+    targetId: id,
+    details: { userId: order.userId, productId: order.productId, amount: Number(order.amount) },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
 
   res.json(await formatOrder(updated));
 });
@@ -1418,6 +1438,17 @@ router.post("/admin/accounts/:id/extend", requireAdmin, async (req, res) => {
     .where(eq(vpnAccountsTable.id, id))
     .returning();
 
+  // Audit log
+  const adminIdExtend = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminIdExtend,
+    action: "extend_account",
+    targetType: "account",
+    targetId: id,
+    details: { days, username: account.username, newExpiry: newExpiry.toISOString() },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
+
   res.json({ id: updated.id, expiresAt: updated.expiresAt, isActive: updated.isActive });
 });
 
@@ -1458,6 +1489,17 @@ router.delete("/admin/accounts/:id", requireAdmin, async (req, res) => {
   }
 
   await db.delete(vpnAccountsTable).where(eq(vpnAccountsTable.id, id));
+
+  // Audit log
+  const adminIdAccountDelete = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminIdAccountDelete,
+    action: "delete_account",
+    targetType: "account",
+    targetId: id,
+    details: { username: account.username, protocol: account.protocol },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
 
   res.json({ success: true });
 });
@@ -1515,6 +1557,17 @@ router.post("/admin/accounts/bulk-delete", requireAdmin, async (req, res) => {
     await db.delete(vpnAccountsTable).where(inArray(vpnAccountsTable.id, deletableIds));
   }
 
+  // Audit log for bulk
+  const adminIdBulkDelete = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminIdBulkDelete,
+    action: "bulk_delete_accounts",
+    targetType: "account",
+    targetId: null,
+    details: { requested: numIds, deleted: deletableIds.length, failedCount: failed.length },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
+
   res.json({
     requested: numIds.length,
     deleted: deletableIds.length,
@@ -1542,6 +1595,18 @@ router.delete("/admin/orders/:id", requireAdmin, async (req, res) => {
   }
 
   await db.delete(ordersTable).where(eq(ordersTable.id, id));
+
+  // Audit log
+  const adminIdOrderDelete = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminIdOrderDelete,
+    action: "delete_order",
+    targetType: "order",
+    targetId: id,
+    details: { status: order.status, userId: order.userId },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
+
   res.json({ success: true });
 });
 
@@ -1600,6 +1665,17 @@ router.post("/admin/accounts/:id/toggle", requireAdmin, async (req, res) => {
     .set({ isActive: nextIsActive, updatedAt: new Date() })
     .where(eq(vpnAccountsTable.id, id))
     .returning();
+
+  // Audit log
+  const adminIdToggle = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminIdToggle,
+    action: nextIsActive ? "unlock_account" : "lock_account",
+    targetType: "account",
+    targetId: id,
+    details: { username: account.username, protocol: account.protocol },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
 
   res.json({
     id: updated.id,
@@ -1671,6 +1747,17 @@ router.post("/admin/accounts/:id/sync", requireAdmin, async (req, res) => {
     .set(updateData)
     .where(eq(vpnAccountsTable.id, id))
     .returning();
+
+  // Audit log
+  const adminIdSync = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminIdSync,
+    action: "sync_account",
+    targetType: "account",
+    targetId: id,
+    details: { username: account.username, protocol: account.protocol },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
 
   res.json({ success: true, panelInfo: info, account: { id: updated.id, uuid: updated.uuid, configLink: updated.configLink } });
 });

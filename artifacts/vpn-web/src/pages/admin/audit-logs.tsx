@@ -185,6 +185,40 @@ export default function AdminAuditLogs() {
                   </Button>
                 </div>
               </div>
+
+              {/* Export CSV */}
+              <div className="mt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (!logs.length) return;
+                    const headers = ["id", "createdAt", "adminUsername", "action", "targetType", "targetId", "ipAddress", "details"];
+                    const csv = [
+                      headers.join(","),
+                      ...logs.map(log => [
+                        log.id,
+                        log.createdAt,
+                        log.adminUsername || "",
+                        log.action,
+                        log.targetType,
+                        log.targetId || "",
+                        log.ipAddress || "",
+                        JSON.stringify(log.details).replace(/"/g, '""')
+                      ].join(","))
+                    ].join("\n");
+                    const blob = new Blob([csv], { type: "text/csv" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `audit-logs-${new Date().toISOString().slice(0,10)}.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  Export CSV
+                </Button>
+              </div>
             </>
           )}
         </CardContent>

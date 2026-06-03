@@ -4,6 +4,8 @@ import { bugPresetsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { requireAdmin } from "../lib/auth";
 import { AdminCreateBugPresetBody, AdminUpdateBugPresetBody } from "@workspace/api-zod";
+import { logAdminAction } from "./admin-audit";
+import { getClientIp } from "../lib/request-ip";
 
 const router = Router();
 
@@ -54,6 +56,17 @@ router.post("/admin/bug-presets", requireAdmin, async (req, res) => {
         isActive: parsed.data.isActive ?? true,
       })
       .returning();
+
+    // Audit log
+    const adminIdBugCreate = req.user!.userId;
+    logAdminAction({
+      adminUserId: adminIdBugCreate,
+      action: "create_bug_preset",
+      targetType: "bug_preset",
+      targetId: preset.id,
+      details: { name: preset.name, mode: preset.mode },
+      ipAddress: getClientIp(req as any),
+    }).catch(() => {});
       
     res.status(201).json(preset);
   } catch (error) {
@@ -109,6 +122,17 @@ router.delete("/admin/bug-presets/:id", requireAdmin, async (req, res) => {
       res.status(404).json({ error: "Bug preset not found" });
       return;
     }
+
+    // Audit log
+    const adminIdBugDelete = req.user!.userId;
+    logAdminAction({
+      adminUserId: adminIdBugDelete,
+      action: "delete_bug_preset",
+      targetType: "bug_preset",
+      targetId: id,
+      details: { name: deleted.name, mode: deleted.mode },
+      ipAddress: getClientIp(req as any),
+    }).catch(() => {});
     
     res.json({ success: true });
   } catch (error) {

@@ -5,6 +5,8 @@ import { eq, desc } from "drizzle-orm";
 import { requireAdmin, requireAuth } from "../lib/auth";
 import { AdminCreateVoucherBody as CreateVoucherBody, AdminUpdateVoucherBody as UpdateVoucherBody, ValidateVoucherBody } from "@workspace/api-zod";
 import { getResellerSettings } from "./settings";
+import { logAdminAction } from "./admin-audit";
+import { getClientIp } from "../lib/request-ip";
 
 const router = Router();
 
@@ -45,6 +47,17 @@ router.post("/admin/vouchers", requireAdmin, async (req, res) => {
       expiresAt: expiresAt ? new Date(expiresAt) : null,
     })
     .returning();
+
+  // Audit log
+  const adminIdVoucherCreate = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminIdVoucherCreate,
+    action: "create_voucher",
+    targetType: "voucher",
+    targetId: voucher.id,
+    details: { code: voucher.code, discountType, discountValue },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
 
   res.status(201).json(voucher);
 });
@@ -88,6 +101,17 @@ router.put("/admin/vouchers/:id", requireAdmin, async (req, res) => {
     return;
   }
 
+  // Audit log
+  const adminIdVoucherUpdate = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminIdVoucherUpdate,
+    action: "update_voucher",
+    targetType: "voucher",
+    targetId: id,
+    details: { changes: data },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
+
   res.json(voucher);
 });
 
@@ -99,6 +123,17 @@ router.delete("/admin/vouchers/:id", requireAdmin, async (req, res) => {
     res.status(404).json({ error: "Voucher tidak ditemukan" });
     return;
   }
+
+  // Audit log
+  const adminIdVoucherDelete = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminIdVoucherDelete,
+    action: "delete_voucher",
+    targetType: "voucher",
+    targetId: id,
+    details: { code: deleted.code },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
   
   res.json({ message: "Voucher berhasil dihapus" });
 });
