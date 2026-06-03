@@ -15,6 +15,7 @@ import { createNadiaVpnOrder, getNadiaVpnAccountDetails, getNadiaVpnServers } fr
 import { createPanelAccount, deletePanelAccount } from "../lib/vpn-panel";
 import { addBalanceLog } from "./balance-logs";
 import { getResellerSettings } from "./settings";
+import { dynamicOrderLimiter } from "../lib/rate-limit";
 import { notifyAdminDynamicOrderFulfilled, notifyUserDynamicVpnAccountCreated } from "../lib/telegram";
 import { logger } from "../lib/logger";
 
@@ -741,7 +742,7 @@ router.post("/dynamic-vpn/quote", requireAuth, async (req, res) => {
   }
 });
 
-router.post("/dynamic-vpn/orders", requireAuth, async (req, res) => {
+router.post("/dynamic-vpn/orders", requireAuth, dynamicOrderLimiter, async (req, res) => {
   const userId = req.user!.userId;
   const serverId = parseInt(String(req.body?.serverId ?? ""), 10);
   const protocol = normalizeProtocol(req.body?.protocol);
@@ -816,7 +817,7 @@ router.post("/dynamic-vpn/orders", requireAuth, async (req, res) => {
   res.status(201).json({ order: { ...order, amount: Number(order.amount) }, quote });
 });
 
-router.post("/dynamic-vpn/orders/:id/pay", requireAuth, async (req, res) => {
+router.post("/dynamic-vpn/orders/:id/pay", requireAuth, dynamicOrderLimiter, async (req, res) => {
   const id = parseInt(String(req.params.id), 10);
   const userId = req.user!.userId;
 

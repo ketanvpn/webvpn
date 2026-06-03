@@ -13,6 +13,7 @@ import { logger } from "../lib/logger";
 import { notifyUserVpnAccountCreated, notifyAdminOrderFulfilled } from "../lib/telegram";
 import { addPoints, getPointsSettings } from "./points";
 import { getReferralBonusAmount } from "../lib/scheduler";
+import { createOrderLimiter } from "../lib/rate-limit";
 
 const router = Router();
 
@@ -518,7 +519,7 @@ router.get("/orders", requireAuth, async (req, res) => {
   });
 });
 
-router.post("/orders", requireAuth, async (req, res) => {
+router.post("/orders", requireAuth, createOrderLimiter, async (req, res) => {
   // Cek dulu apakah ini produk Trial (durationDays === 0) agar bisa skip validasi remarks
   const bodyProductId = typeof req.body?.productId === "number" ? req.body.productId : null;
   let isTrialProduct = false;
@@ -761,7 +762,7 @@ router.get("/orders/:id", requireAuth, async (req, res) => {
   res.json(await formatOrder(order));
 });
 
-router.post("/orders/:id/pay", requireAuth, async (req, res) => {
+router.post("/orders/:id/pay", requireAuth, createOrderLimiter, async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const userId = req.user!.userId;
 

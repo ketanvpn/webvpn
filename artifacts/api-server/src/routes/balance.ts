@@ -7,6 +7,7 @@ import { TopupBalanceBody } from "@workspace/api-zod";
 import { getPaymentSettingsMap } from "./settings";
 import { logger } from "../lib/logger";
 import { notifyAdminNewTopup } from "../lib/telegram";
+import { topupLimiter } from "../lib/rate-limit";
 
 const router = Router();
 
@@ -50,7 +51,7 @@ router.get("/balance", requireAuth, async (req, res) => {
   });
 });
 
-router.post("/balance/topup", requireAuth, async (req, res) => {
+router.post("/balance/topup", requireAuth, topupLimiter, async (req, res) => {
   const parsed = TopupBalanceBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid input. Minimum topup is Rp 10,000" });

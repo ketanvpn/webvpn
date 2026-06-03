@@ -9,6 +9,7 @@ import { renewPanelAccount, syncPanelAccount } from "../lib/vpn-panel";
 import { getNadiaVpnAccountDetails, renewNadiaVpnAccount } from "../lib/nadiavpn";
 import { sendWhatsapp } from "../lib/fonnte";
 import { addBalanceLog } from "./balance-logs";
+import { accountActionLimiter } from "../lib/rate-limit";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { notifyAdminDynamicOrderFulfilled } from "../lib/telegram";
@@ -556,7 +557,7 @@ router.post("/accounts/:id/renew-dynamic", requireAuth, async (req, res) => {
   }
 });
 
-router.post("/accounts/:id/renew", requireAuth, async (req, res) => {
+router.post("/accounts/:id/renew", requireAuth, accountActionLimiter, async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const userId = req.user!.userId;
   const parsed = RenewAccountBody.safeParse(req.body);
