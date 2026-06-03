@@ -22,6 +22,7 @@ import { notifyUserTopupConfirmed, notifyUserTopupRejected, notifyUserVpnAccount
 import { addBalanceLog } from "./balance-logs";
 import { logAdminAction } from "./admin-audit";
 import { getClientIp } from "../lib/request-ip";
+import { logger } from "../lib/logger";
 import { tryAutoUpgradeReseller } from "../lib/reseller-upgrade";
 import { getReferralBonusAmount } from "../lib/scheduler";
 import { addPoints, getPointsSettings } from "./points";
@@ -377,6 +378,7 @@ router.patch("/admin/users/:id", requireAdmin, async (req, res) => {
 
   // Catat aksi admin
   const adminId = (req as any).user?.userId || (req as any).user?.id || 0;
+  logger.info({ adminId, targetId: id }, "Calling logAdminAction for update_user");
   logAdminAction({
     adminUserId: adminId,
     action: "update_user",
