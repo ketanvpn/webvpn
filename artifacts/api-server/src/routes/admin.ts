@@ -544,6 +544,18 @@ router.post("/admin/products", requireAdmin, async (req, res) => {
     const [srv] = await db.select({ name: serversTable.name }).from(serversTable).where(eq(serversTable.id, product.serverId)).limit(1);
     serverName = srv?.name ?? null;
   }
+
+  // Audit log
+  const adminIdProductCreate = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminIdProductCreate,
+    action: "create_product",
+    targetType: "product",
+    targetId: product.id,
+    details: { name: product.name, protocol: product.protocol, price: product.price },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
+
   res.status(201).json(formatProduct(product, 0, 0, serverName));
 });
 
@@ -588,6 +600,18 @@ router.patch("/admin/products/:id", requireAdmin, async (req, res) => {
     serverName = srv?.name ?? null;
   }
   const countMap = await getActiveCountMap([product.id]);
+
+  // Audit log
+  const adminIdProductPatch = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminIdProductPatch,
+    action: "update_product",
+    targetType: "product",
+    targetId: product.id,
+    details: { changes: data },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
+
   res.json(formatProduct(product, countMap.get(product.id) ?? 0, 0, serverName));
 });
 
@@ -621,6 +645,18 @@ router.delete("/admin/products/:id", requireAdmin, async (req, res) => {
 
   // Tidak ada order → hard delete
   await db.delete(productsTable).where(eq(productsTable.id, id));
+
+  // Audit log
+  const adminIdProductDelete = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminIdProductDelete,
+    action: "delete_product",
+    targetType: "product",
+    targetId: id,
+    details: { name: product.name },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
+
   res.json({ success: true, message: "Produk berhasil dihapus" });
 });
 
@@ -666,6 +702,18 @@ router.post("/admin/servers", requireAdmin, async (req, res) => {
       maxAccounts: data.maxAccounts ?? 500,
     })
     .returning();
+
+  // Audit log
+  const adminIdServerCreate = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminIdServerCreate,
+    action: "create_server",
+    targetType: "server",
+    targetId: server.id,
+    details: { name: server.name, location: server.location, isActive: server.isActive },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
+
   res.status(201).json(formatFullServer(server));
 });
 
@@ -701,12 +749,37 @@ router.patch("/admin/servers/:id", requireAdmin, async (req, res) => {
     return;
   }
 
+  // Audit log
+  const adminIdServerPatch = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminIdServerPatch,
+    action: "update_server",
+    targetType: "server",
+    targetId: server.id,
+    details: { changes: data },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
+
   res.json(formatFullServer(server));
 });
 
 router.delete("/admin/servers/:id", requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
+  const [server] = await db.select({ name: serversTable.name, location: serversTable.location }).from(serversTable).where(eq(serversTable.id, id)).limit(1);
+
   await db.update(serversTable).set({ isActive: false }).where(eq(serversTable.id, id));
+
+  // Audit log
+  const adminIdServerDelete = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminIdServerDelete,
+    action: "delete_server",
+    targetType: "server",
+    targetId: id,
+    details: { name: server?.name, location: server?.location },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
+
   res.json({ message: "Server deleted" });
 });
 
