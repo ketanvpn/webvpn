@@ -150,8 +150,8 @@ export default function DynamicOrderPage() {
   }, [selectedServer, durationType, durationNum]);
 
   const quoteQuery = useQuery<Quote>({
-    queryKey: ["dynamic-vpn-quote", selectedServer?.id, durationType, durationNum, appliedVoucher],
-    enabled: !!selectedServer && !!durationNum && durationNum > 0,
+    queryKey: ["dynamic-vpn-quote", selectedServer?.id, protocol, durationType, durationNum, appliedVoucher],
+    enabled: !!selectedServer && !!protocol && !!durationNum && durationNum > 0,
     queryFn: () => apiFetch("/dynamic-vpn/quote", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -392,7 +392,7 @@ export default function DynamicOrderPage() {
                   )}
                 </div>
 
-                <Button className="w-full gap-2" disabled={!protocol || !quote || username.length < 5 || (protocol === "ssh" && password.length < 6) || orderMut.isPending || quoteQuery.isFetching} onClick={() => orderMut.mutate()}>
+                <Button className="w-full gap-2" disabled={!protocol || !quote || username.length < 5 || (protocol === "ssh" && password.length < 6) || orderMut.isPending} onClick={() => orderMut.mutate()}>
                   {orderMut.isPending ? <><RefreshCw className="h-4 w-4 animate-spin" /> Memproses...</> : <><Wallet className="h-4 w-4" /> Bayar Pakai Saldo</>}
                 </Button>
               </div>
