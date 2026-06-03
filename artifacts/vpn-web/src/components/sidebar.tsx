@@ -100,6 +100,7 @@ const adminNav: NavItem[] = [
   { title: "Manajemen Bug", href: "/admin/bug-presets", icon: Bug },
   { title: "Broadcast", href: "/admin/broadcast", icon: Send },
   { title: "Backup & Restore DB", href: "/admin/backup", icon: HardDrive },
+  { title: "Riwayat Aksi Admin", href: "/admin/audit-logs", icon: History },
 ];
 
 const adminPageTitles: Record<string, string> = {
@@ -126,6 +127,7 @@ const adminPageTitles: Record<string, string> = {
   "/admin/bug-presets": "Manajemen Bug",
   "/admin/broadcast": "Broadcast",
   "/admin/backup": "Backup & Restore DB",
+  "/admin/audit-logs": "Riwayat Aksi Admin",
 };
 
 const mobileBottomNav: NavItem[] = [

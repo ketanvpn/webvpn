@@ -53,6 +53,7 @@ import AdminNadiaVpn from "@/pages/admin/nadiavpn";
 import AdminDynamicVpnHub from "@/pages/admin/dynamic-vpn-hub";
 import AdminVouchers from "@/pages/admin/vouchers";
 import AdminBugPresets from "@/pages/admin/bug-presets";
+import AdminAuditLogs from "@/pages/admin/audit-logs";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -196,6 +197,9 @@ function Router() {
       </Route>
       <Route path="/admin/bug-presets">
         <Layout requireAdmin><AdminBugPresets /></Layout>
+      </Route>
+      <Route path="/admin/audit-logs">
+        <Layout requireAdmin><AdminAuditLogs /></Layout>
       </Route>
 
       <Route component={NotFound} />
