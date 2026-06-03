@@ -376,8 +376,9 @@ router.patch("/admin/users/:id", requireAdmin, async (req, res) => {
   }
 
   // Catat aksi admin
+  const adminId = (req as any).user?.userId || (req as any).user?.id || 0;
   logAdminAction({
-    adminUserId: (req as any).user?.userId || 0,
+    adminUserId: adminId,
     action: "update_user",
     targetType: "user",
     targetId: id,
@@ -417,8 +418,9 @@ router.delete("/admin/users/:id", requireAdmin, async (req, res) => {
   await db.delete(usersTable).where(eq(usersTable.id, id));
 
   // Catat aksi admin
+  const adminId = (req as any).user?.userId || (req as any).user?.id || 0;
   logAdminAction({
-    adminUserId: (req as any).user?.userId || 0,
+    adminUserId: adminId,
     action: "delete_user",
     targetType: "user",
     targetId: id,
@@ -434,8 +436,9 @@ router.post("/admin/users/:id/reset-password", requireAdmin, async (req, res) =>
   const { newPassword } = req.body ?? {};
 
   // Catat aksi admin
+  const adminId = (req as any).user?.userId || (req as any).user?.id || 0;
   logAdminAction({
-    adminUserId: (req as any).user?.userId || 0,
+    adminUserId: adminId,
     action: "reset_user_password",
     targetType: "user",
     targetId: id,
