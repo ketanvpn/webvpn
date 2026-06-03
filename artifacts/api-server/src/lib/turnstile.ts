@@ -33,7 +33,9 @@ export async function verifyTurnstileToken(params: {
       errors: Array.isArray(data["error-codes"]) ? data["error-codes"] : [],
     };
   } catch (err) {
-    const failOpen = process.env.TURNSTILE_FAIL_OPEN !== "false";
+    // Secure default: fail CLOSED on verification errors.
+    // Set TURNSTILE_FAIL_OPEN=true only if you explicitly want to allow logins when Cloudflare is unreachable.
+    const failOpen = process.env.TURNSTILE_FAIL_OPEN === "true";
     logger.warn({ err, failOpen }, "Turnstile verification request failed");
     if (failOpen) {
       return { ok: true, errors: ["turnstile-unreachable-fail-open"] };

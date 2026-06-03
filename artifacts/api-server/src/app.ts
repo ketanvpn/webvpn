@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { getClientIp } from "./lib/request-ip";
 
 const app: Express = express();
 
@@ -35,6 +36,7 @@ app.use(
           id: req.id,
           method: req.method,
           url: req.url?.split("?")[0],
+          ip: getClientIp({ headers: req.headers, socket: req.socket } as any),
         };
       },
       res(res) {
