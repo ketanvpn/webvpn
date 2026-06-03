@@ -9,7 +9,7 @@ import {
   topupsTable,
   adminAuditLogsTable,
 } from "@workspace/db";
-import { eq, and, or, ilike, desc, asc, sql, inArray } from "drizzle-orm";
+import { eq, and, or, ilike, like, desc, asc, sql, inArray } from "drizzle-orm";
 import { randomUUID, randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { requireAdmin } from "../lib/auth";
@@ -472,6 +472,24 @@ router.get("/admin/audit-logs", requireAdmin, async (req, res) => {
   const limit = Math.min(parseInt(String(req.query.limit ?? "50"), 10), 200);
   const offset = parseInt(String(req.query.offset ?? "0"), 10);
 
+  const { action, adminUserId, targetType, q } = req.query as Record<string, string | undefined>;
+
+  const conditions = [];
+  if (action) conditions.push(eq(adminAuditLogsTable.action, action));
+  if (adminUserId) conditions.push(eq(adminAuditLogsTable.adminUserId, parseInt(adminUserId, 10)));
+  if (targetType) conditions.push(eq(adminAuditLogsTable.targetType, targetType));
+  if (q) {
+    // simple search in details or username
+    conditions.push(
+      or(
+        ilike(usersTable.username, `%${q}%`),
+        sql`${adminAuditLogsTable.details}::text ILIKE ${'%' + q + '%'}`
+      )!
+    );
+  }
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
   const logs = await db
     .select({
       id: adminAuditLogsTable.id,
@@ -486,13 +504,18 @@ router.get("/admin/audit-logs", requireAdmin, async (req, res) => {
     })
     .from(adminAuditLogsTable)
     .leftJoin(usersTable, eq(adminAuditLogsTable.adminUserId, usersTable.id))
+    .where(whereClause)
     .orderBy(desc(adminAuditLogsTable.createdAt))
     .limit(limit)
     .offset(offset);
 
-  const [countResult] = await db
+  const countQuery = db
     .select({ count: sql<number>`count(*)::int` })
-    .from(adminAuditLogsTable);
+    .from(adminAuditLogsTable)
+    .leftJoin(usersTable, eq(adminAuditLogsTable.adminUserId, usersTable.id))
+    .where(whereClause);
+
+  const [countResult] = await countQuery;
 
   res.json({
     data: logs,
