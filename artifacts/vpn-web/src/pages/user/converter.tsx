@@ -411,10 +411,17 @@ export default function ConfigConverter() {
               <SelectTrigger className="bg-background/50">
                 <SelectValue placeholder={mySshAccounts.length > 0 ? "Pilih akun SSH yang sudah dibeli..." : "Belum ada akun SSH aktif"} />
               </SelectTrigger>
-              <SelectContent>
-                {mySshAccounts.map((acc: any) => (
+              <SelectContent className="max-w-[320px]">
+                {[...mySshAccounts].sort((a, b) => new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime()).map((acc: any) => (
                   <SelectItem key={acc.id} value={acc.id.toString()}>
-                    {acc.username} @ {acc.server?.name || 'Server'} (exp: {acc.expiresAt ? new Date(acc.expiresAt).toLocaleDateString() : '-'})
+                    <div className="flex w-full items-center justify-between gap-1.5 overflow-hidden">
+                      <span className="min-w-0 truncate text-sm">
+                        {acc.username} @ {acc.server?.name || 'Server'}
+                      </span>
+                      <Badge variant="outline" className="shrink-0 text-[9px] px-1.5 py-0 font-mono leading-none">
+                        {acc.expiresAt ? new Date(acc.expiresAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : '-'}
+                      </Badge>
+                    </div>
                   </SelectItem>
                 ))}
                 {mySshAccounts.length === 0 && (
@@ -422,7 +429,7 @@ export default function ConfigConverter() {
                 )}
               </SelectContent>
             </Select>
-            <p className="text-[10px] text-muted-foreground">Pilih akun → otomatis isi Host, Username, Password. Port sudah diatur oleh preset injek (tidak diubah).</p>
+            <p className="text-[10px] text-muted-foreground">Pilih akun → otomatis isi Host/Username/Password. Tanggal expired selalu kelihatan di badge kanan (dropdown dibatasi lebarnya agar profesional & rapi di HP).</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
