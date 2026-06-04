@@ -8,6 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Bug, Copy, ArrowRightLeft, CheckCircle2, ShieldPlus, Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
 const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
@@ -220,6 +228,8 @@ export default function ConfigConverter() {
   const [sshPassword, setSshPassword] = useState("");
   const [sshConfigName, setSshConfigName] = useState("");
   const [isSshConverting, setIsSshConverting] = useState(false);
+  const [showResultDialog, setShowResultDialog] = useState(false);
+  const [sshLink, setSshLink] = useState("");
 
   const { data: bugs = [], isLoading } = useQuery<BugPreset[]>({
     queryKey: ["bug-presets"],
@@ -297,7 +307,6 @@ export default function ConfigConverter() {
     }
 
     setIsSshConverting(true);
-    setResult(""); // hilangkan hasil lama saat loading
 
     // Beri sedikit delay biar terasa lebih halus & profesional (bukan langsung muncul)
     setTimeout(() => {
@@ -314,13 +323,13 @@ export default function ConfigConverter() {
         return;
       }
 
-      setResult(link);
+      setSshLink(link);
       toast({ title: "Berhasil!", description: "Link DarkTunnel (dan kompatibel app lain) sudah dibuat." });
       setIsCopied(false);
       setIsSshConverting(false);
+      setShowResultDialog(true);
 
-      // Tidak ada auto-scroll lagi. Hasil muncul di bawah form secara natural.
-      // User bisa langsung lihat dan salin tanpa halaman "loncat".
+      // Popup dialog langsung muncul sebagai modal, tidak ada scroll.
     }, 1200); // ~1.2 detik, cukup untuk terasa "loading" tapi tidak lama
   };
 
@@ -343,6 +352,30 @@ export default function ConfigConverter() {
       }
       setIsCopied(true);
       toast({ title: "Tersalin!", description: "Config berhasil disalin ke clipboard." });
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (error) {
+      toast({ title: "Gagal menyalin", description: "Browser Anda tidak mendukung fitur salin otomatis.", variant: "destructive" });
+    }
+  };
+
+  const copySshLink = async () => {
+    if (!sshLink) return;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(sshLink);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = sshLink;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+      }
+      setIsCopied(true);
+      toast({ title: "Tersalin!", description: "Link berhasil disalin ke clipboard." });
       setTimeout(() => setIsCopied(false), 2000);
     } catch (error) {
       toast({ title: "Gagal menyalin", description: "Browser Anda tidak mendukung fitur salin otomatis.", variant: "destructive" });
@@ -616,6 +649,52 @@ export default function ConfigConverter() {
           </Card>
         </div>
       )}
+
+      {/* Dialog Popup untuk hasil SSH Injek */}
+      <Dialog open={showResultDialog} onOpenChange={(open) => {
+        setShowResultDialog(open);
+        if (!open) {
+          setIsCopied(false);
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-emerald-400">✅ Link Injek Berhasil Dibuat</DialogTitle>
+            <DialogDescription>
+              Link berikut siap disalin ke DarkTunnel atau aplikasi serupa. Klik tombol salin di bawah.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="relative">
+            <Textarea
+              readOnly
+              value={sshLink}
+              className="min-h-[100px] font-mono text-sm bg-background/80 pr-12 focus-visible:ring-emerald-500/30 border-emerald-500/20"
+            />
+            <Button
+              variant="secondary"
+              size="icon"
+              className="absolute top-2 right-2 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300"
+              onClick={copySshLink}
+            >
+              {isCopied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            </Button>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowResultDialog(false)}>
+              Tutup
+            </Button>
+            <Button
+              onClick={copySshLink}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white"
+            >
+              {isCopied ? <CheckCircle2 className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
+              {isCopied ? "Tersalin!" : "Salin Link"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
