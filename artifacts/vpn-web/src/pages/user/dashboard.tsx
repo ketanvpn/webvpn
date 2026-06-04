@@ -1,5 +1,4 @@
 import { useGetDashboardSummary } from "@workspace/api-client-react";
-import { useQuery } from "@tanstack/react-query";
 import { formatRupiah } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
@@ -12,6 +11,16 @@ import { useQuery } from "@tanstack/react-query";
 
 const API = import.meta.env.VITE_API_URL ?? "";
 const DASHBOARD_API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
+
+async function apiFetch(path: string, options?: RequestInit) {
+  const res = await fetch(`${DASHBOARD_API}${path}`, { credentials: "include", ...options });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: "Terjadi kesalahan" }));
+    throw new Error(body?.error ?? `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
 const PROMO_DISMISSED_KEY = "reseller_promo_dismissed";
 
 type PromoData = {
@@ -240,14 +249,14 @@ function ReselerPromoBanner({ onRequest }: { onRequest: () => void }) {
       </div>
 
       {/* Recent Dynamic Orders */}
-      {recentDynamicOrders && (recentDynamicOrders.orders || recentDynamicOrders).length > 0 && (
-        <div className="glass-panel rounded-3xl border border-white/10 p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold flex items-center gap-2">
-              <ShieldPlus className="h-4 w-4" /> Pesanan Dynamic Terbaru
-            </h3>
-            <Link href="/dynamic-order-history" className="text-xs text-primary hover:underline">Lihat semua →</Link>
-          </div>
+      <div className="glass-panel rounded-3xl border border-white/10 p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold flex items-center gap-2">
+            <ShieldPlus className="h-4 w-4" /> Pesanan Dynamic Terbaru
+          </h3>
+          <Link href="/dynamic-order-history" className="text-xs text-primary hover:underline">Lihat semua →</Link>
+        </div>
+        {recentDynamicOrders && (recentDynamicOrders.orders || recentDynamicOrders).length > 0 ? (
           <div className="space-y-2 text-sm">
             {(recentDynamicOrders.orders || recentDynamicOrders).slice(0, 3).map((order: any) => (
               <div key={order.id} className="flex justify-between items-center border-b border-white/5 pb-2 last:border-0">
@@ -264,8 +273,10 @@ function ReselerPromoBanner({ onRequest }: { onRequest: () => void }) {
               </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm text-muted-foreground">Belum ada pesanan dynamic terbaru. Coba buat order dynamic pertama kamu!</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -275,7 +286,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [promoRequested, setPromoRequested] = useState(false);
 
-  const { data: recentDynamicOrders } = useQuery({
+  const { data: recentDynamicOrders, error: recentError } = useQuery({
     queryKey: ["user-recent-dynamic-orders"],
     queryFn: () => apiFetch("/dynamic-vpn/orders?limit=3"),
   });
