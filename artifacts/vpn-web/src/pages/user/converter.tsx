@@ -216,7 +216,7 @@ export default function ConfigConverter() {
 
   // SSH Injek states (4 fields as requested)
   const [sshHost, setSshHost] = useState("");
-  const [sshPort, setSshPort] = useState("80");
+  const [sshPort, setSshPort] = useState("443");
   const [sshUsername, setSshUsername] = useState("");
   const [sshPassword, setSshPassword] = useState("");
   const [sshConfigName, setSshConfigName] = useState("");
@@ -224,6 +224,13 @@ export default function ConfigConverter() {
   const { data: bugs = [], isLoading } = useQuery<BugPreset[]>({
     queryKey: ["bug-presets"],
     queryFn: () => apiFetch("/bug-presets"),
+  });
+
+  const { data: mySshAccounts = [] } = useQuery<any[]>({
+    queryKey: ["my-ssh-accounts"],
+    queryFn: () => apiFetch("/accounts").then((accs: any[]) =>
+      accs.filter((a: any) => a.protocol === 'ssh' && a.isActive)
+    ),
   });
 
   const handleConvert = () => {
@@ -413,6 +420,38 @@ export default function ConfigConverter() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label>Pilih Akun SSH Aktif (direkomendasikan)</Label>
+            <Select onValueChange={(val) => {
+              const acc = mySshAccounts.find((a: any) => a.id.toString() === val);
+              if (acc) {
+                setSshHost(acc.server?.host || acc.server?.originalHost || '');
+                setSshUsername(acc.username || '');
+                setSshPassword(acc.password || '');
+                // Port will be synced from the chosen bug preset (see below).
+                // If no preset yet, leave as current or default 443.
+                if (!selectedBugId) {
+                  setSshPort('443');
+                }
+              }
+            }}>
+              <SelectTrigger className="bg-background/50">
+                <SelectValue placeholder={mySshAccounts.length > 0 ? "Pilih akun SSH yang sudah dibeli..." : "Belum ada akun SSH aktif"} />
+              </SelectTrigger>
+              <SelectContent>
+                {mySshAccounts.map((acc: any) => (
+                  <SelectItem key={acc.id} value={acc.id.toString()}>
+                    {acc.username} @ {acc.server?.name || 'Server'} (exp: {acc.expiresAt ? new Date(acc.expiresAt).toLocaleDateString() : '-'})
+                  </SelectItem>
+                ))}
+                {mySshAccounts.length === 0 && (
+                  <div className="p-2 text-sm text-muted-foreground">Tidak ada akun SSH aktif. Beli dulu di Order VPN.</div>
+                )}
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground">Pilih akun → otomatis isi field. <b>Port otomatis mengikuti proxyPort dari preset injek</b> yang kamu pilih (biar user awam gak bingung pilih port).</p>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>SSH Host</Label>
@@ -424,7 +463,7 @@ export default function ConfigConverter() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Port</Label>
+              <Label>Port (otomatis dari proxyPort preset injek)</Label>
               <Input
                 type="number"
                 value={sshPort}
@@ -463,7 +502,16 @@ export default function ConfigConverter() {
 
           <div className="space-y-2">
             <Label>Pilih Injek / Bug Preset</Label>
-            <Select value={selectedBugId} onValueChange={setSelectedBugId}>
+            <Select value={selectedBugId} onValueChange={(val) => {
+              setSelectedBugId(val);
+              const bug = bugs.find((b) => b.id.toString() === val);
+              if (bug && bug.sshInjectConfig) {
+                const inject = bug.sshInjectConfig as any;
+                if (inject && inject.proxyPort != null) {
+                  setSshPort(String(inject.proxyPort));
+                }
+              }
+            }}>
               <SelectTrigger className="bg-background/50 h-12">
                 <SelectValue placeholder="Pilih injek untuk SSH..." />
               </SelectTrigger>
