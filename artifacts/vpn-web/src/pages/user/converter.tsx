@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Bug, Copy, ArrowRightLeft, CheckCircle2, ShieldPlus } from "lucide-react";
+import { Bug, Copy, ArrowRightLeft, CheckCircle2, ShieldPlus, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
@@ -220,6 +220,7 @@ export default function ConfigConverter() {
   const [sshUsername, setSshUsername] = useState("");
   const [sshPassword, setSshPassword] = useState("");
   const [sshConfigName, setSshConfigName] = useState("");
+  const [isSshConverting, setIsSshConverting] = useState(false);
 
   const { data: bugs = [], isLoading } = useQuery<BugPreset[]>({
     queryKey: ["bug-presets"],
@@ -299,24 +300,33 @@ export default function ConfigConverter() {
       return;
     }
 
-    const portNum = parseInt(sshPort) || 80;
-    const link = buildDarkTunnelSsh(
-      { host: sshHost.trim(), port: portNum, username: sshUsername.trim(), password: sshPassword },
-      bug.sshInjectConfig,
-      sshConfigName.trim() || undefined
-    );
+    setIsSshConverting(true);
+    setResult(""); // hilangkan hasil lama saat loading
 
-    if (!link) {
-      toast({ title: "Gagal", description: "Gagal membangun link.", variant: "destructive" });
-      return;
-    }
-
-    setResult(link);
-    toast({ title: "Berhasil!", description: "Link DarkTunnel (dan kompatibel app lain) sudah dibuat." });
-    setIsCopied(false);
+    // Beri sedikit delay biar terasa lebih halus & profesional (bukan langsung muncul)
     setTimeout(() => {
-      resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
+      const portNum = parseInt(sshPort) || 80;
+      const link = buildDarkTunnelSsh(
+        { host: sshHost.trim(), port: portNum, username: sshUsername.trim(), password: sshPassword },
+        bug.sshInjectConfig,
+        sshConfigName.trim() || undefined
+      );
+
+      if (!link) {
+        toast({ title: "Gagal", description: "Gagal membangun link.", variant: "destructive" });
+        setIsSshConverting(false);
+        return;
+      }
+
+      setResult(link);
+      toast({ title: "Berhasil!", description: "Link DarkTunnel (dan kompatibel app lain) sudah dibuat." });
+      setIsCopied(false);
+      setIsSshConverting(false);
+
+      setTimeout(() => {
+        resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+    }, 1200); // ~1.2 detik, cukup untuk terasa "loading" tapi tidak lama
   };
 
   const copyToClipboard = async () => {
@@ -368,7 +378,7 @@ export default function ConfigConverter() {
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label>Pilih Injek / Bug Preset (pilih dulu)</Label>
-            <Select value={selectedBugId} onValueChange={(val) => {
+            <Select value={selectedBugId} disabled={isSshConverting} onValueChange={(val) => {
               setSelectedBugId(val);
               const bug = bugs.find((b) => b.id.toString() === val);
               if (bug && bug.sshInjectConfig) {
@@ -403,7 +413,7 @@ export default function ConfigConverter() {
 
           <div className="space-y-2">
             <Label>Pilih Akun SSH Aktif (setelah pilih injek)</Label>
-            <Select onValueChange={(val) => {
+            <Select disabled={isSshConverting} onValueChange={(val) => {
               const acc = mySshAccounts.find((a: any) => a.id.toString() === val);
               if (acc) {
                 setSshHost(acc.server?.host || acc.server?.originalHost || '');
@@ -440,6 +450,7 @@ export default function ConfigConverter() {
             <div className="space-y-2">
               <Label>SSH Host</Label>
               <Input
+                disabled={isSshConverting}
                 placeholder="sshbiznet.nadia-lestari.my.id atau cloudfront.net"
                 value={sshHost}
                 onChange={(e) => setSshHost(e.target.value)}
@@ -449,6 +460,7 @@ export default function ConfigConverter() {
             <div className="space-y-2">
               <Label>Port (otomatis dari proxyPort preset injek)</Label>
               <Input
+                disabled={isSshConverting}
                 type="number"
                 value={sshPort}
                 onChange={(e) => setSshPort(e.target.value)}
@@ -457,6 +469,7 @@ export default function ConfigConverter() {
             <div className="space-y-2">
               <Label>Username</Label>
               <Input
+                disabled={isSshConverting}
                 placeholder="username ssh"
                 value={sshUsername}
                 onChange={(e) => setSshUsername(e.target.value)}
@@ -466,6 +479,7 @@ export default function ConfigConverter() {
             <div className="space-y-2">
               <Label>Password</Label>
               <Input
+                disabled={isSshConverting}
                 type="password"
                 placeholder="password ssh"
                 value={sshPassword}
@@ -478,6 +492,7 @@ export default function ConfigConverter() {
           <div className="space-y-2">
             <Label>Nama Config (opsional)</Label>
             <Input
+              disabled={isSshConverting}
               placeholder="cth: Ilmupedia Telkomsel"
               value={sshConfigName}
               onChange={(e) => setSshConfigName(e.target.value)}
@@ -485,9 +500,23 @@ export default function ConfigConverter() {
           </div>
         </CardContent>
         <CardFooter className="bg-primary/5 flex justify-end p-4 border-t border-white/5">
-          <Button onClick={handleSshConvert} size="lg" className="w-full sm:w-auto shadow-lg shadow-primary/20">
-            <ArrowRightLeft className="w-4 h-4 mr-2" />
-            Buat Link Injek SSH
+          <Button 
+            onClick={handleSshConvert} 
+            size="lg" 
+            disabled={isSshConverting}
+            className="w-full sm:w-auto shadow-lg shadow-primary/20"
+          >
+            {isSshConverting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Membuat link...
+              </>
+            ) : (
+              <>
+                <ArrowRightLeft className="w-4 h-4 mr-2" />
+                Buat Link Injek SSH
+              </>
+            )}
           </Button>
         </CardFooter>
       </Card>
