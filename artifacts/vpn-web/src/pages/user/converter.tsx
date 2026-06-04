@@ -78,6 +78,89 @@ function convertVlessOrTrojan(raw: string, bug: BugPreset) {
   }
 }
 
+function convertShadowsocks(raw: string, bug: BugPreset) {
+  try {
+    let config = raw.trim();
+    if (!config.startsWith("ss://")) return null;
+
+    // Remove ss:// prefix
+    let body = config.slice(5);
+
+    // Handle remark (#)
+    let remark = "";
+    const hashPos = body.indexOf("#");
+    if (hashPos !== -1) {
+      remark = body.slice(hashPos);
+      body = body.slice(0, hashPos);
+    }
+
+    let userinfo: string;
+    let hostPort: string;
+
+    if (body.includes("@")) {
+      // SIP002 format: method:password@host:port or base64@host:port
+      const atPos = body.lastIndexOf("@");
+      userinfo = body.slice(0, atPos);
+      hostPort = body.slice(atPos + 1);
+    } else {
+      // Legacy base64 encoded userinfo@host:port inside
+      try {
+        const decoded = atob(body);
+        if (decoded.includes("@")) {
+          const atPos = decoded.lastIndexOf("@");
+          userinfo = decoded.slice(0, atPos);
+          hostPort = decoded.slice(atPos + 1);
+        } else {
+          return null;
+        }
+      } catch {
+        return null;
+      }
+    }
+
+    const [host, ...portParts] = hostPort.split(":");
+    const portRest = portParts.join(":");
+
+    let newHost = host;
+    if (bug.mode === "wildcard") {
+      newHost = bug.bugDomain;
+    } else if (bug.mode === "sni" || bug.mode === "host") {
+      newHost = bug.bugDomain;
+    }
+
+    const newHostPort = `${newHost}:${portRest}`;
+    return `ss://${userinfo}@${newHostPort}${remark}`;
+  } catch (e) {
+    return null;
+  }
+}
+
+function convertSshOrText(raw: string, bug: BugPreset) {
+  try {
+    let result = raw;
+    
+    // Replace common BUG placeholder (case insensitive)
+    if (bug.mode === "wildcard") {
+      result = result.replace(/BUG/gi, `${bug.bugDomain}`);
+      // For wildcard, sometimes people use bug.domain.original
+      // But simple replace is most common for SSH payloads
+    } else {
+      result = result.replace(/BUG/gi, bug.bugDomain);
+    }
+
+    // Also try to replace common host patterns if they look like original host
+    // This is heuristic for SSH / payload
+    if (bug.mode === "wildcard") {
+      // Example: replace host: example.com with bug.example.com in some payloads
+      // Keep simple for now
+    }
+
+    return result;
+  } catch (e) {
+    return raw;
+  }
+}
+
 export default function ConfigConverter() {
   const { toast } = useToast();
   const [rawConfig, setRawConfig] = useState("");
@@ -108,12 +191,23 @@ export default function ConfigConverter() {
     const convertedLines = lines.map(line => {
       if (line.startsWith("vmess://")) return convertVmess(line, bug) || line;
       if (line.startsWith("vless://") || line.startsWith("trojan://")) return convertVlessOrTrojan(line, bug) || line;
+      if (line.startsWith("ss://")) return convertShadowsocks(line, bug) || line;
+      // Support SSH payloads, HTTP injector payloads, or any text config containing "BUG" or ssh keywords
+      if (
+        line.toLowerCase().includes("bug") ||
+        line.toLowerCase().includes("ssh") ||
+        line.includes("GET ") ||
+        line.includes("Host:") ||
+        line.includes("CONNECT ")
+      ) {
+        return convertSshOrText(line, bug) || line;
+      }
       return line; // Not recognized, leave as is
     });
 
     const isAllFailed = convertedLines.every((l, i) => l === lines[i]);
     if (isAllFailed) {
-      toast({ title: "Gagal Mengonversi", description: "Format config tidak valid atau tidak didukung.", variant: "destructive" });
+      toast({ title: "Gagal Mengonversi", description: "Format tidak dikenali. Pastikan pakai protokol yang didukung (VMess/VLess/Trojan/SS/SSH payload).", variant: "destructive" });
       return;
     }
 
@@ -156,7 +250,7 @@ export default function ConfigConverter() {
       <div>
         <h1 className="text-2xl font-bold">Alat Convert Config</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Ubah konfigurasi akun VPN mentah (VMess, VLess, Trojan) Anda dengan otomatis menyisipkan Bug/SNI Trik.
+          Ubah konfigurasi akun VPN mentah (VMess, VLess, Trojan, Shadowsocks, SSH Payload) dengan otomatis menyisipkan Bug/SNI dari preset admin.
         </p>
       </div>
 
@@ -171,7 +265,7 @@ export default function ConfigConverter() {
             Config Injector
           </CardTitle>
           <CardDescription>
-            Pilih bug yang ingin digunakan, lalu tempel akun VPN Anda di bawah ini.
+            Pilih preset bug, lalu tempel raw config dari semua protokol (termasuk SSH payload).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -202,7 +296,7 @@ export default function ConfigConverter() {
           <div className="space-y-2">
             <Label className="font-semibold text-base">2. Config Mentah (Raw)</Label>
             <Textarea
-              placeholder="Tempel config vmess://, vless://, atau trojan:// di sini..."
+              placeholder="Tempel config (vmess://, vless://, trojan://, ss://) atau payload SSH di sini.\nBisa multi-baris. Mendukung semua protokol + bug preset."
               className="min-h-[120px] font-mono text-sm bg-background/50 resize-y"
               value={rawConfig}
               onChange={(e) => setRawConfig(e.target.value)}
