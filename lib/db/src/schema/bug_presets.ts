@@ -1,4 +1,4 @@
-import { pgTable, serial, text, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -8,6 +8,7 @@ export const bugPresetsTable = pgTable("bug_presets", {
   bugDomain: text("bug_domain").notNull(),
   mode: text("mode").notNull(), // 'wildcard', 'sni', 'host'
   isActive: boolean("is_active").notNull().default(true),
+  sshInjectConfig: jsonb("ssh_inject_config").$type<Record<string, unknown>>().default({}),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

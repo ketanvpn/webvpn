@@ -2303,6 +2303,7 @@ export const ListBugPresetsResponseItem = zod.object({
   bugDomain: zod.string(),
   mode: zod.enum(["wildcard", "sni", "host"]),
   isActive: zod.boolean(),
+  sshInjectConfig: zod.record(z.any()).optional(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -2317,6 +2318,7 @@ export const AdminListBugPresetsResponseItem = zod.object({
   bugDomain: zod.string(),
   mode: zod.enum(["wildcard", "sni", "host"]),
   isActive: zod.boolean(),
+  sshInjectConfig: zod.record(z.any()).optional(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -2334,6 +2336,7 @@ export const AdminCreateBugPresetBody = zod.object({
   bugDomain: zod.string(),
   mode: zod.enum(["wildcard", "sni", "host"]),
   isActive: zod.boolean().default(adminCreateBugPresetBodyIsActiveDefault),
+  sshInjectConfig: zod.record(z.any()).optional(),
 });
 
 /**
@@ -2348,6 +2351,7 @@ export const AdminUpdateBugPresetBody = zod.object({
   bugDomain: zod.string().optional(),
   mode: zod.enum(["wildcard", "sni", "host"]).optional(),
   isActive: zod.boolean().optional(),
+  sshInjectConfig: zod.record(z.any()).optional(),
 });
 
 export const AdminUpdateBugPresetResponse = zod.object({
@@ -2356,6 +2360,7 @@ export const AdminUpdateBugPresetResponse = zod.object({
   bugDomain: zod.string(),
   mode: zod.enum(["wildcard", "sni", "host"]),
   isActive: zod.boolean(),
+  sshInjectConfig: zod.record(z.any()).optional(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -29,6 +30,7 @@ type BugPreset = {
   bugDomain: string;
   mode: "wildcard" | "sni" | "host";
   isActive: boolean;
+  sshInjectConfig?: Record<string, unknown>;
   createdAt: string;
 };
 
@@ -37,6 +39,7 @@ const BLANK = {
   bugDomain: "",
   mode: "wildcard" as "wildcard" | "sni" | "host",
   isActive: true,
+  sshInjectConfig: {} as Record<string, unknown>,
 };
 
 export default function AdminBugPresets() {
@@ -58,6 +61,7 @@ export default function AdminBugPresets() {
         bugDomain: data.bugDomain.trim(),
         mode: data.mode,
         isActive: data.isActive,
+        sshInjectConfig: data.sshInjectConfig || {},
       };
       return editing
         ? apiFetch(`/admin/bug-presets/${editing.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
@@ -98,6 +102,7 @@ export default function AdminBugPresets() {
     setForm({
       name: v.name,
       bugDomain: v.bugDomain,
+      sshInjectConfig: v.sshInjectConfig || {},
       mode: v.mode,
       isActive: v.isActive,
     });
@@ -160,6 +165,11 @@ export default function AdminBugPresets() {
                         <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30 capitalize">
                           {v.mode}
                         </Badge>
+                        {v.sshInjectConfig && Object.keys(v.sshInjectConfig).length > 0 && (
+                          <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-400 border-blue-500/30">
+                            SSH Injek
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                         <code className="bg-muted/30 border border-white/5 rounded px-2 py-0.5 font-mono text-white/80">
@@ -266,6 +276,22 @@ export default function AdminBugPresets() {
                 id="is-active"
               />
               <Label htmlFor="is-active">Preset aktif (ditampilkan ke pengguna)</Label>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>SSH Inject Config (JSON untuk DarkTunnel dll)</Label>
+              <Textarea
+                placeholder='{"mode": "PROXY", "proxyHost": "ir.huya.com", "proxyPort": 80, "payload": "GET / HTTP/1.1[crlf]Host: [host][crlf]..."}'
+                className="font-mono text-xs min-h-[120px]"
+                value={JSON.stringify(form.sshInjectConfig || {}, null, 2)}
+                onChange={(e) => {
+                  try {
+                    const parsed = JSON.parse(e.target.value || "{}");
+                    setForm({ ...form, sshInjectConfig: parsed });
+                  } catch {}
+                }}
+              />
+              <p className="text-[10px] text-muted-foreground">Isi struktur injectConfig untuk SSH. Gunakan [host] sebagai placeholder untuk host SSH user.</p>
             </div>
 
             <DialogFooter>

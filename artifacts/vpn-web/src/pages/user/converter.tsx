@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Bug, Copy, ArrowRightLeft, CheckCircle2 } from "lucide-react";
+import { Bug, Copy, ArrowRightLeft, CheckCircle2, ShieldPlus } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
 
@@ -23,6 +24,7 @@ type BugPreset = {
   bugDomain: string;
   mode: "wildcard" | "sni" | "host";
   isActive: boolean;
+  sshInjectConfig?: Record<string, unknown>;
 };
 
 function convertVmess(raw: string, bug: BugPreset) {
@@ -161,6 +163,31 @@ function convertSshOrText(raw: string, bug: BugPreset) {
   }
 }
 
+// Build DarkTunnel SSH link from raw SSH + bug's sshInjectConfig
+function buildDarkTunnelSsh(ssh: { host: string; port: number; username: string; password: string }, inject: any, name?: string) {
+  const config = {
+    type: "SSH",
+    name: name || "SSH Injek",
+    sshTunnelConfig: {
+      sshConfig: {
+        host: ssh.host,
+        port: ssh.port,
+        username: ssh.username,
+        password: ssh.password,
+      },
+      injectConfig: inject || {},
+    },
+  };
+  try {
+    const jsonStr = JSON.stringify(config);
+    // btoa for browser base64
+    const b64 = btoa(unescape(encodeURIComponent(jsonStr)));
+    return `darktunnel://${b64}`;
+  } catch {
+    return "";
+  }
+}
+
 export default function ConfigConverter() {
   const { toast } = useToast();
   const [rawConfig, setRawConfig] = useState("");
@@ -168,6 +195,13 @@ export default function ConfigConverter() {
   const [result, setResult] = useState("");
   const [isCopied, setIsCopied] = useState(false);
   const resultRef = useRef<HTMLDivElement>(null);
+
+  // SSH Injek states (4 fields as requested)
+  const [sshHost, setSshHost] = useState("");
+  const [sshPort, setSshPort] = useState("80");
+  const [sshUsername, setSshUsername] = useState("");
+  const [sshPassword, setSshPassword] = useState("");
+  const [sshConfigName, setSshConfigName] = useState("");
 
   const { data: bugs = [], isLoading } = useQuery<BugPreset[]>({
     queryKey: ["bug-presets"],
@@ -215,6 +249,42 @@ export default function ConfigConverter() {
     toast({ title: "Config Berhasil Di-convert!" });
     setIsCopied(false);
     // Auto-scroll ke hasil, sangat berguna di tampilan ponsel
+    setTimeout(() => {
+      resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  };
+
+  const handleSshConvert = () => {
+    if (!sshHost.trim() || !sshUsername.trim() || !sshPassword.trim()) {
+      toast({ title: "Lengkapi Data SSH", description: "Host, Username, dan Password wajib diisi.", variant: "destructive" });
+      return;
+    }
+    if (!selectedBugId) {
+      toast({ title: "Pilih Injek", description: "Pilih preset injek / bug terlebih dahulu.", variant: "destructive" });
+      return;
+    }
+
+    const bug = bugs.find((b) => b.id.toString() === selectedBugId);
+    if (!bug || !bug.sshInjectConfig || Object.keys(bug.sshInjectConfig).length === 0) {
+      toast({ title: "Preset Tidak Valid", description: "Preset ini belum punya konfigurasi SSH Inject. Edit dulu di admin.", variant: "destructive" });
+      return;
+    }
+
+    const portNum = parseInt(sshPort) || 80;
+    const link = buildDarkTunnelSsh(
+      { host: sshHost.trim(), port: portNum, username: sshUsername.trim(), password: sshPassword },
+      bug.sshInjectConfig,
+      sshConfigName.trim() || undefined
+    );
+
+    if (!link) {
+      toast({ title: "Gagal", description: "Gagal membangun link.", variant: "destructive" });
+      return;
+    }
+
+    setResult(link);
+    toast({ title: "Berhasil!", description: "Link DarkTunnel (dan kompatibel app lain) sudah dibuat." });
+    setIsCopied(false);
     setTimeout(() => {
       resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
@@ -308,6 +378,101 @@ export default function ConfigConverter() {
           <Button onClick={handleConvert} size="lg" className="w-full sm:w-auto shadow-lg shadow-primary/20">
             <ArrowRightLeft className="w-4 h-4 mr-2" />
             Convert Sekarang
+          </Button>
+        </CardFooter>
+      </Card>
+
+      {/* SSH Injek Section - 4 fields + bug preset for DarkTunnel etc. */}
+      <Card className="border-primary/20 bg-card/40 backdrop-blur-md shadow-xl overflow-hidden relative">
+        <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none" />
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldPlus className="w-5 h-5 text-primary" />
+            SSH Injek (DarkTunnel & App Lain)
+          </CardTitle>
+          <CardDescription>
+            Masukkan data SSH mentah (dari akun yang kamu beli), pilih injek/bug, dapatkan link final siap pakai.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>SSH Host</Label>
+              <Input
+                placeholder="sshbiznet.nadia-lestari.my.id atau cloudfront.net"
+                value={sshHost}
+                onChange={(e) => setSshHost(e.target.value)}
+                className="font-mono"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Port</Label>
+              <Input
+                type="number"
+                value={sshPort}
+                onChange={(e) => setSshPort(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Username</Label>
+              <Input
+                placeholder="username ssh"
+                value={sshUsername}
+                onChange={(e) => setSshUsername(e.target.value)}
+                className="font-mono"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Password</Label>
+              <Input
+                type="password"
+                placeholder="password ssh"
+                value={sshPassword}
+                onChange={(e) => setSshPassword(e.target.value)}
+                className="font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Nama Config (opsional)</Label>
+            <Input
+              placeholder="cth: Ilmupedia Telkomsel"
+              value={sshConfigName}
+              onChange={(e) => setSshConfigName(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Pilih Injek / Bug Preset</Label>
+            <Select value={selectedBugId} onValueChange={setSelectedBugId}>
+              <SelectTrigger className="bg-background/50 h-12">
+                <SelectValue placeholder="Pilih injek untuk SSH..." />
+              </SelectTrigger>
+              <SelectContent>
+                {bugs
+                  .filter((b) => b.sshInjectConfig && Object.keys(b.sshInjectConfig).length > 0)
+                  .map((bug) => (
+                    <SelectItem key={bug.id} value={bug.id.toString()}>
+                      <div className="flex items-center gap-2">
+                        <Bug className="w-4 h-4 text-primary" />
+                        <span>{bug.name}</span>
+                        <span className="text-xs text-muted-foreground ml-2">({bug.bugDomain})</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                {bugs.filter((b) => b.sshInjectConfig && Object.keys(b.sshInjectConfig).length > 0).length === 0 && (
+                  <div className="p-2 text-sm text-muted-foreground">Belum ada preset dengan SSH Inject Config. Buat di Admin → Bug Presets.</div>
+                )}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Hanya preset yang punya konfigurasi SSH Inject yang muncul.</p>
+          </div>
+        </CardContent>
+        <CardFooter className="bg-primary/5 flex justify-end p-4 border-t border-white/5">
+          <Button onClick={handleSshConvert} size="lg" className="w-full sm:w-auto shadow-lg shadow-primary/20">
+            <ArrowRightLeft className="w-4 h-4 mr-2" />
+            Buat Link Injek SSH
           </Button>
         </CardFooter>
       </Card>

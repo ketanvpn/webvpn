@@ -54,6 +54,7 @@ router.post("/admin/bug-presets", requireAdmin, async (req, res) => {
         bugDomain: parsed.data.bugDomain,
         mode: parsed.data.mode,
         isActive: parsed.data.isActive ?? true,
+        sshInjectConfig: parsed.data.sshInjectConfig ?? {},
       })
       .returning();
 
@@ -90,6 +91,7 @@ router.put("/admin/bug-presets/:id", requireAdmin, async (req, res) => {
     if (parsed.data.bugDomain !== undefined) updateData.bugDomain = parsed.data.bugDomain;
     if (parsed.data.mode !== undefined) updateData.mode = parsed.data.mode;
     if (parsed.data.isActive !== undefined) updateData.isActive = parsed.data.isActive;
+    if (parsed.data.sshInjectConfig !== undefined) updateData.sshInjectConfig = parsed.data.sshInjectConfig;
 
     const [updated] = await db
       .update(bugPresetsTable)
