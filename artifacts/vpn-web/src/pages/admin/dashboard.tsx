@@ -321,7 +321,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Recent activity */}
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card className="glass-panel border-white/5">
           <CardHeader className="flex items-center justify-between border-b border-white/5 pb-4">
             <CardTitle>Order Terbaru</CardTitle>
@@ -390,6 +390,36 @@ export default function AdminDashboard() {
               </div>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-4">Belum ada topup.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="glass-panel border-white/5">
+          <CardHeader className="flex items-center justify-between border-b border-white/5 pb-4">
+            <CardTitle>Riwayat Aksi Admin Terbaru</CardTitle>
+            <Link href="/admin/audit-logs" className="text-xs text-primary hover:underline">Lihat semua →</Link>
+          </CardHeader>
+          <CardContent>
+            {summary.recentAuditLogs && summary.recentAuditLogs.length > 0 ? (
+              <div className="space-y-4">
+                {summary.recentAuditLogs.map((log: any) => (
+                  <div key={log.id} className="flex justify-between items-center border-b border-white/5 pb-4 last:border-0 last:pb-0">
+                    <div>
+                      <div className="font-medium text-sm">
+                        {log.adminUsername || `Admin #${log.adminUserId}`} <span className="text-muted-foreground font-normal">melakukan</span> {log.action}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {format(new Date(log.createdAt), "d MMM, HH:mm")}
+                      </div>
+                    </div>
+                    <div className="text-right text-xs">
+                      <Badge variant="outline">{log.targetType} {log.targetId ? `#${log.targetId}` : ''}</Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">Belum ada aksi admin.</p>
             )}
           </CardContent>
         </Card>

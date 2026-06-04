@@ -131,6 +131,21 @@ router.get("/admin/dashboard", requireAdmin, async (_req, res) => {
     .orderBy(desc(topupsTable.createdAt))
     .limit(10);
 
+  const recentAuditLogs = await db
+    .select({
+      id: adminAuditLogsTable.id,
+      adminUserId: adminAuditLogsTable.adminUserId,
+      adminUsername: usersTable.username,
+      action: adminAuditLogsTable.action,
+      targetType: adminAuditLogsTable.targetType,
+      targetId: adminAuditLogsTable.targetId,
+      createdAt: adminAuditLogsTable.createdAt,
+    })
+    .from(adminAuditLogsTable)
+    .leftJoin(usersTable, eq(adminAuditLogsTable.adminUserId, usersTable.id))
+    .orderBy(desc(adminAuditLogsTable.createdAt))
+    .limit(5);
+
   const formattedRecentOrders = await Promise.all(recentOrders.map(formatOrder));
 
   res.json({
@@ -145,6 +160,7 @@ router.get("/admin/dashboard", requireAdmin, async (_req, res) => {
     ordersByProtocol,
     recentOrders: formattedRecentOrders,
     recentTopups: recentTopups.map((t: any) => formatTopup(t as typeof topupsTable.$inferSelect & { username?: string | null })),
+    recentAuditLogs,
   });
 });
 

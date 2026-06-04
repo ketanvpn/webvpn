@@ -19,6 +19,27 @@ function formatTanggal(d: Date): string {
   return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
 }
 
+// ─── Simple in-memory lock to prevent overlapping tasks ──────────────────────
+const runningTasks = new Set<string>();
+
+async function runSafely(name: string, fn: () => Promise<void>) {
+  if (runningTasks.has(name)) {
+    logger.warn(`[scheduler] ${name} still running, skipping this tick to prevent overlap`);
+    return;
+  }
+  runningTasks.add(name);
+  const start = Date.now();
+  try {
+    logger.info(`[scheduler] ${name} started`);
+    await fn();
+    logger.info(`[scheduler] ${name} completed in ${Date.now() - start}ms`);
+  } catch (err) {
+    logger.error({ err }, `[scheduler] ${name} failed`);
+  } finally {
+    runningTasks.delete(name);
+  }
+}
+
 async function notifyExpiring(daysBefore: 1 | 3): Promise<void> {
   const now = new Date();
   const rangeStart = new Date(now.getTime() + (daysBefore - 1) * 24 * 60 * 60 * 1000);
@@ -293,40 +314,40 @@ export function startScheduler(): void {
   const FIVE_MIN = 5 * 60 * 1000;
   const FIFTEEN_MIN = 15 * 60 * 1000;
 
-  checkExpiringAccounts().catch(() => {});
-  cancelExpiredQrisOrders().catch(() => {});
-  cancelExpiredTopups().catch(() => {});
-  checkResellerTargets().catch(() => {});
-  checkAndAutoDisableServers().catch(() => {});
-  cleanupGhostAccounts().catch(() => {});
+  runSafely("initial-checkExpiringAccounts", checkExpiringAccounts);
+  runSafely("initial-cancelExpiredQrisOrders", cancelExpiredQrisOrders);
+  runSafely("initial-cancelExpiredTopups", cancelExpiredTopups);
+  runSafely("initial-checkResellerTargets", checkResellerTargets);
+  runSafely("initial-checkAndAutoDisableServers", checkAndAutoDisableServers);
+  runSafely("initial-cleanupGhostAccounts", cleanupGhostAccounts);
 
   setInterval(() => {
-    checkExpiringAccounts().catch(() => {});
-    cancelExpiredTopups().catch(() => {});
-    sendDailyReport().catch(() => {});
+    runSafely("checkExpiringAccounts", checkExpiringAccounts);
+    runSafely("cancelExpiredTopups", cancelExpiredTopups);
+    runSafely("sendDailyReport", sendDailyReport);
   }, ONE_HOUR);
 
   setInterval(() => {
-    cancelExpiredQrisOrders().catch(() => {});
+    runSafely("cancelExpiredQrisOrders", cancelExpiredQrisOrders);
   }, FIVE_MIN);
 
   setInterval(() => {
-    checkResellerTargets().catch(() => {});
+    runSafely("checkResellerTargets", checkResellerTargets);
   }, ONE_HOUR);
 
   setInterval(() => {
-    checkAndAutoDisableServers().catch(() => {});
+    runSafely("checkAndAutoDisableServers", checkAndAutoDisableServers);
   }, FIVE_MIN);
 
   // Auto-cleanup jalan setiap 3 jam
   setInterval(() => {
-    cleanupGhostAccounts().catch(() => {});
+    runSafely("cleanupGhostAccounts", cleanupGhostAccounts);
   }, THREE_HOURS);
 
   // Proactive alert setiap 15 menit
-  setTimeout(() => runProactiveAlerts().catch(() => {}), 2 * 60 * 1000);
+  setTimeout(() => runSafely("runProactiveAlerts", runProactiveAlerts), 2 * 60 * 1000);
   setInterval(() => {
-    runProactiveAlerts().catch(() => {});
+    runSafely("runProactiveAlerts", runProactiveAlerts);
   }, FIFTEEN_MIN);
 
   logger.info("Scheduler notifikasi kedaluwarsa aktif (cek setiap jam, kirim sesuai jam WIB yang dikonfigurasi)");
@@ -340,22 +361,20 @@ export function startScheduler(): void {
   // Auto-backup: cek setiap jam apakah sudah waktunya backup
   import("./backup").then(({ isBackupDue, performBackup }) => {
     const runBackupIfDue = async () => {
-      try {
+      runSafely("runBackupIfDue", async () => {
         const due = await isBackupDue();
         if (due) {
           logger.info("Auto-backup terjadwal dimulai...");
           await performBackup();
         }
-      } catch (err) {
-        logger.error({ err }, "Auto-backup scheduler error");
-      }
+      });
     };
 
     // Cek pertama kali 1 menit setelah start
-    setTimeout(() => runBackupIfDue().catch(() => {}), 60 * 1000);
+    setTimeout(() => runBackupIfDue(), 60 * 1000);
 
     // Lalu cek setiap jam
-    setInterval(() => runBackupIfDue().catch(() => {}), ONE_HOUR);
+    setInterval(() => runBackupIfDue(), ONE_HOUR);
 
     logger.info("Scheduler auto-backup aktif (cek setiap jam)");
   }).catch((err) => {
