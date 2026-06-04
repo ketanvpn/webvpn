@@ -300,6 +300,8 @@ async function refreshLocalDynamicServerCapacity(server: typeof dynamicProviderS
 }
 
 async function fulfillDynamicOrder(orderId: number, userId: number) {
+  logger.info({ orderId, userId }, "[dynamic-vpn] Starting fulfillDynamicOrder");
+
   const [order] = await db
     .select()
     .from(dynamicVpnOrdersTable)
@@ -321,6 +323,8 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
 
   const amount = Number(order.amount);
   const [buyer] = await db.select({ username: usersTable.username }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+
+  logger.info({ orderId, userId, amount, provider: server.provider }, "[dynamic-vpn] Provider creation successful, proceeding to deduct balance");
 
   let providerResponse: any;
   let accountProtocol = order.protocol;
@@ -419,6 +423,7 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
       expiresAt = parseNadiaExpireAt(data.expire_at, fallbackExpiry);
     }
   } catch (error) {
+    logger.error({ err: error, orderId, userId }, "[dynamic-vpn] Provider order creation failed - no balance was deducted");
     throw error;
   }
 
@@ -435,10 +440,12 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
     if (rollbackPanelAccount) {
       await deletePanelAccount(rollbackPanelAccount).catch(() => {});
     }
+    logger.warn({ orderId, userId, amount }, "[dynamic-vpn] Insufficient balance after provider success - refunding not needed as deduction didn't happen, rolling back panel");
     throw new Error("INSUFFICIENT_BALANCE");
   }
   const balanceAfter = Number(updatedUser.balance);
   const balanceBefore = balanceAfter + amount;
+  logger.info({ orderId, userId, balanceBefore, balanceAfter, amount }, "[dynamic-vpn] Balance deducted successfully for dynamic order");
 
   try {
     await db.transaction(async (tx: any) => {
@@ -479,15 +486,18 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
     });
   } catch (error) {
     // Refund balance if DB tx fails after deduction
+    logger.error({ err: error, orderId, userId, amount }, "[dynamic-vpn] DB transaction failed after balance deduction - attempting refund and panel rollback");
     await db.update(usersTable).set({ balance: sql`balance + ${amount}` }).where(eq(usersTable.id, userId)).catch(() => {});
     if (rollbackPanelAccount) {
       await deletePanelAccount(rollbackPanelAccount).catch((deleteErr) => {
         logger.error({ err: deleteErr, orderId, username: rollbackPanelAccount?.username }, "[dynamic-vpn] failed to rollback local panel account");
       });
     }
-    logger.error({ err: error, orderId }, "[dynamic-vpn] DB insert failed after provider order");
+    logger.warn({ orderId, userId, amount }, "[dynamic-vpn] Balance refunded and panel rolled back due to DB tx failure");
     throw error;
   }
+
+  logger.info({ orderId, userId, amount, balanceBefore, balanceAfter }, "[dynamic-vpn] DB transaction successful, balance change recorded via log");
 
   addBalanceLog({
     userId,
@@ -839,13 +849,18 @@ router.post("/dynamic-vpn/orders/:id/pay", requireAuth, dynamicOrderLimiter, asy
 
   if (!locked) return sendError(res, 409, "Order tidak ditemukan atau sedang diproses");
 
+  logger.info({ orderId: id, userId }, "[dynamic-vpn] Order locked to processing, starting fulfill");
+
   try {
     await fulfillDynamicOrder(id, userId);
   } catch (error) {
     await db.update(dynamicVpnOrdersTable).set({ status: "pending", updatedAt: new Date() }).where(eq(dynamicVpnOrdersTable.id, id)).catch(() => {});
     const msg = error instanceof Error ? error.message : String(error);
-    if (msg === "INSUFFICIENT_BALANCE") return sendError(res, 400, "Saldo tidak cukup");
-    logger.error({ err: error, id }, "[dynamic-vpn] pay failed");
+    if (msg === "INSUFFICIENT_BALANCE") {
+      logger.warn({ orderId: id, userId }, "Dynamic order pay failed due to insufficient balance (should have been caught earlier)");
+      return sendError(res, 400, "Saldo tidak cukup");
+    }
+    logger.error({ err: error, orderId: id, userId }, "[dynamic-vpn] pay failed - order reset to pending, any necessary refunds handled inside fulfill");
     return sendError(res, 500, `Gagal memproses order: ${msg}`);
   }
 
