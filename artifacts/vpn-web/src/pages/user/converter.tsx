@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -212,7 +212,6 @@ export default function ConfigConverter() {
   const [selectedBugId, setSelectedBugId] = useState<string>("");
   const [result, setResult] = useState("");
   const [isCopied, setIsCopied] = useState(false);
-  const resultRef = useRef<HTMLDivElement>(null);
 
   // SSH Injek states (4 fields as requested)
   const [sshHost, setSshHost] = useState("");
@@ -278,10 +277,7 @@ export default function ConfigConverter() {
     setResult(convertedLines.join("\n"));
     toast({ title: "Config Berhasil Di-convert!" });
     setIsCopied(false);
-    // Auto-scroll ke hasil, sangat berguna di tampilan ponsel
-    setTimeout(() => {
-      resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
+    // Hasil muncul di bawah secara natural. Tidak ada auto-scroll.
   };
 
   const handleSshConvert = () => {
@@ -323,9 +319,8 @@ export default function ConfigConverter() {
       setIsCopied(false);
       setIsSshConverting(false);
 
-      setTimeout(() => {
-        resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 100);
+      // Tidak ada auto-scroll lagi. Hasil muncul di bawah form secara natural.
+      // User bisa langsung lihat dan salin tanpa halaman "loncat".
     }, 1200); // ~1.2 detik, cukup untuk terasa "loading" tapi tidak lama
   };
 
@@ -582,7 +577,7 @@ export default function ConfigConverter() {
 
 
       {result && (
-        <div ref={resultRef} className="scroll-mt-4">
+        <div id="hasil-convert">
           <Card className="border-emerald-500/30 bg-emerald-950/10 backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-500">
             <CardHeader className="pb-3 border-b border-white/5">
               <CardTitle className="text-emerald-400 flex items-center justify-between">
