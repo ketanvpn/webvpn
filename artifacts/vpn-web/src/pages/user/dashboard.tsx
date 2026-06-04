@@ -310,7 +310,7 @@ export default function Dashboard() {
     amount: o.amount,
     status: o.status,
     createdAt: o.createdAt,
-    link: `/dynamic-order-history`,
+    link: `/order-vpn/history`,
   }));
 
   const combinedRecentOrders = [...regularRecent, ...dynamicRecent]
@@ -439,7 +439,7 @@ export default function Dashboard() {
             <span className="font-semibold text-sm">Order Terbaru</span>
             <div className="flex items-center gap-3 text-[11px]">
               <Link href="/orders" className="text-primary hover:underline">Lihat semua →</Link>
-              <Link href="/dynamic-order-history" className="text-primary hover:underline">Dynamic</Link>
+              <Link href="/order-vpn/history" className="text-primary hover:underline">Dynamic</Link>
             </div>
           </div>
           {combinedRecentOrders.length > 0 ? (
