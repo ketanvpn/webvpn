@@ -164,7 +164,25 @@ function convertSshOrText(raw: string, bug: BugPreset) {
 }
 
 // Build DarkTunnel SSH link from raw SSH + bug's sshInjectConfig
+function replacePlaceholders(value: any, sshHost: string): any {
+  if (typeof value === "string") {
+    return value.replace(/\[host\]/gi, sshHost);
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => replacePlaceholders(item, sshHost));
+  }
+  if (value && typeof value === "object") {
+    const result: any = {};
+    for (const key in value) {
+      result[key] = replacePlaceholders(value[key], sshHost);
+    }
+    return result;
+  }
+  return value;
+}
+
 function buildDarkTunnelSsh(ssh: { host: string; port: number; username: string; password: string }, inject: any, name?: string) {
+  const processedInject = replacePlaceholders(inject || {}, ssh.host);
   const config = {
     type: "SSH",
     name: name || "SSH Injek",
@@ -175,7 +193,7 @@ function buildDarkTunnelSsh(ssh: { host: string; port: number; username: string;
         username: ssh.username,
         password: ssh.password,
       },
-      injectConfig: inject || {},
+      injectConfig: processedInject,
     },
   };
   try {
@@ -391,7 +409,7 @@ export default function ConfigConverter() {
             SSH Injek (DarkTunnel & App Lain)
           </CardTitle>
           <CardDescription>
-            Masukkan data SSH mentah (dari akun yang kamu beli), pilih injek/bug, dapatkan link final siap pakai.
+            Masukkan data SSH mentah (dari akun yang kamu beli), pilih injek/bug, dapatkan link final siap pakai. Placeholder <b>[host]</b> di preset akan otomatis diganti dengan SSH Host yang kamu ketik.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

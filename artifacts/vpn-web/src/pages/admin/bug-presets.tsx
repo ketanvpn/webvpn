@@ -281,7 +281,7 @@ export default function AdminBugPresets() {
             <div className="space-y-1.5">
               <Label>SSH Inject Config (JSON untuk DarkTunnel dll)</Label>
               <Textarea
-                placeholder='{"mode": "PROXY", "proxyHost": "ir.huya.com", "proxyPort": 80, "payload": "GET / HTTP/1.1[crlf]Host: [host][crlf]..."}'
+                placeholder='{"mode": "PROXY_SNI", "serverNameIndication": "[host]", "proxyHost": "wpassets.kuncie.com", "proxyPort": 443, "payload": "GET / HTTP/1.1[crlf]Host: [host][crlf]..."}'
                 className="font-mono text-xs min-h-[120px]"
                 value={JSON.stringify(form.sshInjectConfig || {}, null, 2)}
                 onChange={(e) => {
@@ -291,7 +291,7 @@ export default function AdminBugPresets() {
                   } catch {}
                 }}
               />
-              <p className="text-[10px] text-muted-foreground">Isi struktur injectConfig untuk SSH. Gunakan [host] sebagai placeholder untuk host SSH user.</p>
+              <p className="text-[10px] text-muted-foreground">Isi struktur injectConfig. Gunakan <b>[host]</b> sebagai placeholder — nanti otomatis diganti dengan SSH Host yang user ketik. Untuk Ilmupedia CloudFront, set <code>"serverNameIndication": "[host]"</code> supaya pakai host SSH yang user beli.</p>
             </div>
 
             <DialogFooter>
