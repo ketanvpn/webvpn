@@ -703,11 +703,14 @@ cd /var/www/ketantech-vpn && git pull origin main && pnpm install && DATABASE_UR
 **Error: `ECONNREFUSED 127.0.0.1:5432`**
 > PostgreSQL tidak berjalan. Jalankan: `systemctl start postgresql`
 
-**Website tidak bisa diakses dari browser**
-> 1. Cek Nginx: `systemctl status nginx`
-> 2. Cek PM2: `pm2 status`
-> 3. Cek firewall: `ufw status`
-> 4. Pastikan nama domain/IP di konfigurasi Nginx sudah benar
+**Website tidak bisa diakses dari browser / masih load error cert (ERR_CERT_COMMON_NAME_INVALID)**
+> 1. Pastikan kamu **selalu buka https://ketantech.my.id** (bukan IP, sarankan tanpa www).
+> 2. Setelah perbaikan cert + code, lakukan **hard refresh** (Ctrl + Shift + R) atau buka di tab Incognito.
+> 3. Cek padlock di address bar — pastikan cert valid untuk ketantech.my.id.
+> 4. Cek Console (F12) apakah masih ada error cert saat load asset (file .js dengan hash).
+> 5. Cek Nginx: `sudo cat /etc/nginx/sites-available/ketantech` (pastikan ssl_certificate mengarah ke folder yang punya kedua domain).
+> 6. Cek `sudo certbot certificates` — pastikan yang aktif adalah yang cover `ketantech.my.id www.ketantech.my.id`.
+> 7. Rebuild frontend + restart: lihat perintah di bagian "Perintah Berguna Sehari-hari".
 
 **Console error: `net::ERR_CERT_COMMON_NAME_INVALID` (atau gagal load resource dengan hash seperti `v833ccba57...`)**
 > Ini berarti browser menolak sertifikat SSL karena **nama di sertifikat tidak cocok** dengan alamat yang kamu ketik di URL bar.
