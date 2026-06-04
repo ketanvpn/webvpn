@@ -273,6 +273,50 @@ export default function Dashboard() {
     );
   }
 
+  // Gabungkan regular order + dynamic order jadi satu list "Order Terbaru"
+  // supaya dashboard tidak terlalu banyak section terpisah (seperti request user)
+  const getStatusLabel = (status: string) => {
+    const s = (status || "").toLowerCase();
+    if (s === "paid") return "Lunas";
+    if (s === "pending") return "Menunggu";
+    if (s === "processing") return "Diproses";
+    if (s === "failed") return "Gagal";
+    if (s === "expired") return "Expired";
+    return status;
+  };
+
+  const getStatusVariant = (status: string) => {
+    const s = (status || "").toLowerCase();
+    if (s === "paid") return "default";
+    if (s === "pending" || s === "processing") return "secondary";
+    return "destructive";
+  };
+
+  const regularRecent = (summary.recentOrders || []).map((o: any) => ({
+    id: o.id,
+    type: "regular" as const,
+    title: `Order #${o.id}`,
+    amount: o.amount,
+    status: o.status,
+    createdAt: o.createdAt,
+    link: `/orders/${o.id}`,
+  }));
+
+  const dynamicRecentRaw = (recentDynamicOrders?.orders || recentDynamicOrders || []);
+  const dynamicRecent = (Array.isArray(dynamicRecentRaw) ? dynamicRecentRaw : []).map((o: any) => ({
+    id: o.id,
+    type: "dynamic" as const,
+    title: `${o.serverDisplayName || "Dynamic"} • ${o.protocol || ""}`,
+    amount: o.amount,
+    status: o.status,
+    createdAt: o.createdAt,
+    link: `/dynamic-order-history`,
+  }));
+
+  const combinedRecentOrders = [...regularRecent, ...dynamicRecent]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 5);
+
   const hasExpiring = (summary.expiringAccounts?.length ?? 0) > 0;
 
   return (
@@ -389,33 +433,35 @@ export default function Dashboard() {
 
       {/* Grid bawah */}
       <div className="grid gap-4 md:grid-cols-2">
-        {/* Order Terbaru */}
+        {/* Order Terbaru (gabungan regular + dynamic biar tidak terlalu banyak section) */}
         <div className="glass-panel rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/20">
             <span className="font-semibold text-sm">Order Terbaru</span>
-            <Link href="/orders" className="text-[11px] text-primary hover:underline">Lihat semua →</Link>
+            <div className="flex items-center gap-3 text-[11px]">
+              <Link href="/orders" className="text-primary hover:underline">Lihat semua →</Link>
+              <Link href="/dynamic-order-history" className="text-primary hover:underline">Dynamic</Link>
+            </div>
           </div>
-          {summary.recentOrders && summary.recentOrders.length > 0 ? (
+          {combinedRecentOrders.length > 0 ? (
             <div className="divide-y">
-              {summary.recentOrders.map((order) => (
-                <Link key={order.id} href={`/orders/${order.id}`}>
+              {combinedRecentOrders.map((order) => (
+                <Link key={`${order.type}-${order.id}`} href={order.link}>
                   <div className="flex items-center justify-between px-4 py-2.5 hover:bg-accent/30 transition-colors">
                     <div>
-                      <div className="text-sm font-medium">Order #{order.id}</div>
+                      <div className="text-sm font-medium flex items-center gap-1.5">
+                        {order.title}
+                        {order.type === "dynamic" && (
+                          <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5">Dynamic</Badge>
+                        )}
+                      </div>
                       <div className="text-[11px] text-muted-foreground">
                         {format(new Date(order.createdAt), "d MMM yyyy")}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="text-sm font-bold">{formatRupiah(order.amount)}</div>
-                      <Badge variant={
-                        order.status === "paid" ? "default" :
-                        order.status === "pending" || (order.status as string) === "processing" ? "secondary" : "destructive"
-                      } className="text-[10px] h-4 px-1.5">
-                        {order.status === "paid" ? "Lunas" :
-                         order.status === "pending" ? "Menunggu" :
-                         (order.status as string) === "processing" ? "Diproses" :
-                         order.status === "failed" ? "Gagal" : "Expired"}
+                      <Badge variant={getStatusVariant(order.status)} className="text-[10px] h-4 px-1.5">
+                        {getStatusLabel(order.status)}
                       </Badge>
                     </div>
                   </div>
@@ -458,37 +504,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Pesanan Dynamic Terbaru — selalu tampil untuk user (independen dari promo reseller) */}
-      {user?.role === "user" && (
-        <div className="glass-panel rounded-3xl border border-white/10 p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold flex items-center gap-2">
-              <ShieldPlus className="h-4 w-4" /> Pesanan Dynamic Terbaru
-            </h3>
-            <Link href="/dynamic-order-history" className="text-xs text-primary hover:underline">Lihat semua →</Link>
-          </div>
-          {recentDynamicOrders && (recentDynamicOrders.orders || recentDynamicOrders).length > 0 ? (
-            <div className="space-y-2 text-sm">
-              {(recentDynamicOrders.orders || recentDynamicOrders).slice(0, 3).map((order: any) => (
-                <div key={order.id} className="flex justify-between items-center border-b border-white/5 pb-2 last:border-0">
-                  <div>
-                    <div className="font-medium">{order.serverDisplayName} • {order.protocol}</div>
-                    <div className="text-xs text-muted-foreground">{format(new Date(order.createdAt), "d MMM HH:mm")}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-semibold">{formatRupiah(order.amount)}</div>
-                    <Badge variant={order.status === "paid" ? "default" : "secondary"} className="text-[10px]">
-                      {order.status}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Belum ada pesanan dynamic terbaru. Coba buat order dynamic pertama kamu!</p>
-          )}
-        </div>
-      )}
     </div>
   );
 }
