@@ -709,6 +709,37 @@ cd /var/www/ketantech-vpn && git pull origin main && pnpm install && DATABASE_UR
 > 3. Cek firewall: `ufw status`
 > 4. Pastikan nama domain/IP di konfigurasi Nginx sudah benar
 
+**Console error: `net::ERR_CERT_COMMON_NAME_INVALID` (atau gagal load resource dengan hash seperti `v833ccba57...`)**
+> Ini berarti browser menolak sertifikat SSL karena **nama di sertifikat tidak cocok** dengan alamat yang kamu ketik di URL bar.
+>
+> Penyebab paling umum:
+> - Kamu akses pakai **IP langsung** lewat https://203.x.x.x  (sertifikat Let's Encrypt hanya untuk nama domain, bukan IP mentah).
+> - DNS domain belum mengarah ke IP VPS, atau certbot dijalankan untuk domain yang berbeda dengan yang diketik.
+> - Ada redirect https paksa, tapi server_name di nginx tidak match.
+>
+> **Solusi terbaik (disarankan):**
+> 1. Pakai domain (beli murah di Namecheap/Cloudflare dll, atau gunakan sementara layanan gratis seperti `https://IP-KAMU.nip.io` — ganti titik IP jadi strip, misal `https://203-0-113-50.nip.io`).
+> 2. Pastikan A record domain/IP-nya mengarah ke VPS.
+> 3. Jalankan ulang certbot untuk domain yang benar:
+>    ```bash
+>    sudo certbot --nginx -d namadomain-kamu.com
+>    ```
+> 4. **WAJIB akses website lewat nama domain yang sama persis** dengan yang di certbot (bukan IP, bukan www kalau tidak ada di cert).
+> 5. Setelah fix, di VPS rebuild frontend & restart:
+>    ```bash
+>    cd /var/www/ketantech-vpn
+>    pnpm --filter @workspace/vpn-web run build
+>    pm2 restart ketantech-api
+>    ```
+> 6. Di browser: tekan **Ctrl + Shift + R** (hard refresh) atau buka tab Incognito.
+>
+> Cek diagnosis cepat di VPS:
+> ```bash
+> sudo cat /etc/nginx/sites-available/ketantech
+> sudo certbot certificates
+> ```
+> Lihat `server_name` dan sertifikat yang aktif — harus match dengan yang kamu buka di browser.
+
 **Login admin gagal terus**
 > Cek log PM2 dengan `pm2 logs ketantech-api`. Kalau ada error database, selesaikan masalah database terlebih dahulu.
 

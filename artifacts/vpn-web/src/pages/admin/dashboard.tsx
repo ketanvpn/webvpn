@@ -400,9 +400,9 @@ export default function AdminDashboard() {
             <Link href="/admin/audit-logs" className="text-xs text-primary hover:underline">Lihat semua →</Link>
           </CardHeader>
           <CardContent>
-            {summary.recentAuditLogs && summary.recentAuditLogs.length > 0 ? (
+            {(summary as any)?.recentAuditLogs && (summary as any).recentAuditLogs.length > 0 ? (
               <div className="space-y-4">
-                {summary.recentAuditLogs.map((log: any) => (
+                {(summary as any).recentAuditLogs.map((log: any) => (
                   <div key={log.id} className="flex justify-between items-center border-b border-white/5 pb-4 last:border-0 last:pb-0">
                     <div>
                       <div className="font-medium text-sm">

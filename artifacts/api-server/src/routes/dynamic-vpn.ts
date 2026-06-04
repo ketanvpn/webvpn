@@ -902,7 +902,11 @@ router.post("/dynamic-vpn/orders/:id/pay", requireAuth, dynamicOrderLimiter, asy
 
 router.get("/dynamic-vpn/orders", requireAuth, async (req, res) => {
   const userId = req.user!.userId;
-  const rows = await db.select().from(dynamicVpnOrdersTable).where(eq(dynamicVpnOrdersTable.userId, userId)).orderBy(desc(dynamicVpnOrdersTable.id));
+  const limitRaw = req.query.limit;
+  const limit = limitRaw ? Math.min(parseInt(String(limitRaw), 10) || 50, 100) : undefined;
+  let q = db.select().from(dynamicVpnOrdersTable).where(eq(dynamicVpnOrdersTable.userId, userId)).orderBy(desc(dynamicVpnOrdersTable.id));
+  if (limit) q = q.limit(limit) as any;
+  const rows = await q;
   res.json({ orders: rows.map((row) => ({ ...row, amount: Number(row.amount), providerResponse: undefined })) });
 });
 
