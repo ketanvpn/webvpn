@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -135,6 +136,7 @@ export default function DynamicOrderPage() {
   const [appliedVoucher, setAppliedVoucher] = useState("");
   const [voucherError, setVoucherError] = useState("");
   const [paidOrderId, setPaidOrderId] = useState<number | null>(null);
+  const [payConfirmOpen, setPayConfirmOpen] = useState(false);
 
   const serversQuery = useQuery<{ servers: DynamicServer[] }>({ queryKey: ["dynamic-vpn-servers"], queryFn: () => apiFetch("/dynamic-vpn/servers") });
   const servers = serversQuery.data?.servers ?? [];
@@ -406,7 +408,7 @@ export default function DynamicOrderPage() {
                   )}
                 </div>
 
-                <Button className="w-full gap-2" disabled={!protocol || !quote || !isUsernameValid(username) || (protocol === "ssh" && password.length < 6) || orderMut.isPending} onClick={() => orderMut.mutate()}>
+                <Button className="w-full gap-2" disabled={!protocol || !quote || !isUsernameValid(username) || (protocol === "ssh" && password.length < 6) || orderMut.isPending} onClick={() => setPayConfirmOpen(true)}>
                   {orderMut.isPending ? <><RefreshCw className="h-4 w-4 animate-spin" /> Memproses...</> : <><Wallet className="h-4 w-4" /> Bayar Pakai Saldo</>}
                 </Button>
               </div>
@@ -414,6 +416,56 @@ export default function DynamicOrderPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Final Purchase Confirmation */}
+      <AlertDialog open={payConfirmOpen} onOpenChange={setPayConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Konfirmasi Pembelian</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4 pt-2">
+                <div className="rounded-lg border bg-muted/30 divide-y text-sm">
+                  <div className="flex justify-between px-4 py-2.5">
+                    <span className="text-muted-foreground">Server</span>
+                    <span className="font-semibold">{selectedServer?.displayName}</span>
+                  </div>
+                  <div className="flex justify-between px-4 py-2.5">
+                    <span className="text-muted-foreground">Protokol</span>
+                    <span className="font-semibold">{protocol.toUpperCase()}</span>
+                  </div>
+                  <div className="flex justify-between px-4 py-2.5">
+                    <span className="text-muted-foreground">Durasi</span>
+                    <span className="font-semibold">{quote?.durationLabel}</span>
+                  </div>
+                  <div className="flex justify-between px-4 py-2.5">
+                    <span className="text-muted-foreground">Username</span>
+                    <span className="font-semibold font-mono">{username}</span>
+                  </div>
+                  <div className="flex justify-between px-4 py-2.5 bg-primary/5">
+                    <span className="font-semibold">Total</span>
+                    <span className="font-bold text-primary">{quote ? rupiah(quote.amount) : "-"}</span>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Saldo akan dipotong otomatis. Akun VPN akan dibuat dan aktif segera setelah pembayaran berhasil.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={orderMut.isPending}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                orderMut.mutate();
+                setPayConfirmOpen(false);
+              }}
+              disabled={orderMut.isPending}
+            >
+              {orderMut.isPending ? "Memproses..." : "Konfirmasi & Bayar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
