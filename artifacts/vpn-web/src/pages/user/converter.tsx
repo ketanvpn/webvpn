@@ -229,7 +229,11 @@ export default function ConfigConverter() {
   const { data: mySshAccounts = [] } = useQuery<any[]>({
     queryKey: ["my-ssh-accounts"],
     queryFn: () => apiFetch("/accounts").then((accs: any[]) =>
-      accs.filter((a: any) => a.protocol === 'ssh' && a.isActive)
+      accs.filter((a: any) => 
+        a.protocol === 'ssh' && 
+        a.isActive && 
+        new Date(a.expiresAt) > new Date()
+      )
     ),
   });
 
@@ -425,11 +429,11 @@ export default function ConfigConverter() {
                   </SelectItem>
                 ))}
                 {mySshAccounts.length === 0 && (
-                  <div className="p-2 text-sm text-muted-foreground">Tidak ada akun SSH aktif. Beli dulu di Order VPN.</div>
+                  <div className="p-2 text-sm text-muted-foreground">Tidak ada akun SSH yang aktif & belum expired.</div>
                 )}
               </SelectContent>
             </Select>
-            <p className="text-[10px] text-muted-foreground">Pilih akun → otomatis isi Host/Username/Password. Tanggal expired selalu kelihatan di badge kanan (dropdown dibatasi lebarnya agar profesional & rapi di HP).</p>
+            <p className="text-[10px] text-muted-foreground">Hanya akun aktif & belum expired yang muncul di dropdown. Pilih akun → otomatis isi Host/Username/Password (port dari preset injek).</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
