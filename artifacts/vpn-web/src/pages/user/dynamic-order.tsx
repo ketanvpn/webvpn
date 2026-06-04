@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useGetBalance } from "@workspace/api-client-react";
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, CreditCard, PackageX, RefreshCw, Server, Tag, UserRound, Wallet, X, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
 const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
@@ -137,6 +138,8 @@ export default function DynamicOrderPage() {
   const [voucherError, setVoucherError] = useState("");
   const [paidOrderId, setPaidOrderId] = useState<number | null>(null);
   const [payConfirmOpen, setPayConfirmOpen] = useState(false);
+  const { data: balanceData } = useGetBalance();
+  const balance = balanceData?.balance || 0;
 
   const serversQuery = useQuery<{ servers: DynamicServer[] }>({ queryKey: ["dynamic-vpn-servers"], queryFn: () => apiFetch("/dynamic-vpn/servers") });
   const servers = serversQuery.data?.servers ?? [];
@@ -408,7 +411,7 @@ export default function DynamicOrderPage() {
                   )}
                 </div>
 
-                <Button className="w-full gap-2" disabled={!protocol || !quote || !isUsernameValid(username) || (protocol === "ssh" && password.length < 6) || orderMut.isPending} onClick={() => setPayConfirmOpen(true)}>
+                <Button className="w-full gap-2" disabled={!protocol || !quote || !isUsernameValid(username) || (protocol === "ssh" && password.length < 6) || orderMut.isPending || (quote && balance < quote.amount)} onClick={() => setPayConfirmOpen(true)}>
                   {orderMut.isPending ? <><RefreshCw className="h-4 w-4 animate-spin" /> Memproses...</> : <><Wallet className="h-4 w-4" /> Bayar Pakai Saldo</>}
                 </Button>
               </div>
@@ -441,11 +444,27 @@ export default function DynamicOrderPage() {
                     <span className="text-muted-foreground">Username</span>
                     <span className="font-semibold font-mono">{username}</span>
                   </div>
+                  <div className="flex justify-between px-4 py-2.5">
+                    <span className="text-muted-foreground">Saldo saat ini</span>
+                    <span className="font-medium">{rupiah(balance)}</span>
+                  </div>
                   <div className="flex justify-between px-4 py-2.5 bg-primary/5">
                     <span className="font-semibold">Total</span>
                     <span className="font-bold text-primary">{quote ? rupiah(quote.amount) : "-"}</span>
                   </div>
+                  <div className="flex justify-between px-4 py-2.5">
+                    <span className="text-muted-foreground">Sisa saldo</span>
+                    <span className={quote && balance < quote.amount ? "text-destructive font-semibold" : "text-green-600"}>
+                      {quote ? rupiah(Math.max(0, balance - quote.amount)) : "-"}
+                    </span>
+                  </div>
                 </div>
+                {quote && balance < quote.amount && (
+                  <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md border border-destructive/20">
+                    Saldo tidak cukup. Kamu butuh {rupiah(quote.amount - balance)} lagi.
+                    <Link href="/balance" className="font-semibold underline block mt-1">Top up sekarang →</Link>
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground">
                   Saldo akan dipotong otomatis. Akun VPN akan dibuat dan aktif segera setelah pembayaran berhasil.
                 </p>
