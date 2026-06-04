@@ -1,4 +1,5 @@
 import { useGetDashboardSummary } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { formatRupiah } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
@@ -237,6 +238,34 @@ function ReselerPromoBanner({ onRequest }: { onRequest: () => void }) {
           <p className="text-xs text-muted-foreground">Hubungi admin untuk bergabung.</p>
         )}
       </div>
+
+      {/* Recent Dynamic Orders */}
+      {recentDynamicOrders && (recentDynamicOrders.orders || recentDynamicOrders).length > 0 && (
+        <div className="glass-panel rounded-3xl border border-white/10 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold flex items-center gap-2">
+              <ShieldPlus className="h-4 w-4" /> Pesanan Dynamic Terbaru
+            </h3>
+            <Link href="/dynamic-order-history" className="text-xs text-primary hover:underline">Lihat semua →</Link>
+          </div>
+          <div className="space-y-2 text-sm">
+            {(recentDynamicOrders.orders || recentDynamicOrders).slice(0, 3).map((order: any) => (
+              <div key={order.id} className="flex justify-between items-center border-b border-white/5 pb-2 last:border-0">
+                <div>
+                  <div className="font-medium">{order.serverDisplayName} • {order.protocol}</div>
+                  <div className="text-xs text-muted-foreground">{format(new Date(order.createdAt), "d MMM HH:mm")}</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-semibold">{formatRupiah(order.amount)}</div>
+                  <Badge variant={order.status === "paid" ? "default" : "secondary"} className="text-[10px]">
+                    {order.status}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -245,6 +274,11 @@ export default function Dashboard() {
   const { data: summary, isLoading } = useGetDashboardSummary();
   const { user } = useAuth();
   const [promoRequested, setPromoRequested] = useState(false);
+
+  const { data: recentDynamicOrders } = useQuery({
+    queryKey: ["user-recent-dynamic-orders"],
+    queryFn: () => apiFetch("/dynamic-vpn/orders?limit=3"),
+  });
 
   if (isLoading || !summary) {
     return (
