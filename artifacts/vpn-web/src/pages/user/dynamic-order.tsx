@@ -124,6 +124,13 @@ export default function DynamicOrderPage() {
   const [duration, setDuration] = useState("1");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+
+  const isUsernameValid = (val: string) => {
+    if (val.length < 5) return false;
+    const hasLetter = /[a-zA-Z]/.test(val);
+    const digitCount = (val.match(/[0-9]/g) || []).length;
+    return hasLetter && digitCount >= 2;
+  };
   const [voucherInput, setVoucherInput] = useState("");
   const [appliedVoucher, setAppliedVoucher] = useState("");
   const [voucherError, setVoucherError] = useState("");
@@ -324,9 +331,16 @@ export default function DynamicOrderPage() {
                     <Label>Username VPN</Label>
                     <div className="relative">
                       <UserRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input className="pl-9" value={username} onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ""))} placeholder="contoh: ketan123" />
+                      <Input 
+                      className={`pl-9 ${username && !isUsernameValid(username) ? "border-destructive focus-visible:ring-destructive" : ""}`} 
+                      value={username} 
+                      onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ""))} 
+                      placeholder="contoh: ketan123" 
+                    />
                     </div>
-                    <p className="text-xs text-muted-foreground">Minimal 5 karakter dan minimal 2 angka.</p>
+                    <p className={`text-xs ${username && !isUsernameValid(username) ? "text-destructive" : "text-muted-foreground"}`}>
+                      Minimal 5 karakter dan minimal 2 angka.
+                    </p>
                   </div>
                 </div>
 
@@ -392,7 +406,7 @@ export default function DynamicOrderPage() {
                   )}
                 </div>
 
-                <Button className="w-full gap-2" disabled={!protocol || !quote || username.length < 5 || (protocol === "ssh" && password.length < 6) || orderMut.isPending} onClick={() => orderMut.mutate()}>
+                <Button className="w-full gap-2" disabled={!protocol || !quote || !isUsernameValid(username) || (protocol === "ssh" && password.length < 6) || orderMut.isPending} onClick={() => orderMut.mutate()}>
                   {orderMut.isPending ? <><RefreshCw className="h-4 w-4 animate-spin" /> Memproses...</> : <><Wallet className="h-4 w-4" /> Bayar Pakai Saldo</>}
                 </Button>
               </div>
