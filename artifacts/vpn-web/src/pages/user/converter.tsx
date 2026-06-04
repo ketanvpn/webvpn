@@ -349,6 +349,138 @@ export default function ConfigConverter() {
         </p>
       </div>
 
+      {/* SSH Injek Section - diletakkan paling atas sesuai request */}
+      <Card className="border-primary/20 bg-card/40 backdrop-blur-md shadow-xl overflow-hidden relative">
+        <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none" />
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldPlus className="w-5 h-5 text-primary" />
+            SSH Injek (DarkTunnel & App Lain)
+          </CardTitle>
+          <CardDescription>
+            Masukkan data SSH mentah (dari akun yang kamu beli), pilih injek/bug, dapatkan link final siap pakai. Placeholder <b>[host]</b> di preset akan otomatis diganti dengan SSH Host yang kamu ketik.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label>Pilih Injek / Bug Preset (pilih dulu)</Label>
+            <Select value={selectedBugId} onValueChange={(val) => {
+              setSelectedBugId(val);
+              const bug = bugs.find((b) => b.id.toString() === val);
+              if (bug && bug.sshInjectConfig) {
+                const inject = bug.sshInjectConfig as any;
+                if (inject && inject.proxyPort != null) {
+                  setSshPort(String(inject.proxyPort));
+                }
+              }
+            }}>
+              <SelectTrigger className="bg-background/50 h-12">
+                <SelectValue placeholder="Pilih injek untuk SSH..." />
+              </SelectTrigger>
+              <SelectContent>
+                {bugs
+                  .filter((b) => b.sshInjectConfig && Object.keys(b.sshInjectConfig).length > 0)
+                  .map((bug) => (
+                    <SelectItem key={bug.id} value={bug.id.toString()}>
+                      <div className="flex items-center gap-2">
+                        <Bug className="w-4 h-4 text-primary" />
+                        <span>{bug.name}</span>
+                        <span className="text-xs text-muted-foreground ml-2">({bug.bugDomain})</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                {bugs.filter((b) => b.sshInjectConfig && Object.keys(b.sshInjectConfig).length > 0).length === 0 && (
+                  <div className="p-2 text-sm text-muted-foreground">Belum ada preset dengan SSH Inject Config. Buat di Admin → Bug Presets.</div>
+                )}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Pilih injek dulu supaya port otomatis pas dengan proxyPort preset.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Pilih Akun SSH Aktif (setelah pilih injek)</Label>
+            <Select onValueChange={(val) => {
+              const acc = mySshAccounts.find((a: any) => a.id.toString() === val);
+              if (acc) {
+                setSshHost(acc.server?.host || acc.server?.originalHost || '');
+                setSshUsername(acc.username || '');
+                setSshPassword(acc.password || '');
+                // Jangan override port, biarkan dari preset
+              }
+            }}>
+              <SelectTrigger className="bg-background/50">
+                <SelectValue placeholder={mySshAccounts.length > 0 ? "Pilih akun SSH yang sudah dibeli..." : "Belum ada akun SSH aktif"} />
+              </SelectTrigger>
+              <SelectContent>
+                {mySshAccounts.map((acc: any) => (
+                  <SelectItem key={acc.id} value={acc.id.toString()}>
+                    {acc.username} @ {acc.server?.name || 'Server'} (exp: {acc.expiresAt ? new Date(acc.expiresAt).toLocaleDateString() : '-'})
+                  </SelectItem>
+                ))}
+                {mySshAccounts.length === 0 && (
+                  <div className="p-2 text-sm text-muted-foreground">Tidak ada akun SSH aktif. Beli dulu di Order VPN.</div>
+                )}
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground">Pilih akun → otomatis isi Host, Username, Password. Port sudah diatur oleh preset injek (tidak diubah).</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>SSH Host</Label>
+              <Input
+                placeholder="sshbiznet.nadia-lestari.my.id atau cloudfront.net"
+                value={sshHost}
+                onChange={(e) => setSshHost(e.target.value)}
+                className="font-mono"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Port (otomatis dari proxyPort preset injek)</Label>
+              <Input
+                type="number"
+                value={sshPort}
+                onChange={(e) => setSshPort(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Username</Label>
+              <Input
+                placeholder="username ssh"
+                value={sshUsername}
+                onChange={(e) => setSshUsername(e.target.value)}
+                className="font-mono"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Password</Label>
+              <Input
+                type="password"
+                placeholder="password ssh"
+                value={sshPassword}
+                onChange={(e) => setSshPassword(e.target.value)}
+                className="font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Nama Config (opsional)</Label>
+            <Input
+              placeholder="cth: Ilmupedia Telkomsel"
+              value={sshConfigName}
+              onChange={(e) => setSshConfigName(e.target.value)}
+            />
+          </div>
+        </CardContent>
+        <CardFooter className="bg-primary/5 flex justify-end p-4 border-t border-white/5">
+          <Button onClick={handleSshConvert} size="lg" className="w-full sm:w-auto shadow-lg shadow-primary/20">
+            <ArrowRightLeft className="w-4 h-4 mr-2" />
+            Buat Link Injek SSH
+          </Button>
+        </CardFooter>
+      </Card>
+
       <Card className="border-primary/20 bg-card/40 backdrop-blur-md shadow-xl overflow-hidden relative">
         {/* Dekorasi Background */}
         <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/20 rounded-full blur-[80px] pointer-events-none" />
@@ -407,141 +539,7 @@ export default function ConfigConverter() {
         </CardFooter>
       </Card>
 
-      {/* SSH Injek Section - 4 fields + bug preset for DarkTunnel etc. */}
-      <Card className="border-primary/20 bg-card/40 backdrop-blur-md shadow-xl overflow-hidden relative">
-        <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none" />
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ShieldPlus className="w-5 h-5 text-primary" />
-            SSH Injek (DarkTunnel & App Lain)
-          </CardTitle>
-          <CardDescription>
-            Masukkan data SSH mentah (dari akun yang kamu beli), pilih injek/bug, dapatkan link final siap pakai. Placeholder <b>[host]</b> di preset akan otomatis diganti dengan SSH Host yang kamu ketik.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label>Pilih Akun SSH Aktif (direkomendasikan)</Label>
-            <Select onValueChange={(val) => {
-              const acc = mySshAccounts.find((a: any) => a.id.toString() === val);
-              if (acc) {
-                setSshHost(acc.server?.host || acc.server?.originalHost || '');
-                setSshUsername(acc.username || '');
-                setSshPassword(acc.password || '');
-                // Port will be synced from the chosen bug preset (see below).
-                // If no preset yet, leave as current or default 443.
-                if (!selectedBugId) {
-                  setSshPort('443');
-                }
-              }
-            }}>
-              <SelectTrigger className="bg-background/50">
-                <SelectValue placeholder={mySshAccounts.length > 0 ? "Pilih akun SSH yang sudah dibeli..." : "Belum ada akun SSH aktif"} />
-              </SelectTrigger>
-              <SelectContent>
-                {mySshAccounts.map((acc: any) => (
-                  <SelectItem key={acc.id} value={acc.id.toString()}>
-                    {acc.username} @ {acc.server?.name || 'Server'} (exp: {acc.expiresAt ? new Date(acc.expiresAt).toLocaleDateString() : '-'})
-                  </SelectItem>
-                ))}
-                {mySshAccounts.length === 0 && (
-                  <div className="p-2 text-sm text-muted-foreground">Tidak ada akun SSH aktif. Beli dulu di Order VPN.</div>
-                )}
-              </SelectContent>
-            </Select>
-            <p className="text-[10px] text-muted-foreground">Pilih akun → otomatis isi field. <b>Port otomatis mengikuti proxyPort dari preset injek</b> yang kamu pilih (biar user awam gak bingung pilih port).</p>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>SSH Host</Label>
-              <Input
-                placeholder="sshbiznet.nadia-lestari.my.id atau cloudfront.net"
-                value={sshHost}
-                onChange={(e) => setSshHost(e.target.value)}
-                className="font-mono"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Port (otomatis dari proxyPort preset injek)</Label>
-              <Input
-                type="number"
-                value={sshPort}
-                onChange={(e) => setSshPort(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Username</Label>
-              <Input
-                placeholder="username ssh"
-                value={sshUsername}
-                onChange={(e) => setSshUsername(e.target.value)}
-                className="font-mono"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Password</Label>
-              <Input
-                type="password"
-                placeholder="password ssh"
-                value={sshPassword}
-                onChange={(e) => setSshPassword(e.target.value)}
-                className="font-mono"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Nama Config (opsional)</Label>
-            <Input
-              placeholder="cth: Ilmupedia Telkomsel"
-              value={sshConfigName}
-              onChange={(e) => setSshConfigName(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Pilih Injek / Bug Preset</Label>
-            <Select value={selectedBugId} onValueChange={(val) => {
-              setSelectedBugId(val);
-              const bug = bugs.find((b) => b.id.toString() === val);
-              if (bug && bug.sshInjectConfig) {
-                const inject = bug.sshInjectConfig as any;
-                if (inject && inject.proxyPort != null) {
-                  setSshPort(String(inject.proxyPort));
-                }
-              }
-            }}>
-              <SelectTrigger className="bg-background/50 h-12">
-                <SelectValue placeholder="Pilih injek untuk SSH..." />
-              </SelectTrigger>
-              <SelectContent>
-                {bugs
-                  .filter((b) => b.sshInjectConfig && Object.keys(b.sshInjectConfig).length > 0)
-                  .map((bug) => (
-                    <SelectItem key={bug.id} value={bug.id.toString()}>
-                      <div className="flex items-center gap-2">
-                        <Bug className="w-4 h-4 text-primary" />
-                        <span>{bug.name}</span>
-                        <span className="text-xs text-muted-foreground ml-2">({bug.bugDomain})</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                {bugs.filter((b) => b.sshInjectConfig && Object.keys(b.sshInjectConfig).length > 0).length === 0 && (
-                  <div className="p-2 text-sm text-muted-foreground">Belum ada preset dengan SSH Inject Config. Buat di Admin → Bug Presets.</div>
-                )}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">Hanya preset yang punya konfigurasi SSH Inject yang muncul.</p>
-          </div>
-        </CardContent>
-        <CardFooter className="bg-primary/5 flex justify-end p-4 border-t border-white/5">
-          <Button onClick={handleSshConvert} size="lg" className="w-full sm:w-auto shadow-lg shadow-primary/20">
-            <ArrowRightLeft className="w-4 h-4 mr-2" />
-            Buat Link Injek SSH
-          </Button>
-        </CardFooter>
-      </Card>
 
       {result && (
         <div ref={resultRef} className="scroll-mt-4">
