@@ -1,5 +1,7 @@
 import { Router, type Response } from "express";
 import { requireAdmin } from "../lib/auth";
+import { logAdminAction } from "./admin-audit";
+import { getClientIp } from "../lib/request-ip";
 import {
   createNadiaVpnOrder,
   createNadiaVpnTrial,
@@ -87,7 +89,17 @@ router.post("/admin/nadiavpn/trial", requireAdmin, async (req, res) => {
   }
 
   try {
-    res.json(await createNadiaVpnTrial(payload));
+    const result = await createNadiaVpnTrial(payload);
+    const adminId = req.user!.userId;
+    logAdminAction({
+      adminUserId: adminId,
+      action: "create_nadiavpn_trial",
+      targetType: "nadiavpn",
+      targetId: null,
+      details: payload,
+      ipAddress: getClientIp(req as any),
+    }).catch(() => {});
+    res.json(result);
   } catch (error) {
     sendNadiaVpnError(res, error);
   }
@@ -104,7 +116,17 @@ router.post("/admin/nadiavpn/order", requireAdmin, async (req, res) => {
   if (!payload) return;
 
   try {
-    res.json(await createNadiaVpnOrder(payload));
+    const result = await createNadiaVpnOrder(payload);
+    const adminId = req.user!.userId;
+    logAdminAction({
+      adminUserId: adminId,
+      action: "create_nadiavpn_order",
+      targetType: "nadiavpn",
+      targetId: null,
+      details: payload,
+      ipAddress: getClientIp(req as any),
+    }).catch(() => {});
+    res.json(result);
   } catch (error) {
     sendNadiaVpnError(res, error);
   }
@@ -119,7 +141,17 @@ router.post("/admin/nadiavpn/renew", requireAdmin, async (req, res) => {
   if (!payload) return;
 
   try {
-    res.json(await renewNadiaVpnAccount(payload));
+    const result = await renewNadiaVpnAccount(payload);
+    const adminId = req.user!.userId;
+    logAdminAction({
+      adminUserId: adminId,
+      action: "renew_nadiavpn",
+      targetType: "nadiavpn",
+      targetId: null,
+      details: payload,
+      ipAddress: getClientIp(req as any),
+    }).catch(() => {});
+    res.json(result);
   } catch (error) {
     sendNadiaVpnError(res, error);
   }
@@ -133,7 +165,17 @@ router.post("/admin/nadiavpn/migrate", requireAdmin, async (req, res) => {
   if (!payload) return;
 
   try {
-    res.json(await migrateNadiaVpnAccount(payload));
+    const result = await migrateNadiaVpnAccount(payload);
+    const adminId = req.user!.userId;
+    logAdminAction({
+      adminUserId: adminId,
+      action: "migrate_nadiavpn",
+      targetType: "nadiavpn",
+      targetId: null,
+      details: payload,
+      ipAddress: getClientIp(req as any),
+    }).catch(() => {});
+    res.json(result);
   } catch (error) {
     sendNadiaVpnError(res, error);
   }
@@ -152,7 +194,17 @@ router.post("/admin/nadiavpn/account/details", requireAdmin, async (req, res) =>
   if (!accountId) return;
 
   try {
-    res.json(await getNadiaVpnAccountDetails(accountId));
+    const result = await getNadiaVpnAccountDetails(accountId);
+    const adminId = req.user!.userId;
+    logAdminAction({
+      adminUserId: adminId,
+      action: "get_nadiavpn_account_details",
+      targetType: "nadiavpn",
+      targetId: null,
+      details: { account_id: accountId },
+      ipAddress: getClientIp(req as any),
+    }).catch(() => {});
+    res.json(result);
   } catch (error) {
     sendNadiaVpnError(res, error);
   }
@@ -163,7 +215,17 @@ router.post("/admin/nadiavpn/account/sync", requireAdmin, async (req, res) => {
   if (!accountId) return;
 
   try {
-    res.json(await syncNadiaVpnAccount(accountId));
+    const result = await syncNadiaVpnAccount(accountId);
+    const adminId = req.user!.userId;
+    logAdminAction({
+      adminUserId: adminId,
+      action: "sync_nadiavpn_account",
+      targetType: "nadiavpn",
+      targetId: null,
+      details: { account_id: accountId },
+      ipAddress: getClientIp(req as any),
+    }).catch(() => {});
+    res.json(result);
   } catch (error) {
     sendNadiaVpnError(res, error);
   }
@@ -174,7 +236,17 @@ router.delete("/admin/nadiavpn/account/delete", requireAdmin, async (req, res) =
   if (!accountId) return;
 
   try {
-    res.json(await deleteNadiaVpnAccount(accountId));
+    const result = await deleteNadiaVpnAccount(accountId);
+    const adminId = req.user!.userId;
+    logAdminAction({
+      adminUserId: adminId,
+      action: "delete_nadiavpn_account",
+      targetType: "nadiavpn",
+      targetId: null,
+      details: { account_id: accountId },
+      ipAddress: getClientIp(req as any),
+    }).catch(() => {});
+    res.json(result);
   } catch (error) {
     sendNadiaVpnError(res, error);
   }

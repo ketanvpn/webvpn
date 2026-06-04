@@ -4,6 +4,7 @@ import { Activity, AlertTriangle, CheckCircle2, Cloud, Database, Play, RefreshCw
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -294,10 +295,28 @@ export default function AdminNadiaVpn() {
                 Trial: {selectedServer.trial_duration ?? "-"} • Harga bulan: {formatCurrency(selectedServer.pricing?.per_month)}
               </div>
             )}
-            <Button className="w-full gap-2" disabled={!trialServerId || createTrialMut.isPending} onClick={() => createTrialMut.mutate()}>
-              {createTrialMut.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-              {createTrialMut.isPending ? "Membuat Trial..." : "Buat Trial"}
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button className="w-full gap-2" disabled={!trialServerId || createTrialMut.isPending}>
+                  {createTrialMut.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                  {createTrialMut.isPending ? "Membuat Trial..." : "Buat Trial"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="glass-panel">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Buat Trial NadiaVPN?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Ini akan membuat akun trial di server {selectedServer?.name}. Pastikan server mendukung trial.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Batal</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => createTrialMut.mutate()} disabled={createTrialMut.isPending}>
+                    {createTrialMut.isPending ? "Memproses..." : "Ya, Buat Trial"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <Textarea readOnly value={trialResult ? JSON.stringify(trialResult, null, 2) : "Hasil trial akan tampil di sini."} className="min-h-44 font-mono text-xs" />
           </CardContent>
         </Card>

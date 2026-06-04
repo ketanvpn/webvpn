@@ -18,6 +18,8 @@ import { getResellerSettings } from "./settings";
 import { dynamicOrderLimiter } from "../lib/rate-limit";
 import { notifyAdminDynamicOrderFulfilled, notifyUserDynamicVpnAccountCreated } from "../lib/telegram";
 import { logger } from "../lib/logger";
+import { logAdminAction } from "./admin-audit";
+import { getClientIp } from "../lib/request-ip";
 
 const router = Router();
 const VALID_PROTOCOLS = ["ssh", "vmess", "vless", "trojan"];
@@ -652,13 +654,31 @@ router.get("/admin/dynamic-vpn/servers", requireAdmin, async (_req, res) => {
   res.json({ servers: rows.map((row) => formatServer(row, true)) });
 });
 
-router.post("/admin/dynamic-vpn/servers/sync/nadiavpn", requireAdmin, async (_req, res) => {
+router.post("/admin/dynamic-vpn/servers/sync/nadiavpn", requireAdmin, async (req, res) => {
   const synced = await syncNadiaVpnServersFromProvider();
+  const adminId = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminId,
+    action: "sync_nadiavpn_servers",
+    targetType: "dynamic_server",
+    targetId: null,
+    details: { total: synced.length },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
   res.json({ success: true, total: synced.length, servers: synced });
 });
 
-router.post("/admin/dynamic-vpn/servers/sync/local-panel", requireAdmin, async (_req, res) => {
+router.post("/admin/dynamic-vpn/servers/sync/local-panel", requireAdmin, async (req, res) => {
   const synced = await syncLocalPanelServers();
+  const adminId = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminId,
+    action: "sync_local_panel_servers",
+    targetType: "dynamic_server",
+    targetId: null,
+    details: { total: synced.length },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
   res.json({ success: true, total: synced.length, servers: synced });
 });
 
@@ -719,6 +739,18 @@ router.patch("/admin/dynamic-vpn/servers/:id", requireAdmin, async (req, res) =>
 
   const [row] = await db.update(dynamicProviderServersTable).set(update).where(eq(dynamicProviderServersTable.id, id)).returning();
   if (!row) return sendError(res, 404, "Server tidak ditemukan");
+
+  // Audit log
+  const adminId = req.user!.userId;
+  logAdminAction({
+    adminUserId: adminId,
+    action: "update_dynamic_server",
+    targetType: "dynamic_server",
+    targetId: id,
+    details: { changes: body },
+    ipAddress: getClientIp(req as any),
+  }).catch(() => {});
+
   res.json(formatServer(row, true));
 });
 
