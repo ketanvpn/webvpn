@@ -334,43 +334,43 @@ export default function Dashboard() {
         <ReselerPromoBanner onRequest={() => setPromoRequested(true)} />
       )}
 
-      <div className="relative overflow-hidden rounded-3xl border border-primary/25 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/70 p-5 shadow-2xl">
-        <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-emerald-500/20 blur-3xl" />
-        <div className="absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-cyan-500/20 blur-3xl" />
+      <div className="relative overflow-hidden rounded-3xl border border-primary/25 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/70 p-4 md:p-5 shadow-2xl">
+        <div className="absolute -right-16 -top-20 h-40 w-40 sm:h-56 sm:w-56 rounded-full bg-emerald-500/20 blur-3xl" />
+        <div className="absolute -bottom-24 left-1/3 h-40 w-40 sm:h-56 sm:w-56 rounded-full bg-cyan-500/20 blur-3xl" />
         <div className="relative grid gap-4 md:grid-cols-[1.4fr_1fr] md:items-center">
           <div>
-            <Badge className="mb-3 border-emerald-400/30 bg-emerald-500/10 text-emerald-200" variant="outline">
+            <Badge className="mb-2 sm:mb-3 border-emerald-400/30 bg-emerald-500/10 text-emerald-200" variant="outline">
               Dynamic VPN Ready
             </Badge>
             <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Order VPN lebih cepat dari sini</h2>
-            <p className="mt-2 max-w-xl text-sm text-slate-300">
+            <p className="mt-1.5 sm:mt-2 max-w-xl text-xs sm:text-sm text-slate-300">
               Pilih server, protokol, dan durasi langsung dari halaman Order VPN. Setelah pembayaran saldo berhasil, akun siap dipakai.
             </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link href="/order-vpn" className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground shadow-lg transition hover:bg-primary/90">
+            <div className="mt-3 sm:mt-4 flex flex-wrap gap-2">
+              <Link href="/order-vpn" className="inline-flex items-center gap-2 rounded-xl bg-primary px-3.5 py-2 text-sm font-bold text-primary-foreground shadow-lg transition active:scale-[0.985] hover:bg-primary/90">
                 <ShieldPlus className="h-4 w-4" /> Order VPN Sekarang
               </Link>
-              <Link href="/accounts" className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:border-primary/40 hover:bg-white/10">
+              <Link href="/accounts" className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3.5 py-2 text-sm font-semibold text-white transition active:scale-[0.985] hover:border-primary/40 hover:bg-white/10">
                 <Server className="h-4 w-4" /> Kelola Akun
               </Link>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Link href="/orders" className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-primary/40">
-              <ShoppingCart className="mb-3 h-5 w-5 text-primary" />
-              <p className="text-sm font-bold text-white">Riwayat Order</p>
-              <p className="text-[11px] text-slate-400">Cek transaksi</p>
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            <Link href="/orders" className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 sm:p-4 transition active:scale-[0.985] hover:border-primary/40">
+              <ShoppingCart className="mb-2 sm:mb-3 h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+              <p className="text-xs sm:text-sm font-bold text-white">Riwayat Order</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400">Cek transaksi</p>
             </Link>
-            <Link href="/balance" className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-primary/40">
-              <Wallet className="mb-3 h-5 w-5 text-primary" />
-              <p className="text-sm font-bold text-white">Topup Saldo</p>
-              <p className="text-[11px] text-slate-400">Isi saldo akun</p>
+            <Link href="/balance" className="rounded-2xl border border-white/10 bg-white/[0.04] p-3 sm:p-4 transition active:scale-[0.985] hover:border-primary/40">
+              <Wallet className="mb-2 sm:mb-3 h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+              <p className="text-xs sm:text-sm font-bold text-white">Topup Saldo</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400">Isi saldo akun</p>
             </Link>
           </div>
         </div>
       </div>
 
-      {/* Stat Cards — 2 kolom di mobile, 4 di desktop */}
+      {/* Stat Cards — 2 kolom di mobile, 4 di desktop (rapi & touch friendly) */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Link href="/balance">
           <div className="glass-card rounded-xl border border-primary/40 bg-primary/10 p-3 cursor-pointer hover:glow-border-primary transition-all duration-300">
