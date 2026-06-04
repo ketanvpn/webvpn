@@ -320,15 +320,6 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
   if (server.capacityIsFull) throw new Error("Server penuh atau sedang tidak tersedia");
 
   const amount = Number(order.amount);
-  const [updatedUser] = await db
-    .update(usersTable)
-    .set({ balance: sql`balance - ${amount}` })
-    .where(and(eq(usersTable.id, userId), sql`balance >= ${amount}::numeric`))
-    .returning({ balance: usersTable.balance });
-
-  if (!updatedUser) throw new Error("INSUFFICIENT_BALANCE");
-  const balanceAfter = Number(updatedUser.balance);
-  const balanceBefore = balanceAfter + amount;
   const [buyer] = await db.select({ username: usersTable.username }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
 
   let providerResponse: any;
@@ -428,9 +419,26 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
       expiresAt = parseNadiaExpireAt(data.expire_at, fallbackExpiry);
     }
   } catch (error) {
-    await db.update(usersTable).set({ balance: sql`balance + ${amount}` }).where(eq(usersTable.id, userId)).catch(() => {});
     throw error;
   }
+
+  // Deduct balance ONLY after successful provider creation (protect user saldo)
+  // This ensures: if provider create fails, no money is touched.
+  // If later DB tx fails, money is refunded (see catch below).
+  const [updatedUser] = await db
+    .update(usersTable)
+    .set({ balance: sql`balance - ${amount}` })
+    .where(and(eq(usersTable.id, userId), sql`balance >= ${amount}::numeric`))
+    .returning({ balance: usersTable.balance });
+
+  if (!updatedUser) {
+    if (rollbackPanelAccount) {
+      await deletePanelAccount(rollbackPanelAccount).catch(() => {});
+    }
+    throw new Error("INSUFFICIENT_BALANCE");
+  }
+  const balanceAfter = Number(updatedUser.balance);
+  const balanceBefore = balanceAfter + amount;
 
   try {
     await db.transaction(async (tx: any) => {
@@ -470,6 +478,8 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
       }
     });
   } catch (error) {
+    // Refund balance if DB tx fails after deduction
+    await db.update(usersTable).set({ balance: sql`balance + ${amount}` }).where(eq(usersTable.id, userId)).catch(() => {});
     if (rollbackPanelAccount) {
       await deletePanelAccount(rollbackPanelAccount).catch((deleteErr) => {
         logger.error({ err: deleteErr, orderId, username: rollbackPanelAccount?.username }, "[dynamic-vpn] failed to rollback local panel account");
