@@ -513,7 +513,13 @@ ufw allow 80
 ufw allow 443
 ```
 
-Pastikan ketiga perintah di atas berhasil (muncul `Rules updated`) **sebelum** menjalankan yang ini:
+```bash
+ufw allow 8080
+```
+
+> Port 8080 diperlukan agar webhook Fonnte (WhatsApp) bisa langsung mengakses API server tanpa melewati Cloudflare/Nginx.
+
+Pastikan keempat perintah di atas berhasil (muncul `Rules updated`) **sebelum** menjalankan yang ini:
 
 ```bash
 ufw enable
@@ -534,6 +540,7 @@ To          Action      From
 22          ALLOW       Anywhere
 80          ALLOW       Anywhere
 443         ALLOW       Anywhere
+8080        ALLOW       Anywhere
 ```
 
 > **Jika VPS terkunci (tidak bisa SSH setelah `ufw enable`):** Gunakan fitur **Console/VNC** dari panel kontrol provider VPS-mu (Hetzner Cloud Console, DigitalOcean Console, Vultr Console, dll.) untuk masuk tanpa SSH. Setelah masuk via console, jalankan: `ufw disable` untuk menonaktifkan firewall sementara, lalu pastikan `ufw allow 22` sudah dijalankan sebelum `ufw enable` lagi.
@@ -594,6 +601,36 @@ Menu: **Admin → Produk → Tambah Produk**
 Menu: **Admin → WhatsApp OTP**
 - Daftar di [fonnte.com](https://fonnte.com), hubungkan nomor WhatsApp
 - Salin token API dan isi di form
+
+#### Registrasi Anti-Spam (User Chat Duluan)
+
+Sistem registrasi menggunakan metode **user chat duluan** agar nomor WA Fonnte tidak kena spam. Alurnya:
+
+1. User isi nomor WA di halaman daftar
+2. User diminta kirim pesan **"DAFTAR"** ke nomor WA Fonnte via WhatsApp
+3. Server menerima webhook dari Fonnte → **membalas** OTP (bukan mengirim pertama kali)
+4. Web otomatis lanjut ke step input kode OTP
+
+**Setup yang diperlukan:**
+
+1. **Isi Nomor WA Fonnte di Admin:**
+   Menu: **Admin → Pengaturan → WhatsApp** → isi field **"Nomor WhatsApp Fonnte"** dengan format `628xxx`
+
+2. **Set Webhook URL di Fonnte:**
+   Di dashboard [fonnte.com](https://fonnte.com), set field **"Webhook ?"** ke:
+   ```
+   http://IP_VPS_KAMU:8080/api/webhooks/fonnte
+   ```
+   > ⚠️ **Gunakan IP langsung + port 8080**, bukan domain. Jika domain melewati Cloudflare/proxy, webhook akan diblokir.
+
+3. **Buka port 8080 di firewall:**
+   ```bash
+   ufw allow 8080
+   ```
+
+4. **Aktifkan Autoread di Fonnte** *(opsional)* — agar pesan masuk langsung terbaca dan diproses.
+
+> **Fallback:** Jika admin belum mengisi nomor WA Fonnte, sistem otomatis menggunakan flow lama (kirim OTP langsung).
 
 ### Payment QRIS (AutoGoPay) — Opsional
 Menu: **Admin → Payment Gateway**
@@ -751,6 +788,31 @@ cd /var/www/ketantech-vpn && git pull origin main && pnpm install && DATABASE_UR
 
 **OTP WhatsApp tidak terkirim**
 > Pastikan token Fonnte sudah diisi di menu Admin → WhatsApp OTP. Tanpa token, OTP hanya tampil di layar (mode simulasi).
+
+**Webhook Fonnte tidak berfungsi (registrasi stuck di "Menunggu pesan masuk")**
+> Penyebab paling umum dan cara mengatasinya:
+>
+> 1. **Port 8080 belum dibuka di firewall.**
+>    ```bash
+>    ufw allow 8080
+>    ```
+>
+> 2. **URL webhook di Fonnte salah.** Pastikan formatnya:
+>    ```
+>    http://IP_VPS_KAMU:8080/api/webhooks/fonnte
+>    ```
+>    Jangan pakai domain jika melewati Cloudflare — webhook akan diblokir.
+>
+> 3. **Verifikasi webhook bisa diakses** (jalankan di VPS):
+>    ```bash
+>    curl http://$(curl -s ifconfig.me):8080/api/webhooks/fonnte
+>    ```
+>    Harus muncul: `{"status":true,"message":"Fonnte webhook is active"}`
+>
+> 4. **Cek log** apakah ada request dari Fonnte:
+>    ```bash
+>    pm2 logs ketantech-api --lines 50 | grep -i "fonnte"
+>    ```
 
 **QRIS dibayar tapi order tidak terkonfirmasi otomatis**
 > Webhook URL belum didaftarkan di AutoGoPay. Daftarkan:
