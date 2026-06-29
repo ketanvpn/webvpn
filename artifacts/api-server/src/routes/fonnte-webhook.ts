@@ -8,6 +8,16 @@ import { logger } from "../lib/logger";
 const router = Router();
 
 /**
+ * Fonnte Webhook: GET handler untuk verifikasi URL.
+ * Fonnte mengecek apakah webhook URL valid dengan mengirim GET request.
+ * Tanpa handler ini, Fonnte menganggap URL invalid dan tidak mengirim pesan.
+ */
+router.get("/webhooks/fonnte", (_req, res) => {
+  logger.info("Fonnte webhook: GET verification request received");
+  res.json({ status: true, message: "Fonnte webhook is active" });
+});
+
+/**
  * Fonnte Webhook: menerima pesan masuk dari user.
  *
  * Ketika user mengirim pesan yang mengandung "DAFTAR" ke nomor WA Fonnte,
@@ -26,9 +36,13 @@ router.post("/webhooks/fonnte", async (req, res) => {
   try {
     const body = req.body ?? {};
 
+    // Log raw body untuk debug — field apa saja yang Fonnte kirimkan
+    logger.info({ rawBody: JSON.stringify(body).slice(0, 1000) }, "Fonnte webhook: raw POST body received");
+
     // Fonnte bisa kirim sebagai form-urlencoded atau JSON
-    const sender = String(body.sender ?? body.from ?? "").trim();
-    const message = String(body.message ?? body.text ?? "").trim();
+    // Field yang mungkin: sender/from, message/text/pesan
+    const sender = String(body.sender ?? body.from ?? body.pengirim ?? "").trim();
+    const message = String(body.message ?? body.text ?? body.pesan ?? body.msg ?? "").trim();
 
     if (!sender) {
       logger.warn({ body: JSON.stringify(body).slice(0, 500) }, "Fonnte webhook: no sender");
