@@ -14,7 +14,7 @@ import { requireAdmin, requireAuth } from "../lib/auth";
 import { createNadiaVpnOrder, getNadiaVpnAccountDetails, getNadiaVpnServers } from "../lib/nadiavpn";
 import { createPanelAccount, deletePanelAccount } from "../lib/vpn-panel";
 import { addBalanceLog } from "./balance-logs";
-import { getResellerSettings } from "./settings";
+import { getResellerSettings, getSettingValue } from "./settings";
 import { dynamicOrderLimiter } from "../lib/rate-limit";
 import { notifyAdminDynamicOrderFulfilled, notifyUserDynamicVpnAccountCreated } from "../lib/telegram";
 import { logger } from "../lib/logger";
@@ -76,10 +76,17 @@ function formatServer(row: typeof dynamicProviderServersTable.$inferSelect, admi
     providerTrialEnabled: row.providerTrialEnabled,
     costPerDay: Number(row.costPerDay ?? 0),
     costPerMonth: Number(row.costPerMonth ?? 0),
+    pricingMode: row.pricingMode,
+    markupPercent: row.markupPercent,
     lastSyncedAt: row.lastSyncedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
+}
+
+/** Hitung harga jual dari harga modal + markup persen */
+function applyMarkup(cost: number, markupPercent: number): number {
+  return Math.ceil(cost * (1 + markupPercent / 100));
 }
 
 function calculateBaseQuote(server: typeof dynamicProviderServersTable.$inferSelect, durationType: string, duration: number) {
@@ -548,6 +555,10 @@ async function syncNadiaVpnServersFromProvider() {
   const now = new Date();
   const synced = [];
 
+  // Ambil default markup % dari admin settings
+  const rawDefaultMarkup = await getSettingValue("dynamicDefaultMarkupPercent");
+  const defaultMarkup = rawDefaultMarkup ? parseInt(rawDefaultMarkup, 10) : 30;
+
   for (const srv of servers) {
     const providerServerId = String(srv.server_id);
     const [existing] = await db
@@ -558,6 +569,26 @@ async function syncNadiaVpnServersFromProvider() {
 
     const supportedProtocols = Array.isArray(srv.supported_protocols) ? srv.supported_protocols.map(normalizeProtocol).filter(Boolean) : [];
     const supportedTypes = Array.isArray(srv.supported_types) ? srv.supported_types.map(normalizeDurationType).filter((t: string) => VALID_TYPES.includes(t)) : [];
+    const costDay = Number(srv.pricing?.per_day ?? 0);
+    const costMonth = Number(srv.pricing?.per_month ?? 0);
+
+    // Tentukan markup: pakai existing atau default dari settings
+    const markupPercent = existing?.markupPercent ?? defaultMarkup;
+    const pricingMode = existing?.pricingMode ?? "auto_markup";
+
+    // Hitung harga jual berdasarkan mode
+    let sellDay: string;
+    let sellMonth: string;
+    if (pricingMode === "auto_markup") {
+      // Auto: hitung dari cost + markup %
+      sellDay = String(applyMarkup(costDay, markupPercent));
+      sellMonth = String(applyMarkup(costMonth, markupPercent));
+    } else {
+      // Manual: pertahankan harga yang sudah diset admin, atau fallback
+      sellDay = existing?.sellPricePerDay ?? String(Math.max(costDay, 1000));
+      sellMonth = existing?.sellPricePerMonth ?? String(Math.max(costMonth, 10000));
+    }
+
     const values = {
       providerName: String(srv.name ?? providerServerId),
       displayName: existing?.displayName ?? String(srv.name ?? providerServerId),
@@ -568,10 +599,12 @@ async function syncNadiaVpnServersFromProvider() {
       providerTrialEnabled: !!srv.trial_enabled,
       trialEnabled: existing?.trialEnabled ?? !!srv.trial_enabled,
       trialDuration: srv.trial_duration ? String(srv.trial_duration) : null,
-      costPerDay: String(srv.pricing?.per_day ?? 0),
-      costPerMonth: String(srv.pricing?.per_month ?? 0),
-      sellPricePerDay: existing?.sellPricePerDay ?? String(Math.max(Number(srv.pricing?.per_day ?? 0), 1000)),
-      sellPricePerMonth: existing?.sellPricePerMonth ?? String(Math.max(Number(srv.pricing?.per_month ?? 0), 10000)),
+      costPerDay: String(costDay),
+      costPerMonth: String(costMonth),
+      sellPricePerDay: sellDay,
+      sellPricePerMonth: sellMonth,
+      pricingMode,
+      markupPercent,
       minDays: existing?.minDays ?? 1,
       maxDays: existing?.maxDays ?? 30,
       minMonths: existing?.minMonths ?? 1,
@@ -736,6 +769,24 @@ router.patch("/admin/dynamic-vpn/servers/:id", requireAdmin, async (req, res) =>
   if (body.maxMonths !== undefined) update.maxMonths = Math.max(1, parseInt(String(body.maxMonths), 10));
   if (body.maxConnections !== undefined) update.maxConnections = Math.max(0, parseInt(String(body.maxConnections), 10) || 0);
   if (body.sortOrder !== undefined) update.sortOrder = parseInt(String(body.sortOrder), 10) || 0;
+  if (body.pricingMode !== undefined) update.pricingMode = body.pricingMode === "auto_markup" ? "auto_markup" : "manual";
+  if (body.markupPercent !== undefined) update.markupPercent = Math.max(0, Math.min(1000, parseInt(String(body.markupPercent), 10) || 0));
+
+  // Jika mode auto_markup, recalculate sell price dari cost yang ada di DB
+  const newMode = update.pricingMode as string | undefined;
+  const newMarkup = update.markupPercent as number | undefined;
+  if (newMode === "auto_markup" || newMarkup !== undefined) {
+    // Ambil data server saat ini untuk mendapatkan cost
+    const [current] = await db.select().from(dynamicProviderServersTable).where(eq(dynamicProviderServersTable.id, id)).limit(1);
+    if (current) {
+      const mode = (newMode ?? current.pricingMode) as string;
+      const markup = newMarkup ?? current.markupPercent;
+      if (mode === "auto_markup") {
+        update.sellPricePerDay = String(applyMarkup(Number(current.costPerDay ?? 0), markup));
+        update.sellPricePerMonth = String(applyMarkup(Number(current.costPerMonth ?? 0), markup));
+      }
+    }
+  }
 
   const [row] = await db.update(dynamicProviderServersTable).set(update).where(eq(dynamicProviderServersTable.id, id)).returning();
   if (!row) return sendError(res, 404, "Server tidak ditemukan");

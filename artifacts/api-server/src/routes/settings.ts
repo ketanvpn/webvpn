@@ -316,5 +316,38 @@ router.put("/admin/settings/reseller", requireAdmin, async (req, res) => {
   res.json(buildResellerSettingsResponse(map));
 });
 
+// ─── Dynamic VPN Settings ────────────────────────────────────────────────────
+
+const DYNAMIC_VPN_KEYS = [
+  "dynamicDefaultMarkupPercent",
+] as const;
+
+function buildDynamicVpnSettingsResponse(map: Record<string, string | null>) {
+  const raw = map["dynamicDefaultMarkupPercent"];
+  return {
+    dynamicDefaultMarkupPercent: raw ? parseInt(raw, 10) : 30,
+  };
+}
+
+router.get("/admin/settings/dynamic-vpn", requireAdmin, async (_req, res) => {
+  const rows = await db.select().from(settingsTable);
+  const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
+  res.json(buildDynamicVpnSettingsResponse(map));
+});
+
+router.put("/admin/settings/dynamic-vpn", requireAdmin, async (req, res) => {
+  const body = req.body as Record<string, string | boolean | null | number>;
+  for (const key of DYNAMIC_VPN_KEYS) {
+    if (key in body) {
+      const raw = body[key];
+      const value = raw === null || raw === undefined ? null : String(raw);
+      await setSettingValue(key, value);
+    }
+  }
+  const rows = await db.select().from(settingsTable);
+  const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
+  res.json(buildDynamicVpnSettingsResponse(map));
+});
+
 export { getSettingValue, setSettingValue };
 export default router;
