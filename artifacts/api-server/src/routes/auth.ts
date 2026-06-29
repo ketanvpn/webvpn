@@ -1,11 +1,12 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { db } from "@workspace/db";
-import { usersTable } from "@workspace/db";
-import { eq, or, sql } from "drizzle-orm";
+import { usersTable, waVerificationsTable } from "@workspace/db";
+import { eq, or, sql, and, gt } from "drizzle-orm";
 import { signToken, requireAuth } from "../lib/auth";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
 import { randomBytes } from "crypto";
+import { getSettingValue } from "./settings";
 import { sendOtp, verifyOtp, normalizeWhatsapp } from "../lib/fonnte";
 import { notifyAdminNewUser } from "../lib/telegram";
 import rateLimit from "express-rate-limit";
@@ -57,6 +58,118 @@ const registerLimiter = rateLimit({
   message: { error: "Terlalu banyak percobaan registrasi. Coba lagi dalam 15 menit." },
 });
 
+// ─── User Chat Duluan: Initiate WA Register ───────────────────────────────────
+
+const initiateWaLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: authRateLimitKey,
+  message: { error: "Terlalu banyak percobaan. Coba lagi dalam 15 menit." },
+});
+
+router.post("/auth/initiate-wa-register", initiateWaLimiter, async (req, res) => {
+  const { whatsapp } = req.body ?? {};
+  if (!whatsapp || typeof whatsapp !== "string") {
+    res.status(400).json({ error: "Nomor WhatsApp wajib diisi" });
+    return;
+  }
+
+  const normalized = normalizeWhatsapp(whatsapp);
+
+  // Cek apakah nomor sudah terdaftar
+  const existing = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.whatsapp, normalized))
+    .limit(1);
+
+  if (existing.length > 0) {
+    res.status(409).json({ error: "Nomor WhatsApp sudah terdaftar" });
+    return;
+  }
+
+  // Ambil nomor WA Fonnte dari settings admin
+  const fonnteNumber = await getSettingValue("fonnteWhatsappNumber");
+  if (!fonnteNumber) {
+    // Fallback: jika nomor belum diset, gunakan flow lama (send-otp langsung)
+    res.status(503).json({ error: "Nomor WhatsApp admin belum dikonfigurasi", fallback: true });
+    return;
+  }
+
+  // Hapus record lama yang belum selesai untuk nomor ini
+  await db.delete(waVerificationsTable).where(
+    eq(waVerificationsTable.whatsapp, normalized)
+  );
+
+  // Buat record baru dengan token polling
+  const token = randomBytes(16).toString("hex");
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 menit
+
+  await db.insert(waVerificationsTable).values({
+    whatsapp: normalized,
+    token,
+    expiresAt,
+  });
+
+  res.json({
+    token,
+    waNumber: fonnteNumber,
+    message: `Kirim pesan "DAFTAR" ke nomor ${fonnteNumber} via WhatsApp`,
+  });
+});
+
+// ─── User Chat Duluan: Poll Status ────────────────────────────────────────────
+
+const pollStatusLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 40, // Polling setiap 3 detik = ~20 request/menit, beri margin
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: authRateLimitKey,
+  message: { error: "Terlalu banyak permintaan. Coba lagi sebentar." },
+});
+
+router.get("/auth/wa-register-status/:token", pollStatusLimiter, async (req, res) => {
+  const { token } = req.params;
+  if (!token || typeof token !== "string") {
+    res.status(400).json({ error: "Token tidak valid" });
+    return;
+  }
+
+  const now = new Date();
+  const [record] = await db
+    .select()
+    .from(waVerificationsTable)
+    .where(
+      and(
+        eq(waVerificationsTable.token, token),
+        gt(waVerificationsTable.expiresAt, now)
+      )
+    )
+    .limit(1);
+
+  if (!record) {
+    res.status(404).json({ error: "Token tidak ditemukan atau sudah kedaluwarsa", status: "expired" });
+    return;
+  }
+
+  if (record.otpSent) {
+    res.json({ status: "otp_sent", whatsapp: record.whatsapp });
+    return;
+  }
+
+  if (record.messageReceived) {
+    res.json({ status: "received", whatsapp: record.whatsapp });
+    return;
+  }
+
+  res.json({ status: "waiting" });
+});
+
+// ─── Legacy Send OTP (fallback / simulate mode) ──────────────────────────────
+
 router.post("/auth/send-otp", otpLimiter, async (req, res) => {
   const { whatsapp } = req.body ?? {};
   if (!whatsapp || typeof whatsapp !== "string") {
@@ -78,7 +191,12 @@ router.post("/auth/send-otp", otpLimiter, async (req, res) => {
 
   const result = await sendOtp(whatsapp);
   if (!result.success) {
-    res.status(500).json({ error: result.error ?? "Gagal mengirim OTP" });
+    // Jika karena cooldown, kirim status 429 dengan sisa waktu
+    const status = result.cooldown ? 429 : 500;
+    res.status(status).json({
+      error: result.error ?? "Gagal mengirim OTP",
+      ...(result.cooldown ? { cooldown: result.cooldown } : {}),
+    });
     return;
   }
 
@@ -537,7 +655,11 @@ router.post("/auth/forgot-password/send-otp", forgotPasswordLimiter, async (req,
 
   const result = await sendOtp(whatsapp, "reset");
   if (!result.success) {
-    res.status(500).json({ error: result.error ?? "Gagal mengirim OTP" });
+    const status = result.cooldown ? 429 : 500;
+    res.status(status).json({
+      error: result.error ?? "Gagal mengirim OTP",
+      ...(result.cooldown ? { cooldown: result.cooldown } : {}),
+    });
     return;
   }
 

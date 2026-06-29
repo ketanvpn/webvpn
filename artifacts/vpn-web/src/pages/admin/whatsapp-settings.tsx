@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 
 type WaForm = {
   fonnteToken: string;
+  fonnteWhatsappNumber: string;
   whatsappOtpEnabled: boolean;
 };
 
@@ -27,6 +28,7 @@ export default function AdminWhatsappSettings() {
   const form = useForm<WaForm>({
     defaultValues: {
       fonnteToken: "",
+      fonnteWhatsappNumber: "",
       whatsappOtpEnabled: true,
     },
   });
@@ -37,6 +39,7 @@ export default function AdminWhatsappSettings() {
       .then((data) => {
         form.reset({
           fonnteToken: data.fonnteToken ?? "",
+          fonnteWhatsappNumber: data.fonnteWhatsappNumber ?? "",
           whatsappOtpEnabled: data.whatsappOtpEnabled ?? true,
         });
       })
@@ -53,6 +56,7 @@ export default function AdminWhatsappSettings() {
         credentials: "include",
         body: JSON.stringify({
           fonnteToken: values.fonnteToken || null,
+          fonnteWhatsappNumber: values.fonnteWhatsappNumber || null,
           whatsappOtpEnabled: values.whatsappOtpEnabled,
         }),
       });
@@ -172,6 +176,42 @@ export default function AdminWhatsappSettings() {
                   </FormItem>
                 )}
               />
+
+              <Separator />
+
+              <FormField
+                control={form.control}
+                name="fonnteWhatsappNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nomor WhatsApp Fonnte</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Contoh: 6281234567890"
+                        autoComplete="off"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Nomor WA yang terhubung ke Fonnte (format: 628xxx). Nomor ini akan ditampilkan di link wa.me saat user register.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  <strong>Webhook Fonnte:</strong> Set URL webhook di dashboard Fonnte ke:
+                  <code className="block mt-1 text-xs bg-muted px-2 py-1 rounded break-all">
+                    https://domain-kamu.com/api/webhooks/fonnte
+                  </code>
+                  <span className="text-xs text-muted-foreground mt-1 block">
+                    Ini agar server bisa menerima pesan masuk dari user saat registrasi.
+                  </span>
+                </AlertDescription>
+              </Alert>
 
               <Separator />
 

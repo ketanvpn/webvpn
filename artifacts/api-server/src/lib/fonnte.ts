@@ -1,7 +1,22 @@
 import { db } from "@workspace/db";
 import { settingsTable, otpTable } from "@workspace/db";
-import { eq, and, gt } from "drizzle-orm";
+import { eq, and, gt, gte, sql } from "drizzle-orm";
 import { logger } from "./logger";
+
+// ─── Anti-Spam Configuration ──────────────────────────────────────────────────
+// Konfigurasi ini mencegah nomor WA pengirim terdeteksi spam oleh WhatsApp.
+
+/** Minimum detik antara pengiriman OTP ke nomor yang sama */
+const OTP_COOLDOWN_SECONDS = 90;
+
+/** Maksimal OTP yang bisa dikirim ke satu nomor per hari (semua purpose) */
+const OTP_DAILY_LIMIT_PER_NUMBER = 5;
+
+/** Jika OTP masih valid dan belum terlalu tua, kirim ulang kode yang sama
+ *  daripada generate baru (mengurangi jumlah pesan WA). Dalam detik. */
+const OTP_REUSE_WINDOW_SECONDS = 120;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function getFonnteToken(): Promise<string | null> {
   const [row] = await db
@@ -23,6 +38,104 @@ function normalizeWhatsapp(phone: string): string {
   return p;
 }
 
+/**
+ * Variasi template pesan OTP agar tidak terdeteksi sebagai pesan massal.
+ * WhatsApp menandai spam jika pesan identik dikirim berulang-ulang.
+ */
+function buildOtpMessage(otp: string, purpose: "register" | "reset"): string {
+  const templates =
+    purpose === "reset"
+      ? [
+          `Hai! Kode verifikasi reset password KETANTECH VPN kamu: *${otp}*\n\nBerlaku 5 menit. Jangan berikan ke siapapun ya.`,
+          `Kode OTP reset password KETANTECH VPN: *${otp}*\n\nKode ini berlaku selama 5 menit. Abaikan jika bukan kamu yang meminta.`,
+          `Reset password KETANTECH VPN\nKode kamu: *${otp}*\n\nBerlaku 5 menit, jangan share ke orang lain.`,
+        ]
+      : [
+          `Hai! Kode verifikasi registrasi KETANTECH VPN kamu: *${otp}*\n\nBerlaku 5 menit. Jangan berikan ke siapapun ya.`,
+          `Kode OTP registrasi KETANTECH VPN: *${otp}*\n\nKode ini berlaku selama 5 menit. Abaikan jika bukan kamu yang meminta.`,
+          `Selamat datang di KETANTECH VPN!\nKode verifikasi kamu: *${otp}*\n\nBerlaku 5 menit, jangan share ke orang lain.`,
+        ];
+
+  return templates[Math.floor(Math.random() * templates.length)];
+}
+
+// ─── Anti-Spam Checks ─────────────────────────────────────────────────────────
+
+/**
+ * Cek apakah nomor masih dalam cooldown (sudah kirim OTP terlalu cepat).
+ * Mengembalikan sisa detik cooldown, atau 0 jika sudah boleh kirim.
+ */
+async function getCooldownRemaining(whatsapp: string): Promise<number> {
+  const cooldownThreshold = new Date(Date.now() - OTP_COOLDOWN_SECONDS * 1000);
+
+  const [recent] = await db
+    .select({ createdAt: otpTable.createdAt })
+    .from(otpTable)
+    .where(
+      and(
+        eq(otpTable.whatsapp, whatsapp),
+        gt(otpTable.createdAt, cooldownThreshold)
+      )
+    )
+    .orderBy(sql`${otpTable.createdAt} DESC`)
+    .limit(1);
+
+  if (!recent) return 0;
+
+  const elapsed = (Date.now() - new Date(recent.createdAt).getTime()) / 1000;
+  return Math.max(0, Math.ceil(OTP_COOLDOWN_SECONDS - elapsed));
+}
+
+/**
+ * Cek apakah nomor sudah melebihi batas harian pengiriman OTP.
+ */
+async function getDailyOtpCount(whatsapp: string): Promise<number> {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const rows = await db
+    .select({ id: otpTable.id })
+    .from(otpTable)
+    .where(
+      and(
+        eq(otpTable.whatsapp, whatsapp),
+        gte(otpTable.createdAt, todayStart)
+      )
+    );
+
+  return rows.length;
+}
+
+/**
+ * Cek apakah ada OTP yang masih bisa di-reuse (masih valid, belum used,
+ * dan dibuat baru-baru ini).
+ */
+async function getReusableOtp(
+  whatsapp: string,
+  purpose: "register" | "reset"
+): Promise<{ code: string; expiresAt: Date } | null> {
+  const reuseThreshold = new Date(Date.now() - OTP_REUSE_WINDOW_SECONDS * 1000);
+  const now = new Date();
+
+  const [row] = await db
+    .select({ code: otpTable.code, expiresAt: otpTable.expiresAt, createdAt: otpTable.createdAt })
+    .from(otpTable)
+    .where(
+      and(
+        eq(otpTable.whatsapp, whatsapp),
+        eq(otpTable.purpose, purpose),
+        eq(otpTable.used, false),
+        gt(otpTable.expiresAt, now),
+        gt(otpTable.createdAt, reuseThreshold)
+      )
+    )
+    .limit(1);
+
+  return row ? { code: row.code, expiresAt: row.expiresAt } : null;
+}
+
+// ─── Main sendOtp ─────────────────────────────────────────────────────────────
+
 export async function sendOtp(
   rawPhone: string,
   purpose: "register" | "reset" = "register"
@@ -31,13 +144,53 @@ export async function sendOtp(
   simulateMode: boolean;
   otp?: string;
   error?: string;
+  cooldown?: number;
 }> {
   const whatsapp = normalizeWhatsapp(rawPhone);
   const token = await getFonnteToken();
 
-  const otp = generateOtp();
+  // ── Anti-Spam #1: Cooldown per nomor ──
+  const cooldown = await getCooldownRemaining(whatsapp);
+  if (cooldown > 0) {
+    logger.warn({ whatsapp, cooldown }, "OTP send blocked: cooldown active");
+    return {
+      success: false,
+      simulateMode: false,
+      error: `Tunggu ${cooldown} detik sebelum meminta OTP lagi.`,
+      cooldown,
+    };
+  }
+
+  // ── Anti-Spam #2: Daily limit per nomor ──
+  const dailyCount = await getDailyOtpCount(whatsapp);
+  if (dailyCount >= OTP_DAILY_LIMIT_PER_NUMBER) {
+    logger.warn({ whatsapp, dailyCount }, "OTP send blocked: daily limit reached");
+    return {
+      success: false,
+      simulateMode: false,
+      error: "Batas pengiriman OTP harian tercapai. Coba lagi besok.",
+    };
+  }
+
+  // ── Anti-Spam #3: Reuse OTP jika masih valid ──
+  const reusable = await getReusableOtp(whatsapp, purpose);
+  let otp: string;
+
+  if (reusable) {
+    // Gunakan kode yang sama — tidak perlu kirim WA lagi
+    logger.info({ whatsapp, purpose }, "Reusing existing OTP (still valid)");
+    return {
+      success: true,
+      simulateMode: !token,
+      ...(token ? {} : { otp: reusable.code }),
+    };
+  }
+
+  // Generate OTP baru
+  otp = generateOtp();
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
+  // Hapus OTP lama untuk nomor + purpose ini
   await db.delete(otpTable).where(
     and(eq(otpTable.whatsapp, whatsapp), eq(otpTable.purpose, purpose))
   );
@@ -53,8 +206,8 @@ export async function sendOtp(
     return { success: true, simulateMode: true, otp };
   }
 
-  const actionLabel = purpose === "reset" ? "reset password" : "registrasi";
-  const message = `Kode OTP ${actionLabel} KETANTECH VPN kamu adalah: *${otp}*\n\nKode berlaku 5 menit. Jangan bagikan ke siapapun.`;
+  // ── Anti-Spam #4: Variasi pesan ──
+  const message = buildOtpMessage(otp, purpose);
 
   try {
     const resp = await fetch("https://api.fonnte.com/send", {
@@ -63,11 +216,19 @@ export async function sendOtp(
         Authorization: token,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ target: whatsapp, message }),
+      body: JSON.stringify({
+        target: whatsapp,
+        message,
+        // Fonnte: delay agar tidak instant burst (dalam detik)
+        delay: "2",
+      }),
     });
 
     const data = await resp.json() as { status: boolean; detail?: string; reason?: string; message?: string };
-    logger.info({ fonnte_status: data.status, fonnte_reason: data.reason, fonnte_detail: data.detail }, "Fonnte API response");
+    logger.info(
+      { fonnte_status: data.status, fonnte_reason: data.reason, fonnte_detail: data.detail, whatsapp },
+      "Fonnte API response"
+    );
     if (!data.status) {
       const errMsg = data.reason ?? data.detail ?? data.message ?? "Gagal mengirim OTP";
       return { success: false, simulateMode: false, error: errMsg };
@@ -78,6 +239,8 @@ export async function sendOtp(
     return { success: false, simulateMode: false, error: "Tidak dapat terhubung ke layanan WhatsApp" };
   }
 }
+
+// ─── Verify OTP ───────────────────────────────────────────────────────────────
 
 export async function verifyOtp(
   rawPhone: string,
@@ -123,6 +286,8 @@ export async function verifyOtp(
   return { valid: true };
 }
 
+// ─── Send generic WhatsApp message ────────────────────────────────────────────
+
 export async function sendWhatsapp(rawPhone: string, message: string): Promise<boolean> {
   const token = await getFonnteToken();
   if (!token) return false;
@@ -132,7 +297,7 @@ export async function sendWhatsapp(rawPhone: string, message: string): Promise<b
     const resp = await fetch("https://api.fonnte.com/send", {
       method: "POST",
       headers: { Authorization: token, "Content-Type": "application/json" },
-      body: JSON.stringify({ target: whatsapp, message }),
+      body: JSON.stringify({ target: whatsapp, message, delay: "2" }),
     });
     const data = await resp.json() as { status: boolean };
     return data.status === true;

@@ -31,6 +31,7 @@ const TELEGRAM_KEYS = [
 
 const WHATSAPP_KEYS = [
   "fonnteToken",
+  "fonnteWhatsappNumber",
   "whatsappOtpEnabled",
 ] as const;
 
@@ -145,6 +146,7 @@ router.put("/admin/settings/telegram", requireAdmin, async (req, res) => {
 function buildWhatsappSettingsResponse(map: Record<string, string | null>) {
   return {
     fonnteToken: map["fonnteToken"] ?? null,
+    fonnteWhatsappNumber: map["fonnteWhatsappNumber"] ?? null,
     whatsappOtpEnabled: parseBoolean(map["whatsappOtpEnabled"] ?? "true"),
   };
 }

@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useRef, useEffect } from "react";
-import { Smartphone, MessageCircle, CheckCircle2, ArrowLeft, RefreshCw, Gift, Check, X, Loader2 } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Smartphone, MessageCircle, CheckCircle2, ArrowLeft, RefreshCw, Gift, Check, X, Loader2, ExternalLink, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const waSchema = z.object({
@@ -39,7 +39,7 @@ const accountSchema = z.object({
   referralCode: z.string().optional().or(z.literal("")),
 });
 
-type Step = "whatsapp" | "otp" | "account";
+type Step = "whatsapp" | "send-wa" | "otp" | "account";
 
 export default function Register() {
   const [, setLocation] = useLocation();
@@ -53,6 +53,14 @@ export default function Register() {
   const [otpInputs, setOtpInputs] = useState(["", "", "", "", "", ""]);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
+  // User Chat Duluan state
+  const [waToken, setWaToken] = useState<string | null>(null);
+  const [waNumber, setWaNumber] = useState<string | null>(null);
+  const [waStatus, setWaStatus] = useState<"waiting" | "received" | "otp_sent">("waiting");
+  const [isInitiating, setIsInitiating] = useState(false);
+  const [useFallback, setUseFallback] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   type UsernameStatus = null | "checking" | { available: boolean; suggestions: string[] };
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>(null);
   const usernameDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -62,6 +70,13 @@ export default function Register() {
     const t = setTimeout(() => setResendCooldown((v) => v - 1), 1000);
     return () => clearTimeout(t);
   }, [resendCooldown]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
 
   const waForm = useForm<z.infer<typeof waSchema>>({
     resolver: zodResolver(waSchema),
@@ -75,7 +90,80 @@ export default function Register() {
 
   const otp = otpInputs.join("");
 
-  async function sendOtp(phone: string) {
+  // ─── Polling for WA message status ──────────────────────────────────────────
+
+  const startPolling = useCallback((token: string) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+
+    pollRef.current = setInterval(async () => {
+      try {
+        const resp = await fetch(`/api/auth/wa-register-status/${token}`, {
+          credentials: "include",
+        });
+        const data = await resp.json();
+
+        if (data.status === "otp_sent") {
+          setWaStatus("otp_sent");
+          if (data.whatsapp) setWhatsapp(data.whatsapp);
+          if (pollRef.current) clearInterval(pollRef.current);
+          // Auto pindah ke step OTP
+          setStep("otp");
+          setOtpInputs(["", "", "", "", "", ""]);
+          setTimeout(() => otpRefs.current[0]?.focus(), 100);
+          toast({ title: "OTP sudah dikirim!", description: "Cek WhatsApp kamu untuk kode OTP" });
+        } else if (data.status === "received") {
+          setWaStatus("received");
+        } else if (data.status === "expired" || resp.status === 404) {
+          if (pollRef.current) clearInterval(pollRef.current);
+          toast({ title: "Sesi kedaluwarsa", description: "Silakan mulai ulang", variant: "destructive" });
+          setStep("whatsapp");
+        }
+      } catch {
+        // Ignore network errors, will retry on next interval
+      }
+    }, 3000);
+  }, [toast]);
+
+  // ─── Initiate WA register (new flow) ──────────────────────────────────────────
+
+  async function onSubmitWa(values: z.infer<typeof waSchema>) {
+    setIsInitiating(true);
+    try {
+      const resp = await fetch("/api/auth/initiate-wa-register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ whatsapp: values.whatsapp }),
+        credentials: "include",
+      });
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        // Jika nomor WA admin belum diset → fallback ke flow lama
+        if (data.fallback) {
+          setUseFallback(true);
+          await sendOtpLegacy(values.whatsapp);
+          return;
+        }
+        toast({ title: "Gagal", description: data.error ?? "Coba lagi", variant: "destructive" });
+        return;
+      }
+
+      setWhatsapp(values.whatsapp);
+      setWaToken(data.token);
+      setWaNumber(data.waNumber);
+      setWaStatus("waiting");
+      setStep("send-wa");
+      startPolling(data.token);
+    } catch {
+      toast({ title: "Gagal", description: "Tidak dapat terhubung ke server", variant: "destructive" });
+    } finally {
+      setIsInitiating(false);
+    }
+  }
+
+  // ─── Legacy send OTP (fallback) ──────────────────────────────────────────────
+
+  async function sendOtpLegacy(phone: string) {
     setIsSendingOtp(true);
     setSimulateOtp(null);
     try {
@@ -87,13 +175,20 @@ export default function Register() {
       });
       const data = await resp.json();
       if (!resp.ok) {
+        if (data.cooldown && typeof data.cooldown === "number") {
+          setResendCooldown(data.cooldown);
+        }
         toast({ title: "Gagal mengirim OTP", description: data.error ?? "Coba lagi", variant: "destructive" });
         return false;
       }
       if (data.simulateMode && data.otp) {
         setSimulateOtp(data.otp);
       }
-      setResendCooldown(60);
+      setWhatsapp(phone);
+      setResendCooldown(90);
+      setOtpInputs(["", "", "", "", "", ""]);
+      setStep("otp");
+      setTimeout(() => otpRefs.current[0]?.focus(), 100);
       return true;
     } catch {
       toast({ title: "Gagal", description: "Tidak dapat terhubung ke server", variant: "destructive" });
@@ -103,15 +198,7 @@ export default function Register() {
     }
   }
 
-  async function onSubmitWa(values: z.infer<typeof waSchema>) {
-    const ok = await sendOtp(values.whatsapp);
-    if (ok) {
-      setWhatsapp(values.whatsapp);
-      setOtpInputs(["", "", "", "", "", ""]);
-      setStep("otp");
-      setTimeout(() => otpRefs.current[0]?.focus(), 100);
-    }
-  }
+  // ─── OTP handlers ──────────────────────────────────────────────────────────────
 
   function handleOtpInput(index: number, value: string) {
     if (!/^\d*$/.test(value)) return;
@@ -195,8 +282,18 @@ export default function Register() {
       });
   }
 
-  const steps = ["whatsapp", "otp", "account"] as const;
-  const stepIndex = steps.indexOf(step);
+  // ─── Step indicator ──────────────────────────────────────────────────────────
+
+  const steps = useFallback
+    ? (["whatsapp", "otp", "account"] as const)
+    : (["whatsapp", "send-wa", "otp", "account"] as const);
+  const stepIndex = steps.indexOf(step as any);
+
+  // ─── Build wa.me link ───────────────────────────────────────────────────────
+
+  const waLink = waNumber
+    ? `https://wa.me/${waNumber.replace(/\D/g, "")}?text=${encodeURIComponent("DAFTAR")}`
+    : null;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/5 via-background to-primary/10 p-4">
@@ -220,11 +317,12 @@ export default function Register() {
               >
                 {i < stepIndex ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
               </div>
-              {i < 2 && <div className={`h-0.5 w-6 ${i < stepIndex ? "bg-primary" : "bg-muted"}`} />}
+              {i < steps.length - 1 && <div className={`h-0.5 w-6 ${i < stepIndex ? "bg-primary" : "bg-muted"}`} />}
             </div>
           ))}
         </div>
 
+        {/* ─── STEP 1: Input WhatsApp ─────────────────────────────────────── */}
         {step === "whatsapp" && (
           <div className="space-y-5">
             <div className="text-center space-y-1">
@@ -234,7 +332,7 @@ export default function Register() {
                 </div>
               </div>
               <p className="font-semibold">Masukkan Nomor WhatsApp</p>
-              <p className="text-xs text-muted-foreground">Kode verifikasi akan dikirim via WhatsApp</p>
+              <p className="text-xs text-muted-foreground">Verifikasi via WhatsApp untuk keamanan akunmu</p>
             </div>
             <Form {...waForm}>
               <form onSubmit={waForm.handleSubmit(onSubmitWa)} className="space-y-4">
@@ -261,14 +359,94 @@ export default function Register() {
                     </FormItem>
                   )}
                 />
-                <Button type="submit" className="w-full h-11" disabled={isSendingOtp}>
-                  {isSendingOtp ? "Mengirim OTP..." : "Kirim Kode OTP"}
+                <Button type="submit" className="w-full h-11" disabled={isInitiating || isSendingOtp}>
+                  {isInitiating ? "Memproses..." : "Lanjutkan"}
                 </Button>
               </form>
             </Form>
           </div>
         )}
 
+        {/* ─── STEP 2: Kirim Pesan WA ke Kita (BARU) ──────────────────────── */}
+        {step === "send-wa" && (
+          <div className="space-y-5">
+            <div className="text-center space-y-1">
+              <div className="flex justify-center">
+                <div className="h-12 w-12 bg-green-500/10 rounded-full flex items-center justify-center">
+                  <Send className="h-6 w-6 text-green-600" />
+                </div>
+              </div>
+              <p className="font-semibold">Kirim Pesan WhatsApp</p>
+              <p className="text-xs text-muted-foreground">
+                Klik tombol di bawah untuk mengirim pesan verifikasi ke WhatsApp kami
+              </p>
+            </div>
+
+            {/* Instruksi */}
+            <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="h-6 w-6 rounded-full bg-green-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-xs font-bold text-green-600">1</span>
+                </div>
+                <p className="text-sm">Klik tombol hijau di bawah</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="h-6 w-6 rounded-full bg-green-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-xs font-bold text-green-600">2</span>
+                </div>
+                <p className="text-sm">WhatsApp akan terbuka dengan pesan <strong>"DAFTAR"</strong></p>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="h-6 w-6 rounded-full bg-green-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-xs font-bold text-green-600">3</span>
+                </div>
+                <p className="text-sm">Kirim pesannya, lalu kembali ke sini</p>
+              </div>
+            </div>
+
+            {/* Tombol WA */}
+            {waLink && (
+              <a
+                href={waLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full h-12 rounded-lg bg-[#25D366] hover:bg-[#20BD5A] text-white font-semibold text-base transition-colors shadow-lg shadow-green-500/20"
+              >
+                <MessageCircle className="h-5 w-5" />
+                Kirim Pesan WhatsApp
+                <ExternalLink className="h-4 w-4 opacity-70" />
+              </a>
+            )}
+
+            {/* Status menunggu */}
+            <div className="flex items-center justify-center gap-2 py-3">
+              {waStatus === "waiting" && (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Menunggu pesan masuk...</span>
+                </>
+              )}
+              {waStatus === "received" && (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin text-green-500" />
+                  <span className="text-sm text-green-600">Pesan diterima! Mengirim OTP...</span>
+                </>
+              )}
+            </div>
+
+            <button
+              className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 mx-auto"
+              onClick={() => {
+                if (pollRef.current) clearInterval(pollRef.current);
+                setStep("whatsapp");
+              }}
+            >
+              <ArrowLeft className="h-3 w-3" /> Ganti nomor
+            </button>
+          </div>
+        )}
+
+        {/* ─── STEP 3: Input OTP ──────────────────────────────────────────── */}
         {step === "otp" && (
           <div className="space-y-5">
             <div className="text-center space-y-1">
@@ -320,28 +498,34 @@ export default function Register() {
             <div className="flex items-center justify-between text-sm">
               <button
                 className="text-muted-foreground hover:text-foreground flex items-center gap-1"
-                onClick={() => setStep("whatsapp")}
+                onClick={() => {
+                  if (pollRef.current) clearInterval(pollRef.current);
+                  setStep("whatsapp");
+                }}
               >
                 <ArrowLeft className="h-3 w-3" /> Ganti nomor
               </button>
-              <button
-                className={`flex items-center gap-1 ${resendCooldown > 0 ? "text-muted-foreground" : "text-primary hover:underline"}`}
-                disabled={resendCooldown > 0 || isSendingOtp}
-                onClick={async () => {
-                  const ok = await sendOtp(whatsapp);
-                  if (ok) {
-                    setOtpInputs(["", "", "", "", "", ""]);
-                    toast({ title: "OTP baru dikirim" });
-                  }
-                }}
-              >
-                <RefreshCw className="h-3 w-3" />
-                {resendCooldown > 0 ? `Kirim ulang (${resendCooldown}s)` : "Kirim ulang"}
-              </button>
+              {useFallback && (
+                <button
+                  className={`flex items-center gap-1 ${resendCooldown > 0 ? "text-muted-foreground" : "text-primary hover:underline"}`}
+                  disabled={resendCooldown > 0 || isSendingOtp}
+                  onClick={async () => {
+                    const ok = await sendOtpLegacy(whatsapp);
+                    if (ok) {
+                      setOtpInputs(["", "", "", "", "", ""]);
+                      toast({ title: "OTP baru dikirim" });
+                    }
+                  }}
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  {resendCooldown > 0 ? `Kirim ulang (${resendCooldown}s)` : "Kirim ulang"}
+                </button>
+              )}
             </div>
           </div>
         )}
 
+        {/* ─── STEP 4: Lengkapi Data Akun ─────────────────────────────────── */}
         {step === "account" && (
           <div className="space-y-5">
             <div className="text-center space-y-1">

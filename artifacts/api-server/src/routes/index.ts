@@ -12,6 +12,7 @@ import nadiavpnRouter from "./nadiavpn";
 import dynamicVpnRouter from "./dynamic-vpn";
 import settingsRouter from "./settings";
 import webhookRouter from "./webhook";
+import fonnteWebhookRouter from "./fonnte-webhook";
 import telegramBotRouter from "./telegram-bot";
 // Endpoint khusus Bot Telegram (BotVPN repo) untuk fitur "link akun".
 // File terpisah supaya tidak campur dengan handler webhook Telegram bot
@@ -43,6 +44,7 @@ router.use(nadiavpnRouter);
 router.use(dynamicVpnRouter);
 router.use(settingsRouter);
 router.use(webhookRouter);
+router.use(fonnteWebhookRouter);
 router.use(telegramBotRouter);
 router.use(telegramBotApiRouter);
 router.use(broadcastRouter);
