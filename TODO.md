@@ -236,3 +236,97 @@ Fitur-fitur baru untuk meningkatkan kualitas produk, akuisisi user, dan keamanan
 
 - **[Positif]** Sudah ada idempotency/anti-race condition yang baik untuk topup dan order (`where status = pending`, lock `processing`, fallback release lock).
   - File: `artifacts/api-server/src/routes/webhook.ts`, `artifacts/api-server/src/routes/orders.ts`
+
+---
+
+## 🔍 Roadmap Audit Berikutnya (29 Juni 2026)
+
+> Disusun setelah implementasi fitur registrasi anti-spam (Fonnte webhook) dan auto-markup harga VPN dinamik.
+
+### 🔴 Prioritas Tinggi (Keamanan & Keuangan)
+
+- [ ] **A1. Port 8080 Terbuka ke Semua Endpoint**
+  Saat ini port 8080 (Express langsung) terbuka ke internet via `ufw allow 8080` agar webhook Fonnte bisa masuk.
+  Masalah: seluruh API bisa diakses via `:8080`, bypass Nginx/Cloudflare (CORS, WAF, rate limit Nginx-level, SSL).
+  Solusi yang disarankan:
+  - Opsi A: Buat Nginx rule yang hanya forward `/api/webhooks/*` ke port 8080, tutup port 8080 di UFW
+  - Opsi B: Buat Express listener terpisah di port lain khusus webhook
+  - Opsi C: Tambah Cloudflare WAF exception untuk path `/api/webhooks/fonnte`, kembali pakai URL domain
+  - File terkait: `ecosystem.config.cjs`, Nginx config, `artifacts/api-server/src/app.ts`
+
+- [ ] **A2. Race Condition Saldo (Double-Spend)**
+  Cek apakah ada kemungkinan 2 order bersamaan dengan saldo pas-pasan bisa lolos keduanya.
+  Yang perlu dicek:
+  - `dynamic-vpn.ts` → `fulfillDynamicOrder()` sudah pakai `WHERE balance >= amount` (✅ aman)
+  - `orders.ts` → `fulfillOrder()` — perlu audit apakah pola yang sama
+  - `balance.ts` → topup flow — apakah bisa double-credit?
+  - File terkait: `artifacts/api-server/src/routes/dynamic-vpn.ts`, `orders.ts`, `balance.ts`
+
+- [ ] **A3. Audit Webhook Payment — Signature Verification Depth**
+  Webhook AutoGoPay/KetantechPay sudah ada signature check, tapi perlu audit:
+  - Apakah HMAC timing-safe comparison sudah benar di semua case? (✅ sudah `timingSafeEqual`)
+  - Apakah ada edge case `rawBody` vs `reserialized body` yang bisa bypass?
+  - Replay cache in-memory hilang saat restart → apakah ada risiko?
+  - File terkait: `artifacts/api-server/src/routes/webhook.ts`
+
+### 🟡 Prioritas Sedang (Stabilitas & UX)
+
+- [ ] **B1. Error Handling Dynamic VPN Order**
+  Jika NadiaVPN API down/timeout saat user bayar:
+  - Apakah saldo sudah kerefund? (harusnya iya — deduct setelah provider success)
+  - Apakah order status kembali ke `pending`? (harusnya iya — catch di `pay` endpoint)
+  - Test: matikan API Nadia sementara → coba order → cek saldo user
+  - File terkait: `artifacts/api-server/src/routes/dynamic-vpn.ts`
+
+- [ ] **B2. Database Query Performance & Indexing**
+  Tabel yang mungkin butuh index tambahan:
+  - `wa_verifications.whatsapp` — query saat webhook masuk
+  - `dynamic_vpn_orders.userId` — query riwayat order user
+  - `vpn_accounts.username` + `vpn_accounts.isActive` — cek duplikat saat order
+  - `dynamic_provider_servers.provider` + `provider_server_id` — sync lookup
+  - Tool: `EXPLAIN ANALYZE` di PostgreSQL untuk query yang lambat
+
+- [ ] **B3. Expired Session/Token Handling**
+  Apa yang terjadi jika JWT expired saat user di tengah proses:
+  - Checkout/order VPN → POST gagal 401 → apakah frontend handle gracefully?
+  - Topup QRIS → user sudah scan tapi token expired → apakah webhook tetap proses?
+  - File terkait: `artifacts/vpn-web/src/`, `artifacts/api-server/src/lib/auth.ts`
+
+- [ ] **B4. Backup/Restore Robustness**
+  Test end-to-end: backup via Telegram → restore dari file → verifikasi data intact.
+  - Apakah `pre-restore` safety backup benar-benar jalan?
+  - Apakah restore bisa handle schema yang berbeda (misal setelah push kolom baru)?
+  - File terkait: `artifacts/api-server/src/routes/backup.ts`
+
+### 🟢 Prioritas Rendah (Polish & Business Intelligence)
+
+- [ ] **C1. Profit Tracking per Server NadiaVPN**
+  Sekarang sudah ada data `costPerDay/Month` dan `sellPricePerDay/Month` di setiap server.
+  Tambahkan di admin dashboard:
+  - Profit per order = `amount - (cost × duration)`
+  - Total profit per server per bulan
+  - Alert jika margin < threshold (misal < 10%)
+
+- [ ] **C2. Notifikasi Harga Berubah saat Sync**
+  Saat `syncNadiaVpnServersFromProvider()`, bandingkan `costPerDay/Month` lama vs baru.
+  Jika berubah → kirim alert ke admin via Telegram:
+  "⚠️ Harga NadiaVPN berubah: Server X — /hari Rp 1.000 → Rp 1.500 (+50%)"
+  - File terkait: `artifacts/api-server/src/routes/dynamic-vpn.ts`, `lib/telegram.ts`
+
+- [ ] **C3. Cleanup Expired `wa_verifications`**
+  Record yang expired menumpuk di database. Tambahkan scheduler untuk bersihkan:
+  - Hapus record dengan `expiresAt < NOW() - 1 day`
+  - Jalankan setiap 6 jam
+  - File terkait: `artifacts/api-server/src/lib/scheduler.ts`
+
+### 📌 Urutan Eksekusi yang Disarankan
+
+| Urutan | Item | Estimasi | Dampak |
+|:------:|------|----------|--------|
+| ① | **A1. Port 8080** | 1 sesi | 🔴 Keamanan |
+| ② | **A2. Race Condition Saldo** | 1 sesi | 🔴 Keuangan |
+| ③ | **B1. Error Handling Order** | 1 sesi | 🟡 Stabilitas |
+| ④ | **B2. DB Indexing** | 0.5 sesi | 🟡 Performa |
+| ⑤ | **C2. Alert Harga Berubah** | 0.5 sesi | 🟢 Business |
+| ⑥ | **C3. Cleanup wa_verifications** | 0.5 sesi | 🟢 Maintenance |
+| ⑦ | **C1. Profit Tracking** | 1-2 sesi | 🟢 Business |
