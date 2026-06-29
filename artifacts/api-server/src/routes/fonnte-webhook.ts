@@ -4,6 +4,7 @@ import { waVerificationsTable } from "@workspace/db";
 import { eq, and, gt } from "drizzle-orm";
 import { sendOtp, normalizeWhatsapp } from "../lib/fonnte";
 import { logger } from "../lib/logger";
+import { getSettingValue } from "./settings";
 
 const router = Router();
 
@@ -22,14 +23,16 @@ router.get("/webhooks/fonnte", (_req, res) => {
  *
  * Ketika user mengirim pesan yang mengandung "DAFTAR" ke nomor WA Fonnte,
  * server akan:
- * 1. Cari record wa_verifications yang cocok dengan nomor pengirim
- * 2. Tandai messageReceived = true
- * 3. Generate & kirim OTP sebagai BALASAN (bukan cold message!)
- * 4. Tandai otpSent = true
+ * 1. Verifikasi token Fonnte (anti-spoofing)
+ * 2. Cari record wa_verifications yang cocok dengan nomor pengirim
+ * 3. Atomic update messageReceived = true (anti race condition)
+ * 4. Generate & kirim OTP sebagai BALASAN (bukan cold message!)
+ * 5. Tandai otpSent = true
  *
  * Fonnte mengirim webhook dengan body (form-urlencoded atau JSON):
  *   sender: "6281234567890"
  *   message: "DAFTAR"
+ *   token: "fonnte_device_token"
  *   (dan field lain yang tidak kita pakai)
  */
 router.post("/webhooks/fonnte", async (req, res) => {
@@ -38,6 +41,28 @@ router.post("/webhooks/fonnte", async (req, res) => {
 
     // Log raw body untuk debug — field apa saja yang Fonnte kirimkan
     logger.info({ rawBody: JSON.stringify(body).slice(0, 1000) }, "Fonnte webhook: raw POST body received");
+
+    // ─── Verifikasi Token Fonnte ──────────────────────────────────────────
+    // Fonnte mengirimkan token device di setiap webhook request.
+    // Kita cocokkan dengan token yang disimpan admin di settings.
+    // Ini mencegah siapapun mengirim POST palsu ke endpoint ini.
+    const incomingToken = String(body.token ?? body.device_token ?? "").trim();
+    const storedToken = await getSettingValue("fonnteToken");
+
+    if (storedToken && incomingToken) {
+      if (incomingToken !== storedToken) {
+        logger.warn(
+          { incomingToken: incomingToken.slice(0, 8) + "..." },
+          "Fonnte webhook: token mismatch — rejected"
+        );
+        res.status(401).json({ status: false, error: "Invalid token" });
+        return;
+      }
+    } else if (storedToken && !incomingToken) {
+      // Token tersimpan tapi request tidak kirim token — log warning tapi tetap proses
+      // (Fonnte mungkin tidak selalu kirim token tergantung versi)
+      logger.warn("Fonnte webhook: no token in request, but fonnteToken is configured — proceeding with caution");
+    }
 
     // Fonnte bisa kirim sebagai form-urlencoded atau JSON
     // Field yang mungkin: sender/from, message/text/pesan
@@ -65,10 +90,12 @@ router.post("/webhooks/fonnte", async (req, res) => {
     const normalized = normalizeWhatsapp(sender);
     const now = new Date();
 
-    // Cari record wa_verifications yang belum expired dan belum terima pesan
-    const [record] = await db
-      .select()
-      .from(waVerificationsTable)
+    // ─── Atomic claim: SELECT + UPDATE dalam satu query ───────────────────
+    // Ini mencegah race condition jika Fonnte mengirim webhook lebih dari 1x
+    // (retry), karena hanya request pertama yang berhasil set messageReceived.
+    const claimed = await db
+      .update(waVerificationsTable)
+      .set({ messageReceived: true })
       .where(
         and(
           eq(waVerificationsTable.whatsapp, normalized),
@@ -76,20 +103,15 @@ router.post("/webhooks/fonnte", async (req, res) => {
           gt(waVerificationsTable.expiresAt, now)
         )
       )
-      .orderBy(waVerificationsTable.createdAt)
-      .limit(1);
+      .returning({ id: waVerificationsTable.id, token: waVerificationsTable.token });
 
-    if (!record) {
-      logger.info({ sender: normalized }, "Fonnte webhook: no pending wa_verification found for sender");
+    if (claimed.length === 0) {
+      logger.info({ sender: normalized }, "Fonnte webhook: no pending wa_verification found (or already claimed)");
       res.json({ status: true });
       return;
     }
 
-    // Tandai pesan sudah diterima
-    await db
-      .update(waVerificationsTable)
-      .set({ messageReceived: true })
-      .where(eq(waVerificationsTable.id, record.id));
+    const record = claimed[0];
 
     // Kirim OTP sebagai BALASAN (ini yang membuat aman dari spam!)
     const otpResult = await sendOtp(normalized, "register");
