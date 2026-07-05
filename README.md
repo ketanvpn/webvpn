@@ -177,7 +177,7 @@ Salin dan tempelkan isi berikut ke dalam editor (tekan klik kanan untuk paste di
 DATABASE_URL=postgresql://ketantech:PASSWORD_KAMU@localhost:5432/ketantech_db
 SESSION_SECRET=GANTI_DENGAN_STRING_ACAK_PANJANG
 NODE_ENV=production
-PORT=8080
+PORT=5000
 TURNSTILE_SECRET_KEY=ISI_DARI_CLOUDFLARE
 TURNSTILE_FAIL_OPEN=false
 ```
@@ -308,7 +308,7 @@ module.exports = {
       cwd: "/var/www/ketantech-vpn",
       env: {
         NODE_ENV: "production",
-        PORT: "8080",
+        PORT: "5000",
         DATABASE_URL: "postgresql://ketantech:PASSWORD_KAMU@localhost:5432/ketantech_db",
         SESSION_SECRET: "SESSION_SECRET_KAMU",
         CORS_ORIGIN: "https://DOMAIN_ATAU_IP",
@@ -326,6 +326,8 @@ module.exports = {
 > **Catatan `TRUSTED_PROXIES`:**
 > - Jika API di belakang Nginx pada server yang sama, gunakan `127.0.0.1,::1`.
 > - Jangan set ke nilai longgar seperti `true` karena rawan spoofing `X-Forwarded-For`.
+>
+> **⚠️ Port 5000 (bukan 8080):** API server listen di port internal `5000` yang **tidak boleh** terbuka ke internet. Semua akses dari luar harus melewati Nginx (port 80/443).
 
 ### Konfigurasi Frontend untuk Turnstile
 
@@ -401,7 +403,8 @@ Kalau berhasil, baris-baris **paling bawah** akan terlihat seperti ini:
 
 ```
 [CONFIG] Semua konfigurasi kritis tersedia.
-Server listening port: 8080
+Webhook guard enabled (production mode)
+Server listening port: 5000
 Default admin created — username: admin, password: admin123
 Scheduler notifikasi kedaluwarsa aktif (cek setiap jam)
 Scheduler auto-backup aktif (cek setiap jam)
@@ -456,7 +459,7 @@ server {
 
     # API Backend
     location /api/ {
-        proxy_pass http://localhost:8080;
+        proxy_pass http://localhost:5000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -513,13 +516,9 @@ ufw allow 80
 ufw allow 443
 ```
 
-```bash
-ufw allow 8080
-```
+> **⚠️ Port 8080 TIDAK perlu dibuka.** API server berjalan di port `5000` yang hanya bisa diakses dari dalam VPS sendiri (oleh Nginx). Semua akses dari luar melewati Nginx di port 80/443.
 
-> Port 8080 diperlukan agar webhook Fonnte (WhatsApp) bisa langsung mengakses API server tanpa melewati Cloudflare/Nginx.
-
-Pastikan keempat perintah di atas berhasil (muncul `Rules updated`) **sebelum** menjalankan yang ini:
+Pastikan ketiga perintah di atas berhasil (muncul `Rules updated`) **sebelum** menjalankan yang ini:
 
 ```bash
 ufw enable
@@ -540,10 +539,18 @@ To          Action      From
 22          ALLOW       Anywhere
 80          ALLOW       Anywhere
 443         ALLOW       Anywhere
-8080        ALLOW       Anywhere
 ```
 
 > **Jika VPS terkunci (tidak bisa SSH setelah `ufw enable`):** Gunakan fitur **Console/VNC** dari panel kontrol provider VPS-mu (Hetzner Cloud Console, DigitalOcean Console, Vultr Console, dll.) untuk masuk tanpa SSH. Setelah masuk via console, jalankan: `ufw disable` untuk menonaktifkan firewall sementara, lalu pastikan `ufw allow 22` sudah dijalankan sebelum `ufw enable` lagi.
+
+> **Migrasi dari versi lama (port 8080 terbuka):** Jika kamu sebelumnya sudah `ufw allow 8080`, tutup dengan:
+> ```bash
+> ufw deny 8080
+> ```
+> Lalu update `ecosystem.config.cjs` — ganti `PORT: "8080"` → `PORT: "5000"`, dan restart PM2:
+> ```bash
+> pm2 restart ketantech-api
+> ```
 
 ---
 
@@ -619,16 +626,11 @@ Sistem registrasi menggunakan metode **user chat duluan** agar nomor WA Fonnte t
 2. **Set Webhook URL di Fonnte:**
    Di dashboard [fonnte.com](https://fonnte.com), set field **"Webhook ?"** ke:
    ```
-   http://IP_VPS_KAMU:8080/api/webhooks/fonnte
+   http://IP_VPS_KAMU/api/webhooks/fonnte
    ```
-   > ⚠️ **Gunakan IP langsung + port 8080**, bukan domain. Jika domain melewati Cloudflare/proxy, webhook akan diblokir.
+   > ⚠️ **Gunakan IP langsung** (tanpa port, karena Nginx listen di port 80 default). Jika domain melewati Cloudflare, gunakan IP langsung agar webhook tidak diblokir.
 
-3. **Buka port 8080 di firewall:**
-   ```bash
-   ufw allow 8080
-   ```
-
-4. **Aktifkan Autoread di Fonnte** *(opsional)* — agar pesan masuk langsung terbaca dan diproses.
+3. **Aktifkan Autoread di Fonnte** *(opsional)* — agar pesan masuk langsung terbaca dan diproses.
 
 > **Fallback:** Jika admin belum mengisi nomor WA Fonnte, sistem otomatis menggunakan flow lama (kirim OTP langsung).
 
@@ -792,20 +794,21 @@ cd /var/www/ketantech-vpn && git pull origin main && pnpm install && DATABASE_UR
 **Webhook Fonnte tidak berfungsi (registrasi stuck di "Menunggu pesan masuk")**
 > Penyebab paling umum dan cara mengatasinya:
 >
-> 1. **Port 8080 belum dibuka di firewall.**
+> 1. **Nginx belum berjalan atau port 80 belum terbuka.**
 >    ```bash
->    ufw allow 8080
+>    systemctl status nginx
+>    ufw status
 >    ```
 >
 > 2. **URL webhook di Fonnte salah.** Pastikan formatnya:
 >    ```
->    http://IP_VPS_KAMU:8080/api/webhooks/fonnte
+>    http://IP_VPS_KAMU/api/webhooks/fonnte
 >    ```
->    Jangan pakai domain jika melewati Cloudflare — webhook akan diblokir.
+>    Gunakan IP langsung tanpa port. Jangan pakai domain jika melewati Cloudflare.
 >
 > 3. **Verifikasi webhook bisa diakses** (jalankan di VPS):
 >    ```bash
->    curl http://$(curl -s ifconfig.me):8080/api/webhooks/fonnte
+>    curl http://$(curl -s ifconfig.me)/api/webhooks/fonnte
 >    ```
 >    Harus muncul: `{"status":true,"message":"Fonnte webhook is active"}`
 >

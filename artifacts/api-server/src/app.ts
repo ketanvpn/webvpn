@@ -5,6 +5,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { getClientIp } from "./lib/request-ip";
+import { webhookGuard } from "./middlewares/webhook-guard";
 
 const app: Express = express();
 
@@ -70,6 +71,14 @@ app.use(
 );
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// ─── Webhook Guard ────────────────────────────────────────────────────────────
+// Blokir akses langsung (bypass Nginx) ke endpoint non-webhook.
+// Hanya aktif di production — di development semua diizinkan.
+if (process.env.NODE_ENV === "production") {
+  app.use(webhookGuard);
+  logger.info("Webhook guard enabled (production mode)");
+}
 
 app.use("/api", router);
 

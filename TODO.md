@@ -245,14 +245,15 @@ Fitur-fitur baru untuk meningkatkan kualitas produk, akuisisi user, dan keamanan
 
 ### 🔴 Prioritas Tinggi (Keamanan & Keuangan)
 
-- [ ] **A1. Port 8080 Terbuka ke Semua Endpoint**
-  Saat ini port 8080 (Express langsung) terbuka ke internet via `ufw allow 8080` agar webhook Fonnte bisa masuk.
-  Masalah: seluruh API bisa diakses via `:8080`, bypass Nginx/Cloudflare (CORS, WAF, rate limit Nginx-level, SSL).
-  Solusi yang disarankan:
-  - Opsi A: Buat Nginx rule yang hanya forward `/api/webhooks/*` ke port 8080, tutup port 8080 di UFW
-  - Opsi B: Buat Express listener terpisah di port lain khusus webhook
-  - Opsi C: Tambah Cloudflare WAF exception untuk path `/api/webhooks/fonnte`, kembali pakai URL domain
-  - File terkait: `ecosystem.config.cjs`, Nginx config, `artifacts/api-server/src/app.ts`
+- [x] **A1. Port 8080 Terbuka ke Semua Endpoint** ✅
+  ~~Saat ini port 8080 (Express langsung) terbuka ke internet via `ufw allow 8080` agar webhook Fonnte bisa masuk.~~
+  ✅ **Selesai — 5 Juli 2026.**
+  - Express pindah ke port internal `5000` (tidak terpapar ke internet)
+  - Semua akses dari luar melewati Nginx (port 80/443)
+  - Port 8080 ditutup di UFW (`ufw deny 8080`)
+  - Ditambah middleware `webhookGuard` (defense in depth) — blokir akses langsung ke non-webhook endpoint di production
+  - Fonnte webhook URL diubah ke `http://IP/api/webhooks/fonnte` (via Nginx port 80)
+  - File: `artifacts/api-server/src/middlewares/webhook-guard.ts`, `artifacts/api-server/src/app.ts`, `README.md`
 
 - [ ] **A2. Race Condition Saldo (Double-Spend)**
   Cek apakah ada kemungkinan 2 order bersamaan dengan saldo pas-pasan bisa lolos keduanya.
@@ -323,7 +324,7 @@ Fitur-fitur baru untuk meningkatkan kualitas produk, akuisisi user, dan keamanan
 
 | Urutan | Item | Estimasi | Dampak |
 |:------:|------|----------|--------|
-| ① | **A1. Port 8080** | 1 sesi | 🔴 Keamanan |
+| ~~①~~ | ~~**A1. Port 8080**~~ | ~~1 sesi~~ | ✅ Selesai |
 | ② | **A2. Race Condition Saldo** | 1 sesi | 🔴 Keuangan |
 | ③ | **B1. Error Handling Order** | 1 sesi | 🟡 Stabilitas |
 | ④ | **B2. DB Indexing** | 0.5 sesi | 🟡 Performa |
