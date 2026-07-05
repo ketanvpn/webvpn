@@ -276,12 +276,14 @@ Fitur-fitur baru untuk meningkatkan kualitas produk, akuisisi user, dan keamanan
 
 ### 🟡 Prioritas Sedang (Stabilitas & UX)
 
-- [ ] **B1. Error Handling Dynamic VPN Order**
-  Jika NadiaVPN API down/timeout saat user bayar:
-  - Apakah saldo sudah kerefund? (harusnya iya — deduct setelah provider success)
-  - Apakah order status kembali ke `pending`? (harusnya iya — catch di `pay` endpoint)
-  - Test: matikan API Nadia sementara → coba order → cek saldo user
-  - File terkait: `artifacts/api-server/src/routes/dynamic-vpn.ts`
+- [x] **B1. Error Handling Dynamic VPN Order** ✅
+  ~~Jika NadiaVPN API down/timeout saat user bayar:~~
+  ✅ **Selesai (audit) — 5 Juli 2026. Tidak perlu code change.**
+  - API down/timeout → ✅ saldo tidak tersentuh, order reset ke pending
+  - Saldo kurang setelah provider sukses → ✅ panel di-rollback, order reset
+  - DB transaction gagal → ✅ saldo direfund, panel di-rollback
+  - Pattern "deduct after provider success" sudah melindungi user di semua skenario
+  - File: `artifacts/api-server/src/routes/dynamic-vpn.ts`
 
 - [ ] **B2. Database Query Performance & Indexing**
   Tabel yang mungkin butuh index tambahan:
@@ -330,7 +332,7 @@ Fitur-fitur baru untuk meningkatkan kualitas produk, akuisisi user, dan keamanan
 |:------:|------|----------|--------|
 | ~~①~~ | ~~**A1. Port 8080**~~ | ~~1 sesi~~ | ✅ Selesai |
 | ~~②~~ | ~~**A2. Race Condition Saldo**~~ | ~~1 sesi~~ | ✅ Selesai |
-| ③ | **B1. Error Handling Order** | 1 sesi | 🟡 Stabilitas |
+| ~~③~~ | ~~**B1. Error Handling Order**~~ | ~~1 sesi~~ | ✅ Selesai (audit) |
 | ④ | **B2. DB Indexing** | 0.5 sesi | 🟡 Performa |
 | ⑤ | **C2. Alert Harga Berubah** | 0.5 sesi | 🟢 Business |
 | ⑥ | **C3. Cleanup wa_verifications** | 0.5 sesi | 🟢 Maintenance |
