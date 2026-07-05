@@ -1184,23 +1184,26 @@ router.post("/admin/topups/:id/confirm", requireAdmin, async (req, res) => {
     return;
   }
 
-  if (topup.status !== "pending") {
-    res.status(400).json({ error: "Topup is not pending" });
+  // Atomic: update status HANYA jika masih pending.
+  // Ini mencegah double-credit jika admin double-click atau webhook masuk bersamaan.
+  const [confirmed] = await db
+    .update(topupsTable)
+    .set({ status: "confirmed", confirmedBy: adminId, updatedAt: new Date() })
+    .where(and(eq(topupsTable.id, id), eq(topupsTable.status, "pending")))
+    .returning();
+
+  if (!confirmed) {
+    res.status(400).json({ error: `Topup sudah ${topup.status} (tidak bisa dikonfirmasi ulang)` });
     return;
   }
 
+  // Credit balance — aman, hanya berjalan 1x karena guard atomic di atas
   await db
     .update(usersTable)
     .set({
       balance: sql`balance + ${Number(topup.amount)}`,
     })
     .where(eq(usersTable.id, topup.userId));
-
-  const [updated] = await db
-    .update(topupsTable)
-    .set({ status: "confirmed", confirmedBy: adminId, updatedAt: new Date() })
-    .where(eq(topupsTable.id, id))
-    .returning();
 
   // Fetch updated balance for notification and log
   const [updatedUser] = await db
@@ -1251,7 +1254,7 @@ router.post("/admin/topups/:id/confirm", requireAdmin, async (req, res) => {
     }
   }).catch((err) => console.error("[admin topup] addPoints failed:", err));
 
-  res.json(formatTopup(updated));
+  res.json(formatTopup(confirmed));
 });
 
 router.post("/admin/topups/:id/reject", requireAdmin, async (req, res) => {

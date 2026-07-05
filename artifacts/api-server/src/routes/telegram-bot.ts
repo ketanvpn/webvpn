@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { usersTable, topupsTable, settingsTable, ticketsTable, ticketMessagesTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../lib/auth";
 import { randomBytes } from "crypto";
 import {
@@ -615,17 +615,25 @@ async function handleConfirmTopup(
     return;
   }
 
-  // Add balance
+  // Atomic: update status HANYA jika masih pending.
+  // Ini mencegah double-credit jika admin double-click tombol di Telegram.
+  const [confirmed] = await db
+    .update(topupsTable)
+    .set({ status: "confirmed", updatedAt: new Date() })
+    .where(and(eq(topupsTable.id, topupId), eq(topupsTable.status, "pending")))
+    .returning();
+
+  if (!confirmed) {
+    await answerCallbackQuery(callbackId, "ℹ️ Topup sudah diproses.");
+    await editMessageReplyMarkup(chatId, messageId, null);
+    return;
+  }
+
+  // Credit balance — aman, hanya berjalan 1x karena guard atomic di atas
   await db
     .update(usersTable)
     .set({ balance: sql`balance + ${Number(topup.amount)}`, updatedAt: new Date() })
     .where(eq(usersTable.id, topup.userId));
-
-  // Update topup status
-  await db
-    .update(topupsTable)
-    .set({ status: "confirmed", updatedAt: new Date() })
-    .where(eq(topupsTable.id, topupId));
 
   // Get new balance and user Telegram
   const [user] = await db

@@ -255,13 +255,17 @@ Fitur-fitur baru untuk meningkatkan kualitas produk, akuisisi user, dan keamanan
   - Fonnte webhook URL diubah ke `http://IP/api/webhooks/fonnte` (via Nginx port 80)
   - File: `artifacts/api-server/src/middlewares/webhook-guard.ts`, `artifacts/api-server/src/app.ts`, `README.md`
 
-- [ ] **A2. Race Condition Saldo (Double-Spend)**
-  Cek apakah ada kemungkinan 2 order bersamaan dengan saldo pas-pasan bisa lolos keduanya.
-  Yang perlu dicek:
-  - `dynamic-vpn.ts` → `fulfillDynamicOrder()` sudah pakai `WHERE balance >= amount` (✅ aman)
-  - `orders.ts` → `fulfillOrder()` — perlu audit apakah pola yang sama
-  - `balance.ts` → topup flow — apakah bisa double-credit?
-  - File terkait: `artifacts/api-server/src/routes/dynamic-vpn.ts`, `orders.ts`, `balance.ts`
+- [x] **A2. Race Condition Saldo (Double-Spend)** ✅
+  ~~Cek apakah ada kemungkinan 2 order bersamaan dengan saldo pas-pasan bisa lolos keduanya.~~
+  ✅ **Selesai — 5 Juli 2026.**
+  Audit 5 flow yang mengubah saldo:
+  - `orders.ts` → `fulfillOrder()` — ✅ sudah aman (`WHERE balance >= amount` di transaction)
+  - `dynamic-vpn.ts` → `fulfillDynamicOrder()` — ✅ sudah aman (`WHERE balance >= amount` atomic)
+  - `webhook.ts` → topup QRIS — ✅ sudah aman (`WHERE status = 'pending'` + `.returning()`)
+  - `admin.ts` → topup manual admin panel — ⚠️ **DIPERBAIKI** (double-credit bisa terjadi saat double-click)
+  - `telegram-bot.ts` → topup manual Telegram — ⚠️ **DIPERBAIKI** (double-credit bisa terjadi saat double-click)
+  - Fix: pola atomic `UPDATE WHERE status = 'pending'` + `.returning()` — hanya 1 request yang menang
+  - File: `artifacts/api-server/src/routes/admin.ts`, `artifacts/api-server/src/routes/telegram-bot.ts`
 
 - [ ] **A3. Audit Webhook Payment — Signature Verification Depth**
   Webhook AutoGoPay/KetantechPay sudah ada signature check, tapi perlu audit:
@@ -325,7 +329,7 @@ Fitur-fitur baru untuk meningkatkan kualitas produk, akuisisi user, dan keamanan
 | Urutan | Item | Estimasi | Dampak |
 |:------:|------|----------|--------|
 | ~~①~~ | ~~**A1. Port 8080**~~ | ~~1 sesi~~ | ✅ Selesai |
-| ② | **A2. Race Condition Saldo** | 1 sesi | 🔴 Keuangan |
+| ~~②~~ | ~~**A2. Race Condition Saldo**~~ | ~~1 sesi~~ | ✅ Selesai |
 | ③ | **B1. Error Handling Order** | 1 sesi | 🟡 Stabilitas |
 | ④ | **B2. DB Indexing** | 0.5 sesi | 🟡 Performa |
 | ⑤ | **C2. Alert Harga Berubah** | 0.5 sesi | 🟢 Business |
