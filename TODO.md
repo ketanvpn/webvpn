@@ -285,13 +285,21 @@ Fitur-fitur baru untuk meningkatkan kualitas produk, akuisisi user, dan keamanan
   - Pattern "deduct after provider success" sudah melindungi user di semua skenario
   - File: `artifacts/api-server/src/routes/dynamic-vpn.ts`
 
-- [ ] **B2. Database Query Performance & Indexing**
-  Tabel yang mungkin butuh index tambahan:
-  - `wa_verifications.whatsapp` — query saat webhook masuk
-  - `dynamic_vpn_orders.userId` — query riwayat order user
-  - `vpn_accounts.username` + `vpn_accounts.isActive` — cek duplikat saat order
-  - `dynamic_provider_servers.provider` + `provider_server_id` — sync lookup
-  - Tool: `EXPLAIN ANALYZE` di PostgreSQL untuk query yang lambat
+- [x] **B2. Database Query Performance & Indexing** ✅
+  ~~Tabel yang mungkin butuh index tambahan~~
+  ✅ **Selesai — 6 Juli 2026.**
+  Audit seluruh query patterns → tambah 15 index di 10 schema files:
+  - `wa_verifications.whatsapp` — webhook & registrasi lookup
+  - `dynamic_provider_servers.(provider, provider_server_id)` — composite index untuk sync
+  - `dynamic_vpn_orders.userId`, `.vpnAccountId`, `.status` — riwayat order & filter admin
+  - `orders.userId`, `.status` — dashboard & admin panel
+  - `topup_transactions.userId`, `.status` — balance & pending topup lookup
+  - `balance_logs.userId` — riwayat saldo (growing table)
+  - `vpn_accounts.userId` — list akun VPN user
+  - `otp_verifications.whatsapp` — OTP lookup
+  - `tickets.userId`, `ticket_messages.ticketId` — tiket support
+  - `point_logs.userId` — riwayat poin
+  - File: `lib/db/src/schema/*.ts` (10 files diubah)
 
 - [ ] **B3. Expired Session/Token Handling**
   Apa yang terjadi jika JWT expired saat user di tengah proses:
@@ -307,24 +315,32 @@ Fitur-fitur baru untuk meningkatkan kualitas produk, akuisisi user, dan keamanan
 
 ### 🟢 Prioritas Rendah (Polish & Business Intelligence)
 
-- [ ] **C1. Profit Tracking per Server NadiaVPN**
-  Sekarang sudah ada data `costPerDay/Month` dan `sellPricePerDay/Month` di setiap server.
-  Tambahkan di admin dashboard:
-  - Profit per order = `amount - (cost × duration)`
-  - Total profit per server per bulan
-  - Alert jika margin < threshold (misal < 10%)
+- [x] **C1. Profit Tracking per Server NadiaVPN** ✅
+  ~~Sekarang sudah ada data `costPerDay/Month` dan `sellPricePerDay/Month` di setiap server.~~
+  ✅ **Selesai — 6 Juli 2026.**
+  - API endpoint `GET /admin/stats/profit-tracking` — hitung profit per order & per server per bulan
+  - Profit = revenue - (costPerDay/Month × duration), dengan filter bulan (`?month=2026-07`)
+  - Response: summary (totalRevenue/Cost/Profit/Margin) + breakdown per server
+  - Alert margin rendah (<10%) via Telegram — jalan harian jam 08.00 WIB
+  - Fungsi `notifyAdminLowMarginServers()` di telegram.ts
+  - File: `artifacts/api-server/src/routes/dynamic-vpn.ts`, `artifacts/api-server/src/lib/telegram.ts`, `artifacts/api-server/src/lib/scheduler.ts`
 
-- [ ] **C2. Notifikasi Harga Berubah saat Sync**
-  Saat `syncNadiaVpnServersFromProvider()`, bandingkan `costPerDay/Month` lama vs baru.
-  Jika berubah → kirim alert ke admin via Telegram:
-  "⚠️ Harga NadiaVPN berubah: Server X — /hari Rp 1.000 → Rp 1.500 (+50%)"
-  - File terkait: `artifacts/api-server/src/routes/dynamic-vpn.ts`, `lib/telegram.ts`
+- [x] **C2. Notifikasi Harga Berubah saat Sync** ✅
+  ~~Saat `syncNadiaVpnServersFromProvider()`, bandingkan `costPerDay/Month` lama vs baru.~~
+  ✅ **Selesai — 6 Juli 2026.**
+  - Deteksi perubahan `costPerDay` dan `costPerMonth` saat sync NadiaVPN
+  - Kirim alert konsolidasi ke admin via Telegram dengan detail perubahan & persentase
+  - Contoh: "⚠️ Harga Provider Berubah! Server X — /hari Rp 1.000 → Rp 1.500 (+50%)"
+  - File: `artifacts/api-server/src/lib/telegram.ts`, `artifacts/api-server/src/routes/dynamic-vpn.ts`
 
-- [ ] **C3. Cleanup Expired `wa_verifications`**
-  Record yang expired menumpuk di database. Tambahkan scheduler untuk bersihkan:
+- [x] **C3. Cleanup Expired `wa_verifications`** ✅
+  ~~Record yang expired menumpuk di database.~~
+  ✅ **Selesai — 6 Juli 2026.**
+  - Fungsi `cleanupExpiredWaVerifications()` ditambahkan di scheduler
   - Hapus record dengan `expiresAt < NOW() - 1 day`
-  - Jalankan setiap 6 jam
-  - File terkait: `artifacts/api-server/src/lib/scheduler.ts`
+  - Jalan saat startup + setiap 6 jam via `setInterval`
+  - Menggunakan pattern `runSafely()` (anti-overlap) yang sudah ada
+  - File: `artifacts/api-server/src/lib/scheduler.ts`
 
 ### 📌 Urutan Eksekusi yang Disarankan
 
@@ -333,7 +349,7 @@ Fitur-fitur baru untuk meningkatkan kualitas produk, akuisisi user, dan keamanan
 | ~~①~~ | ~~**A1. Port 8080**~~ | ~~1 sesi~~ | ✅ Selesai |
 | ~~②~~ | ~~**A2. Race Condition Saldo**~~ | ~~1 sesi~~ | ✅ Selesai |
 | ~~③~~ | ~~**B1. Error Handling Order**~~ | ~~1 sesi~~ | ✅ Selesai (audit) |
-| ④ | **B2. DB Indexing** | 0.5 sesi | 🟡 Performa |
-| ⑤ | **C2. Alert Harga Berubah** | 0.5 sesi | 🟢 Business |
-| ⑥ | **C3. Cleanup wa_verifications** | 0.5 sesi | 🟢 Maintenance |
-| ⑦ | **C1. Profit Tracking** | 1-2 sesi | 🟢 Business |
+| ~~④~~ | ~~**B2. DB Indexing**~~ | ~~0.5 sesi~~ | ✅ Selesai |
+| ~~⑤~~ | ~~**C2. Alert Harga Berubah**~~ | ~~0.5 sesi~~ | ✅ Selesai |
+| ~~⑥~~ | ~~**C3. Cleanup wa_verifications**~~ | ~~0.5 sesi~~ | ✅ Selesai |
+| ~~⑦~~ | ~~**C1. Profit Tracking**~~ | ~~1-2 sesi~~ | ✅ Selesai |

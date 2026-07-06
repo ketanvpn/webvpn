@@ -1,4 +1,4 @@
-import { pgTable, serial, text, boolean, numeric, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, boolean, numeric, integer, timestamp, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -21,7 +21,10 @@ export const ordersTable = pgTable("orders", {
   discountAmount: numeric("discount_amount", { precision: 12, scale: 2 }).default("0"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("orders_user_id_idx").on(t.userId),
+  index("orders_status_idx").on(t.status),
+]);
 
 export const insertOrderSchema = createInsertSchema(ordersTable).omit({
   id: true,

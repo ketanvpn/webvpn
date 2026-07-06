@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, timestamp, index } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 
 export const pointLogsTable = pgTable("point_logs", {
@@ -11,4 +11,6 @@ export const pointLogsTable = pgTable("point_logs", {
   description: text("description").notNull(),
   relatedId: integer("related_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("point_logs_user_id_idx").on(t.userId),
+]);

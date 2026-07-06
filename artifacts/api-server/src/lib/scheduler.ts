@@ -1,9 +1,10 @@
 import { db } from "@workspace/db";
-import { vpnAccountsTable, usersTable, settingsTable, ordersTable, serversTable, topupsTable } from "@workspace/db";
+import { vpnAccountsTable, usersTable, settingsTable, ordersTable, serversTable, topupsTable, waVerificationsTable, dynamicVpnOrdersTable, dynamicProviderServersTable } from "@workspace/db";
 import { eq, and, lte, gte, lt, sql, sum, ne } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendWhatsapp } from "./fonnte";
 import { sendMessage } from "./telegram";
+import { notifyAdminLowMarginServers } from "./telegram";
 
 async function getReferralBonusAmount(): Promise<number> {
   const [row] = await db
@@ -308,6 +309,27 @@ async function cleanupGhostAccounts(): Promise<void> {
   }
 }
 
+/**
+ * Cleanup expired wa_verifications records.
+ * Menghapus record yang expiresAt < NOW() - 1 day.
+ * Dijalankan setiap 6 jam.
+ */
+async function cleanupExpiredWaVerifications(): Promise<void> {
+  try {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const result = await db
+      .delete(waVerificationsTable)
+      .where(lt(waVerificationsTable.expiresAt, oneDayAgo))
+      .returning({ id: waVerificationsTable.id });
+
+    if (result.length > 0) {
+      logger.info({ count: result.length }, "Auto-cleanup: menghapus wa_verifications expired");
+    }
+  } catch (err) {
+    logger.error({ err }, "Error saat cleanup wa_verifications expired");
+  }
+}
+
 export function startScheduler(): void {
   const ONE_HOUR = 60 * 60 * 1000;
   const THREE_HOURS = 3 * 60 * 60 * 1000;
@@ -320,11 +342,13 @@ export function startScheduler(): void {
   runSafely("initial-checkResellerTargets", checkResellerTargets);
   runSafely("initial-checkAndAutoDisableServers", checkAndAutoDisableServers);
   runSafely("initial-cleanupGhostAccounts", cleanupGhostAccounts);
+  runSafely("initial-cleanupExpiredWaVerifications", cleanupExpiredWaVerifications);
 
   setInterval(() => {
     runSafely("checkExpiringAccounts", checkExpiringAccounts);
     runSafely("cancelExpiredTopups", cancelExpiredTopups);
     runSafely("sendDailyReport", sendDailyReport);
+    runSafely("checkLowMarginServers", checkLowMarginServers);
   }, ONE_HOUR);
 
   setInterval(() => {
@@ -344,6 +368,12 @@ export function startScheduler(): void {
     runSafely("cleanupGhostAccounts", cleanupGhostAccounts);
   }, THREE_HOURS);
 
+  // Cleanup wa_verifications expired setiap 6 jam
+  const SIX_HOURS = 6 * 60 * 60 * 1000;
+  setInterval(() => {
+    runSafely("cleanupExpiredWaVerifications", cleanupExpiredWaVerifications);
+  }, SIX_HOURS);
+
   // Proactive alert setiap 15 menit
   setTimeout(() => runSafely("runProactiveAlerts", runProactiveAlerts), 2 * 60 * 1000);
   setInterval(() => {
@@ -355,6 +385,8 @@ export function startScheduler(): void {
   logger.info("Scheduler cek target reseller aktif (cek setiap jam, eksekusi tanggal 1 jam 07.00 WIB)");
   logger.info("Scheduler auto-disable server penuh aktif (interval: 5 menit)");
   logger.info("Scheduler auto-cleanup akun hantu aktif (cek setiap 3 jam)");
+  logger.info("Scheduler cleanup wa_verifications expired aktif (cek setiap 6 jam)");
+  logger.info("Scheduler low margin alert aktif (cek setiap jam, kirim jam 08.00 WIB)");
   logger.info("Scheduler proactive alerts aktif (interval: 15 menit)");
   logger.info("Scheduler laporan harian aktif (cek setiap jam, kirim jam 08.00 WIB)");
 
@@ -489,6 +521,99 @@ async function sendDailyReport(): Promise<void> {
     logger.info("Laporan harian terkirim ke admin");
   } catch (err) {
     logger.error({ err }, "Error saat mengirim laporan harian");
+  }
+}
+
+// ─── Low Margin Alert (Harian) ───────────────────────────────────────────────
+
+let lastMarginCheckDate = "";
+const LOW_MARGIN_THRESHOLD = 10; // persen
+
+async function checkLowMarginServers(): Promise<void> {
+  try {
+    const nowWIB = new Date(Date.now() + 7 * 60 * 60 * 1000);
+    const hourWIB = nowWIB.getUTCHours();
+
+    // Cek hanya jam 8 pagi WIB (bareng daily report)
+    if (hourWIB !== 8) return;
+
+    const todayKey = nowWIB.toISOString().slice(0, 10);
+    if (lastMarginCheckDate === todayKey) return;
+    lastMarginCheckDate = todayKey;
+
+    // Hitung profit bulan ini
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    const orders = await db
+      .select({
+        dynamicServerId: dynamicVpnOrdersTable.dynamicServerId,
+        amount: dynamicVpnOrdersTable.amount,
+        durationType: dynamicVpnOrdersTable.durationType,
+        duration: dynamicVpnOrdersTable.duration,
+        serverDisplayName: dynamicVpnOrdersTable.serverDisplayName,
+        provider: dynamicVpnOrdersTable.provider,
+      })
+      .from(dynamicVpnOrdersTable)
+      .where(
+        and(
+          eq(dynamicVpnOrdersTable.status, "paid"),
+          gte(dynamicVpnOrdersTable.createdAt, monthStart),
+          lt(dynamicVpnOrdersTable.createdAt, monthEnd)
+        )
+      );
+
+    if (orders.length === 0) return;
+
+    const allServers = await db.select().from(dynamicProviderServersTable);
+    const serverMap = new Map(allServers.map((s) => [s.id, s]));
+
+    // Aggregate per server
+    const statsMap = new Map<number, { serverName: string; provider: string; revenue: number; cost: number; orders: number }>();
+
+    for (const order of orders) {
+      const revenue = Number(order.amount ?? 0);
+      const server = order.dynamicServerId ? serverMap.get(order.dynamicServerId) : null;
+      let cost = 0;
+      if (server) {
+        cost = order.durationType === "day"
+          ? Number(server.costPerDay ?? 0) * order.duration
+          : Number(server.costPerMonth ?? 0) * order.duration;
+      }
+
+      const key = order.dynamicServerId ?? 0;
+      const existing = statsMap.get(key);
+      if (existing) {
+        existing.revenue += revenue;
+        existing.cost += cost;
+        existing.orders++;
+      } else {
+        statsMap.set(key, {
+          serverName: order.serverDisplayName ?? server?.displayName ?? "Unknown",
+          provider: order.provider ?? "unknown",
+          revenue,
+          cost,
+          orders: 1,
+        });
+      }
+    }
+
+    // Filter server dengan margin rendah
+    const lowMarginServers = Array.from(statsMap.values())
+      .map((s) => {
+        const profit = s.revenue - s.cost;
+        const marginPercent = s.revenue > 0 ? Math.round((profit / s.revenue) * 100) : 0;
+        return { ...s, profit, marginPercent };
+      })
+      .filter((s) => s.marginPercent < LOW_MARGIN_THRESHOLD && s.orders >= 1);
+
+    if (lowMarginServers.length > 0) {
+      await notifyAdminLowMarginServers(lowMarginServers, LOW_MARGIN_THRESHOLD);
+      logger.info({ count: lowMarginServers.length }, "Low margin alert sent to admin");
+    }
+  } catch (err) {
+    logger.error({ err }, "Error saat cek low margin servers");
   }
 }
 

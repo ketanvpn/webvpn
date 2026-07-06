@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
 
 /**
  * Tabel untuk tracking bahwa user sudah mengirim pesan WA ke nomor Fonnte kita.
@@ -18,6 +18,8 @@ export const waVerificationsTable = pgTable("wa_verifications", {
   otpSent: boolean("otp_sent").notNull().default(false),
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("wa_verifications_whatsapp_idx").on(t.whatsapp),
+]);
 
 export type WaVerification = typeof waVerificationsTable.$inferSelect;

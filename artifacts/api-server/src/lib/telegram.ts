@@ -482,3 +482,74 @@ export async function notifyAdminTicketReply(ticketId: number, username: string,
   const msgId = await sendMessage(adminChatId, text, extra);
   if (msgId) registerTicketMessage(msgId, ticketId);
 }
+
+export async function notifyAdminPriceChanged(changes: {
+  serverName: string;
+  provider: string;
+  costPerDayOld: number;
+  costPerDayNew: number;
+  costPerMonthOld: number;
+  costPerMonthNew: number;
+}[]): Promise<void> {
+  const { adminChatId } = await getTelegramConfig();
+  if (!adminChatId || changes.length === 0) return;
+
+  let text = `⚠️ <b>Harga Provider Berubah!</b>\n`;
+
+  for (const c of changes) {
+    text += `\n🖥️ <b>${c.serverName}</b>`;
+    if (c.provider !== "nadiavpn") text += ` (${c.provider})`;
+    text += `\n`;
+
+    if (c.costPerDayOld !== c.costPerDayNew) {
+      const pct = c.costPerDayOld > 0
+        ? ((c.costPerDayNew - c.costPerDayOld) / c.costPerDayOld * 100).toFixed(0)
+        : "∞";
+      const arrow = c.costPerDayNew > c.costPerDayOld ? "📈" : "📉";
+      text += `  ${arrow} /hari: ${formatRupiah(c.costPerDayOld)} → ${formatRupiah(c.costPerDayNew)} (${Number(pct) > 0 ? "+" : ""}${pct}%)\n`;
+    }
+
+    if (c.costPerMonthOld !== c.costPerMonthNew) {
+      const pct = c.costPerMonthOld > 0
+        ? ((c.costPerMonthNew - c.costPerMonthOld) / c.costPerMonthOld * 100).toFixed(0)
+        : "∞";
+      const arrow = c.costPerMonthNew > c.costPerMonthOld ? "📈" : "📉";
+      text += `  ${arrow} /bulan: ${formatRupiah(c.costPerMonthOld)} → ${formatRupiah(c.costPerMonthNew)} (${Number(pct) > 0 ? "+" : ""}${pct}%)\n`;
+    }
+  }
+
+  text += `\n💡 <i>Harga jual otomatis sudah diupdate untuk server dengan mode auto_markup.</i>`;
+
+  await sendMessage(adminChatId, text);
+}
+
+export async function notifyAdminLowMarginServers(servers: {
+  serverName: string;
+  provider: string;
+  revenue: number;
+  cost: number;
+  profit: number;
+  marginPercent: number;
+  orders: number;
+}[], threshold: number = 10): Promise<void> {
+  const { adminChatId } = await getTelegramConfig();
+  if (!adminChatId || servers.length === 0) return;
+
+  let text = `🔴 <b>Alert: Margin Rendah!</b>\n`;
+  text += `Server dengan margin < ${threshold}%:\n`;
+
+  for (const s of servers) {
+    const emoji = s.marginPercent < 0 ? "🔻" : "⚠️";
+    text += `\n${emoji} <b>${s.serverName}</b>`;
+    if (s.provider !== "nadiavpn") text += ` (${s.provider})`;
+    text += `\n`;
+    text += `  💰 Revenue: ${formatRupiah(s.revenue)}\n`;
+    text += `  💸 Cost: ${formatRupiah(s.cost)}\n`;
+    text += `  📊 Profit: ${formatRupiah(s.profit)} (${s.marginPercent}%)\n`;
+    text += `  📦 Orders: ${s.orders}\n`;
+  }
+
+  text += `\n💡 <i>Pertimbangkan menaikkan harga jual atau review markup di admin panel.</i>`;
+
+  await sendMessage(adminChatId, text);
+}

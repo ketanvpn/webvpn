@@ -1,4 +1,4 @@
-import { pgTable, serial, text, boolean, numeric, integer, timestamp, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, boolean, numeric, integer, timestamp, jsonb, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -28,6 +28,7 @@ export const vpnAccountsTable = pgTable("vpn_accounts", {
   uniqueIndex("vpn_accounts_active_username_idx")
     .on(t.username)
     .where(sql`is_active = true`),
+  index("vpn_accounts_user_id_idx").on(t.userId),
 ]);
 
 export const insertVpnAccountSchema = createInsertSchema(vpnAccountsTable).omit({

@@ -1,4 +1,4 @@
-import { pgTable, serial, text, boolean, numeric, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, boolean, numeric, integer, timestamp, jsonb, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -37,7 +37,9 @@ export const dynamicProviderServersTable = pgTable("dynamic_provider_servers", {
   lastSyncedAt: timestamp("last_synced_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("dynamic_provider_servers_provider_sid_idx").on(t.provider, t.providerServerId),
+]);
 
 export const dynamicVpnOrdersTable = pgTable("dynamic_vpn_orders", {
   id: serial("id").primaryKey(),
@@ -63,7 +65,11 @@ export const dynamicVpnOrdersTable = pgTable("dynamic_vpn_orders", {
   expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("dynamic_vpn_orders_user_id_idx").on(t.userId),
+  index("dynamic_vpn_orders_vpn_account_id_idx").on(t.vpnAccountId),
+  index("dynamic_vpn_orders_status_idx").on(t.status),
+]);
 
 export const insertDynamicProviderServerSchema = createInsertSchema(dynamicProviderServersTable).omit({
   id: true,

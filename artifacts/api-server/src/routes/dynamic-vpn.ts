@@ -8,7 +8,7 @@ import {
   vouchersTable,
   vpnAccountsTable,
 } from "@workspace/db";
-import { and, asc, count, desc, eq, gt, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, lt, sql, sum } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { requireAdmin, requireAuth } from "../lib/auth";
 import { createNadiaVpnOrder, getNadiaVpnAccountDetails, getNadiaVpnServers } from "../lib/nadiavpn";
@@ -16,7 +16,7 @@ import { createPanelAccount, deletePanelAccount } from "../lib/vpn-panel";
 import { addBalanceLog } from "./balance-logs";
 import { getResellerSettings, getSettingValue } from "./settings";
 import { dynamicOrderLimiter } from "../lib/rate-limit";
-import { notifyAdminDynamicOrderFulfilled, notifyUserDynamicVpnAccountCreated } from "../lib/telegram";
+import { notifyAdminDynamicOrderFulfilled, notifyUserDynamicVpnAccountCreated, notifyAdminPriceChanged } from "../lib/telegram";
 import { logger } from "../lib/logger";
 import { logAdminAction } from "./admin-audit";
 import { getClientIp } from "../lib/request-ip";
@@ -554,6 +554,7 @@ async function syncNadiaVpnServersFromProvider() {
   const servers = response?.data?.servers ?? [];
   const now = new Date();
   const synced = [];
+  const priceChanges: { serverName: string; provider: string; costPerDayOld: number; costPerDayNew: number; costPerMonthOld: number; costPerMonthNew: number }[] = [];
 
   // Ambil default markup % dari admin settings
   const rawDefaultMarkup = await getSettingValue("dynamicDefaultMarkupPercent");
@@ -617,10 +618,33 @@ async function syncNadiaVpnServersFromProvider() {
       updatedAt: now,
     };
 
+    // Deteksi perubahan harga cost dari provider
+    if (existing) {
+      const oldCostDay = Number(existing.costPerDay ?? 0);
+      const oldCostMonth = Number(existing.costPerMonth ?? 0);
+      if (oldCostDay !== costDay || oldCostMonth !== costMonth) {
+        priceChanges.push({
+          serverName: existing.displayName ?? String(srv.name ?? providerServerId),
+          provider: "nadiavpn",
+          costPerDayOld: oldCostDay,
+          costPerDayNew: costDay,
+          costPerMonthOld: oldCostMonth,
+          costPerMonthNew: costMonth,
+        });
+      }
+    }
+
     const [row] = existing
       ? await db.update(dynamicProviderServersTable).set(values).where(eq(dynamicProviderServersTable.id, existing.id)).returning()
       : await db.insert(dynamicProviderServersTable).values({ provider: "nadiavpn", providerServerId, ...values }).returning();
     synced.push(formatServer(row, true));
+  }
+
+  // Kirim notifikasi Telegram jika ada perubahan harga
+  if (priceChanges.length > 0) {
+    notifyAdminPriceChanged(priceChanges).catch((err) =>
+      logger.error({ err }, "notifyAdminPriceChanged failed")
+    );
   }
 
   return synced;
@@ -959,6 +983,146 @@ router.get("/dynamic-vpn/orders", requireAuth, async (req, res) => {
   if (limit) q = q.limit(limit) as any;
   const rows = await q;
   res.json({ orders: rows.map((row) => ({ ...row, amount: Number(row.amount), providerResponse: undefined })) });
+});
+
+// ─── Admin: Profit Tracking per Server ────────────────────────────────────────
+
+router.get("/admin/stats/profit-tracking", requireAdmin, async (req, res) => {
+  try {
+    const monthParam = typeof req.query.month === "string" ? req.query.month : "";
+    const now = new Date();
+
+    // Parse period
+    let periodStart: Date;
+    let periodEnd: Date;
+    if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+      const [year, month] = monthParam.split("-").map(Number);
+      periodStart = new Date(year, month - 1, 1);
+      periodEnd = new Date(year, month, 1);
+    } else {
+      // Default: bulan ini
+      periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    }
+
+    // Ambil paid dynamic orders dalam period
+    const orders = await db
+      .select({
+        orderId: dynamicVpnOrdersTable.id,
+        dynamicServerId: dynamicVpnOrdersTable.dynamicServerId,
+        amount: dynamicVpnOrdersTable.amount,
+        durationType: dynamicVpnOrdersTable.durationType,
+        duration: dynamicVpnOrdersTable.duration,
+        serverDisplayName: dynamicVpnOrdersTable.serverDisplayName,
+        provider: dynamicVpnOrdersTable.provider,
+      })
+      .from(dynamicVpnOrdersTable)
+      .where(
+        and(
+          eq(dynamicVpnOrdersTable.status, "paid"),
+          gte(dynamicVpnOrdersTable.createdAt, periodStart),
+          lt(dynamicVpnOrdersTable.createdAt, periodEnd)
+        )
+      );
+
+    // Ambil semua servers untuk cost lookup
+    const allServers = await db.select().from(dynamicProviderServersTable);
+    const serverMap = new Map(allServers.map((s) => [s.id, s]));
+
+    // Aggregate per server
+    const serverStats = new Map<number, {
+      serverId: number;
+      serverName: string;
+      provider: string;
+      orders: number;
+      revenue: number;
+      cost: number;
+    }>();
+
+    let totalRevenue = 0;
+    let totalCost = 0;
+    let totalOrders = 0;
+
+    for (const order of orders) {
+      const revenue = Number(order.amount ?? 0);
+      const server = order.dynamicServerId ? serverMap.get(order.dynamicServerId) : null;
+
+      // Hitung cost berdasarkan durationType
+      let cost = 0;
+      if (server) {
+        if (order.durationType === "day") {
+          cost = Number(server.costPerDay ?? 0) * order.duration;
+        } else {
+          cost = Number(server.costPerMonth ?? 0) * order.duration;
+        }
+      }
+
+      totalRevenue += revenue;
+      totalCost += cost;
+      totalOrders++;
+
+      const key = order.dynamicServerId ?? 0;
+      const existing = serverStats.get(key);
+      if (existing) {
+        existing.orders++;
+        existing.revenue += revenue;
+        existing.cost += cost;
+      } else {
+        serverStats.set(key, {
+          serverId: key,
+          serverName: order.serverDisplayName ?? server?.displayName ?? "Unknown",
+          provider: order.provider ?? server?.provider ?? "unknown",
+          orders: 1,
+          revenue,
+          cost,
+        });
+      }
+    }
+
+    const totalProfit = totalRevenue - totalCost;
+    const marginPercent = totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 100) : 0;
+
+    // Format servers array, sorted by revenue desc
+    const servers = Array.from(serverStats.values())
+      .map((s) => {
+        const profit = s.revenue - s.cost;
+        const margin = s.revenue > 0 ? Math.round((profit / s.revenue) * 100) : 0;
+        const serverData = s.serverId ? serverMap.get(s.serverId) : null;
+        return {
+          serverId: s.serverId,
+          serverName: s.serverName,
+          provider: s.provider,
+          orders: s.orders,
+          revenue: s.revenue,
+          cost: s.cost,
+          profit,
+          marginPercent: margin,
+          costPerDay: Number(serverData?.costPerDay ?? 0),
+          costPerMonth: Number(serverData?.costPerMonth ?? 0),
+          sellPricePerDay: Number(serverData?.sellPricePerDay ?? 0),
+          sellPricePerMonth: Number(serverData?.sellPricePerMonth ?? 0),
+        };
+      })
+      .sort((a, b) => b.revenue - a.revenue);
+
+    res.json({
+      period: {
+        start: periodStart.toISOString(),
+        end: periodEnd.toISOString(),
+      },
+      summary: {
+        totalRevenue,
+        totalCost,
+        totalProfit,
+        marginPercent,
+        totalOrders,
+      },
+      servers,
+    });
+  } catch (err) {
+    logger.error({ err }, "[admin] profit-tracking failed");
+    sendError(res, 500, "Gagal menghitung profit tracking");
+  }
 });
 
 export default router;

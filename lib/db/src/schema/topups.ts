@@ -1,4 +1,4 @@
-import { pgTable, serial, text, numeric, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, numeric, integer, timestamp, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -15,7 +15,10 @@ export const topupsTable = pgTable("topup_transactions", {
   expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("topup_transactions_user_id_idx").on(t.userId),
+  index("topup_transactions_status_idx").on(t.status),
+]);
 
 export const insertTopupSchema = createInsertSchema(topupsTable).omit({
   id: true,
