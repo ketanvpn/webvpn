@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
 import { vpnAccountsTable, usersTable, settingsTable, ordersTable, serversTable, topupsTable, waVerificationsTable, dynamicVpnOrdersTable, dynamicProviderServersTable } from "@workspace/db";
-import { eq, and, lte, gte, lt, sql, sum, ne } from "drizzle-orm";
+import { eq, and, lte, gte, lt, sql, sum, ne, inArray } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendWhatsapp } from "./fonnte";
 import { sendMessage } from "./telegram";
@@ -296,9 +296,26 @@ async function cleanupGhostAccounts(): Promise<void> {
     // Cari akun yang expired lebih dari 7 hari lalu
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
+    // Cari ID akun yang akan dihapus
+    const toDelete = await db
+      .select({ id: vpnAccountsTable.id, username: vpnAccountsTable.username })
+      .from(vpnAccountsTable)
+      .where(lt(vpnAccountsTable.expiresAt, sevenDaysAgo));
+
+    if (toDelete.length === 0) return;
+
+    const ids = toDelete.map((r) => r.id);
+
+    // Nullify FK reference di dynamic_vpn_orders dulu agar tidak violate constraint
+    await db
+      .update(dynamicVpnOrdersTable)
+      .set({ vpnAccountId: null })
+      .where(inArray(dynamicVpnOrdersTable.vpnAccountId, ids));
+
+    // Baru hapus akun
     const result = await db
       .delete(vpnAccountsTable)
-      .where(lt(vpnAccountsTable.expiresAt, sevenDaysAgo))
+      .where(inArray(vpnAccountsTable.id, ids))
       .returning({ id: vpnAccountsTable.id, username: vpnAccountsTable.username });
 
     if (result.length > 0) {
