@@ -22,6 +22,8 @@ Platform penjualan VPN berbasis web lengkap — dashboard user, panel admin, ver
 **Untuk Admin:**
 - Dashboard statistik lengkap (revenue harian/bulanan, pengguna, order, topup) dengan grafik
 - Kelola pengguna, produk, server, order, topup, akun VPN
+- **Dynamic VPN (NadiaVPN + Local Panel)** — sync otomatis server provider, pricing auto-markup, order langsung tanpa stok manual
+- **Profit Tracking** — API endpoint hitung profit per server per bulan, alert Telegram jika margin < 10%
 - **Aksi Massal (Bulk Actions)** — pilih banyak akun/user sekaligus untuk diproses sekaligus
 - **Ekspor Laporan** — ekspor data order dan topup ke format CSV
 - **Live Server Monitor** — pantau penggunaan CPU, RAM, dan disk setiap server VPN secara real-time
@@ -34,6 +36,7 @@ Platform penjualan VPN berbasis web lengkap — dashboard user, panel admin, ver
 - **Program Referral** — aktifkan/nonaktifkan, atur nominal bonus referral
 - **Program Reseller** — atur diskon harga beli, target penjualan bulanan, banner promosi di panel user, auto-upgrade reseller via topup otomatis
 - Notifikasi kedaluwarsa VPN otomatis (WhatsApp + Telegram, jam kirim bisa diatur)
+- **Notifikasi Harga Provider Berubah** — alert Telegram otomatis saat harga cost NadiaVPN berubah saat sync
 - Broadcast pesan ke semua pengguna yang sudah sambungkan Telegram
 - Backup & restore database otomatis via Telegram
 
@@ -407,6 +410,13 @@ Webhook guard enabled (production mode)
 Server listening port: 5000
 Default admin created — username: admin, password: admin123
 Scheduler notifikasi kedaluwarsa aktif (cek setiap jam)
+Scheduler auto-cancel QRIS expired aktif (interval: 5 menit)
+Scheduler auto-disable server penuh aktif (interval: 5 menit)
+Scheduler auto-cleanup akun hantu aktif (cek setiap 3 jam)
+Scheduler cleanup wa_verifications expired aktif (cek setiap 6 jam)
+Scheduler low margin alert aktif (cek setiap jam, kirim jam 08.00 WIB)
+Scheduler proactive alerts aktif (interval: 15 menit)
+Scheduler laporan harian aktif (cek setiap jam, kirim jam 08.00 WIB)
 Scheduler auto-backup aktif (cek setiap jam)
 ```
 
@@ -716,8 +726,17 @@ pm2 logs ketantech-api
 pm2 restart ketantech-api
 
 # Update aplikasi dari GitHub (command lengkap — wajib urut seperti ini)
-cd /var/www/ketantech-vpn && git pull origin main && pnpm install && DATABASE_URL="postgresql://ketantech:PASSWORD_KAMU@localhost:5432/ketantech_db" pnpm --filter @workspace/db run push && pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/vpn-web run build && pm2 restart ketantech-api
+cd /var/www/ketantech-vpn && \
+git pull origin main && \
+pnpm install && \
+set -a && source .env && set +a && \
+pnpm --filter @workspace/db run push && \
+pnpm --filter @workspace/api-server run build && \
+pnpm --filter @workspace/vpn-web run build && \
+pm2 restart 0 --update-env
 ```
+
+> **Catatan:** Script di atas menggunakan `source .env` untuk memuat `DATABASE_URL` dari file `.env`. Pastikan file `.env` sudah ada dan berisi `DATABASE_URL` yang benar.
 
 ---
 
@@ -829,15 +848,38 @@ cd /var/www/ketantech-vpn && git pull origin main && pnpm install && DATABASE_UR
 ketantech-vpn/
 ├── artifacts/
 │   ├── api-server/       → Backend API (Express + Node.js)
+│   │   └── src/
+│   │       ├── routes/   → API endpoints (admin, orders, dynamic-vpn, dll.)
+│   │       ├── lib/      → Utilitas (telegram, scheduler, backup, dll.)
+│   │       └── middlewares/ → Auth guards, webhook guard
 │   └── vpn-web/          → Frontend website (React + Vite)
 │       └── dist/public/  → Hasil build frontend (diserve Nginx)
 ├── lib/
 │   ├── db/               → Skema database (Drizzle ORM)
+│   │   └── src/schema/   → Definisi tabel & index
 │   ├── api-spec/         → Definisi API (OpenAPI)
 │   └── api-client-react/ → Hooks React untuk API
 ├── ecosystem.config.cjs  → Konfigurasi PM2
 └── .env                  → Variabel konfigurasi (jangan di-upload ke GitHub!)
 ```
+
+## Scheduler Otomatis
+
+Aplikasi menjalankan beberapa task terjadwal secara otomatis:
+
+| Task | Interval | Fungsi |
+|------|----------|--------|
+| Notifikasi kedaluwarsa VPN | Setiap jam (kirim sesuai jam WIB) | Kirim WA + Telegram H-3 dan H-1 |
+| Auto-cancel QRIS expired | 5 menit | Batalkan order QRIS yang belum dibayar |
+| Auto-cancel topup manual | 1 jam | Batalkan topup pending >24 jam |
+| Auto-disable server penuh | 5 menit | Nonaktifkan server jika kapasitas penuh |
+| Cleanup akun VPN hantu | 3 jam | Hapus akun expired >7 hari |
+| Cleanup wa_verifications | 6 jam | Hapus record verifikasi WA expired >1 hari |
+| Laporan harian | Jam 08.00 WIB | Ringkasan revenue, user baru, akun expired |
+| Low margin alert | Jam 08.00 WIB | Alert jika margin server <10% |
+| Proactive alerts | 15 menit | Monitor RAM, CPU, disk, Fonnte, VPN panel |
+| Cek target reseller | 1 jam (tanggal 1) | Downgrade reseller di bawah target |
+| Auto-backup database | 1 jam | Backup otomatis ke Telegram |
 
 ---
 
