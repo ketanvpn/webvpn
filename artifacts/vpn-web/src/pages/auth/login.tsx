@@ -109,6 +109,8 @@ export default function Login() {
 
     // Callback setelah script loaded — render widget manual
     (window as any).onTurnstileLoad = () => {
+      if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+      setTurnstileStatus("ready");
       const el = document.getElementById("turnstile-container");
       if (el && window.turnstile && siteKey) {
         el.innerHTML = "";
