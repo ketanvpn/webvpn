@@ -353,3 +353,32 @@ Fitur-fitur baru untuk meningkatkan kualitas produk, akuisisi user, dan keamanan
 | ~~⑤~~ | ~~**C2. Alert Harga Berubah**~~ | ~~0.5 sesi~~ | ✅ Selesai |
 | ~~⑥~~ | ~~**C3. Cleanup wa_verifications**~~ | ~~0.5 sesi~~ | ✅ Selesai |
 | ~~⑦~~ | ~~**C1. Profit Tracking**~~ | ~~1-2 sesi~~ | ✅ Selesai |
+
+---
+
+## 🔍 Audit Bot Telegram (7 Juli 2026)
+
+> Hasil audit menyeluruh terhadap bot Telegram (notifikasi + admin + Bot VPN API).
+> File yang sudah di-restore ke state clean, belum ada edit yang di-commit.
+
+### ✅ Yang Sudah Selesai
+- [x] **Fix cleanupGhostAccounts FK constraint** — nullify `dynamic_vpn_orders.vpnAccountId` sebelum delete `vpn_accounts` (commit `866cfd9`)
+- [x] **Update README.md** — fitur baru, scheduler table, deploy script, struktur folder (commit `e78488d`)
+
+### 🔧 Pending: 3 Fix Minor Bot Telegram
+
+> Semua file sudah di-restore ke state clean. Edit belum di-apply.
+
+- [ ] **Fix #1: `console.error` → `logger.error`** (Low)
+  - `telegram-bot.ts` line 141: `console.error("[telegram-webhook] error:", err)` → `logger.error({ err }, "...")`
+  - `telegram-admin.ts` line 578: `console.error(...)` → `logger.error({ err: e, accountUsername: account.username }, "...")`
+  
+- [ ] **Fix #2: `handleRejectTopup` atomic** (Low)
+  - `telegram-bot.ts` line 680-689
+  - Ganti check `if (topup.status !== "pending")` + separate update → pakai atomic `WHERE status = 'pending'` + `.returning()` (sama pattern dengan `handleConfirmTopup`)
+  - Mencegah overwrite `confirmed → rejected` saat admin double-click
+
+- [ ] **Fix #3: Link token expire 30 menit** (Low)
+  - `telegram-bot.ts` line 475-496 (`handleLinkToken`)
+  - Tambah `updatedAt` ke select, cek jika `>30 menit` → tolak + clear token
+  - Token saat ini valid selamanya — risiko rendah tapi best practice untuk expire

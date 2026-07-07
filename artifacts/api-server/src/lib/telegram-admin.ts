@@ -575,7 +575,7 @@ export async function handleExtendServer(chatId: number, serverId: number, days:
 
       successCount++;
     } catch (e) {
-      console.error(`Gagal extend akun ${account.username}:`, e);
+      logger.error({ err: e, accountUsername: account.username }, "Gagal extend akun");
       failedCount++;
       failedUsers.push(account.username);
     }

@@ -138,7 +138,7 @@ router.post("/telegram/webhook", async (req, res) => {
       await handleMessage(update.message);
     }
   } catch (err) {
-    console.error("[telegram-webhook] error:", err);
+    logger.error({ err }, "[telegram-webhook] error processing update");
   }
 });
 
@@ -474,13 +474,21 @@ async function handleReplyTicket(ticketId: number, replyText: string, chatId: nu
 
 async function handleLinkToken(token: string, telegramId: number, chatId: number) {
   const [user] = await db
-    .select({ id: usersTable.id, username: usersTable.username })
+    .select({ id: usersTable.id, username: usersTable.username, updatedAt: usersTable.updatedAt })
     .from(usersTable)
     .where(eq(usersTable.telegramLinkToken, token))
     .limit(1);
 
   if (!user) {
     await sendMessage(chatId, "❌ Link tidak valid atau sudah kedaluwarsa. Minta link baru dari halaman profil.");
+    return;
+  }
+
+  // Token expire setelah 30 menit sejak dibuat (updatedAt diset saat generate token)
+  const TOKEN_TTL_MS = 30 * 60 * 1000;
+  if (user.updatedAt && Date.now() - new Date(user.updatedAt).getTime() > TOKEN_TTL_MS) {
+    await db.update(usersTable).set({ telegramLinkToken: null }).where(eq(usersTable.id, user.id));
+    await sendMessage(chatId, "❌ Link sudah kedaluwarsa (>30 menit). Minta link baru dari halaman profil.");
     return;
   }
 
@@ -677,16 +685,18 @@ async function handleRejectTopup(
     return;
   }
 
-  if (topup.status !== "pending") {
-    await answerCallbackQuery(callbackId, `ℹ️ Topup sudah ${topup.status}.`);
+  // Atomic: update HANYA jika masih pending (mencegah overwrite confirmed → rejected saat double-click)
+  const [rejected] = await db
+    .update(topupsTable)
+    .set({ status: "rejected", updatedAt: new Date() })
+    .where(and(eq(topupsTable.id, topupId), eq(topupsTable.status, "pending")))
+    .returning();
+
+  if (!rejected) {
+    await answerCallbackQuery(callbackId, "ℹ️ Topup sudah diproses.");
     await editMessageReplyMarkup(chatId, messageId, null);
     return;
   }
-
-  await db
-    .update(topupsTable)
-    .set({ status: "rejected", updatedAt: new Date() })
-    .where(eq(topupsTable.id, topupId));
 
   const [user] = await db
     .select({ telegramId: usersTable.telegramId, username: usersTable.username })
