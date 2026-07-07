@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect, useState } from "react";
-import { Eye, EyeOff, Shield } from "lucide-react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { Eye, EyeOff, Shield, AlertTriangle, RefreshCw } from "lucide-react";
 
 const loginSchema = z.object({
   username: z.string().min(3, "Username minimal 3 karakter"),
@@ -30,6 +30,7 @@ declare global {
     onTurnstileExpired?: () => void;
     turnstile?: {
       reset: (container?: string | HTMLElement) => void;
+      render: (container: string | HTMLElement, options: Record<string, unknown>) => string;
     };
   }
 }
@@ -40,6 +41,11 @@ export default function Login() {
   const login = useLogin();
   const [showPassword, setShowPassword] = useState(false);
   const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
+
+  // Turnstile load state
+  const [turnstileStatus, setTurnstileStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [retryCount, setRetryCount] = useState(0);
+  const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -59,31 +65,80 @@ export default function Login() {
     }
   };
 
-  useEffect(() => {
+  const loadTurnstileScript = useCallback(() => {
     if (!siteKey) return;
 
+    setTurnstileStatus("loading");
+
+    // Hapus script lama jika ada (untuk retry)
+    const oldScript = document.querySelector('script[data-turnstile="true"]');
+    if (oldScript) oldScript.remove();
+
+    // Hapus widget container lama
+    const container = document.getElementById("turnstile-container");
+    if (container) container.innerHTML = "";
+
+    // Clear timeout lama
+    if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+
+    // Timeout 10 detik — jika Turnstile belum render, anggap gagal
+    loadTimeoutRef.current = setTimeout(() => {
+      setTurnstileStatus((prev) => (prev === "ready" ? prev : "error"));
+    }, 10000);
+
     window.onTurnstileSuccess = (token: string) => {
+      if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
       form.setValue("turnstileToken", token, { shouldValidate: true });
+      setTurnstileStatus("ready");
     };
     window.onTurnstileExpired = () => {
       form.setValue("turnstileToken", "", { shouldValidate: true });
     };
 
-    const existing = document.querySelector('script[data-turnstile="true"]');
-    if (!existing) {
-      const script = document.createElement("script");
-      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
-      script.async = true;
-      script.defer = true;
-      script.setAttribute("data-turnstile", "true");
-      document.head.appendChild(script);
-    }
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad";
+    script.async = true;
+    script.defer = true;
+    script.setAttribute("data-turnstile", "true");
+
+    // Tangkap error saat script gagal load (network block, adblock)
+    script.onerror = () => {
+      if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+      setTurnstileStatus("error");
+    };
+
+    // Callback setelah script loaded — render widget manual
+    (window as any).onTurnstileLoad = () => {
+      const el = document.getElementById("turnstile-container");
+      if (el && window.turnstile && siteKey) {
+        el.innerHTML = "";
+        window.turnstile.render(el, {
+          sitekey: siteKey,
+          callback: "onTurnstileSuccess",
+          "expired-callback": "onTurnstileExpired",
+        });
+      }
+    };
+
+    document.head.appendChild(script);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [siteKey]);
+
+  useEffect(() => {
+    loadTurnstileScript();
 
     return () => {
+      if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
       window.onTurnstileSuccess = undefined;
       window.onTurnstileExpired = undefined;
+      (window as any).onTurnstileLoad = undefined;
     };
-  }, [form, siteKey]);
+  }, [retryCount, loadTurnstileScript]);
+
+  const handleRetryTurnstile = () => {
+    form.setValue("turnstileToken", "", { shouldValidate: true });
+    setRetryCount((c) => c + 1);
+  };
 
   function onSubmit(values: z.infer<typeof loginSchema>) {
     if (siteKey && !values.turnstileToken) {
@@ -201,21 +256,51 @@ export default function Login() {
             <Button
               type="submit"
               className="w-full h-11 text-base"
-              disabled={login.isPending}
+              disabled={login.isPending || (!!siteKey && !form.watch("turnstileToken"))}
             >
               {login.isPending ? "Memproses..." : "Masuk"}
             </Button>
             {siteKey ? (
               <div className="pt-2">
-                <div
-                  className="cf-turnstile"
-                  data-sitekey={siteKey}
-                  data-callback="onTurnstileSuccess"
-                  data-expired-callback="onTurnstileExpired"
-                />
-                {!form.watch("turnstileToken") ? (
-                  <p className="text-xs text-muted-foreground mt-2">Selesaikan verifikasi keamanan sebelum login.</p>
-                ) : null}
+                {turnstileStatus === "error" ? (
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 space-y-3">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-destructive">Verifikasi keamanan gagal dimuat</p>
+                        <p className="text-xs text-muted-foreground">
+                          Cek hal berikut:
+                        </p>
+                        <ul className="text-xs text-muted-foreground list-disc ml-4 space-y-0.5">
+                          <li>Matikan <b>Adblock</b> atau <b>Brave Shield</b></li>
+                          <li>Pastikan koneksi internet stabil</li>
+                          <li>Coba browser lain (Chrome/Firefox)</li>
+                          <li>Coba gunakan jaringan WiFi/data lain</li>
+                        </ul>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={handleRetryTurnstile}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Coba Muat Ulang
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div id="turnstile-container" />
+                    {turnstileStatus === "loading" && (
+                      <p className="text-xs text-muted-foreground mt-2 animate-pulse">Memuat verifikasi keamanan...</p>
+                    )}
+                    {turnstileStatus === "ready" && !form.watch("turnstileToken") && (
+                      <p className="text-xs text-muted-foreground mt-2">Selesaikan verifikasi keamanan sebelum login.</p>
+                    )}
+                  </>
+                )}
               </div>
             ) : null}
           </form>
