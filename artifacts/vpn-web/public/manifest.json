@@ -3,13 +3,16 @@
   "short_name": "KETANTECH",
   "description": "Layanan VPN Premium dengan kecepatan tinggi dan keamanan ekstra.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#050505",
   "theme_color": "#050505",
+  "categories": ["utilities", "productivity"],
   "icons": [
     {
       "src": "/favicon.svg",
-      "sizes": "192x192 512x512",
+      "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }
