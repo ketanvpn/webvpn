@@ -829,6 +829,16 @@ router.patch("/admin/dynamic-vpn/servers/:id", requireAdmin, async (req, res) =>
   res.json(formatServer(row, true));
 });
 
+// Public endpoint (no auth) — untuk landing page
+router.get("/dynamic-vpn/public-servers", async (_req, res) => {
+  const rows = await db
+    .select()
+    .from(dynamicProviderServersTable)
+    .where(and(eq(dynamicProviderServersTable.isActive, true), eq(dynamicProviderServersTable.capacityIsFull, false)))
+    .orderBy(asc(dynamicProviderServersTable.sortOrder), asc(dynamicProviderServersTable.id));
+  res.json({ servers: rows.map((row) => formatServer(row, false)) });
+});
+
 router.get("/dynamic-vpn/servers", requireAuth, async (_req, res) => {
   try {
     await syncNadiaVpnServersFromProvider();
