@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/use-auth";
 import { Layout } from "@/components/layout";
+import { PwaInstallBanner } from "@/components/pwa-install-banner";
 
 // Pages
 import NotFound from "@/pages/not-found";
@@ -215,6 +216,7 @@ function App() {
           <TooltipProvider>
             <Router />
             <Toaster />
+            <PwaInstallBanner />
           </TooltipProvider>
         </AuthProvider>
       </WouterRouter>
