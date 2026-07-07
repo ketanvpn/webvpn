@@ -149,7 +149,7 @@ export default function Home() {
               </Button>
             ) : (
               <>
-                <Button variant="ghost" size="sm" className="hidden sm:inline-flex hover:bg-white/5" asChild>
+                <Button variant="ghost" size="sm" className="hover:bg-white/5" asChild>
                   <Link href="/login">Masuk</Link>
                 </Button>
                 <Button size="sm" className="shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:shadow-[0_0_25px_rgba(16,185,129,0.4)] transition-all" asChild>
