@@ -242,12 +242,34 @@ export default function Register() {
     }, 600);
   }
 
-  function onVerifyOtp() {
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+
+  async function onVerifyOtp() {
     if (otp.length < 6) {
       toast({ title: "Masukkan 6 digit OTP", variant: "destructive" });
       return;
     }
-    setStep("account");
+    setIsVerifyingOtp(true);
+    try {
+      const resp = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ whatsapp, otpCode: otp }),
+        credentials: "include",
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        toast({ title: "Verifikasi gagal", description: data.error ?? "Kode OTP salah", variant: "destructive" });
+        setOtpInputs(["", "", "", "", "", ""]);
+        setTimeout(() => otpRefs.current[0]?.focus(), 100);
+        return;
+      }
+      setStep("account");
+    } catch {
+      toast({ title: "Gagal", description: "Tidak dapat terhubung ke server", variant: "destructive" });
+    } finally {
+      setIsVerifyingOtp(false);
+    }
   }
 
   function handleAccountSubmit(values: z.infer<typeof accountSchema>) {
@@ -490,9 +512,9 @@ export default function Register() {
             <Button
               className="w-full h-11"
               onClick={onVerifyOtp}
-              disabled={otp.length < 6}
+              disabled={otp.length < 6 || isVerifyingOtp}
             >
-              Verifikasi OTP
+              {isVerifyingOtp ? "Memverifikasi..." : "Verifikasi OTP"}
             </Button>
 
             <div className="flex items-center justify-between text-sm">

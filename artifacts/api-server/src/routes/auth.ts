@@ -207,6 +207,28 @@ router.post("/auth/send-otp", otpLimiter, async (req, res) => {
   });
 });
 
+// ─── Verify OTP (for step-by-step registration) ───────────────────────────────
+
+router.post("/auth/verify-otp", otpLimiter, async (req, res) => {
+  const { whatsapp, otpCode } = req.body ?? {};
+  if (!whatsapp || typeof whatsapp !== "string") {
+    res.status(400).json({ error: "Nomor WhatsApp wajib diisi" });
+    return;
+  }
+  if (!otpCode || typeof otpCode !== "string") {
+    res.status(400).json({ error: "Kode OTP wajib diisi" });
+    return;
+  }
+
+  const otpResult = await verifyOtp(whatsapp, otpCode, "register");
+  if (!otpResult.valid) {
+    res.status(400).json({ error: otpResult.reason ?? "Kode OTP tidak valid" });
+    return;
+  }
+
+  res.json({ success: true, message: "OTP terverifikasi" });
+});
+
 router.post("/auth/register", registerLimiter, async (req, res) => {
   const parsed = RegisterBody.safeParse(req.body);
   if (!parsed.success) {
