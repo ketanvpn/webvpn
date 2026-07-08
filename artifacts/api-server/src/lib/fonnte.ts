@@ -286,6 +286,56 @@ export async function verifyOtp(
   return { valid: true };
 }
 
+/**
+ * Cek OTP valid tanpa mark used = true.
+ * Dipakai oleh endpoint /auth/verify-otp untuk pre-verification di step OTP.
+ * OTP tetap bisa dipakai di /auth/register yang memanggil verifyOtp() (full verify).
+ */
+export async function verifyOtpOnly(
+  rawPhone: string,
+  code: string,
+  purpose: "register" | "reset" = "register"
+): Promise<{
+  valid: boolean;
+  reason?: string;
+}> {
+  const whatsapp = normalizeWhatsapp(rawPhone);
+  const now = new Date();
+
+  const [row] = await db
+    .select()
+    .from(otpTable)
+    .where(
+      and(
+        eq(otpTable.whatsapp, whatsapp),
+        eq(otpTable.purpose, purpose),
+        eq(otpTable.used, false),
+        gt(otpTable.expiresAt, now)
+      )
+    )
+    .limit(1);
+
+  if (!row) {
+    return { valid: false, reason: "Kode OTP tidak ditemukan atau sudah kedaluwarsa" };
+  }
+
+  if (row.attempts >= 5) {
+    return { valid: false, reason: "Terlalu banyak percobaan. Minta OTP baru." };
+  }
+
+  if (row.code !== code) {
+    // Increment attempts untuk anti brute-force, tapi JANGAN mark used
+    await db
+      .update(otpTable)
+      .set({ attempts: row.attempts + 1 })
+      .where(eq(otpTable.id, row.id));
+    return { valid: false, reason: "Kode OTP salah" };
+  }
+
+  // Valid, tapi tidak mark used — biarkan /auth/register yang lakukan itu
+  return { valid: true };
+}
+
 // ─── Send generic WhatsApp message ────────────────────────────────────────────
 
 export async function sendWhatsapp(rawPhone: string, message: string): Promise<boolean> {

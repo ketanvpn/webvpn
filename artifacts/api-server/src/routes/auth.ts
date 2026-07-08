@@ -7,7 +7,7 @@ import { signToken, requireAuth } from "../lib/auth";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
 import { randomBytes } from "crypto";
 import { getSettingValue } from "./settings";
-import { sendOtp, verifyOtp, normalizeWhatsapp } from "../lib/fonnte";
+import { sendOtp, verifyOtp, verifyOtpOnly, normalizeWhatsapp } from "../lib/fonnte";
 import { notifyAdminNewUser } from "../lib/telegram";
 import rateLimit from "express-rate-limit";
 import { getClientIp } from "../lib/request-ip";
@@ -220,7 +220,7 @@ router.post("/auth/verify-otp", otpLimiter, async (req, res) => {
     return;
   }
 
-  const otpResult = await verifyOtp(whatsapp, otpCode, "register");
+  const otpResult = await verifyOtpOnly(whatsapp, otpCode, "register");
   if (!otpResult.valid) {
     res.status(400).json({ error: otpResult.reason ?? "Kode OTP tidak valid" });
     return;
