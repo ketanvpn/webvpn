@@ -8,18 +8,23 @@ import {
   vpnAccountsTable,
   topupsTable,
   adminAuditLogsTable,
+  balanceLogsTable,
+  dynamicVpnOrdersTable,
+  ticketsTable,
+  ticketMessagesTable,
+  pointLogsTable,
 } from "@workspace/db";
 import { eq, and, or, ilike, like, desc, asc, sql, inArray } from "drizzle-orm";
-import { randomUUID, randomBytes } from "crypto";
+import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { requireAdmin } from "../lib/auth";
 import { formatProduct, getActiveCountMap } from "./products";
-import { formatOrder } from "./orders";
+import { formatOrder, fulfillOrder } from "./orders";
 import { formatAccount } from "./accounts";
 import { formatTopup } from "./balance";
 import { formatFullServer } from "./servers";
-import { createPanelAccount, createTrialPanelAccount, sanitizeVpnUsername, renewPanelAccount, deletePanelAccount, checkPanelHealth, syncPanelAccount, lockPanelAccount, unlockPanelAccount } from "../lib/vpn-panel";
-import { notifyUserTopupConfirmed, notifyUserTopupRejected, notifyUserVpnAccountCreated, notifyAdminOrderFulfilled } from "../lib/telegram";
+import { renewPanelAccount, deletePanelAccount, checkPanelHealth, syncPanelAccount, lockPanelAccount, unlockPanelAccount } from "../lib/vpn-panel";
+import { notifyUserTopupConfirmed, notifyUserTopupRejected } from "../lib/telegram";
 import { addBalanceLog } from "./balance-logs";
 import { logAdminAction } from "./admin-audit";
 import { getClientIp } from "../lib/request-ip";
@@ -424,7 +429,7 @@ router.delete("/admin/users/:id", requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const currentUser = (req as any).user;
 
-  if (currentUser?.id === id) {
+  if (currentUser?.userId === id) {
     res.status(400).json({ error: "Tidak bisa menghapus akun sendiri" });
     return;
   }
@@ -440,10 +445,45 @@ router.delete("/admin/users/:id", requireAdmin, async (req, res) => {
     return;
   }
 
-  await db.delete(vpnAccountsTable).where(eq(vpnAccountsTable.userId, id));
-  await db.delete(ordersTable).where(eq(ordersTable.userId, id));
-  await db.delete(topupsTable).where(eq(topupsTable.userId, id));
-  await db.delete(usersTable).where(eq(usersTable.id, id));
+  const countRows = async (table: any, column: any) => {
+    const [row] = await db.select({ count: sql<number>`count(*)::int` }).from(table).where(eq(column, id));
+    return Number(row?.count ?? 0);
+  };
+
+  const [vpnCount, orderCount, topupCount, dynamicOrderCount, ticketCount, ticketMessageCount, pointLogCount, balanceLogCount] = await Promise.all([
+    countRows(vpnAccountsTable, vpnAccountsTable.userId),
+    countRows(ordersTable, ordersTable.userId),
+    countRows(topupsTable, topupsTable.userId),
+    countRows(dynamicVpnOrdersTable, dynamicVpnOrdersTable.userId),
+    countRows(ticketsTable, ticketsTable.userId),
+    countRows(ticketMessagesTable, ticketMessagesTable.userId),
+    countRows(pointLogsTable, pointLogsTable.userId),
+    countRows(balanceLogsTable, balanceLogsTable.userId),
+  ]);
+
+  const relationSummary = {
+    vpnAccounts: vpnCount,
+    orders: orderCount,
+    topups: topupCount,
+    dynamicOrders: dynamicOrderCount,
+    tickets: ticketCount,
+    ticketMessages: ticketMessageCount,
+    pointLogs: pointLogCount,
+    balanceLogs: balanceLogCount,
+  };
+
+  const hasRelatedData = Object.values(relationSummary).some((count) => count > 0);
+  if (hasRelatedData) {
+    res.status(409).json({
+      error: "User memiliki riwayat transaksi/akun/tiket. Demi keamanan data, gunakan suspend/nonaktifkan akun daripada hapus permanen.",
+      relations: relationSummary,
+    });
+    return;
+  }
+
+  await db.transaction(async (tx: any) => {
+    await tx.delete(usersTable).where(eq(usersTable.id, id));
+  });
 
   // Catat aksi admin
   const adminId = (req as any).user?.userId || (req as any).user?.id || 0;
@@ -976,154 +1016,59 @@ router.post("/admin/orders/:id/confirm", requireAdmin, async (req, res) => {
     return;
   }
 
-  // Provision VPN account if not already linked
-  let vpnAccountId = order.vpnAccountId;
+  if (!['pending', 'processing'].includes(order.status)) {
+    res.status(400).json({ error: `Order tidak bisa dikonfirmasi (status saat ini: ${order.status})` });
+    return;
+  }
 
-  if (!vpnAccountId) {
-    const [product] = await db
-      .select()
-      .from(productsTable)
-      .where(eq(productsTable.id, order.productId))
-      .limit(1);
+  if (order.vpnAccountId) {
+    const [updated] = await db
+      .update(ordersTable)
+      .set({ status: "paid", updatedAt: new Date() })
+      .where(and(eq(ordersTable.id, id), eq(ordersTable.status, order.status)))
+      .returning();
 
-    const [user] = await db
-      .select()
-      .from(usersTable)
-      .where(eq(usersTable.id, order.userId))
-      .limit(1);
+    res.json(await formatOrder(updated ?? order));
+    return;
+  }
 
-    const allServers = await db
-      .select()
-      .from(serversTable)
-      .where(eq(serversTable.isActive, true));
+  if (order.status === "processing") {
+    res.status(409).json({ error: "Order sedang diproses. Tunggu proses sebelumnya selesai atau cek status order terlebih dahulu." });
+    return;
+  }
 
-    const supportsProtocol = (s: typeof allServers[0]) =>
-      product
-        ? Array.isArray(s.supportedProtocols) && s.supportedProtocols.includes(product.protocol)
-        : false;
+  if (order.status === "pending") {
+    const [locked] = await db
+      .update(ordersTable)
+      .set({ status: "processing", updatedAt: new Date() })
+      .where(and(eq(ordersTable.id, id), eq(ordersTable.status, "pending")))
+      .returning();
 
-    const server =
-      allServers.find((s: any) => supportsProtocol(s) && s.apiUrl && s.apiToken) ??
-      allServers.find(supportsProtocol) ??
-      allServers[0];
-
-    if (!product || !user || !server) {
-      res.status(400).json({ error: "Data order tidak lengkap untuk provisioning akun VPN" });
+    if (!locked) {
+      const [latest] = await db.select().from(ordersTable).where(eq(ordersTable.id, id)).limit(1);
+      res.status(409).json({ error: `Order sedang/sudah diproses (status saat ini: ${latest?.status ?? "unknown"})` });
       return;
-    }
-
-    if (product && user && server) {
-      const isTrial = product.durationDays === 0;
-      const durationMs = isTrial
-        ? 1 * 60 * 60 * 1000 // 1 jam
-        : product.durationDays * 24 * 60 * 60 * 1000;
-      const expiresAt = new Date(Date.now() + durationMs);
-      const rawUsername = sanitizeVpnUsername(order.notes ?? user.username);
-      const vpnPassword = randomUUID().replace(/-/g, "").slice(0, 12);
-      const vpnUuid = randomUUID();
-
-      let finalUsername = rawUsername;
-      let finalPassword: string | null = vpnPassword;
-      let finalUuid: string | null = vpnUuid;
-      let configLink: string | null = null;
-      let allLinks: Record<string, string | null> | null = null;
-
-      if (server.apiUrl && server.apiToken) {
-        let panelResult: any;
-        try {
-          if (isTrial) {
-            panelResult = await createTrialPanelAccount({
-              apiUrl: server.apiUrl,
-              apiToken: server.apiToken,
-              protocol: product.protocol,
-              timelimit: "60m", // 1 jam = 60 menit
-            });
-          } else {
-            panelResult = await createPanelAccount({
-              apiUrl: server.apiUrl,
-              apiToken: server.apiToken,
-              protocol: product.protocol,
-              username: rawUsername,
-              password: vpnPassword,
-              durationDays: product.durationDays,
-              quota: product.quota ? Number(product.quota) : null,
-              maxConnections: product.maxConnections ?? null,
-              uuid: vpnUuid,
-            });
-          }
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          console.error(`[admin/confirm] Panel API error: ${msg}`);
-          res.status(502).json({ error: `Gagal provisioning akun di server VPS: ${msg}` });
-          return;
-        }
-
-        if (!panelResult) {
-          res.status(502).json({ error: "Gagal provisioning akun di server VPS" });
-          return;
-        }
-
-        finalUsername = panelResult.username;
-        finalPassword = panelResult.password ?? vpnPassword;
-        finalUuid = panelResult.uuid ?? vpnUuid;
-        configLink = panelResult.configLink ?? null;
-        if (panelResult.allLinks) {
-          const links: Record<string, string | null> = {};
-          for (const [k, v] of Object.entries(panelResult.allLinks)) {
-            links[k] = typeof v === "string" ? v : null;
-          }
-          allLinks = links;
-        }
-      }
-
-      const [vpnAccount] = await db
-        .insert(vpnAccountsTable)
-        .values({
-          userId: user.id,
-          orderId: order.id,
-          protocol: product.protocol,
-          username: finalUsername,
-          password: finalPassword,
-          uuid: finalUuid,
-          serverId: server.id,
-          configLink,
-          allLinks,
-          expiresAt,
-          quota: product.quota ?? null,
-        })
-        .returning();
-
-      vpnAccountId = vpnAccount.id;
-
-      // Kirim notifikasi ke user & admin setelah akun terbuat
-      notifyUserVpnAccountCreated({
-        userId: user.id,
-        orderId: order.id,
-        productName: product.name,
-        protocol: product.protocol,
-        username: finalUsername,
-        password: finalPassword,
-        configLink,
-        serverName: server.name,
-        expiresAt,
-      }).catch(() => {});
-
-      notifyAdminOrderFulfilled({
-        orderId: order.id,
-        username: user.username,
-        productName: product.name,
-        protocol: product.protocol,
-        amount: Number(order.amount),
-        paymentMethod: order.paymentMethod ?? "balance",
-      }).catch(() => {});
     }
   }
 
-  const [updated] = await db
-    .update(ordersTable)
-    .set({ status: "paid", vpnAccountId: vpnAccountId ?? order.vpnAccountId, updatedAt: new Date() })
-    .where(eq(ordersTable.id, id))
-    .returning();
+  try {
+    await fulfillOrder(id, { deductBalance: false });
+  } catch (err) {
+    await db
+      .update(ordersTable)
+      .set({ status: "pending", updatedAt: new Date() })
+      .where(and(eq(ordersTable.id, id), eq(ordersTable.status, "processing")));
+
+    const message = err instanceof Error ? err.message : "Gagal konfirmasi order";
+    res.status(message.includes("Panel") || message.includes("server") || message.includes("provision") ? 502 : 400).json({ error: message });
+    return;
+  }
+
+  const [updated] = await db.select().from(ordersTable).where(eq(ordersTable.id, id)).limit(1);
+  if (!updated) {
+    res.status(500).json({ error: "Order berhasil diproses tetapi data order tidak ditemukan" });
+    return;
+  }
 
   // Audit log
   const adminIdOrderConfirm = req.user!.userId;
@@ -1184,47 +1129,62 @@ router.post("/admin/topups/:id/confirm", requireAdmin, async (req, res) => {
     return;
   }
 
-  // Atomic: update status HANYA jika masih pending.
-  // Ini mencegah double-credit jika admin double-click atau webhook masuk bersamaan.
-  const [confirmed] = await db
-    .update(topupsTable)
-    .set({ status: "confirmed", confirmedBy: adminId, updatedAt: new Date() })
-    .where(and(eq(topupsTable.id, id), eq(topupsTable.status, "pending")))
-    .returning();
+  const amount = Number(topup.amount);
+  let confirmed: typeof topupsTable.$inferSelect | null = null;
+  let balanceAfter = 0;
 
-  if (!confirmed) {
-    res.status(400).json({ error: `Topup sudah ${topup.status} (tidak bisa dikonfirmasi ulang)` });
+  try {
+    const result = await db.transaction(async (tx: any) => {
+      // Atomic: update status HANYA jika masih pending.
+      // Ini mencegah double-credit jika admin double-click atau webhook masuk bersamaan.
+      const [confirmedTopup] = await tx
+        .update(topupsTable)
+        .set({ status: "confirmed", confirmedBy: adminId, updatedAt: new Date() })
+        .where(and(eq(topupsTable.id, id), eq(topupsTable.status, "pending")))
+        .returning();
+
+      if (!confirmedTopup) {
+        throw new Error(`Topup sudah ${topup.status} (tidak bisa dikonfirmasi ulang)`);
+      }
+
+      const [updatedUser] = await tx
+        .update(usersTable)
+        .set({ balance: sql`balance + ${amount}` })
+        .where(eq(usersTable.id, topup.userId))
+        .returning({ balance: usersTable.balance });
+
+      if (!updatedUser) {
+        throw new Error("User topup tidak ditemukan");
+      }
+
+      const after = Number(updatedUser.balance);
+      const before = after - amount;
+
+      await tx.insert(balanceLogsTable).values({
+        userId: topup.userId,
+        type: "topup",
+        amount: String(amount),
+        balanceBefore: String(before),
+        balanceAfter: String(after),
+        description: `Topup dikonfirmasi (ID #${topup.id})`,
+        relatedId: topup.id,
+      });
+
+      return { confirmedTopup, balanceAfter: after };
+    });
+
+    confirmed = result.confirmedTopup;
+    balanceAfter = result.balanceAfter;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Gagal mengonfirmasi topup";
+    res.status(400).json({ error: message });
     return;
   }
 
-  // Credit balance — aman, hanya berjalan 1x karena guard atomic di atas
-  await db
-    .update(usersTable)
-    .set({
-      balance: sql`balance + ${Number(topup.amount)}`,
-    })
-    .where(eq(usersTable.id, topup.userId));
-
-  // Fetch updated balance for notification and log
-  const [updatedUser] = await db
-    .select({ balance: usersTable.balance })
-    .from(usersTable)
-    .where(eq(usersTable.id, topup.userId))
-    .limit(1);
-
-  const balanceAfter = Number(updatedUser?.balance ?? 0);
-  const balanceBefore = balanceAfter - Number(topup.amount);
-
-  // Log balance change
-  addBalanceLog({
-    userId: topup.userId,
-    type: "topup",
-    amount: Number(topup.amount),
-    balanceBefore,
-    balanceAfter,
-    description: `Topup dikonfirmasi (ID #${topup.id})`,
-    relatedId: topup.id,
-  }).catch(() => {});
+  if (!confirmed) {
+    res.status(500).json({ error: "Topup gagal dikonfirmasi" });
+    return;
+  }
 
   // Audit log for admin action
   const adminIdConfirm = req.user!.userId;
@@ -1507,7 +1467,24 @@ router.delete("/admin/accounts/:id", requireAdmin, async (req, res) => {
     }
   }
 
-  await db.delete(vpnAccountsTable).where(eq(vpnAccountsTable.id, id));
+  try {
+    await db.transaction(async (tx: any) => {
+      await tx
+        .update(dynamicVpnOrdersTable)
+        .set({ vpnAccountId: null })
+        .where(eq(dynamicVpnOrdersTable.vpnAccountId, id));
+
+      await tx.delete(vpnAccountsTable).where(eq(vpnAccountsTable.id, id));
+    });
+  } catch (err) {
+    console.error("[admin/accounts/delete] CRITICAL: panel account was deleted but local DB cleanup failed", {
+      err,
+      accountId: id,
+      username: account.username,
+    });
+    res.status(500).json({ error: "Akun berhasil dihapus dari panel, tetapi gagal membersihkan data lokal. Hubungi developer untuk repair data." });
+    return;
+  }
 
   // Audit log
   const adminIdAccountDelete = req.user!.userId;
@@ -1573,7 +1550,23 @@ router.post("/admin/accounts/bulk-delete", requireAdmin, async (req, res) => {
   }
 
   if (deletableIds.length > 0) {
-    await db.delete(vpnAccountsTable).where(inArray(vpnAccountsTable.id, deletableIds));
+    try {
+      await db.transaction(async (tx: any) => {
+        await tx
+          .update(dynamicVpnOrdersTable)
+          .set({ vpnAccountId: null })
+          .where(inArray(dynamicVpnOrdersTable.vpnAccountId, deletableIds));
+
+        await tx.delete(vpnAccountsTable).where(inArray(vpnAccountsTable.id, deletableIds));
+      });
+    } catch (err) {
+      console.error("[admin/accounts/bulk-delete] CRITICAL: panel accounts were deleted but local DB cleanup failed", {
+        err,
+        accountIds: deletableIds,
+      });
+      res.status(500).json({ error: "Sebagian akun berhasil dihapus dari panel, tetapi gagal membersihkan data lokal. Hubungi developer untuk repair data.", failed });
+      return;
+    }
   }
 
   // Audit log for bulk

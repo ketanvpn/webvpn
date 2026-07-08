@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { ticketsTable, ticketMessagesTable, usersTable } from "@workspace/db";
-import { eq, desc, and, count } from "drizzle-orm";
+import { eq, desc, and, inArray } from "drizzle-orm";
 import { requireAdmin, requireAuth } from "../lib/auth";
 import { notifyAdminNewTicket, notifyAdminTicketReply } from "../lib/telegram";
 
@@ -165,14 +165,19 @@ router.get("/admin/tickets/pending-count", requireAdmin, async (_req, res) => {
     return;
   }
 
-  const repliedTickets = await db
-    .select({ ticketId: ticketMessagesTable.ticketId })
+  const openTicketIds = openTickets.map((t: any) => t.id);
+  const messages = await db
+    .select({ ticketId: ticketMessagesTable.ticketId, isAdmin: ticketMessagesTable.isAdmin })
     .from(ticketMessagesTable)
-    .where(eq(ticketMessagesTable.isAdmin, true));
+    .where(inArray(ticketMessagesTable.ticketId, openTicketIds))
+    .orderBy(desc(ticketMessagesTable.createdAt));
 
-  const repliedIds = new Set(repliedTickets.map((r: any) => r.ticketId));
-  const pendingCount = openTickets.filter((t: any) => !repliedIds.has(t.id)).length;
+  const latestByTicket = new Map<number, boolean>();
+  for (const msg of messages as Array<{ ticketId: number; isAdmin: boolean }>) {
+    if (!latestByTicket.has(msg.ticketId)) latestByTicket.set(msg.ticketId, msg.isAdmin);
+  }
 
+  const pendingCount = openTicketIds.filter((id) => latestByTicket.get(id) === false).length;
   res.json({ count: pendingCount });
 });
 
@@ -242,6 +247,10 @@ router.post("/admin/tickets/:id/reply", requireAdmin, async (req, res) => {
   const [ticket] = await db.select().from(ticketsTable).where(eq(ticketsTable.id, ticketId)).limit(1);
   if (!ticket) {
     res.status(404).json({ error: "Tiket tidak ditemukan" });
+    return;
+  }
+  if (ticket.status === "closed") {
+    res.status(400).json({ error: "Tiket sudah ditutup" });
     return;
   }
 
