@@ -26,8 +26,6 @@ const loginSchema = z.object({
 
 declare global {
   interface Window {
-    onTurnstileSuccess?: (token: string) => void;
-    onTurnstileExpired?: () => void;
     turnstile?: {
       reset: (container?: string | HTMLElement) => void;
       render: (container: string | HTMLElement, options: Record<string, unknown>) => string;
@@ -86,15 +84,6 @@ export default function Login() {
       setTurnstileStatus((prev) => (prev === "ready" ? prev : "error"));
     }, 10000);
 
-    window.onTurnstileSuccess = (token: string) => {
-      if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
-      form.setValue("turnstileToken", token, { shouldValidate: true });
-      setTurnstileStatus("ready");
-    };
-    window.onTurnstileExpired = () => {
-      form.setValue("turnstileToken", "", { shouldValidate: true });
-    };
-
     const script = document.createElement("script");
     script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad";
     script.async = true;
@@ -116,8 +105,14 @@ export default function Login() {
         el.innerHTML = "";
         window.turnstile.render(el, {
           sitekey: siteKey,
-          callback: "onTurnstileSuccess",
-          "expired-callback": "onTurnstileExpired",
+          callback: (token: string) => {
+            if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+            form.setValue("turnstileToken", token, { shouldValidate: true });
+            setTurnstileStatus("ready");
+          },
+          "expired-callback": () => {
+            form.setValue("turnstileToken", "", { shouldValidate: true });
+          },
         });
       }
     };
@@ -131,8 +126,6 @@ export default function Login() {
 
     return () => {
       if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
-      window.onTurnstileSuccess = undefined;
-      window.onTurnstileExpired = undefined;
       (window as any).onTurnstileLoad = undefined;
     };
   }, [retryCount, loadTurnstileScript]);
