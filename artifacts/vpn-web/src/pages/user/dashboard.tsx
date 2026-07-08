@@ -388,7 +388,7 @@ export default function Dashboard() {
         </Link>
 
         <Link href="/accounts">
-          <div className="glass-card rounded-xl border border-white/5 p-3 cursor-pointer hover:glow-border-primary hover:border-primary/50 transition-all duration-300">
+          <div className="rounded-xl border border-white/10 bg-white/[0.04] backdrop-blur-lg p-3 shadow-md cursor-pointer hover:glow-border-primary hover:border-primary/50 transition-all duration-300">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-medium text-muted-foreground">Akun Aktif</span>
               <Server className="h-3.5 w-3.5 text-muted-foreground" />
