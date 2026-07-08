@@ -2,31 +2,18 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
-import { Shield, Zap, Globe, ChevronRight, Server, ArrowRight, Users, Activity, Clock, UserPlus, CreditCard, Wifi, ChevronDown, Check, Sparkles, MapPin } from "lucide-react";
+import { Shield, Zap, Globe, ChevronRight, Server, ArrowRight, Users, Activity, Clock, UserPlus, CreditCard, Wifi, ChevronDown, Sparkles, MapPin } from "lucide-react";
 import { LogoBrand } from "@/components/logo";
 import { motion, Variants, useInView } from "framer-motion";
 import { useRef, useEffect, useState } from "react";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "");
 
-async function fetchPublicServers() {
-  const res = await fetch(`${BASE}/api/servers`);
-  if (!res.ok) return [];
-  return res.json();
-}
-
 async function fetchPublicDynamicServers() {
   const res = await fetch(`${BASE}/api/dynamic-vpn/public-servers`);
   if (!res.ok) return [];
   const data = await res.json();
   return data.servers ?? [];
-}
-
-async function fetchProducts() {
-  const res = await fetch(`${BASE}/api/products`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return (data as any[]).filter((p: any) => p.isActive && p.price > 0).sort((a: any, b: any) => a.price - b.price).slice(0, 3);
 }
 
 const protocolLabel: Record<string, string> = {
@@ -118,23 +105,12 @@ function formatRupiah(n: number) {
 
 export default function Home() {
   const { isAuthenticated } = useAuth();
-  const { data: servers = [], isLoading } = useQuery<any[]>({
-    queryKey: ["public-servers"],
-    queryFn: fetchPublicServers,
-    staleTime: 60000,
-  });
-  const { data: dynamicServers = [], isLoading: isDynLoading } = useQuery<any[]>({
+  const { data: dynamicServers = [], isLoading } = useQuery<any[]>({
     queryKey: ["public-dynamic-servers"],
     queryFn: fetchPublicDynamicServers,
     staleTime: 60000,
   });
-  const { data: topProducts = [] } = useQuery<any[]>({
-    queryKey: ["public-products-top"],
-    queryFn: fetchProducts,
-    staleTime: 60000,
-  });
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [serverTab, setServerTab] = useState<"dedicated" | "dynamic">("dedicated");
 
   const scrollToServers = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -294,214 +270,118 @@ export default function Home() {
               </p>
             </motion.div>
 
-            {/* Tab switcher */}
-            <motion.div variants={fadeUp} className="flex items-center justify-center mb-8">
-              <div className="inline-flex rounded-2xl glass-card p-1.5 gap-1">
-                <button
-                  onClick={() => setServerTab("dedicated")}
-                  className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 ${
-                    serverTab === "dedicated"
-                      ? "bg-primary text-primary-foreground shadow-[0_0_20px_rgba(16,185,129,0.3)]"
-                      : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-                  }`}
-                >
-                  <Server className="h-4 w-4" />
-                  Dedicated
-                  {!isLoading && <span className="text-xs opacity-75">({servers.length})</span>}
-                </button>
-                <button
-                  onClick={() => setServerTab("dynamic")}
-                  className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 ${
-                    serverTab === "dynamic"
-                      ? "bg-primary text-primary-foreground shadow-[0_0_20px_rgba(16,185,129,0.3)]"
-                      : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-                  }`}
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Dynamic
-                  {!isDynLoading && <span className="text-xs opacity-75">({dynamicServers.length})</span>}
-                </button>
-              </div>
-            </motion.div>
-
-            {/* Dedicated Servers */}
-            {serverTab === "dedicated" && (
-              <>
-                {isLoading ? (
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {[1, 2, 3, 4, 5, 6].map((i) => (
-                      <div key={i} className="h-36 rounded-3xl glass-card relative overflow-hidden animate-pulse">
-                        <div className="absolute inset-0 bg-white/5" />
-                      </div>
-                    ))}
-                  </div>
-                ) : servers.length === 0 ? (
-                  <motion.div variants={fadeUp} className="py-20 flex flex-col items-center glass-card rounded-3xl text-center border-white/5">
-                    <div className="h-16 w-16 rounded-3xl bg-muted/20 flex items-center justify-center mb-4 border border-white/5">
-                      <Server className="h-8 w-8 text-muted-foreground/50" />
-                    </div>
-                    <p className="font-semibold text-lg">Belum ada server dedicated</p>
-                    <p className="text-sm text-muted-foreground mt-1">Silakan daftar untuk melihat paket lengkap kami.</p>
-                  </motion.div>
-                ) : (
-                  <motion.div variants={staggerContainer} className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                    {servers.map((s: any) => (
-                      <motion.div
-                        key={s.id}
-                        variants={fadeUp}
-                        whileHover={{ y: -4, scale: 1.01 }}
-                        className="group flex flex-col gap-3 p-5 rounded-3xl glass-card hover:border-primary/40 hover:bg-card/60 hover:shadow-[0_10px_40px_rgba(16,185,129,0.1)] transition-all duration-300 relative overflow-hidden"
-                      >
-                        {/* Glow accent on hover */}
-                        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary/0 to-transparent group-hover:via-primary/60 transition-all duration-500" />
-
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="shrink-0 h-12 w-12 rounded-2xl glass-panel flex items-center justify-center text-2xl shadow-inner shadow-white/10">
-                              {s.flag}
-                            </div>
-                            <div>
-                              <p className="font-bold text-base line-clamp-1">{s.name}</p>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <MapPin className="h-3 w-3 text-muted-foreground" />
-                                <p className="text-xs font-medium text-muted-foreground line-clamp-1">{s.location}</p>
-                              </div>
-                            </div>
-                          </div>
-                          {/* Online status */}
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                            <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
-                            </span>
-                            <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Online</span>
-                          </div>
-                        </div>
-                        
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {(s.supportedProtocols ?? []).map((p: string) => (
-                            <span
-                              key={p}
-                              className={`inline-flex items-center rounded-lg border px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase shadow-sm ${
-                                protocolColor[p] ?? "bg-muted/40 text-muted-foreground border-white/10"
-                              }`}
-                            >
-                              {protocolLabel[p] ?? p}
-                            </span>
-                          ))}
-                        </div>
-                      </motion.div>
-                    ))}
-                  </motion.div>
-                )}
-              </>
+            {/* Server count badge */}
+            {!isLoading && dynamicServers.length > 0 && (
+              <motion.div variants={fadeUp} className="flex justify-center mb-8">
+                <div className="glass-card inline-flex px-4 py-2 rounded-full border-primary/20">
+                  <span className="text-sm font-medium text-primary">
+                    <span className="font-bold text-foreground">{dynamicServers.length}</span> Server Aktif
+                  </span>
+                </div>
+              </motion.div>
             )}
 
             {/* Dynamic Servers */}
-            {serverTab === "dynamic" && (
-              <>
-                {isDynLoading ? (
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="h-44 rounded-3xl glass-card relative overflow-hidden animate-pulse">
-                        <div className="absolute inset-0 bg-white/5" />
-                      </div>
-                    ))}
+            {isLoading ? (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-44 rounded-3xl glass-card relative overflow-hidden animate-pulse">
+                    <div className="absolute inset-0 bg-white/5" />
                   </div>
-                ) : dynamicServers.length === 0 ? (
-                  <motion.div variants={fadeUp} className="py-20 flex flex-col items-center glass-card rounded-3xl text-center border-white/5">
-                    <div className="h-16 w-16 rounded-3xl bg-muted/20 flex items-center justify-center mb-4 border border-white/5">
-                      <Sparkles className="h-8 w-8 text-muted-foreground/50" />
-                    </div>
-                    <p className="font-semibold text-lg">Belum ada server dynamic</p>
-                    <p className="text-sm text-muted-foreground mt-1">Server dynamic akan muncul setelah tersedia.</p>
-                  </motion.div>
-                ) : (
-                  <motion.div variants={staggerContainer} className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                    {dynamicServers.map((s: any) => {
-                      const capacityPct = s.capacityLimit > 0 ? Math.round((s.capacityUsed / s.capacityLimit) * 100) : 0;
-                      const slotsLeft = Math.max(0, (s.capacityLimit ?? 0) - (s.capacityUsed ?? 0));
-                      return (
-                        <motion.div
-                          key={s.id}
-                          variants={fadeUp}
-                          whileHover={{ y: -4, scale: 1.01 }}
-                          className="group flex flex-col gap-3 p-5 rounded-3xl glass-card hover:border-primary/40 hover:bg-card/60 hover:shadow-[0_10px_40px_rgba(16,185,129,0.1)] transition-all duration-300 relative overflow-hidden"
-                        >
-                          {/* Glow accent */}
-                          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary/0 to-transparent group-hover:via-primary/60 transition-all duration-500" />
+                ))}
+              </div>
+            ) : dynamicServers.length === 0 ? (
+              <motion.div variants={fadeUp} className="py-20 flex flex-col items-center glass-card rounded-3xl text-center border-white/5">
+                <div className="h-16 w-16 rounded-3xl bg-muted/20 flex items-center justify-center mb-4 border border-white/5">
+                  <Sparkles className="h-8 w-8 text-muted-foreground/50" />
+                </div>
+                <p className="font-semibold text-lg">Belum ada server tersedia</p>
+                <p className="text-sm text-muted-foreground mt-1">Silakan daftar untuk melihat paket lengkap kami.</p>
+              </motion.div>
+            ) : (
+              <motion.div variants={staggerContainer} className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                {dynamicServers.map((s: any) => {
+                  const capacityPct = s.capacityLimit > 0 ? Math.round((s.capacityUsed / s.capacityLimit) * 100) : 0;
+                  const slotsLeft = Math.max(0, (s.capacityLimit ?? 0) - (s.capacityUsed ?? 0));
+                  return (
+                    <motion.div
+                      key={s.id}
+                      variants={fadeUp}
+                      whileHover={{ y: -4, scale: 1.01 }}
+                      className="group flex flex-col gap-3 p-5 rounded-3xl glass-card hover:border-primary/40 hover:bg-card/60 hover:shadow-[0_10px_40px_rgba(16,185,129,0.1)] transition-all duration-300 relative overflow-hidden"
+                    >
+                      {/* Glow accent */}
+                      <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary/0 to-transparent group-hover:via-primary/60 transition-all duration-500" />
 
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="shrink-0 h-12 w-12 rounded-2xl bg-gradient-to-br from-primary/20 to-emerald-600/10 border border-primary/20 flex items-center justify-center">
-                                <Sparkles className="h-5 w-5 text-primary" />
-                              </div>
-                              <div>
-                                <p className="font-bold text-base line-clamp-1">{s.displayName}</p>
-                                <div className="flex items-center gap-1.5 mt-0.5">
-                                  <MapPin className="h-3 w-3 text-muted-foreground" />
-                                  <p className="text-xs font-medium text-muted-foreground line-clamp-1">{s.location}</p>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                              <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
-                              </span>
-                              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Online</span>
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="shrink-0 h-12 w-12 rounded-2xl bg-gradient-to-br from-primary/20 to-emerald-600/10 border border-primary/20 flex items-center justify-center">
+                            <Sparkles className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-bold text-base line-clamp-1">{s.displayName}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <MapPin className="h-3 w-3 text-muted-foreground" />
+                              <p className="text-xs font-medium text-muted-foreground line-clamp-1">{s.location}</p>
                             </div>
                           </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                          </span>
+                          <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Online</span>
+                        </div>
+                      </div>
 
-                          {/* Protocols */}
-                          <div className="flex flex-wrap gap-1.5">
-                            {(s.enabledProtocols ?? []).map((p: string) => (
-                              <span
-                                key={p}
-                                className={`inline-flex items-center rounded-lg border px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase shadow-sm ${
-                                  protocolColor[p] ?? "bg-muted/40 text-muted-foreground border-white/10"
-                                }`}
-                              >
-                                {protocolLabel[p] ?? p}
-                              </span>
-                            ))}
+                      {/* Protocols */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {(s.enabledProtocols ?? []).map((p: string) => (
+                          <span
+                            key={p}
+                            className={`inline-flex items-center rounded-lg border px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase shadow-sm ${
+                              protocolColor[p] ?? "bg-muted/40 text-muted-foreground border-white/10"
+                            }`}
+                          >
+                            {protocolLabel[p] ?? p}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Capacity bar */}
+                      {s.capacityLimit > 0 && (
+                        <div className="mt-1">
+                          <div className="flex items-center justify-between text-[10px] mb-1.5">
+                            <span className="text-muted-foreground font-medium">Kapasitas</span>
+                            <span className={`font-bold ${slotsLeft <= 3 ? "text-amber-400" : "text-primary"}`}>
+                              {slotsLeft} slot tersedia
+                            </span>
                           </div>
+                          <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                capacityPct >= 90 ? "bg-gradient-to-r from-amber-500 to-red-500" :
+                                capacityPct >= 70 ? "bg-gradient-to-r from-primary to-amber-400" :
+                                "bg-gradient-to-r from-primary to-emerald-400"
+                              }`}
+                              style={{ width: `${Math.min(capacityPct, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
 
-                          {/* Capacity bar */}
-                          {s.capacityLimit > 0 && (
-                            <div className="mt-1">
-                              <div className="flex items-center justify-between text-[10px] mb-1.5">
-                                <span className="text-muted-foreground font-medium">Kapasitas</span>
-                                <span className={`font-bold ${slotsLeft <= 3 ? "text-amber-400" : "text-primary"}`}>
-                                  {slotsLeft} slot tersedia
-                                </span>
-                              </div>
-                              <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full transition-all duration-500 ${
-                                    capacityPct >= 90 ? "bg-gradient-to-r from-amber-500 to-red-500" :
-                                    capacityPct >= 70 ? "bg-gradient-to-r from-primary to-amber-400" :
-                                    "bg-gradient-to-r from-primary to-emerald-400"
-                                  }`}
-                                  style={{ width: `${Math.min(capacityPct, 100)}%` }}
-                                />
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Price hint */}
-                          {s.sellPricePerDay > 0 && (
-                            <div className="flex items-center justify-between pt-1 border-t border-white/5">
-                              <span className="text-xs text-muted-foreground">Mulai dari</span>
-                              <span className="text-sm font-bold text-primary">{formatRupiah(s.sellPricePerDay)}<span className="text-xs text-muted-foreground font-normal">/hari</span></span>
-                            </div>
-                          )}
-                        </motion.div>
-                      );
-                    })}
-                  </motion.div>
-                )}
-              </>
+                      {/* Price hint */}
+                      {s.sellPricePerDay > 0 && (
+                        <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                          <span className="text-xs text-muted-foreground">Mulai dari</span>
+                          <span className="text-sm font-bold text-primary">{formatRupiah(s.sellPricePerDay)}<span className="text-xs text-muted-foreground font-normal">/hari</span></span>
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </motion.div>
             )}
 
             {/* bottom CTA */}
@@ -522,7 +402,7 @@ export default function Home() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
                 { icon: Users, value: 500, suffix: "+", label: "Pengguna Aktif" },
-                { icon: Server, value: (servers.length + dynamicServers.length) || 5, suffix: "", label: "Total Server" },
+                { icon: Server, value: dynamicServers.length || 5, suffix: "", label: "Total Server" },
                 { icon: Activity, value: 99, suffix: "%", label: "Uptime Server" },
                 { icon: Clock, value: 24, suffix: "/7", label: "Dukungan Online" },
               ].map(({ icon: Icon, value, suffix, label }) => (
@@ -535,99 +415,6 @@ export default function Home() {
             </div>
           </motion.div>
         </section>
-
-        {/* ── Paket Populer ───────────────────────────── */}
-        {topProducts.length > 0 && (
-          <section className="px-4 sm:px-6 pb-20 relative z-10">
-            <motion.div className="container mx-auto max-w-5xl" initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={staggerContainer}>
-              <motion.div variants={fadeUp} className="text-center mb-10">
-                <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2">Paket Populer</h2>
-                <p className="text-muted-foreground text-sm sm:text-base">Mulai dari harga terjangkau, koneksi langsung aktif.</p>
-              </motion.div>
-              <div className="grid sm:grid-cols-3 gap-5">
-                {topProducts.map((p: any, i: number) => {
-                  const isMiddle = i === 1;
-                  return (
-                    <motion.div key={p.id} variants={fadeUp} whileHover={{ y: -6 }}
-                      className={`rounded-3xl p-[1px] transition-all duration-300 ${
-                        isMiddle
-                          ? "bg-gradient-to-b from-primary via-emerald-500/50 to-transparent shadow-[0_0_40px_rgba(16,185,129,0.15)]"
-                          : "bg-white/[0.06] hover:bg-white/[0.1]"
-                      }`}
-                    >
-                      <div className={`h-full rounded-[calc(1.5rem-1px)] p-6 flex flex-col relative overflow-hidden ${
-                        isMiddle ? "bg-card" : "bg-card/80"
-                      }`}>
-                        {/* Badge */}
-                        {isMiddle && (
-                          <div className="absolute top-0 right-0 bg-gradient-to-l from-primary to-emerald-500 text-primary-foreground text-[10px] font-bold px-4 py-1.5 rounded-bl-2xl uppercase tracking-wider flex items-center gap-1">
-                            <Sparkles className="h-3 w-3" /> Terlaris
-                          </div>
-                        )}
-
-                        {/* Header */}
-                        <div className="mb-5">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className={`inline-flex items-center rounded-lg border px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase ${
-                              protocolColor[p.protocol] ?? "bg-muted/40 text-muted-foreground border-white/10"
-                            }`}>
-                              {protocolLabel[p.protocol] ?? p.protocol?.toUpperCase()}
-                            </span>
-                            <span className="text-xs text-muted-foreground">{p.durationDays} Hari</span>
-                          </div>
-                          <h3 className="font-bold text-lg">{p.name}</h3>
-                          {p.serverName && (
-                            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                              <Server className="h-3 w-3" /> {p.serverName}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Price */}
-                        <div className="mb-5">
-                          <p className="text-3xl font-extrabold text-primary">{formatRupiah(p.price)}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            ≈ {formatRupiah(Math.round(p.price / p.durationDays))}/hari
-                          </p>
-                        </div>
-
-                        {/* Features */}
-                        <div className="space-y-2.5 mb-6 flex-1">
-                          {[
-                            "Aktivasi instan otomatis",
-                            `Masa aktif ${p.durationDays} hari`,
-                            p.quota ? `Kuota ${(p.quota / 1024 / 1024 / 1024).toFixed(0)} GB` : "Unlimited bandwidth",
-                            `Max ${p.maxConnections ?? 1} koneksi`,
-                          ].map((feat) => (
-                            <div key={feat} className="flex items-center gap-2.5 text-sm">
-                              <div className="shrink-0 h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center">
-                                <Check className="h-3 w-3 text-primary" />
-                              </div>
-                              <span className="text-muted-foreground">{feat}</span>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* CTA */}
-                        <Button
-                          className={`w-full h-12 font-semibold transition-all ${
-                            isMiddle ? "glow-primary hover:scale-[1.02]" : "hover:scale-[1.02]"
-                          }`}
-                          variant={isMiddle ? "default" : "outline"}
-                          asChild
-                        >
-                          <Link href={isAuthenticated ? "/products" : "/register"}>
-                            Pilih Paket <ArrowRight className="ml-2 h-4 w-4" />
-                          </Link>
-                        </Button>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </motion.div>
-          </section>
-        )}
 
         {/* ── Cara Kerja ──────────────────────────────── */}
         <section className="px-4 sm:px-6 pb-20 relative z-10">

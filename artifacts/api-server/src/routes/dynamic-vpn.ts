@@ -834,7 +834,7 @@ router.get("/dynamic-vpn/public-servers", async (_req, res) => {
   const rows = await db
     .select()
     .from(dynamicProviderServersTable)
-    .where(and(eq(dynamicProviderServersTable.isActive, true), eq(dynamicProviderServersTable.capacityIsFull, false)))
+    .where(eq(dynamicProviderServersTable.isActive, true))
     .orderBy(asc(dynamicProviderServersTable.sortOrder), asc(dynamicProviderServersTable.id));
   res.json({ servers: rows.map((row) => formatServer(row, false)) });
 });
