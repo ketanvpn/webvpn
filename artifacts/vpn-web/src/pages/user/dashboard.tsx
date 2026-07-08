@@ -399,7 +399,7 @@ export default function Dashboard() {
         </Link>
 
         <Link href="/orders">
-          <div className="glass-card rounded-xl border border-white/5 p-3 cursor-pointer hover:glow-border-primary hover:border-primary/50 transition-all duration-300">
+          <div className="rounded-xl border border-white/10 bg-white/[0.04] backdrop-blur-lg p-3 shadow-md cursor-pointer hover:glow-border-primary hover:border-primary/50 transition-all duration-300">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-medium text-muted-foreground">Total Order</span>
               <ShoppingCart className="h-3.5 w-3.5 text-muted-foreground" />
@@ -410,10 +410,10 @@ export default function Dashboard() {
         </Link>
 
         <Link href="/accounts">
-          <div className={`glass-card rounded-xl border p-3 cursor-pointer transition-all duration-300 ${
+          <div className={`rounded-xl border p-3 cursor-pointer shadow-md backdrop-blur-lg transition-all duration-300 ${
             hasExpiring
               ? "border-destructive/40 bg-destructive/10 hover:border-destructive hover:shadow-[0_0_15px_rgba(239,68,68,0.2)]"
-              : "border-white/5 hover:border-primary/50 hover:glow-border-primary"
+              : "border-white/10 bg-white/[0.04] hover:border-primary/50 hover:glow-border-primary"
           }`}>
             <div className="flex items-center justify-between mb-1">
               <span className={`text-xs font-medium ${hasExpiring ? "text-destructive" : "text-muted-foreground"}`}>

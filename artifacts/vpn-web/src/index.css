@@ -164,11 +164,11 @@
 
 @layer utilities {
   .glass-panel {
-    @apply bg-background/60 backdrop-blur-xl border border-white/5 shadow-[0_0_15px_rgba(0,0,0,0.5)];
+    @apply bg-white/[0.03] backdrop-blur-xl border border-white/10 shadow-[0_0_15px_rgba(0,0,0,0.5)];
   }
 
   .glass-card {
-    @apply bg-card/40 backdrop-blur-lg border border-white/5;
+    @apply bg-white/[0.04] backdrop-blur-lg border border-white/10;
   }
 
   .glow-primary {
