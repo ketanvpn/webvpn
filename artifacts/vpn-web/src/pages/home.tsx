@@ -35,20 +35,38 @@ const protocolColor: Record<string, string> = {
 const infoItems = [
   {
     icon: Zap,
+    accent: "emerald",
     title: "Aktif Otomatis",
     desc: "Akun langsung dibuat setelah konfirmasi pembayaran — tanpa tunggu admin.",
   },
   {
     icon: Globe,
+    accent: "cyan",
     title: "Multi Protokol",
     desc: "Tersedia SSH, VMess, VLess, dan Trojan. Cocokkan dengan semua kebutuhanmu.",
   },
   {
     icon: Shield,
+    accent: "teal",
     title: "Harga Transparan",
     desc: "Tanpa biaya tersembunyi, bayar sesuai yang tercantum di paket pilihanmu.",
   },
 ];
+
+const accentMap: Record<string, { box: string; icon: string }> = {
+  emerald: {
+    box: "bg-emerald-500/10 border border-emerald-500/20 group-hover:bg-emerald-500/20",
+    icon: "text-emerald-400 group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]",
+  },
+  cyan: {
+    box: "bg-cyan-500/10 border border-cyan-500/20 group-hover:bg-cyan-500/20",
+    icon: "text-cyan-400 group-hover:drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]",
+  },
+  teal: {
+    box: "bg-teal-500/10 border border-teal-500/20 group-hover:bg-teal-500/20",
+    icon: "text-teal-400 group-hover:drop-shadow-[0_0_8px_rgba(20,184,166,0.8)]",
+  },
+};
 
 // Animation Variants
 const fadeUp: Variants = {
@@ -153,9 +171,9 @@ export default function Home() {
       <main className="flex-1 flex flex-col relative">
         {/* Abstract Background Orbs */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10">
-          <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] min-w-[300px] min-h-[300px] bg-primary/10 rounded-full blur-[100px] opacity-60" />
-          <div className="absolute top-[20%] right-[-10%] w-[35vw] h-[35vw] min-w-[250px] min-h-[250px] bg-emerald-600/10 rounded-full blur-[120px] opacity-40" />
-          <div className="absolute bottom-[-10%] left-[20%] w-[50vw] h-[50vw] min-w-[400px] min-h-[400px] bg-primary/5 rounded-full blur-[150px] opacity-50" />
+          <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] min-w-[300px] min-h-[300px] bg-emerald-500/10 rounded-full blur-[100px] opacity-60" />
+          <div className="absolute top-[20%] right-[-10%] w-[35vw] h-[35vw] min-w-[250px] min-h-[250px] bg-cyan-500/10 rounded-full blur-[120px] opacity-40" />
+          <div className="absolute bottom-[-10%] left-[20%] w-[50vw] h-[50vw] min-w-[400px] min-h-[400px] bg-teal-500/10 rounded-full blur-[150px] opacity-50" />
         </div>
 
         {/* ── Hero ───────────────────────────────────── */}
@@ -179,7 +197,7 @@ export default function Home() {
             <motion.div variants={fadeUp}>
               <h1 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold tracking-tight leading-[1.15]">
                 Solusi Jaringan Andal, <br className="hidden sm:block" />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-primary drop-shadow-[0_0_30px_rgba(16,185,129,0.3)]">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-emerald-300 to-cyan-400 drop-shadow-[0_0_30px_rgba(16,185,129,0.3)]">
                   Akses Tanpa Hambatan
                 </span>
               </h1>
@@ -212,7 +230,7 @@ export default function Home() {
                   <Button
                     size="lg"
                     variant="outline"
-                    className="w-full sm:w-auto px-8 h-14 text-base glass-card hover:bg-white/10 hover:border-primary/50 transition-all duration-300"
+                    className="w-full sm:w-auto px-8 h-14 text-base border-cyan-400/30 text-cyan-300 hover:bg-cyan-500/10 hover:border-cyan-400/60 transition-all duration-300"
                     onClick={scrollToServers}
                   >
                     Lihat Lokasi Server
@@ -233,15 +251,15 @@ export default function Home() {
             variants={staggerContainer}
           >
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-              {infoItems.map(({ icon: Icon, title, desc }, idx) => (
+              {infoItems.map(({ icon: Icon, title, desc, accent }, idx) => (
                 <motion.div
                   key={title}
                   variants={fadeUp}
                   whileHover={{ y: -5 }}
                   className="glass-card group flex flex-col sm:flex-row gap-4 sm:gap-5 items-start p-6 rounded-3xl hover:border-primary/40 hover:shadow-[0_8px_30px_rgba(16,185,129,0.12)] transition-all duration-300"
                 >
-                  <div className="shrink-0 h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/20 group-hover:scale-110 transition-all duration-300">
-                    <Icon className="h-6 w-6 text-primary group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.8)] transition-all" />
+                  <div className={`shrink-0 h-12 w-12 sm:h-14 sm:w-14 rounded-2xl border flex items-center justify-center group-hover:scale-110 transition-all duration-300 ${accentMap[accent].box}`}>
+                    <Icon className={`h-6 w-6 transition-all ${accentMap[accent].icon}`} />
                   </div>
                   <div>
                     <h3 className="font-semibold text-base sm:text-lg mb-1.5">{title}</h3>
@@ -386,7 +404,7 @@ export default function Home() {
 
             {/* bottom CTA */}
             <motion.div variants={fadeUp} className="mt-12 flex flex-col sm:flex-row justify-center items-center gap-4">
-              <Button size="lg" className="w-full sm:w-auto px-8 h-12 text-base shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:shadow-[0_0_25px_rgba(16,185,129,0.4)] transition-all rounded-xl" asChild>
+              <Button size="lg" className="w-full sm:w-auto px-8 h-12 text-base bg-cyan-500 hover:bg-cyan-600 text-white shadow-[0_0_15px_rgba(34,211,238,0.2)] hover:shadow-[0_0_25px_rgba(34,211,238,0.4)] transition-all rounded-xl" asChild>
                 <Link href={isAuthenticated ? "/order-vpn" : "/register"}>
                   {isAuthenticated ? "Lihat Semua Server" : "Daftar & Lihat Server"}
                   <ChevronRight className="ml-2 h-4 w-4" />
@@ -405,9 +423,9 @@ export default function Home() {
                 { icon: Server, value: dynamicServers.length || 5, suffix: "", label: "Total Server" },
                 { icon: Activity, value: 99, suffix: "%", label: "Uptime Server" },
                 { icon: Clock, value: 24, suffix: "/7", label: "Dukungan Online" },
-              ].map(({ icon: Icon, value, suffix, label }) => (
+              ].map(({ icon: Icon, value, suffix, label }, idx) => (
                 <motion.div key={label} variants={fadeUp} className="glass-card rounded-2xl p-5 text-center hover:border-primary/30 transition-colors">
-                  <Icon className="h-5 w-5 text-primary mx-auto mb-2" />
+                  <Icon className={`h-5 w-5 mx-auto mb-2 ${idx % 2 === 0 ? "text-emerald-400" : "text-cyan-400"}`} />
                   <p className="text-2xl sm:text-3xl font-extrabold text-foreground"><AnimatedCounter target={value} suffix={suffix} /></p>
                   <p className="text-xs text-muted-foreground mt-1 font-medium">{label}</p>
                 </motion.div>
@@ -429,7 +447,7 @@ export default function Home() {
                   <div className="mx-auto mb-4 h-14 w-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                     <Icon className="h-6 w-6 text-primary" />
                   </div>
-                  <div className="text-xs font-bold text-primary mb-2 tracking-widest">LANGKAH {step}</div>
+                  <div className="text-xs font-bold text-cyan-400 mb-2 tracking-widest">LANGKAH {step}</div>
                   <h3 className="font-bold text-base mb-2">{title}</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
                 </motion.div>
@@ -450,7 +468,7 @@ export default function Home() {
                 <motion.div key={i} variants={fadeUp} className="glass-card rounded-2xl overflow-hidden">
                   <button onClick={() => setOpenFaq(openFaq === i ? null : i)} className="w-full flex items-center justify-between p-5 text-left hover:bg-white/5 transition-colors">
                     <span className="font-semibold text-sm sm:text-base pr-4">{item.q}</span>
-                    <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${openFaq === i ? "rotate-180 text-primary" : ""}`} />
+                    <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${openFaq === i ? "rotate-180 text-cyan-400" : ""}`} />
                   </button>
                   {openFaq === i && (
                     <div className="px-5 pb-5 -mt-1">
@@ -478,9 +496,9 @@ export default function Home() {
             <div>
               <h4 className="font-semibold text-sm mb-3">Navigasi</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link href="/register" className="hover:text-primary transition-colors">Daftar</Link></li>
-                <li><Link href="/login" className="hover:text-primary transition-colors">Masuk</Link></li>
-                <li><button onClick={scrollToServers} className="hover:text-primary transition-colors">Server</button></li>
+                <li><Link href="/register" className="hover:text-cyan-400 transition-colors">Daftar</Link></li>
+                <li><Link href="/login" className="hover:text-cyan-400 transition-colors">Masuk</Link></li>
+                <li><button onClick={scrollToServers} className="hover:text-cyan-400 transition-colors">Server</button></li>
               </ul>
             </div>
             <div>
