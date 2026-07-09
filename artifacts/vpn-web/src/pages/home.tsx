@@ -486,20 +486,12 @@ export default function Home() {
       {/* ── Footer ─────────────────────────────────── */}
       <footer className="py-10 border-t border-white/5 bg-background/60 backdrop-blur-md">
         <div className="container mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 mb-8">
-            <div className="col-span-2 sm:col-span-1">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-8">
+            <div className="sm:col-span-2">
               <LogoBrand iconSize={28} />
               <p className="text-xs text-muted-foreground mt-3 max-w-xs leading-relaxed">
                 Layanan VPN premium Indonesia dengan aktivasi instan, server cepat, dan dukungan pelanggan 24/7.
               </p>
-            </div>
-            <div>
-              <h4 className="font-semibold text-sm mb-3">Navigasi</h4>
-              <ul className="space-y-2.5 text-sm text-muted-foreground">
-                <li><Link href="/register" className="hover:text-cyan-400 transition-colors">Daftar</Link></li>
-                <li><Link href="/login" className="hover:text-cyan-400 transition-colors">Masuk</Link></li>
-                <li><button onClick={scrollToServers} className="hover:text-cyan-400 transition-colors">Server</button></li>
-              </ul>
             </div>
             <div>
               <h4 className="font-semibold text-sm mb-3">Kontak</h4>
