@@ -599,6 +599,105 @@ http://DOMAIN_ATAU_IP_VPS
 
 ---
 
+## Migrasi ke VPS Baru (Tanpa Install Ulang dari Nol)
+
+Panduan ini untuk **pindah server (VPS) tanpa setup dari awal**. Semua data (user, order, akun VPN, saldo, pengaturan) ikut pindah. Cukup jalankan 1 script, isi beberapa pertanyaan, selesai.
+
+> Cocok untuk: ganti provider VPS, server lama sering down, atau upgrade ke VPS lebih besar.
+
+### Persiapan — Ambil Backup dari Server Lama
+
+1. Login ke dashboard admin di **server lama**
+2. Buka menu **Admin → Backup & Restore DB**
+3. Klik **Backup Now**, tunggu sampai status sukses
+4. Klik **Download** → simpan file `ketantech-backup-YYYYMMDD-HHMM.sql.gz` ke komputer kamu
+
+> File ini berisi SELURUH data kamu. Simpan baik-baik, jangan sampai hilang. File ini juga otomatis dikirim ke chat Telegram admin (jika bot sudah disetting).
+
+### Langkah 1 — Siapkan VPS Baru
+
+1. Beli VPS baru (Ubuntu 22/24 atau Debian 12). Catat **alamat IP**-nya.
+2. Login ke VPS baru via SSH sebagai `root` (pakai Termius, PuTTY, atau terminal):
+   ```bash
+   ssh root@IP_VPS_BARU
+   ```
+
+### Langkah 2 — Pindahkan File Backup ke VPS Baru
+
+Di **komputer kamu** (bukan di VPS), jalankan perintah ini untuk meng-copy file backup:
+
+```bash
+scp ~/Downloads/ketantech-backup-*.sql.gz root@IP_VPS_BARU:/root/
+```
+
+> Ganti `~/Downloads/...` dengan lokasi file backup di komputer kamu, dan `IP_VPS_BARU` dengan IP VPS baru.
+>
+> **Alternatif tanpa scp:** kalau file backup punya URL download (mis. dari GitHub, transfer.sh, atau server lama masih hidup), kamu bisa langsung pakai URL itu di Langkah 3 — tanpa perlu upload manual.
+
+### Langkah 3 — Download & Jalankan Script Migrasi
+
+Di VPS baru (via SSH), jalankan:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ketanvpn/webvpn/main/scripts/migrate-server.sh -o /root/migrate.sh
+BACKUP_FILE=/root/ketantech-backup-*.sql.gz bash /root/migrate.sh
+```
+
+> Kalau pakai URL backup, ganti `BACKUP_FILE=/root/...` dengan `BACKUP_FILE=https://URL_BACKUP_KAMU`.
+>
+> Kalau mau **skema kosong** (tanpa pindah data lama), hilangkan `BACKUP_FILE=...` — script bikin database baru kosong.
+
+### Langkah 4 — Jawab Pertanyaan Script
+
+Script akan mengajukan beberapa pertanyaan. Jawab satu per satu:
+
+| Pertanyaan | Apa diisi |
+|---|---|
+| Password untuk user PG `ketantech` | Buat password kuat, atau kosongkan (auto-generate). **Catat baik-baik!** |
+| Domain atau IP publik | Masukkan domain (mis. `vpn.ketanx.com`) atau IP VPS baru |
+| Cloudflare Turnstile SECRET key | Dari Cloudflare Dashboard. Boleh kosong, isi nanti |
+| Cloudflare Turnstile SITE key (frontend) | Dari Cloudflare Dashboard. Boleh kosong |
+| BOT_API_KEY | Dari server lama. Boleh kosong |
+| NADIAVPN_API_TOKEN | Dari server lama. Boleh kosong |
+| Aktifkan UFW sekarang? | Ketik `y` kalau yakin, atau `N` untuk aktifkan manual nanti |
+
+> `SESSION_SECRET` dibuat otomatis oleh script — tidak perlu diisi.
+
+### Langkah 5 — Tunggu Sampai Selesai
+
+Script otomatis: install semua kebutuhan → setup database → isi konfigurasi → restore data → build aplikasi → jalankan → setup Nginx + SSL + firewall. Proses **10–20 menit**. Jangan tutup terminal.
+
+Kalau muncul tulisan **SELESAI**, berarti berhasil. Kalau ada peringatan (warn), baca pesannya — biasanya tidak fatal.
+
+### Langkah 6 — Tes & Ganti Password Admin
+
+1. Buka browser, akses `https://DOMAIN_KAMU` (atau `http://IP_VPS_BARU` kalau tanpa domain)
+2. Login: `admin` / `admin123`
+3. **WAJIB:** ganti password admin lewat menu **Profil**
+
+### Langkah 7 — Arahkan Domain ke VPS Baru (Opsional)
+
+Kalau pakai domain, ubah DNS record (A record) domain kamu ke IP VPS baru. Tunggu 5–30 menit sampai DNS propagate. Setelah itu akses lewat domain seperti biasa.
+
+> SSL (https) otomatis dibuat script saat domain sudah mengarah ke VPS baru. Kalau certbot gagal karena DNS belum propagate, jalankan ulang nanti:
+> ```bash
+> certbot --nginx -d DOMAIN_KAMU
+> ```
+
+### Catatan Tambahan
+
+- **Bot Telegram/WA (botvpn-fixed):** data bot ini terpisah dari database utama. File `sellvpn.db` dan `.vars.json` di server lama harus di-copy manual ke VPS baru:
+  ```bash
+  scp root@IP_LAMA:/path/botvpn-fixed/sellvpn.db root@IP_BARU:/var/www/ketantech-vpn/botvpn-fixed/
+  scp root@IP_LAMA:/path/botvpn-fixed/.vars.json root@IP_BARU:/var/www/ketantech-vpn/botvpn-fixed/
+  ```
+  Lalu jalankan bot seperti biasa di VPS baru.
+- **Token Telegram & Fonnte:** ikut di dalam backup database (tabel settings) — tidak perlu isi ulang.
+- **File `.env` lama:** tidak perlu pindah manual, script bikin baru dari jawaban kamu. Kalau ada setting khusus (mis. `NADIAVPN_API_BASE_URL`), isi manual di `/var/www/ketantech-vpn/.env` lalu `pm2 restart ketantech-api`.
+- **Update berikutnya** (setelah migrasi sukses): cukup `bash /var/www/ketantech-vpn/scripts/deploy-prod.sh`.
+
+---
+
 ## Konfigurasi Setelah Install
 
 Login sebagai admin dan lakukan pengaturan berikut:
@@ -709,7 +808,10 @@ Menu: **Admin → Backup & Restore DB**
 - Aktifkan auto backup dan pilih interval (6/12/24 jam)
 - Backup otomatis dikirim ke Telegram admin
 - **Safety backup otomatis sebelum restore** — setiap kali kamu menekan Restore, sistem akan otomatis backup kondisi database saat itu terlebih dahulu (disimpan dengan nama `pre-restore-TANGGAL-JAM.sql.gz` dan dikirim ke Telegram). Jika backup pengaman ini gagal, proses restore dibatalkan otomatis untuk melindungi data.
-- Pastikan bot Telegram sudah dikonfigurasi agar backup tersimpan secara permanen — file di server akan hilang jika server restart/redeploy
+- **File backup tersimpan permanen** di folder `backups/` di server (otomatis simpan 10 backup terbaru). Bisa di-download kapan saja lewat menu Download, **walau server sudah restart** — tidak hilang lagi seperti versi lama.
+- Tetap disarankan aktifkan Telegram agar ada cadangan di luar server (misal untuk pindah VPS).
+- **Restore darurat via terminal** (kalau dashboard tidak bisa diakses): `bash scripts/restore-db.sh /path/backup.sql.gz` — otomatis bikin safety backup dulu.
+- **Mau pindah ke VPS baru?** Lihat panduan **[Migrasi ke VPS Baru](#migrasi-ke-vps-baru-tanpa-install-ulang-dari-nol)** di atas — 1 script, semua data ikut pindah.
 
 ---
 
