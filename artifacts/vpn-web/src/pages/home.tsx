@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
-import { Shield, Zap, Globe, ChevronRight, Server, ArrowRight, Users, Activity, Clock, UserPlus, CreditCard, Wifi, ChevronDown, Sparkles, MapPin } from "lucide-react";
+import { Shield, Zap, Globe, ChevronRight, Server, ArrowRight, Users, Activity, Clock, UserPlus, CreditCard, Wifi, ChevronDown, Sparkles, MapPin, MessageCircle, Send } from "lucide-react";
 import { LogoBrand } from "@/components/logo";
 import { motion, Variants, useInView } from "framer-motion";
 import { useRef, useEffect, useState } from "react";
@@ -486,8 +486,8 @@ export default function Home() {
       {/* ── Footer ─────────────────────────────────── */}
       <footer className="py-10 border-t border-white/5 bg-background/60 backdrop-blur-md">
         <div className="container mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-8">
-            <div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 mb-8">
+            <div className="col-span-2 sm:col-span-1">
               <LogoBrand iconSize={28} />
               <p className="text-xs text-muted-foreground mt-3 max-w-xs leading-relaxed">
                 Layanan VPN premium Indonesia dengan aktivasi instan, server cepat, dan dukungan pelanggan 24/7.
@@ -495,7 +495,7 @@ export default function Home() {
             </div>
             <div>
               <h4 className="font-semibold text-sm mb-3">Navigasi</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
+              <ul className="space-y-2.5 text-sm text-muted-foreground">
                 <li><Link href="/register" className="hover:text-cyan-400 transition-colors">Daftar</Link></li>
                 <li><Link href="/login" className="hover:text-cyan-400 transition-colors">Masuk</Link></li>
                 <li><button onClick={scrollToServers} className="hover:text-cyan-400 transition-colors">Server</button></li>
@@ -503,9 +503,19 @@ export default function Home() {
             </div>
             <div>
               <h4 className="font-semibold text-sm mb-3">Kontak</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>📱 WhatsApp: <span className="text-foreground">Tersedia di Dashboard</span></li>
-                <li>🤖 Telegram Bot: <span className="text-foreground">@ketantechvpn_bot</span></li>
+              <ul className="space-y-2.5 text-sm">
+                <li>
+                  <a href="https://t.me/ketantechvpn_bot" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 text-muted-foreground hover:text-foreground transition-colors">
+                    <Send className="h-4 w-4 text-cyan-400 shrink-0" />
+                    <span className="truncate">Telegram · @ketantechvpn_bot</span>
+                  </a>
+                </li>
+                <li>
+                  <Link href={isAuthenticated ? "/dashboard" : "/login"} className="flex items-center gap-2.5 text-muted-foreground hover:text-foreground transition-colors">
+                    <MessageCircle className="h-4 w-4 text-emerald-400 shrink-0" />
+                    <span className="truncate">WhatsApp · Via Dashboard</span>
+                  </Link>
+                </li>
               </ul>
             </div>
           </div>
@@ -513,7 +523,7 @@ export default function Home() {
             <p className="text-xs text-muted-foreground font-medium">
               &copy; {new Date().getFullYear()} KETANTECH VPN. Hak Cipta Dilindungi.
             </p>
-            <p className="text-[10px] text-muted-foreground/50">v2.0 • Made with ❤️ in Indonesia</p>
+            <p className="text-[10px] text-muted-foreground/50">v2.0 • Dibuat di Indonesia</p>
           </div>
         </div>
       </footer>
