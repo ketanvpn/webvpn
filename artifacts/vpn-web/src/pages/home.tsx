@@ -387,8 +387,8 @@ export default function Home() {
             {/* bottom CTA */}
             <motion.div variants={fadeUp} className="mt-12 flex flex-col sm:flex-row justify-center items-center gap-4">
               <Button size="lg" className="w-full sm:w-auto px-8 h-12 text-base shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:shadow-[0_0_25px_rgba(16,185,129,0.4)] transition-all rounded-xl" asChild>
-                <Link href={isAuthenticated ? "/products" : "/register"}>
-                  {isAuthenticated ? "Lihat Semua Paket" : "Daftar & Lihat Paket"}
+                <Link href={isAuthenticated ? "/order-vpn" : "/register"}>
+                  {isAuthenticated ? "Lihat Semua Server" : "Daftar & Lihat Server"}
                   <ChevronRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
