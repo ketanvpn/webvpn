@@ -7,8 +7,10 @@ import {
   performBackup,
   performRestore,
   getLastBackupFilePath,
+  getBackupDir,
 } from "../lib/backup";
 import fs from "fs";
+import path from "path";
 
 const router = Router();
 
@@ -61,7 +63,7 @@ router.get("/admin/backup/download", requireAdmin, async (_req, res) => {
   if (!filePath || !fs.existsSync(filePath)) {
     const settings = await getBackupSettings();
     if (settings.backupLastFilename) {
-      const fallbackPath = `/tmp/${settings.backupLastFilename}`;
+      const fallbackPath = path.join(getBackupDir(), settings.backupLastFilename);
       if (fs.existsSync(fallbackPath)) {
         filePath = fallbackPath;
       }

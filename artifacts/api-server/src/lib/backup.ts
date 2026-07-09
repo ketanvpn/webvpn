@@ -13,8 +13,35 @@ import { logger } from "./logger";
 import fs from "fs";
 import path from "path";
 
-const TEMP_BACKUP_DIR = "/tmp";
+const BACKUP_RETENTION = 10;
 let lastBackupFilePath: string | null = null;
+
+/**
+ * Direktori simpan backup. Default ./backups (persisten, tetap setelah restart).
+ * Override via env BACKUP_DIR. Future: opsi bundle env ter-encrypt.
+ */
+export function getBackupDir(): string {
+  const dir = process.env.BACKUP_DIR || path.join(process.cwd(), "backups");
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return dir;
+}
+
+/** Hapus backup lama, simpan hanya N terbaru (prevents unbounded growth). */
+function pruneOldBackups(dir: string): void {
+  try {
+    const entries = fs.readdirSync(dir)
+      .filter((f) => f.endsWith(".sql.gz"))
+      .map((f) => ({ f, mtime: fs.statSync(path.join(dir, f)).mtimeMs }))
+      .sort((a, b) => b.mtime - a.mtime);
+    for (const item of entries.slice(BACKUP_RETENTION)) {
+      fs.unlinkSync(path.join(dir, item.f));
+    }
+  } catch {
+    // non-fatal
+  }
+}
 
 export interface BackupSettings {
   backupEnabled: boolean;
@@ -112,12 +139,13 @@ export async function runPgDump(): Promise<{ buffer: Buffer; filename: string }>
 }
 
 /**
- * Save backup buffer to /tmp and update lastBackupFilePath.
+ * Save backup buffer to persistent dir (getBackupDir) and update lastBackupFilePath.
  */
-export function saveBackupToTemp(buffer: Buffer, filename: string): string {
-  const filePath = path.join(TEMP_BACKUP_DIR, filename);
+export function saveBackupFile(buffer: Buffer, filename: string): string {
+  const filePath = path.join(getBackupDir(), filename);
   fs.writeFileSync(filePath, buffer);
   lastBackupFilePath = filePath;
+  pruneOldBackups(getBackupDir());
   return filePath;
 }
 
@@ -168,7 +196,7 @@ export async function sendBackupToTelegram(
 }
 
 /**
- * Full backup flow: pg_dump → gzip → save temp → send Telegram → update DB status.
+ * Full backup flow: pg_dump → gzip → save file → send Telegram → update DB status.
  */
 export async function performBackup(): Promise<{
   success: boolean;
@@ -186,7 +214,7 @@ export async function performBackup(): Promise<{
     filename = fn;
     sizeBytes = buffer.length;
 
-    saveBackupToTemp(buffer, filename);
+    saveBackupFile(buffer, filename);
 
     const rows = await db.select().from(settingsTable);
     const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
@@ -229,7 +257,7 @@ export async function performRestore(gzippedBuffer: Buffer): Promise<void> {
   try {
     const { buffer: safetyBuffer, filename: safetyFilename } = await runPgDump();
     const safetyName = safetyFilename.replace("ketantech-backup-", "pre-restore-");
-    const safetyPath = saveBackupToTemp(safetyBuffer, safetyName);
+    const safetyPath = saveBackupFile(safetyBuffer, safetyName);
     logger.info({ safetyPath }, "Safety backup sebelum restore berhasil dibuat");
 
     // Kirim safety backup ke Telegram jika dikonfigurasi

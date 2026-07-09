@@ -1,0 +1,30 @@
+// ============================================================
+// ecosystem.config.cjs.example — Template PM2 (TANPA secret nyata)
+// Salin jadi ecosystem.config.cjs, isi value asli. JANGAN commit file asli.
+// PM2 inject env block ini ke process.env saat runtime.
+// ============================================================
+module.exports = {
+  apps: [
+    {
+      name: "ketantech-api",
+      script: "node",
+      args: "--enable-source-maps artifacts/api-server/dist/index.mjs",
+      cwd: "/var/www/ketantech-vpn",
+      env: {
+        NODE_ENV: "production",
+        PORT: "5000",
+        DATABASE_URL: "postgresql://ketantech:GANTI_PASSWORD@localhost:5432/ketantech_db",
+        SESSION_SECRET: "GANTI_DENGAN_STRING_ACAK_PANJANG_MIN_32",
+        CORS_ORIGIN: "https://DOMAIN_ATAU_IP",
+        TRUSTED_PROXIES: "127.0.0.1,::1",
+        TURNSTILE_SECRET_KEY: "ISI_DARI_CLOUDFLARE",
+        TURNSTILE_FAIL_OPEN: "false",
+        LOG_LEVEL: "info",
+        PM2_APP_NAME: "ketantech-api",
+        SITE_URL: "https://DOMAIN_ATAU_IP",
+        BOT_API_KEY: "",
+        NADIAVPN_API_TOKEN: ""
+      }
+    }
+  ]
+}
