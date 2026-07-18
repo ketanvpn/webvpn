@@ -201,11 +201,12 @@ function HttpCustomGuideCard({
 }: HttpCustomGuideCardProps) {
   const steps = [
     "Pilih mode SSH di HTTP Custom, lalu tempel SSH Login.",
-    "Buka menu Payload, tempel Payload dan Remote Proxy, lalu pilih Apply.",
+    "Ketuk ikon tiga garis (☰) di kiri atas, lalu pilih menu Payload.",
+    "Di kolom Payload, tempel Payload. Di kolom tepat di bawahnya, tempel Remote Proxy, lalu pilih Apply.",
     "Aktifkan Use Payload.",
     guide.ssl
-      ? "Buka menu SNI, tempel Server Name Indication, lalu aktifkan SSL."
-      : "Biarkan SSL dan SNI mati/kosong untuk GameMax.",
+      ? "Ketuk ikon tiga garis (☰) lagi, pilih menu SNI yang berada di bawah Payload, tempel Server Name Indication, lalu aktifkan SSL."
+      : "Untuk GameMax, biarkan SSL dan SNI mati/kosong.",
     "Tekan CONNECT. Jika gagal, buka tab LOG dan kirim screenshot error ke admin.",
   ];
 
@@ -270,10 +271,19 @@ function HttpCustomGuideCard({
               onCopy={onCopy}
             />
             <CopyableGuideField
+              id="payload"
+              label="Payload"
+              value={guide.payload}
+              hint="☰ kiri atas → Payload → kolom Payload. Tempel persis; jangan ganti placeholder."
+              multiline
+              copied={copiedField === "payload"}
+              onCopy={onCopy}
+            />
+            <CopyableGuideField
               id="remote-proxy"
               label="Remote Proxy"
               value={guide.proxy.address}
-              hint="Tempel di menu Payload → Remote Proxy"
+              hint="Di menu Payload, tempel pada kolom Remote Proxy tepat di bawah kolom Payload."
               copied={copiedField === "remote-proxy"}
               onCopy={onCopy}
             />
@@ -282,20 +292,11 @@ function HttpCustomGuideCard({
                 id="sni"
                 label="SNI / Server Name Indication"
                 value={guide.sni}
-                hint="Khusus Ilmupedia; aktifkan SSL"
+                hint="☰ kiri atas → SNI (di bawah menu Payload); tempel lalu aktifkan SSL."
                 copied={copiedField === "sni"}
                 onCopy={onCopy}
               />
             )}
-            <CopyableGuideField
-              id="payload"
-              label="Payload"
-              value={guide.payload}
-              hint="Tempel persis seperti ini; jangan ganti placeholder"
-              multiline
-              copied={copiedField === "payload"}
-              onCopy={onCopy}
-            />
           </div>
         </section>
 

@@ -110,12 +110,13 @@ Jika file tidak terbuka langsung, gunakan tombol **Buka di DarkTunnel** atau **S
 1. Pilih **HTTP Custom** pada website.
 2. Install atau buka HTTP Custom melalui tombol Play Store resmi.
 3. Salin **SSH Login**, lalu tempel ke field `ip:port@user:pass` di mode SSH.
-4. Buka menu **Payload** (atau menu payload/custom header yang setara pada versimu).
-5. Salin dan tempel **Remote Proxy** serta **Payload**, lalu pilih **Apply**.
-6. Aktifkan **Use Payload**.
-7. Khusus Ilmupedia: salin **SNI**, tempel ke Server Name Indication, lalu aktifkan **SSL**.
-8. Untuk GameMax: biarkan SSL dan SNI mati/kosong.
-9. Ketuk **CONNECT** dan periksa tab **LOG** jika gagal.
+4. Ketuk ikon **tiga garis (☰)** di kiri atas, lalu pilih menu **Payload**.
+5. Di kolom **Payload**, salin dan tempel Payload dari website.
+6. Di kolom **Remote Proxy** yang berada tepat di bawah Payload, salin dan tempel Remote Proxy dari website, lalu pilih **Apply**.
+7. Aktifkan **Use Payload**.
+8. Khusus Ilmupedia: ketuk ikon tiga garis lagi, pilih menu **SNI** yang berada di bawah menu Payload, salin SNI dari website, tempel ke **Server Name Indication**, lalu aktifkan **SSL**.
+9. Untuk GameMax: biarkan SSL dan SNI mati/kosong.
+10. Ketuk **CONNECT** dan periksa tab **LOG** jika gagal.
 
 Jangan mengubah teks `[host]`, `[ua]`, dan `[crlf]` di dalam payload. Tampilan/menu HTTP Custom dapat sedikit berbeda tergantung versi aplikasi.
 
