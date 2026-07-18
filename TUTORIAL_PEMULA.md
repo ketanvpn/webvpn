@@ -52,9 +52,9 @@ Sebelum beli akun VPN, kamu harus punya saldo di website.
 
 ---
 
-## Langkah 3: Beli Akun SSH Khusus (untuk Injek DarkTunnel)
+## Langkah 3: Beli Akun SSH Khusus (untuk Inject Paket)
 
-Ini akun yang khusus buat dipakai bareng bug/injek di DarkTunnel.
+Ini akun yang khusus dipakai untuk inject paket melalui DarkTunnel atau HTTP Custom.
 
 1. Di Dashboard, cari tombol besar **Order VPN** atau **Beli Akun VPN**.
 2. Kamu akan masuk ke halaman pilihan paket.
@@ -75,9 +75,7 @@ Ini akun yang khusus buat dipakai bareng bug/injek di DarkTunnel.
 
 ---
 
-## Langkah 4: Buat Config DarkTunnel
-
-Kamu tidak perlu mengisi bug, SNI, payload, host, port, username, atau password secara manual.
+## Langkah 4: Pilih Paket, Akun, dan Aplikasi
 
 1. Dari Dashboard atau menu, buka **Inject Paket**.
 2. Pastikan tab **Mode Mudah** yang terbuka.
@@ -86,30 +84,42 @@ Kamu tidak perlu mengisi bug, SNI, payload, host, port, username, atau password 
    - **Ilmupedia** untuk akun SSH CloudFront.
 4. Pilih akun yang tersedia. Website hanya menampilkan akun yang aktif dan cocok dengan paket tersebut.
 5. Kalau hanya ada satu akun yang cocok, akun akan dipilih otomatis.
-6. Ketuk **Buat Config DarkTunnel**.
-7. Saat popup muncul, ketuk **Download File .dark**.
+6. Pilih aplikasi:
+   - **DarkTunnel** untuk pembuatan file `.dark` otomatis.
+   - **HTTP Custom (Beta)** untuk panduan salin data langkah demi langkah.
 
 Kalau website menampilkan akun Nadia yang belum teridentifikasi, ketuk **Perbarui Data Akun**, lalu pilih paket dan akun kembali.
 
 ---
 
-## Langkah 5: Buka di Aplikasi DarkTunnel
+## Langkah 5A: Menggunakan DarkTunnel
 
-Cara paling mudah:
+1. Pilih **DarkTunnel**.
+2. Ketuk **Buat Config DarkTunnel**.
+3. Saat popup muncul, ketuk **Download File .dark**.
+4. Buka notifikasi download atau aplikasi **File/Downloads** di HP.
+5. Ketuk file yang namanya berakhiran **.dark**.
+6. Pilih aplikasi DarkTunnel, pilih config, lalu ketuk **Connect/Start**.
 
-1. Setelah file selesai di-download, buka notifikasi download atau aplikasi **File/Downloads** di HP.
-2. Ketuk file yang namanya berakhiran **.dark**.
-3. Pilih aplikasi **DarkTunnel** jika Android menanyakan aplikasi pembuka.
-4. Pilih config yang baru masuk, lalu ketuk **Connect** atau **Start**.
+Jika file tidak terbuka langsung, gunakan tombol **Buka di DarkTunnel** atau **Salin Link**, lalu import link tersebut dari DarkTunnel.
 
-Cara cadangan jika file tidak bisa dibuka langsung:
+---
 
-1. Kembali ke popup hasil di website.
-2. Coba tombol **Buka di DarkTunnel**.
-3. Kalau masih tidak terbuka, ketuk **Salin Link**.
-4. Buka DarkTunnel, pilih **Import from Link/Paste Link**, lalu tempel link tersebut.
+## Langkah 5B: Menggunakan HTTP Custom (Beta)
 
-Kalau berhasil, akan muncul tulisan "Connected" atau ikon hijau.
+1. Pilih **HTTP Custom** pada website.
+2. Install atau buka HTTP Custom melalui tombol Play Store resmi.
+3. Salin **SSH Login**, lalu tempel ke field `ip:port@user:pass` di mode SSH.
+4. Buka menu **Payload** (atau menu payload/custom header yang setara pada versimu).
+5. Salin dan tempel **Remote Proxy** serta **Payload**, lalu pilih **Apply**.
+6. Aktifkan **Use Payload**.
+7. Khusus Ilmupedia: salin **SNI**, tempel ke Server Name Indication, lalu aktifkan **SSL**.
+8. Untuk GameMax: biarkan SSL dan SNI mati/kosong.
+9. Ketuk **CONNECT** dan periksa tab **LOG** jika gagal.
+
+Jangan mengubah teks `[host]`, `[ua]`, dan `[crlf]` di dalam payload. Tampilan/menu HTTP Custom dapat sedikit berbeda tergantung versi aplikasi.
+
+Kalau berhasil, status koneksi akan aktif. Karena dukungan HTTP Custom masih Beta, kirim screenshot tab LOG ke admin bila koneksi gagal.
 
 ---
 

@@ -73,6 +73,28 @@ export type DarkTunnelBuildResult = {
   };
 };
 
+export type HttpCustomGuide = {
+  target: DarkTunnelTarget;
+  targetLabel: string;
+  mode: "PROXY" | "PROXY_SNI";
+  ssh: {
+    host: string;
+    port: number;
+    username: string;
+    password: string;
+    login: string;
+  };
+  proxy: {
+    host: string;
+    port: number;
+    address: string;
+  };
+  payload: string;
+  sni: string | null;
+  usePayload: true;
+  ssl: boolean;
+};
+
 const EMPTY_VALUES = new Set([
   "",
   "no",
@@ -253,11 +275,11 @@ export function sanitizeDarkTunnelFilename(value: string): string {
   return `${base || "config-darktunnel"}.dark`;
 }
 
-export function buildDarkTunnelConfig(params: {
+function resolveSshInjectValues(params: {
   account: DarkTunnelAccount;
   target: DarkTunnelTarget;
   name?: string;
-}): DarkTunnelBuildResult {
+}) {
   const { account, target } = params;
   const definition = DARKTUNNEL_TARGETS[target];
 
@@ -280,8 +302,55 @@ export function buildDarkTunnelConfig(params: {
     throw new Error("Data host, username, atau password akun belum lengkap.");
   }
 
-  const name =
-    params.name?.trim() || `${definition.label} - ${account.username}`;
+  return {
+    definition,
+    host,
+    username,
+    password,
+    name: params.name?.trim() || `${definition.label} - ${account.username}`,
+  };
+}
+
+export function buildHttpCustomGuide(params: {
+  account: DarkTunnelAccount;
+  target: DarkTunnelTarget;
+}): HttpCustomGuide {
+  const { definition, host, username, password } =
+    resolveSshInjectValues(params);
+  const proxyHost = definition.injectConfig.proxyHost;
+  const proxyPort = definition.injectConfig.proxyPort;
+
+  return {
+    target: params.target,
+    targetLabel: definition.label,
+    mode: definition.injectConfig.mode,
+    ssh: {
+      host,
+      port: definition.sshPort,
+      username,
+      password,
+      login: `${host}:${definition.sshPort}@${username}:${password}`,
+    },
+    proxy: {
+      host: proxyHost,
+      port: proxyPort,
+      address: `${proxyHost}:${proxyPort}`,
+    },
+    payload: definition.injectConfig.payload,
+    sni: params.target === "ilmupedia" ? host : null,
+    usePayload: true,
+    ssl: params.target === "ilmupedia",
+  };
+}
+
+export function buildDarkTunnelConfig(params: {
+  account: DarkTunnelAccount;
+  target: DarkTunnelTarget;
+  name?: string;
+}): DarkTunnelBuildResult {
+  const { account, target } = params;
+  const { definition, host, username, password, name } =
+    resolveSshInjectValues(params);
   const injectConfig: Record<string, unknown> = {
     ...definition.injectConfig,
     ...(target === "ilmupedia" ? { serverNameIndication: host } : {}),

@@ -960,7 +960,7 @@ export default function AccountDetail() {
                 <Button className="w-full gap-2" asChild>
                   <Link href={`/converter?account=${accountId}`}>
                     <ShieldPlus className="h-4 w-4" />
-                    Buat Config DarkTunnel
+                    Buat Config Injek
                   </Link>
                 </Button>
               )}

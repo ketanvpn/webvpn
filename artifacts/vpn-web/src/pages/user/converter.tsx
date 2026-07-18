@@ -35,6 +35,7 @@ import {
   Loader2,
   RefreshCw,
   ShieldPlus,
+  Smartphone,
 } from "lucide-react";
 import {
   Dialog,
@@ -47,6 +48,7 @@ import {
 import { Input } from "@/components/ui/input";
 import {
   buildDarkTunnelConfig,
+  buildHttpCustomGuide,
   classifySshAccount,
   DARKTUNNEL_TARGETS,
   isAccountCompatibleWithTarget,
@@ -54,6 +56,7 @@ import {
   type DarkTunnelAccount,
   type DarkTunnelBuildResult,
   type DarkTunnelTarget,
+  type HttpCustomGuide,
 } from "@/lib/darktunnel";
 
 const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
@@ -76,6 +79,269 @@ type BugPreset = {
   isActive: boolean;
   sshInjectConfig?: Record<string, unknown>;
 };
+
+type EasyApp = "darktunnel" | "http-custom";
+
+type EasyAppSelectorProps = {
+  value: EasyApp | null;
+  onChange: (app: EasyApp) => void;
+};
+
+function EasyAppSelector({ value, onChange }: EasyAppSelectorProps) {
+  const applications = [
+    {
+      id: "darktunnel" as const,
+      label: "DarkTunnel",
+      description: "Otomatis: download file .dark atau import melalui link.",
+      icon: ShieldPlus,
+      iconClass: "text-emerald-300",
+    },
+    {
+      id: "http-custom" as const,
+      label: "HTTP Custom",
+      description: "Panduan: salin data SSH, proxy, payload, dan SNI secara bertahap.",
+      icon: Smartphone,
+      iconClass: "text-cyan-300",
+    },
+  ];
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {applications.map((application) => {
+        const Icon = application.icon;
+        const active = value === application.id;
+        return (
+          <button
+            key={application.id}
+            type="button"
+            onClick={() => onChange(application.id)}
+            className={`min-h-[128px] rounded-2xl border p-5 text-left transition-all ${
+              active
+                ? "border-primary bg-primary/15 ring-2 ring-primary/30"
+                : "border-white/10 bg-background/40 hover:border-primary/40"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <Icon className={`h-8 w-8 ${application.iconClass}`} />
+              {application.id === "http-custom" && (
+                <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-200">
+                  Beta
+                </Badge>
+              )}
+            </div>
+            <div className="mt-3 text-lg font-bold">{application.label}</div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {application.description}
+            </p>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+type CopyableGuideFieldProps = {
+  id: string;
+  label: string;
+  value: string;
+  hint?: string;
+  multiline?: boolean;
+  copied: boolean;
+  onCopy: (id: string, value: string, label: string) => void;
+};
+
+function CopyableGuideField({
+  id,
+  label,
+  value,
+  hint,
+  multiline = false,
+  copied,
+  onCopy,
+}: CopyableGuideFieldProps) {
+  return (
+    <div className={`min-w-0 space-y-2 ${multiline ? "sm:col-span-2" : ""}`}>
+      <div>
+        <Label>{label}</Label>
+        {hint && <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p>}
+      </div>
+      <div className={`flex min-w-0 gap-2 ${multiline ? "items-start" : "items-center"}`}>
+        <pre
+          className={`min-w-0 flex-1 select-all whitespace-pre-wrap break-all rounded-xl border border-white/10 bg-black/20 p-3 font-mono text-xs leading-relaxed ${
+            multiline ? "min-h-[112px]" : ""
+          }`}
+        >
+          {value}
+        </pre>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 shrink-0 gap-2 px-3"
+          aria-label={`Salin ${label}`}
+          onClick={() => onCopy(id, value, label)}
+        >
+          {copied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+          <span className="hidden sm:inline">{copied ? "Tersalin" : "Salin"}</span>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+type HttpCustomGuideCardProps = {
+  guide: HttpCustomGuide;
+  copiedField: string | null;
+  onCopy: (id: string, value: string, label: string) => void;
+};
+
+function HttpCustomGuideCard({
+  guide,
+  copiedField,
+  onCopy,
+}: HttpCustomGuideCardProps) {
+  const steps = [
+    "Pilih mode SSH di HTTP Custom, lalu tempel SSH Login.",
+    "Buka menu Payload, tempel Payload dan Remote Proxy, lalu pilih Apply.",
+    "Aktifkan Use Payload.",
+    guide.ssl
+      ? "Buka menu SNI, tempel Server Name Indication, lalu aktifkan SSL."
+      : "Biarkan SSL dan SNI mati/kosong untuk GameMax.",
+    "Tekan CONNECT. Jika gagal, buka tab LOG dan kirim screenshot error ke admin.",
+  ];
+
+  return (
+    <Card className="glass-panel overflow-hidden border-cyan-500/25">
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2">
+            <Smartphone className="h-5 w-5 text-cyan-300" />
+            4. Panduan HTTP Custom
+          </CardTitle>
+          <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-200">
+            Beta
+          </Badge>
+        </div>
+        <CardDescription>
+          Salin nilai satu per satu ke field yang sama di HTTP Custom. Posisi menu dapat sedikit berbeda menurut versi aplikasi.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Belum berupa file import</AlertTitle>
+          <AlertDescription>
+            Panduan ini menyiapkan data dari akunmu. Jangan ubah teks [host], [ua], atau [crlf] di dalam payload.
+          </AlertDescription>
+        </Alert>
+
+        <Button variant="outline" className="w-full gap-2" asChild>
+          <a
+            href="https://play.google.com/store/apps/details?id=xyz.easypro.httpcustom"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <ExternalLink className="h-4 w-4" /> Install / Buka HTTP Custom
+          </a>
+        </Button>
+
+        <div className="flex flex-wrap gap-2">
+          <Badge className="bg-emerald-600">Use Payload: ON</Badge>
+          <Badge className={guide.ssl ? "bg-emerald-600" : "bg-slate-600"}>
+            SSL: {guide.ssl ? "ON" : "OFF"}
+          </Badge>
+          <Badge variant="outline">Mode: {guide.mode}</Badge>
+        </div>
+
+        <section className="space-y-3">
+          <div>
+            <h3 className="font-semibold">A. Data utama</h3>
+            <p className="text-xs text-muted-foreground">
+              Tampilan standar HTTP Custom memakai format ip:port@user:pass.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <CopyableGuideField
+              id="ssh-login"
+              label="SSH Login"
+              value={guide.ssh.login}
+              hint="Tempel ke field ip:port@user:pass"
+              multiline
+              copied={copiedField === "ssh-login"}
+              onCopy={onCopy}
+            />
+            <CopyableGuideField
+              id="remote-proxy"
+              label="Remote Proxy"
+              value={guide.proxy.address}
+              hint="Tempel di menu Payload → Remote Proxy"
+              copied={copiedField === "remote-proxy"}
+              onCopy={onCopy}
+            />
+            {guide.sni && (
+              <CopyableGuideField
+                id="sni"
+                label="SNI / Server Name Indication"
+                value={guide.sni}
+                hint="Khusus Ilmupedia; aktifkan SSL"
+                copied={copiedField === "sni"}
+                onCopy={onCopy}
+              />
+            )}
+            <CopyableGuideField
+              id="payload"
+              label="Payload"
+              value={guide.payload}
+              hint="Tempel persis seperti ini; jangan ganti placeholder"
+              multiline
+              copied={copiedField === "payload"}
+              onCopy={onCopy}
+            />
+          </div>
+        </section>
+
+        <section className="space-y-3 rounded-2xl border border-white/10 bg-background/30 p-4">
+          <h3 className="font-semibold">B. Langkah di aplikasi</h3>
+          <ol className="space-y-3 text-sm">
+            {steps.map((step, index) => (
+              <li key={step} className="flex items-start gap-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                  {index + 1}
+                </span>
+                <span className="pt-1">{step}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section className="space-y-3">
+          <div>
+            <h3 className="font-semibold">C. Jika versi aplikasi meminta field terpisah</h3>
+            <p className="text-xs text-muted-foreground">
+              Gunakan data berikut, bukan SSH Login gabungan.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {[
+              ["ssh-host", "SSH Host", guide.ssh.host],
+              ["ssh-port", "SSH Port", String(guide.ssh.port)],
+              ["ssh-username", "Username", guide.ssh.username],
+              ["ssh-password", "Password", guide.ssh.password],
+            ].map(([id, label, value]) => (
+              <CopyableGuideField
+                key={id}
+                id={id}
+                label={label}
+                value={value}
+                copied={copiedField === id}
+                onCopy={onCopy}
+              />
+            ))}
+          </div>
+        </section>
+      </CardContent>
+    </Card>
+  );
+}
 
 function convertVmess(raw: string, bug: BugPreset) {
   try {
@@ -247,9 +513,11 @@ export default function ConfigConverter() {
 
   const [easyTarget, setEasyTarget] = useState<DarkTunnelTarget | null>(null);
   const [easyAccountId, setEasyAccountId] = useState("");
+  const [easyApp, setEasyApp] = useState<EasyApp | null>(null);
   const [easyResult, setEasyResult] = useState<DarkTunnelBuildResult | null>(null);
   const [showEasyResult, setShowEasyResult] = useState(false);
   const [isEasyCopied, setIsEasyCopied] = useState(false);
+  const [copiedHttpField, setCopiedHttpField] = useState<string | null>(null);
 
   const [rawConfig, setRawConfig] = useState("");
   const [selectedBugId, setSelectedBugId] = useState("");
@@ -351,18 +619,38 @@ export default function ConfigConverter() {
       }),
   });
 
+  function resetEasyApplicationState() {
+    setEasyApp(null);
+    setEasyResult(null);
+    setShowEasyResult(false);
+    setIsEasyCopied(false);
+    setCopiedHttpField(null);
+  }
+
   function selectEasyTarget(target: DarkTunnelTarget) {
     setEasyTarget(target);
     setEasyAccountId("");
+    resetEasyApplicationState();
+  }
+
+  function selectEasyAccount(accountId: string) {
+    setEasyAccountId(accountId);
+    resetEasyApplicationState();
+  }
+
+  function selectEasyApp(app: EasyApp) {
+    setEasyApp(app);
     setEasyResult(null);
+    setShowEasyResult(false);
     setIsEasyCopied(false);
+    setCopiedHttpField(null);
   }
 
   function generateEasyConfig() {
-    if (!easyTarget || !easyAccountId) {
+    if (easyApp !== "darktunnel" || !easyTarget || !easyAccountId) {
       toast({
-        title: "Pilih paket dan akun",
-        description: "Pilih GameMax/Ilmupedia lalu pilih akun SSH yang cocok.",
+        title: "Pilih paket, akun, dan aplikasi",
+        description: "Pilih GameMax/Ilmupedia, akun SSH yang cocok, lalu DarkTunnel.",
         variant: "destructive",
       });
       return;
@@ -532,16 +820,47 @@ export default function ConfigConverter() {
     }
   }
 
+  async function copyHttpField(
+    id: string,
+    value: string,
+    label: string,
+  ) {
+    try {
+      await writeClipboard(value);
+      setCopiedHttpField(id);
+      toast({
+        title: `${label} tersalin`,
+        description: "Tempel ke field yang sama di HTTP Custom.",
+      });
+      window.setTimeout(() => {
+        setCopiedHttpField((current) => (current === id ? null : current));
+      }, 2000);
+    } catch {
+      toast({
+        title: "Gagal menyalin",
+        description: `Tekan lama nilai ${label}, lalu pilih Salin.`,
+        variant: "destructive",
+      });
+    }
+  }
+
   const selectedEasyAccount = compatibleAccounts.find(
     (account) => String(account.id) === easyAccountId,
   );
+  const httpCustomGuide =
+    easyApp === "http-custom" && easyTarget && selectedEasyAccount
+      ? buildHttpCustomGuide({
+          account: selectedEasyAccount,
+          target: easyTarget,
+        })
+      : null;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Inject Paket DarkTunnel</h1>
+        <h1 className="text-2xl font-bold">Inject Paket Internet</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Buat config GameMax atau Ilmupedia tanpa mengatur bug, SNI, port, dan payload secara manual.
+          Pilih GameMax atau Ilmupedia, lalu gunakan DarkTunnel otomatis atau panduan HTTP Custom.
         </p>
       </div>
 
@@ -608,10 +927,7 @@ export default function ConfigConverter() {
                   </div>
                 ) : compatibleAccounts.length > 0 ? (
                   <>
-                    <Select value={easyAccountId} onValueChange={(value) => {
-                      setEasyAccountId(value);
-                      setEasyResult(null);
-                    }}>
+                    <Select value={easyAccountId} onValueChange={selectEasyAccount}>
                       <SelectTrigger className="h-12 bg-background/50">
                         <SelectValue placeholder="Pilih akun yang akan dipakai" />
                       </SelectTrigger>
@@ -678,37 +994,82 @@ export default function ConfigConverter() {
                   </div>
                 )}
               </CardContent>
+            </Card>
+          )}
+
+          {selectedEasyAccount && (
+            <Card className="glass-panel overflow-hidden border-primary/20">
+              <CardHeader>
+                <CardTitle>3. Pilih Aplikasi</CardTitle>
+                <CardDescription>
+                  Gunakan akun yang sama di DarkTunnel atau ikuti panduan HTTP Custom.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <EasyAppSelector value={easyApp} onChange={selectEasyApp} />
+              </CardContent>
+            </Card>
+          )}
+
+          {easyApp === "darktunnel" && selectedEasyAccount && (
+            <Card className="glass-panel overflow-hidden border-emerald-500/25">
+              <CardHeader>
+                <CardTitle>4. Buat Config DarkTunnel</CardTitle>
+                <CardDescription>
+                  Website membuat file .dark menggunakan akun yang sudah dipilih.
+                </CardDescription>
+              </CardHeader>
               <CardFooter className="border-t border-white/5 bg-primary/5 p-4">
                 <Button
                   size="lg"
                   className="w-full gap-2"
-                  disabled={!easyAccountId}
                   onClick={generateEasyConfig}
                 >
                   <ShieldPlus className="h-4 w-4" />
-                  3. Buat Config DarkTunnel
+                  Buat Config DarkTunnel
                 </Button>
               </CardFooter>
             </Card>
           )}
 
-          <Card className="border-white/10 bg-background/30">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Cara Pakai Setelah Config Dibuat</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3 text-sm sm:grid-cols-3">
-              {[
-                ["1", "Download file .dark"],
-                ["2", "Buka file dengan DarkTunnel"],
-                ["3", "Pilih config lalu Connect"],
-              ].map(([number, text]) => (
-                <div key={number} className="flex items-center gap-3 rounded-xl border border-white/5 p-3">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary font-bold text-primary-foreground">{number}</span>
-                  <span>{text}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+          {httpCustomGuide && (
+            <HttpCustomGuideCard
+              guide={httpCustomGuide}
+              copiedField={copiedHttpField}
+              onCopy={copyHttpField}
+            />
+          )}
+
+          {easyApp && (
+            <Card className="border-white/10 bg-background/30">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">
+                  {easyApp === "darktunnel"
+                    ? "Cara Pakai Setelah Config Dibuat"
+                    : "Ringkasan Cara Pakai HTTP Custom"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-3 text-sm sm:grid-cols-3">
+                {(easyApp === "darktunnel"
+                  ? [
+                      ["1", "Download file .dark"],
+                      ["2", "Buka file dengan DarkTunnel"],
+                      ["3", "Pilih config lalu Connect"],
+                    ]
+                  : [
+                      ["1", "Salin data sesuai label"],
+                      ["2", "Tempel di menu HTTP Custom"],
+                      ["3", "CONNECT lalu periksa LOG"],
+                    ]
+                ).map(([number, text]) => (
+                  <div key={number} className="flex items-center gap-3 rounded-xl border border-white/5 p-3">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary font-bold text-primary-foreground">{number}</span>
+                    <span>{text}</span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="advanced" className="space-y-6">
