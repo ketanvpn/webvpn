@@ -949,9 +949,9 @@ export default function AccountDetail() {
           )}
         </div>
 
-        {/* Sidebar kanan */}
-        <div className="min-w-0 space-y-6">
-          <Card className="glass-panel border-white/5">
+        {/* Mobile: kartu Aksi naik ke atas. Desktop: tetap menjadi sidebar kanan. */}
+        <div className="contents min-w-0 md:block md:space-y-6">
+          <Card className="order-first glass-panel border-white/5 md:order-none">
             <CardHeader className="border-b border-white/5 pb-4">
               <CardTitle className="text-base">Aksi</CardTitle>
             </CardHeader>
