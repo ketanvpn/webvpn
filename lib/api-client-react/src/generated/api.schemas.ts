@@ -99,6 +99,16 @@ export interface MessageResponse {
   message: string;
 }
 
+export type ValidationErrorResponseIssuesItem = {
+  path: string;
+  message: string;
+};
+
+export interface ValidationErrorResponse {
+  error: string;
+  issues?: ValidationErrorResponseIssuesItem[];
+}
+
 export interface RegisterBody {
   /** @minLength 3 */
   username: string;
@@ -588,12 +598,15 @@ export const BugPresetMode = {
   host: "host",
 } as const;
 
+export type BugPresetSshInjectConfig = { [key: string]: unknown };
+
 export interface BugPreset {
   id: number;
   name: string;
   bugDomain: string;
   mode: BugPresetMode;
   isActive: boolean;
+  sshInjectConfig?: BugPresetSshInjectConfig;
   createdAt: string;
   updatedAt: string;
 }
@@ -607,11 +620,14 @@ export const CreateBugPresetBodyMode = {
   host: "host",
 } as const;
 
+export type CreateBugPresetBodySshInjectConfig = { [key: string]: unknown };
+
 export interface CreateBugPresetBody {
   name: string;
   bugDomain: string;
   mode: CreateBugPresetBodyMode;
   isActive?: boolean;
+  sshInjectConfig?: CreateBugPresetBodySshInjectConfig;
 }
 
 export type UpdateBugPresetBodyMode =
@@ -623,11 +639,381 @@ export const UpdateBugPresetBodyMode = {
   host: "host",
 } as const;
 
+export type UpdateBugPresetBodySshInjectConfig = { [key: string]: unknown };
+
 export interface UpdateBugPresetBody {
   name?: string;
   bugDomain?: string;
   mode?: UpdateBugPresetBodyMode;
   isActive?: boolean;
+  sshInjectConfig?: UpdateBugPresetBodySshInjectConfig;
+}
+
+export type EasyInjectPresetRequiredAccountKind =
+  (typeof EasyInjectPresetRequiredAccountKind)[keyof typeof EasyInjectPresetRequiredAccountKind];
+
+export const EasyInjectPresetRequiredAccountKind = {
+  normal: "normal",
+  cloudfront: "cloudfront",
+} as const;
+
+export type EasyInjectPresetMode =
+  (typeof EasyInjectPresetMode)[keyof typeof EasyInjectPresetMode];
+
+export const EasyInjectPresetMode = {
+  PROXY: "PROXY",
+  PROXY_SNI: "PROXY_SNI",
+} as const;
+
+export type EasyInjectPresetSniPolicy =
+  (typeof EasyInjectPresetSniPolicy)[keyof typeof EasyInjectPresetSniPolicy];
+
+export const EasyInjectPresetSniPolicy = {
+  none: "none",
+  account_host: "account_host",
+  custom: "custom",
+} as const;
+
+export interface EasyInjectPreset {
+  /** @minimum 1 */
+  id: number;
+  /**
+   * @minLength 1
+   * @maxLength 100
+   * @pattern ^[a-z0-9]+(-[a-z0-9]+)*$
+   */
+  slug: string;
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  name: string;
+  /**
+   * @minLength 1
+   * @maxLength 1000
+   */
+  description: string;
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  accountLabel: string;
+  requiredAccountKind: EasyInjectPresetRequiredAccountKind;
+  /**
+   * @minimum 1
+   * @maximum 65535
+   */
+  sshPort: number;
+  mode: EasyInjectPresetMode;
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  proxyHost: string;
+  /**
+   * @minimum 1
+   * @maximum 65535
+   */
+  proxyPort: number;
+  /**
+   * @minLength 1
+   * @maxLength 16000
+   */
+  payload: string;
+  sniPolicy: EasyInjectPresetSniPolicy;
+  /**
+   * @minLength 1
+   * @maxLength 255
+   * @nullable
+   */
+  customSni: string | null;
+  usePayload: boolean;
+  ssl: boolean;
+  supportsDarkTunnel: boolean;
+  supportsHttpCustom: boolean;
+  /** @minimum 1 */
+  version: number;
+}
+
+export type AdminEasyInjectPreset = EasyInjectPreset & {
+  isActive: boolean;
+  isBuiltIn: boolean;
+  /** @minimum 0 */
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type EasyInjectPresetConfigurationInputRequiredAccountKind =
+  (typeof EasyInjectPresetConfigurationInputRequiredAccountKind)[keyof typeof EasyInjectPresetConfigurationInputRequiredAccountKind];
+
+export const EasyInjectPresetConfigurationInputRequiredAccountKind = {
+  normal: "normal",
+  cloudfront: "cloudfront",
+} as const;
+
+export type EasyInjectPresetConfigurationInputMode =
+  (typeof EasyInjectPresetConfigurationInputMode)[keyof typeof EasyInjectPresetConfigurationInputMode];
+
+export const EasyInjectPresetConfigurationInputMode = {
+  PROXY: "PROXY",
+  PROXY_SNI: "PROXY_SNI",
+} as const;
+
+export type EasyInjectPresetConfigurationInputSniPolicy =
+  (typeof EasyInjectPresetConfigurationInputSniPolicy)[keyof typeof EasyInjectPresetConfigurationInputSniPolicy];
+
+export const EasyInjectPresetConfigurationInputSniPolicy = {
+  none: "none",
+  account_host: "account_host",
+  custom: "custom",
+} as const;
+
+export interface EasyInjectPresetConfigurationInput {
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  name: string;
+  /**
+   * @minLength 1
+   * @maxLength 1000
+   */
+  description: string;
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  accountLabel: string;
+  requiredAccountKind: EasyInjectPresetConfigurationInputRequiredAccountKind;
+  /**
+   * @minimum 1
+   * @maximum 65535
+   */
+  sshPort: number;
+  mode: EasyInjectPresetConfigurationInputMode;
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  proxyHost: string;
+  /**
+   * @minimum 1
+   * @maximum 65535
+   */
+  proxyPort: number;
+  /**
+   * @minLength 1
+   * @maxLength 16000
+   */
+  payload: string;
+  sniPolicy: EasyInjectPresetConfigurationInputSniPolicy;
+  /**
+   * @minLength 1
+   * @maxLength 255
+   * @nullable
+   */
+  customSni?: string | null;
+  usePayload: boolean;
+  ssl: boolean;
+  supportsDarkTunnel: boolean;
+  supportsHttpCustom: boolean;
+  isActive?: boolean;
+  /** @minimum 0 */
+  sortOrder?: number;
+}
+
+export type CreateEasyInjectPresetBodyRequiredAccountKind =
+  (typeof CreateEasyInjectPresetBodyRequiredAccountKind)[keyof typeof CreateEasyInjectPresetBodyRequiredAccountKind];
+
+export const CreateEasyInjectPresetBodyRequiredAccountKind = {
+  normal: "normal",
+  cloudfront: "cloudfront",
+} as const;
+
+export type CreateEasyInjectPresetBodyMode =
+  (typeof CreateEasyInjectPresetBodyMode)[keyof typeof CreateEasyInjectPresetBodyMode];
+
+export const CreateEasyInjectPresetBodyMode = {
+  PROXY: "PROXY",
+  PROXY_SNI: "PROXY_SNI",
+} as const;
+
+export type CreateEasyInjectPresetBodySniPolicy =
+  (typeof CreateEasyInjectPresetBodySniPolicy)[keyof typeof CreateEasyInjectPresetBodySniPolicy];
+
+export const CreateEasyInjectPresetBodySniPolicy = {
+  none: "none",
+  account_host: "account_host",
+  custom: "custom",
+} as const;
+
+export interface CreateEasyInjectPresetBody {
+  /**
+   * @minLength 1
+   * @maxLength 100
+   * @pattern ^[a-z0-9]+(-[a-z0-9]+)*$
+   */
+  slug: string;
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  name: string;
+  /**
+   * @minLength 1
+   * @maxLength 1000
+   */
+  description: string;
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  accountLabel: string;
+  requiredAccountKind: CreateEasyInjectPresetBodyRequiredAccountKind;
+  /**
+   * @minimum 1
+   * @maximum 65535
+   */
+  sshPort: number;
+  mode: CreateEasyInjectPresetBodyMode;
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  proxyHost: string;
+  /**
+   * @minimum 1
+   * @maximum 65535
+   */
+  proxyPort: number;
+  /**
+   * @minLength 1
+   * @maxLength 16000
+   */
+  payload: string;
+  sniPolicy: CreateEasyInjectPresetBodySniPolicy;
+  /**
+   * @minLength 1
+   * @maxLength 255
+   * @nullable
+   */
+  customSni?: string | null;
+  usePayload: boolean;
+  ssl: boolean;
+  supportsDarkTunnel: boolean;
+  supportsHttpCustom: boolean;
+  isActive?: boolean;
+  /** @minimum 0 */
+  sortOrder?: number;
+}
+
+export type UpdateEasyInjectPresetBodyRequiredAccountKind =
+  (typeof UpdateEasyInjectPresetBodyRequiredAccountKind)[keyof typeof UpdateEasyInjectPresetBodyRequiredAccountKind];
+
+export const UpdateEasyInjectPresetBodyRequiredAccountKind = {
+  normal: "normal",
+  cloudfront: "cloudfront",
+} as const;
+
+export type UpdateEasyInjectPresetBodyMode =
+  (typeof UpdateEasyInjectPresetBodyMode)[keyof typeof UpdateEasyInjectPresetBodyMode];
+
+export const UpdateEasyInjectPresetBodyMode = {
+  PROXY: "PROXY",
+  PROXY_SNI: "PROXY_SNI",
+} as const;
+
+export type UpdateEasyInjectPresetBodySniPolicy =
+  (typeof UpdateEasyInjectPresetBodySniPolicy)[keyof typeof UpdateEasyInjectPresetBodySniPolicy];
+
+export const UpdateEasyInjectPresetBodySniPolicy = {
+  none: "none",
+  account_host: "account_host",
+  custom: "custom",
+} as const;
+
+export interface UpdateEasyInjectPresetBody {
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  name?: string;
+  /**
+   * @minLength 1
+   * @maxLength 1000
+   */
+  description?: string;
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  accountLabel?: string;
+  requiredAccountKind?: UpdateEasyInjectPresetBodyRequiredAccountKind;
+  /**
+   * @minimum 1
+   * @maximum 65535
+   */
+  sshPort?: number;
+  mode?: UpdateEasyInjectPresetBodyMode;
+  /**
+   * @minLength 1
+   * @maxLength 255
+   */
+  proxyHost?: string;
+  /**
+   * @minimum 1
+   * @maximum 65535
+   */
+  proxyPort?: number;
+  /**
+   * @minLength 1
+   * @maxLength 16000
+   */
+  payload?: string;
+  sniPolicy?: UpdateEasyInjectPresetBodySniPolicy;
+  /**
+   * @minLength 1
+   * @maxLength 255
+   * @nullable
+   */
+  customSni?: string | null;
+  usePayload?: boolean;
+  ssl?: boolean;
+  supportsDarkTunnel?: boolean;
+  supportsHttpCustom?: boolean;
+  isActive?: boolean;
+  /** @minimum 0 */
+  sortOrder?: number;
+}
+
+/**
+ * Full credential-free preset state stored for one version.
+ */
+export type EasyInjectPresetSnapshot = AdminEasyInjectPreset;
+
+export interface EasyInjectPresetRevision {
+  /** @minimum 1 */
+  id: number;
+  /** @minimum 1 */
+  presetId: number;
+  /** @minimum 1 */
+  version: number;
+  snapshot: EasyInjectPresetSnapshot;
+  /** @minLength 1 */
+  action: string;
+  /**
+   * @minimum 1
+   * @nullable
+   */
+  adminUserId: number | null;
+  createdAt: string;
+}
+
+export interface DeleteEasyInjectPresetResponse {
+  success: boolean;
+  /** @minimum 1 */
+  id: number;
 }
 
 export type UpdateProfileBody = {

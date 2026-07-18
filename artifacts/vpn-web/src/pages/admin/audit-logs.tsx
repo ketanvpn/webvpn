@@ -96,6 +96,11 @@ export default function AdminAuditLogs() {
               <option value="create_product">Create Product</option>
               <option value="update_product">Update Product</option>
               <option value="delete_product">Delete Product</option>
+              <option value="create_easy_inject_preset">Create Easy Inject Preset</option>
+              <option value="update_easy_inject_preset">Update Easy Inject Preset</option>
+              <option value="toggle_easy_inject_preset">Toggle Easy Inject Preset</option>
+              <option value="delete_easy_inject_preset">Delete Easy Inject Preset</option>
+              <option value="restore_easy_inject_preset">Restore Easy Inject Preset</option>
             </select>
             <input
               placeholder="Cari admin atau detail..."

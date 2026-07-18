@@ -6,10 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CreateBugPresetBodyMode } from "./createBugPresetBodyMode";
+import type { CreateBugPresetBodySshInjectConfig } from "./createBugPresetBodySshInjectConfig";
 
 export interface CreateBugPresetBody {
   name: string;
   bugDomain: string;
   mode: CreateBugPresetBodyMode;
   isActive?: boolean;
+  sshInjectConfig?: CreateBugPresetBodySshInjectConfig;
 }

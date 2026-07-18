@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { seedDefaultAdmin } from "./lib/seed";
+import { seedDefaultAdmin, seedEasyInjectPresets } from "./lib/seed";
 import { startScheduler } from "./lib/scheduler";
 
 // ─── Validasi konfigurasi kritis saat startup ────────────────────────────────
@@ -69,13 +69,22 @@ if (Number.isNaN(port) || port <= 0) {
 
 validateEnv();
 
-app.listen(port, async (err) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
-  }
-
-  logger.info({ port }, "Server listening");
+async function startServer() {
   await seedDefaultAdmin();
-  startScheduler();
+  await seedEasyInjectPresets();
+
+  app.listen(port, (err) => {
+    if (err) {
+      logger.error({ err }, "Error listening on port");
+      process.exit(1);
+    }
+
+    logger.info({ port }, "Server listening");
+    startScheduler();
+  });
+}
+
+startServer().catch((err) => {
+  logger.error({ err }, "Failed to initialize server");
+  process.exit(1);
 });

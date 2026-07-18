@@ -5,7 +5,7 @@ Bahasanya dibuat **sangat mudah**, langkah demi langkah, seperti ngobrol biasa.
 
 **Yang kamu butuhkan:**
 - HP Android
-- Aplikasi **DarkTunnel** (bisa di-download di Play Store atau sumber lain yang biasa kamu pakai)
+- Aplikasi **DarkTunnel** atau **HTTP Custom**, sesuai pilihan yang tersedia di website
 - Akun di website KETANTECH (sudah punya? bagus. Belum? daftar dulu di https://ketantech.my.id)
 
 ---
@@ -58,8 +58,9 @@ Ini akun yang khusus dipakai untuk inject paket melalui DarkTunnel atau HTTP Cus
 
 1. Di Dashboard, cari tombol besar **Order VPN** atau **Beli Akun VPN**.
 2. Kamu akan masuk ke halaman pilihan paket.
-3. Pilih paket yang cocok untuk injek (biasanya yang bertuliskan **SSH** atau **CloudFront** untuk paket tertentu seperti Ilmupedia/Gamemax).
-   - Contoh: Kalau mau injek Ilmupedia, pilih akun SSH CloudFront.
+3. Pilih jenis akun yang diminta oleh trik aktif di menu **Inject Paket**, biasanya **SSH biasa** atau **SSH CloudFront**.
+   - Contoh yang mungkin tersedia: GameMax memakai SSH biasa dan Ilmupedia memakai SSH CloudFront.
+   - Daftar dan kebutuhan akun dapat berubah saat admin memperbarui trik.
 4. Pilih durasi (1 hari, 7 hari, 30 hari, dll).
 5. Lihat harga.
 6. Ketuk **Beli** atau **Order Sekarang**.
@@ -71,7 +72,8 @@ Ini akun yang khusus dipakai untuk inject paket melalui DarkTunnel atau HTTP Cus
 - Buka menu **Akun VPN** (biasanya di sidebar atau bottom menu di HP).
 - Kamu akan lihat daftar akun.
 - Ketuk akun SSH yang baru dibeli.
-- Catat atau screenshot: **Host**, **Port**, **Username**, **Password**.
+- Website akan mengambil Host, Port, Username, dan Password akun tersebut saat membuat config.
+- **Jangan membagikan atau screenshot Password, SSH Login, link DarkTunnel, maupun file `.dark`.** Semuanya dapat dipakai untuk masuk ke akun VPN kamu.
 
 ---
 
@@ -79,16 +81,17 @@ Ini akun yang khusus dipakai untuk inject paket melalui DarkTunnel atau HTTP Cus
 
 1. Dari Dashboard atau menu, buka **Inject Paket**.
 2. Pastikan tab **Mode Mudah** yang terbuka.
-3. Pilih paket internet:
-   - **GameMax** untuk akun SSH biasa.
-   - **Ilmupedia** untuk akun SSH CloudFront.
-4. Pilih akun yang tersedia. Website hanya menampilkan akun yang aktif dan cocok dengan paket tersebut.
-5. Kalau hanya ada satu akun yang cocok, akun akan dipilih otomatis.
-6. Pilih aplikasi:
+3. Pilih salah satu **trik/preset aktif** yang ditampilkan. GameMax dan Ilmupedia hanyalah contoh; admin dapat menambah, mengubah, atau menonaktifkan trik.
+4. Baca badge jenis akun pada kartu, misalnya **SSH biasa** atau **SSH CloudFront**.
+5. Pilih akun yang tersedia. Website hanya menampilkan akun aktif yang cocok dengan preset tersebut.
+6. Kalau hanya ada satu akun yang cocok, akun dapat dipilih otomatis.
+7. Pilih aplikasi yang tersedia pada preset:
    - **DarkTunnel** untuk pembuatan file `.dark` otomatis.
    - **HTTP Custom (Beta)** untuk panduan salin data langkah demi langkah.
 
-Kalau website menampilkan akun Nadia yang belum teridentifikasi, ketuk **Perbarui Data Akun**, lalu pilih paket dan akun kembali.
+Kalau sebuah aplikasi tidak muncul, berarti admin sedang menonaktifkan aplikasi itu untuk preset tersebut. Kalau tertulis **Mode Mudah sementara tidak tersedia**, semua trik sedang dinonaktifkan atau diperbarui; coba lagi nanti.
+
+Kalau website menampilkan akun Nadia yang belum teridentifikasi, ketuk **Perbarui Data Akun**, lalu pilih preset dan akun kembali.
 
 ---
 
@@ -113,14 +116,14 @@ Jika file tidak terbuka langsung, gunakan tombol **Buka di DarkTunnel** atau **S
 4. Ketuk ikon **tiga garis (☰)** di kiri atas, lalu pilih menu **Payload**.
 5. Di kolom **Payload**, salin dan tempel Payload dari website.
 6. Di kolom **Remote Proxy** yang berada tepat di bawah Payload, salin dan tempel Remote Proxy dari website, lalu pilih **Apply**.
-7. Aktifkan **Use Payload**.
-8. Khusus Ilmupedia: ketuk ikon tiga garis lagi, pilih menu **SNI** yang berada di bawah menu Payload, salin SNI dari website, tempel ke **Server Name Indication**, lalu aktifkan **SSL**.
-9. Untuk GameMax: biarkan SSL dan SNI mati/kosong.
+7. Ikuti badge website untuk **Use Payload**: aktifkan bila tertulis ON dan biarkan mati bila tertulis OFF.
+8. Jika website menampilkan field **SNI**, ketuk ikon tiga garis lagi, pilih menu **SNI** yang berada di bawah menu Payload, lalu tempel nilainya ke **Server Name Indication**.
+9. Ikuti badge **SSL** pada website: aktifkan bila ON; bila OFF, biarkan SSL mati dan SNI kosong jika tidak ditampilkan.
 10. Ketuk **CONNECT** dan periksa tab **LOG** jika gagal.
 
 Jangan mengubah teks `[host]`, `[ua]`, dan `[crlf]` di dalam payload. Tampilan/menu HTTP Custom dapat sedikit berbeda tergantung versi aplikasi.
 
-Kalau berhasil, status koneksi akan aktif. Karena dukungan HTTP Custom masih Beta, kirim screenshot tab LOG ke admin bila koneksi gagal.
+Kalau berhasil, status koneksi akan aktif. Karena dukungan HTTP Custom masih Beta, kirim screenshot tab LOG ke admin bila koneksi gagal. **Sebelum mengirim screenshot, tutupi SSH Login, username, password, dan link config jika terlihat.**
 
 ---
 
@@ -129,10 +132,11 @@ Kalau berhasil, status koneksi akan aktif. Karena dukungan HTTP Custom masih Bet
 - **Selalu pilih akun yang masih aktif** (lihat tanggal expirednya).
 - Kalau gagal connect di DarkTunnel:
   - Pastikan saldo cukup saat beli.
-  - Pastikan kamu pilih injek yang cocok dengan akun yang dibeli (contoh: Ilmupedia harus pakai akun CloudFront).
+  - Pastikan badge jenis akun pada preset cocok dengan akun yang dibeli.
   - Coba restart HP atau ganti jaringan (4G/5G).
 - Jangan lupa cek kuota data kamu setelah connect.
-- Kalau ada error, screenshot dan tanya ke admin via Tiket Bantuan di website.
+- Kalau ada error, screenshot dan tanya ke admin via Tiket Bantuan di website, tetapi tutupi semua kredensial dan link config terlebih dahulu.
+- Jangan kirim atau menjual ulang file `.dark`; file itu berisi akses akun SSH kamu.
 
 ---
 

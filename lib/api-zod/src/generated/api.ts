@@ -2303,7 +2303,7 @@ export const ListBugPresetsResponseItem = zod.object({
   bugDomain: zod.string(),
   mode: zod.enum(["wildcard", "sni", "host"]),
   isActive: zod.boolean(),
-  sshInjectConfig: zod.record(zod.any()).optional(),
+  sshInjectConfig: zod.record(zod.string(), zod.unknown()).optional(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -2318,7 +2318,7 @@ export const AdminListBugPresetsResponseItem = zod.object({
   bugDomain: zod.string(),
   mode: zod.enum(["wildcard", "sni", "host"]),
   isActive: zod.boolean(),
-  sshInjectConfig: zod.record(zod.any()).optional(),
+  sshInjectConfig: zod.record(zod.string(), zod.unknown()).optional(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -2336,7 +2336,7 @@ export const AdminCreateBugPresetBody = zod.object({
   bugDomain: zod.string(),
   mode: zod.enum(["wildcard", "sni", "host"]),
   isActive: zod.boolean().default(adminCreateBugPresetBodyIsActiveDefault),
-  sshInjectConfig: zod.record(zod.any()).optional(),
+  sshInjectConfig: zod.record(zod.string(), zod.unknown()).optional(),
 });
 
 /**
@@ -2351,7 +2351,7 @@ export const AdminUpdateBugPresetBody = zod.object({
   bugDomain: zod.string().optional(),
   mode: zod.enum(["wildcard", "sni", "host"]).optional(),
   isActive: zod.boolean().optional(),
-  sshInjectConfig: zod.record(zod.any()).optional(),
+  sshInjectConfig: zod.record(zod.string(), zod.unknown()).optional(),
 });
 
 export const AdminUpdateBugPresetResponse = zod.object({
@@ -2360,7 +2360,7 @@ export const AdminUpdateBugPresetResponse = zod.object({
   bugDomain: zod.string(),
   mode: zod.enum(["wildcard", "sni", "host"]),
   isActive: zod.boolean(),
-  sshInjectConfig: zod.record(zod.any()).optional(),
+  sshInjectConfig: zod.record(zod.string(), zod.unknown()).optional(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -2375,3 +2375,636 @@ export const AdminDeleteBugPresetParams = zod.object({
 export const AdminDeleteBugPresetResponse = zod.object({
   success: zod.boolean().optional(),
 });
+
+/**
+ * @summary List active Easy Inject presets for authenticated users
+ */
+
+export const listActiveEasyInjectPresetsResponseSlugMax = 100;
+
+export const listActiveEasyInjectPresetsResponseSlugRegExp = new RegExp(
+  "^[a-z0-9]+(-[a-z0-9]+)\*$",
+);
+export const listActiveEasyInjectPresetsResponseNameMax = 120;
+
+export const listActiveEasyInjectPresetsResponseDescriptionMax = 1000;
+
+export const listActiveEasyInjectPresetsResponseAccountLabelMax = 120;
+
+export const listActiveEasyInjectPresetsResponseSshPortMax = 65535;
+
+export const listActiveEasyInjectPresetsResponseProxyHostMax = 255;
+
+export const listActiveEasyInjectPresetsResponseProxyPortMax = 65535;
+
+export const listActiveEasyInjectPresetsResponsePayloadMax = 16000;
+
+export const listActiveEasyInjectPresetsResponseCustomSniMax = 255;
+
+export const ListActiveEasyInjectPresetsResponseItem = zod.object({
+  id: zod.number().min(1),
+  slug: zod
+    .string()
+    .min(1)
+    .max(listActiveEasyInjectPresetsResponseSlugMax)
+    .regex(listActiveEasyInjectPresetsResponseSlugRegExp),
+  name: zod.string().min(1).max(listActiveEasyInjectPresetsResponseNameMax),
+  description: zod
+    .string()
+    .min(1)
+    .max(listActiveEasyInjectPresetsResponseDescriptionMax),
+  accountLabel: zod
+    .string()
+    .min(1)
+    .max(listActiveEasyInjectPresetsResponseAccountLabelMax),
+  requiredAccountKind: zod.enum(["normal", "cloudfront"]),
+  sshPort: zod
+    .number()
+    .min(1)
+    .max(listActiveEasyInjectPresetsResponseSshPortMax),
+  mode: zod.enum(["PROXY", "PROXY_SNI"]),
+  proxyHost: zod
+    .string()
+    .min(1)
+    .max(listActiveEasyInjectPresetsResponseProxyHostMax),
+  proxyPort: zod
+    .number()
+    .min(1)
+    .max(listActiveEasyInjectPresetsResponseProxyPortMax),
+  payload: zod
+    .string()
+    .min(1)
+    .max(listActiveEasyInjectPresetsResponsePayloadMax),
+  sniPolicy: zod.enum(["none", "account_host", "custom"]),
+  customSni: zod
+    .string()
+    .min(1)
+    .max(listActiveEasyInjectPresetsResponseCustomSniMax)
+    .nullable(),
+  usePayload: zod.boolean(),
+  ssl: zod.boolean(),
+  supportsDarkTunnel: zod.boolean(),
+  supportsHttpCustom: zod.boolean(),
+  version: zod.number().min(1),
+});
+export const ListActiveEasyInjectPresetsResponse = zod.array(
+  ListActiveEasyInjectPresetsResponseItem,
+);
+
+/**
+ * @summary List all Easy Inject presets (admin)
+ */
+
+export const adminListEasyInjectPresetsResponseOneSlugMax = 100;
+
+export const adminListEasyInjectPresetsResponseOneSlugRegExp = new RegExp(
+  "^[a-z0-9]+(-[a-z0-9]+)\*$",
+);
+export const adminListEasyInjectPresetsResponseOneNameMax = 120;
+
+export const adminListEasyInjectPresetsResponseOneDescriptionMax = 1000;
+
+export const adminListEasyInjectPresetsResponseOneAccountLabelMax = 120;
+
+export const adminListEasyInjectPresetsResponseOneSshPortMax = 65535;
+
+export const adminListEasyInjectPresetsResponseOneProxyHostMax = 255;
+
+export const adminListEasyInjectPresetsResponseOneProxyPortMax = 65535;
+
+export const adminListEasyInjectPresetsResponseOnePayloadMax = 16000;
+
+export const adminListEasyInjectPresetsResponseOneCustomSniMax = 255;
+
+export const adminListEasyInjectPresetsResponseTwoSortOrderMin = 0;
+
+export const AdminListEasyInjectPresetsResponseItem = zod
+  .object({
+    id: zod.number().min(1),
+    slug: zod
+      .string()
+      .min(1)
+      .max(adminListEasyInjectPresetsResponseOneSlugMax)
+      .regex(adminListEasyInjectPresetsResponseOneSlugRegExp),
+    name: zod.string().min(1).max(adminListEasyInjectPresetsResponseOneNameMax),
+    description: zod
+      .string()
+      .min(1)
+      .max(adminListEasyInjectPresetsResponseOneDescriptionMax),
+    accountLabel: zod
+      .string()
+      .min(1)
+      .max(adminListEasyInjectPresetsResponseOneAccountLabelMax),
+    requiredAccountKind: zod.enum(["normal", "cloudfront"]),
+    sshPort: zod
+      .number()
+      .min(1)
+      .max(adminListEasyInjectPresetsResponseOneSshPortMax),
+    mode: zod.enum(["PROXY", "PROXY_SNI"]),
+    proxyHost: zod
+      .string()
+      .min(1)
+      .max(adminListEasyInjectPresetsResponseOneProxyHostMax),
+    proxyPort: zod
+      .number()
+      .min(1)
+      .max(adminListEasyInjectPresetsResponseOneProxyPortMax),
+    payload: zod
+      .string()
+      .min(1)
+      .max(adminListEasyInjectPresetsResponseOnePayloadMax),
+    sniPolicy: zod.enum(["none", "account_host", "custom"]),
+    customSni: zod
+      .string()
+      .min(1)
+      .max(adminListEasyInjectPresetsResponseOneCustomSniMax)
+      .nullable(),
+    usePayload: zod.boolean(),
+    ssl: zod.boolean(),
+    supportsDarkTunnel: zod.boolean(),
+    supportsHttpCustom: zod.boolean(),
+    version: zod.number().min(1),
+  })
+  .and(
+    zod.object({
+      isActive: zod.boolean(),
+      isBuiltIn: zod.boolean(),
+      sortOrder: zod
+        .number()
+        .min(adminListEasyInjectPresetsResponseTwoSortOrderMin),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  );
+export const AdminListEasyInjectPresetsResponse = zod.array(
+  AdminListEasyInjectPresetsResponseItem,
+);
+
+/**
+ * @summary Create an Easy Inject preset (admin)
+ */
+export const adminCreateEasyInjectPresetBodySlugMax = 100;
+
+export const adminCreateEasyInjectPresetBodySlugRegExp = new RegExp(
+  "^[a-z0-9]+(-[a-z0-9]+)\*$",
+);
+export const adminCreateEasyInjectPresetBodyNameMax = 120;
+
+export const adminCreateEasyInjectPresetBodyDescriptionMax = 1000;
+
+export const adminCreateEasyInjectPresetBodyAccountLabelMax = 120;
+
+export const adminCreateEasyInjectPresetBodySshPortMax = 65535;
+
+export const adminCreateEasyInjectPresetBodyProxyHostMax = 255;
+
+export const adminCreateEasyInjectPresetBodyProxyPortMax = 65535;
+
+export const adminCreateEasyInjectPresetBodyPayloadMax = 16000;
+
+export const adminCreateEasyInjectPresetBodyCustomSniDefault = null;
+export const adminCreateEasyInjectPresetBodyCustomSniMax = 255;
+
+export const adminCreateEasyInjectPresetBodyIsActiveDefault = true;
+export const adminCreateEasyInjectPresetBodySortOrderDefault = 0;
+export const adminCreateEasyInjectPresetBodySortOrderMin = 0;
+
+export const AdminCreateEasyInjectPresetBody = zod.object({
+  slug: zod
+    .string()
+    .min(1)
+    .max(adminCreateEasyInjectPresetBodySlugMax)
+    .regex(adminCreateEasyInjectPresetBodySlugRegExp),
+  name: zod.string().min(1).max(adminCreateEasyInjectPresetBodyNameMax),
+  description: zod
+    .string()
+    .min(1)
+    .max(adminCreateEasyInjectPresetBodyDescriptionMax),
+  accountLabel: zod
+    .string()
+    .min(1)
+    .max(adminCreateEasyInjectPresetBodyAccountLabelMax),
+  requiredAccountKind: zod.enum(["normal", "cloudfront"]),
+  sshPort: zod.number().min(1).max(adminCreateEasyInjectPresetBodySshPortMax),
+  mode: zod.enum(["PROXY", "PROXY_SNI"]),
+  proxyHost: zod
+    .string()
+    .min(1)
+    .max(adminCreateEasyInjectPresetBodyProxyHostMax),
+  proxyPort: zod
+    .number()
+    .min(1)
+    .max(adminCreateEasyInjectPresetBodyProxyPortMax),
+  payload: zod.string().min(1).max(adminCreateEasyInjectPresetBodyPayloadMax),
+  sniPolicy: zod.enum(["none", "account_host", "custom"]),
+  customSni: zod
+    .string()
+    .min(1)
+    .max(adminCreateEasyInjectPresetBodyCustomSniMax)
+    .nullish()
+    .default(adminCreateEasyInjectPresetBodyCustomSniDefault),
+  usePayload: zod.boolean(),
+  ssl: zod.boolean(),
+  supportsDarkTunnel: zod.boolean(),
+  supportsHttpCustom: zod.boolean(),
+  isActive: zod
+    .boolean()
+    .default(adminCreateEasyInjectPresetBodyIsActiveDefault),
+  sortOrder: zod
+    .number()
+    .min(adminCreateEasyInjectPresetBodySortOrderMin)
+    .default(adminCreateEasyInjectPresetBodySortOrderDefault),
+});
+
+/**
+ * @summary Update or activate/deactivate an Easy Inject preset (admin)
+ */
+
+export const AdminPatchEasyInjectPresetParams = zod.object({
+  id: zod.coerce.number().min(1),
+});
+
+export const adminPatchEasyInjectPresetBodyNameMax = 120;
+
+export const adminPatchEasyInjectPresetBodyDescriptionMax = 1000;
+
+export const adminPatchEasyInjectPresetBodyAccountLabelMax = 120;
+
+export const adminPatchEasyInjectPresetBodySshPortMax = 65535;
+
+export const adminPatchEasyInjectPresetBodyProxyHostMax = 255;
+
+export const adminPatchEasyInjectPresetBodyProxyPortMax = 65535;
+
+export const adminPatchEasyInjectPresetBodyPayloadMax = 16000;
+
+export const adminPatchEasyInjectPresetBodyCustomSniMax = 255;
+
+export const adminPatchEasyInjectPresetBodySortOrderMin = 0;
+
+export const AdminPatchEasyInjectPresetBody = zod.object({
+  name: zod
+    .string()
+    .min(1)
+    .max(adminPatchEasyInjectPresetBodyNameMax)
+    .optional(),
+  description: zod
+    .string()
+    .min(1)
+    .max(adminPatchEasyInjectPresetBodyDescriptionMax)
+    .optional(),
+  accountLabel: zod
+    .string()
+    .min(1)
+    .max(adminPatchEasyInjectPresetBodyAccountLabelMax)
+    .optional(),
+  requiredAccountKind: zod.enum(["normal", "cloudfront"]).optional(),
+  sshPort: zod
+    .number()
+    .min(1)
+    .max(adminPatchEasyInjectPresetBodySshPortMax)
+    .optional(),
+  mode: zod.enum(["PROXY", "PROXY_SNI"]).optional(),
+  proxyHost: zod
+    .string()
+    .min(1)
+    .max(adminPatchEasyInjectPresetBodyProxyHostMax)
+    .optional(),
+  proxyPort: zod
+    .number()
+    .min(1)
+    .max(adminPatchEasyInjectPresetBodyProxyPortMax)
+    .optional(),
+  payload: zod
+    .string()
+    .min(1)
+    .max(adminPatchEasyInjectPresetBodyPayloadMax)
+    .optional(),
+  sniPolicy: zod.enum(["none", "account_host", "custom"]).optional(),
+  customSni: zod
+    .string()
+    .min(1)
+    .max(adminPatchEasyInjectPresetBodyCustomSniMax)
+    .nullish(),
+  usePayload: zod.boolean().optional(),
+  ssl: zod.boolean().optional(),
+  supportsDarkTunnel: zod.boolean().optional(),
+  supportsHttpCustom: zod.boolean().optional(),
+  isActive: zod.boolean().optional(),
+  sortOrder: zod
+    .number()
+    .min(adminPatchEasyInjectPresetBodySortOrderMin)
+    .optional(),
+});
+
+export const adminPatchEasyInjectPresetResponseOneSlugMax = 100;
+
+export const adminPatchEasyInjectPresetResponseOneSlugRegExp = new RegExp(
+  "^[a-z0-9]+(-[a-z0-9]+)\*$",
+);
+export const adminPatchEasyInjectPresetResponseOneNameMax = 120;
+
+export const adminPatchEasyInjectPresetResponseOneDescriptionMax = 1000;
+
+export const adminPatchEasyInjectPresetResponseOneAccountLabelMax = 120;
+
+export const adminPatchEasyInjectPresetResponseOneSshPortMax = 65535;
+
+export const adminPatchEasyInjectPresetResponseOneProxyHostMax = 255;
+
+export const adminPatchEasyInjectPresetResponseOneProxyPortMax = 65535;
+
+export const adminPatchEasyInjectPresetResponseOnePayloadMax = 16000;
+
+export const adminPatchEasyInjectPresetResponseOneCustomSniMax = 255;
+
+export const adminPatchEasyInjectPresetResponseTwoSortOrderMin = 0;
+
+export const AdminPatchEasyInjectPresetResponse = zod
+  .object({
+    id: zod.number().min(1),
+    slug: zod
+      .string()
+      .min(1)
+      .max(adminPatchEasyInjectPresetResponseOneSlugMax)
+      .regex(adminPatchEasyInjectPresetResponseOneSlugRegExp),
+    name: zod.string().min(1).max(adminPatchEasyInjectPresetResponseOneNameMax),
+    description: zod
+      .string()
+      .min(1)
+      .max(adminPatchEasyInjectPresetResponseOneDescriptionMax),
+    accountLabel: zod
+      .string()
+      .min(1)
+      .max(adminPatchEasyInjectPresetResponseOneAccountLabelMax),
+    requiredAccountKind: zod.enum(["normal", "cloudfront"]),
+    sshPort: zod
+      .number()
+      .min(1)
+      .max(adminPatchEasyInjectPresetResponseOneSshPortMax),
+    mode: zod.enum(["PROXY", "PROXY_SNI"]),
+    proxyHost: zod
+      .string()
+      .min(1)
+      .max(adminPatchEasyInjectPresetResponseOneProxyHostMax),
+    proxyPort: zod
+      .number()
+      .min(1)
+      .max(adminPatchEasyInjectPresetResponseOneProxyPortMax),
+    payload: zod
+      .string()
+      .min(1)
+      .max(adminPatchEasyInjectPresetResponseOnePayloadMax),
+    sniPolicy: zod.enum(["none", "account_host", "custom"]),
+    customSni: zod
+      .string()
+      .min(1)
+      .max(adminPatchEasyInjectPresetResponseOneCustomSniMax)
+      .nullable(),
+    usePayload: zod.boolean(),
+    ssl: zod.boolean(),
+    supportsDarkTunnel: zod.boolean(),
+    supportsHttpCustom: zod.boolean(),
+    version: zod.number().min(1),
+  })
+  .and(
+    zod.object({
+      isActive: zod.boolean(),
+      isBuiltIn: zod.boolean(),
+      sortOrder: zod
+        .number()
+        .min(adminPatchEasyInjectPresetResponseTwoSortOrderMin),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  );
+
+/**
+ * Built-in presets cannot be deleted and must be deactivated instead.
+ * @summary Delete a custom Easy Inject preset (admin)
+ */
+
+export const AdminDeleteEasyInjectPresetParams = zod.object({
+  id: zod.coerce.number().min(1),
+});
+
+export const AdminDeleteEasyInjectPresetResponse = zod.object({
+  success: zod.boolean(),
+  id: zod.number().min(1),
+});
+
+/**
+ * @summary List revision snapshots for an Easy Inject preset (admin)
+ */
+
+export const AdminListEasyInjectPresetRevisionsParams = zod.object({
+  id: zod.coerce.number().min(1),
+});
+
+export const adminListEasyInjectPresetRevisionsResponseSnapshotOneOneSlugMax = 100;
+
+export const adminListEasyInjectPresetRevisionsResponseSnapshotOneOneSlugRegExp =
+  new RegExp("^[a-z0-9]+(-[a-z0-9]+)\*$");
+export const adminListEasyInjectPresetRevisionsResponseSnapshotOneOneNameMax = 120;
+
+export const adminListEasyInjectPresetRevisionsResponseSnapshotOneOneDescriptionMax = 1000;
+
+export const adminListEasyInjectPresetRevisionsResponseSnapshotOneOneAccountLabelMax = 120;
+
+export const adminListEasyInjectPresetRevisionsResponseSnapshotOneOneSshPortMax = 65535;
+
+export const adminListEasyInjectPresetRevisionsResponseSnapshotOneOneProxyHostMax = 255;
+
+export const adminListEasyInjectPresetRevisionsResponseSnapshotOneOneProxyPortMax = 65535;
+
+export const adminListEasyInjectPresetRevisionsResponseSnapshotOneOnePayloadMax = 16000;
+
+export const adminListEasyInjectPresetRevisionsResponseSnapshotOneOneCustomSniMax = 255;
+
+export const adminListEasyInjectPresetRevisionsResponseSnapshotOneTwoSortOrderMin = 0;
+
+export const AdminListEasyInjectPresetRevisionsResponseItem = zod.object({
+  id: zod.number().min(1),
+  presetId: zod.number().min(1),
+  version: zod.number().min(1),
+  snapshot: zod
+    .object({
+      id: zod.number().min(1),
+      slug: zod
+        .string()
+        .min(1)
+        .max(adminListEasyInjectPresetRevisionsResponseSnapshotOneOneSlugMax)
+        .regex(
+          adminListEasyInjectPresetRevisionsResponseSnapshotOneOneSlugRegExp,
+        ),
+      name: zod
+        .string()
+        .min(1)
+        .max(adminListEasyInjectPresetRevisionsResponseSnapshotOneOneNameMax),
+      description: zod
+        .string()
+        .min(1)
+        .max(
+          adminListEasyInjectPresetRevisionsResponseSnapshotOneOneDescriptionMax,
+        ),
+      accountLabel: zod
+        .string()
+        .min(1)
+        .max(
+          adminListEasyInjectPresetRevisionsResponseSnapshotOneOneAccountLabelMax,
+        ),
+      requiredAccountKind: zod.enum(["normal", "cloudfront"]),
+      sshPort: zod
+        .number()
+        .min(1)
+        .max(
+          adminListEasyInjectPresetRevisionsResponseSnapshotOneOneSshPortMax,
+        ),
+      mode: zod.enum(["PROXY", "PROXY_SNI"]),
+      proxyHost: zod
+        .string()
+        .min(1)
+        .max(
+          adminListEasyInjectPresetRevisionsResponseSnapshotOneOneProxyHostMax,
+        ),
+      proxyPort: zod
+        .number()
+        .min(1)
+        .max(
+          adminListEasyInjectPresetRevisionsResponseSnapshotOneOneProxyPortMax,
+        ),
+      payload: zod
+        .string()
+        .min(1)
+        .max(
+          adminListEasyInjectPresetRevisionsResponseSnapshotOneOnePayloadMax,
+        ),
+      sniPolicy: zod.enum(["none", "account_host", "custom"]),
+      customSni: zod
+        .string()
+        .min(1)
+        .max(
+          adminListEasyInjectPresetRevisionsResponseSnapshotOneOneCustomSniMax,
+        )
+        .nullable(),
+      usePayload: zod.boolean(),
+      ssl: zod.boolean(),
+      supportsDarkTunnel: zod.boolean(),
+      supportsHttpCustom: zod.boolean(),
+      version: zod.number().min(1),
+    })
+    .and(
+      zod.object({
+        isActive: zod.boolean(),
+        isBuiltIn: zod.boolean(),
+        sortOrder: zod
+          .number()
+          .min(
+            adminListEasyInjectPresetRevisionsResponseSnapshotOneTwoSortOrderMin,
+          ),
+        createdAt: zod.coerce.date(),
+        updatedAt: zod.coerce.date(),
+      }),
+    )
+    .describe("Full credential-free preset state stored for one version."),
+  action: zod.string().min(1),
+  adminUserId: zod.number().min(1).nullable(),
+  createdAt: zod.coerce.date(),
+});
+export const AdminListEasyInjectPresetRevisionsResponse = zod.array(
+  AdminListEasyInjectPresetRevisionsResponseItem,
+);
+
+/**
+ * Preserves the preset id, slug, and built-in identity while creating a new version.
+ * @summary Restore an Easy Inject preset revision into a new version (admin)
+ */
+
+export const AdminRestoreEasyInjectPresetRevisionParams = zod.object({
+  id: zod.coerce.number().min(1),
+  revisionId: zod.coerce.number().min(1),
+});
+
+export const adminRestoreEasyInjectPresetRevisionResponseOneSlugMax = 100;
+
+export const adminRestoreEasyInjectPresetRevisionResponseOneSlugRegExp =
+  new RegExp("^[a-z0-9]+(-[a-z0-9]+)\*$");
+export const adminRestoreEasyInjectPresetRevisionResponseOneNameMax = 120;
+
+export const adminRestoreEasyInjectPresetRevisionResponseOneDescriptionMax = 1000;
+
+export const adminRestoreEasyInjectPresetRevisionResponseOneAccountLabelMax = 120;
+
+export const adminRestoreEasyInjectPresetRevisionResponseOneSshPortMax = 65535;
+
+export const adminRestoreEasyInjectPresetRevisionResponseOneProxyHostMax = 255;
+
+export const adminRestoreEasyInjectPresetRevisionResponseOneProxyPortMax = 65535;
+
+export const adminRestoreEasyInjectPresetRevisionResponseOnePayloadMax = 16000;
+
+export const adminRestoreEasyInjectPresetRevisionResponseOneCustomSniMax = 255;
+
+export const adminRestoreEasyInjectPresetRevisionResponseTwoSortOrderMin = 0;
+
+export const AdminRestoreEasyInjectPresetRevisionResponse = zod
+  .object({
+    id: zod.number().min(1),
+    slug: zod
+      .string()
+      .min(1)
+      .max(adminRestoreEasyInjectPresetRevisionResponseOneSlugMax)
+      .regex(adminRestoreEasyInjectPresetRevisionResponseOneSlugRegExp),
+    name: zod
+      .string()
+      .min(1)
+      .max(adminRestoreEasyInjectPresetRevisionResponseOneNameMax),
+    description: zod
+      .string()
+      .min(1)
+      .max(adminRestoreEasyInjectPresetRevisionResponseOneDescriptionMax),
+    accountLabel: zod
+      .string()
+      .min(1)
+      .max(adminRestoreEasyInjectPresetRevisionResponseOneAccountLabelMax),
+    requiredAccountKind: zod.enum(["normal", "cloudfront"]),
+    sshPort: zod
+      .number()
+      .min(1)
+      .max(adminRestoreEasyInjectPresetRevisionResponseOneSshPortMax),
+    mode: zod.enum(["PROXY", "PROXY_SNI"]),
+    proxyHost: zod
+      .string()
+      .min(1)
+      .max(adminRestoreEasyInjectPresetRevisionResponseOneProxyHostMax),
+    proxyPort: zod
+      .number()
+      .min(1)
+      .max(adminRestoreEasyInjectPresetRevisionResponseOneProxyPortMax),
+    payload: zod
+      .string()
+      .min(1)
+      .max(adminRestoreEasyInjectPresetRevisionResponseOnePayloadMax),
+    sniPolicy: zod.enum(["none", "account_host", "custom"]),
+    customSni: zod
+      .string()
+      .min(1)
+      .max(adminRestoreEasyInjectPresetRevisionResponseOneCustomSniMax)
+      .nullable(),
+    usePayload: zod.boolean(),
+    ssl: zod.boolean(),
+    supportsDarkTunnel: zod.boolean(),
+    supportsHttpCustom: zod.boolean(),
+    version: zod.number().min(1),
+  })
+  .and(
+    zod.object({
+      isActive: zod.boolean(),
+      isBuiltIn: zod.boolean(),
+      sortOrder: zod
+        .number()
+        .min(adminRestoreEasyInjectPresetRevisionResponseTwoSortOrderMin),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  );

@@ -33,6 +33,7 @@ import {
   ArrowRightLeft,
   Cloud,
   ShieldPlus,
+  Network,
 } from "lucide-react";
 import {
   Sheet,
@@ -100,6 +101,7 @@ const adminNav: NavItem[] = [
   { title: "Tiket Bantuan", href: "/admin/tickets", icon: TicketCheck, badgeKey: "pendingTickets" },
   { title: "Pengumuman", href: "/admin/announcements", icon: Megaphone },
   { title: "Sistem Poin", href: "/admin/settings/points", icon: Star },
+  { title: "Preset Inject Paket", href: "/admin/inject-presets", icon: Network },
   { title: "Manajemen Bug", href: "/admin/bug-presets", icon: Bug },
   { title: "Broadcast", href: "/admin/broadcast", icon: Send },
   { title: "Backup & Restore DB", href: "/admin/backup", icon: HardDrive },
@@ -127,6 +129,7 @@ const adminPageTitles: Record<string, string> = {
   "/admin/tickets": "Tiket Bantuan",
   "/admin/announcements": "Pengumuman",
   "/admin/settings/points": "Sistem Poin",
+  "/admin/inject-presets": "Preset Inject Paket",
   "/admin/bug-presets": "Manajemen Bug",
   "/admin/broadcast": "Broadcast",
   "/admin/backup": "Backup & Restore DB",

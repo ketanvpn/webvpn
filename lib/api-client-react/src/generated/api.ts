@@ -23,6 +23,7 @@ import type {
   AdminDashboard,
   AdminDeleteBugPreset200,
   AdminDeleteUser200,
+  AdminEasyInjectPreset,
   AdminExtendAccount200,
   AdminExtendAccountBody,
   AdminGetUserBalanceLogsParams,
@@ -47,11 +48,15 @@ import type {
   CheckUsername200,
   CheckUsernameParams,
   CreateBugPresetBody,
+  CreateEasyInjectPresetBody,
   CreateOrderBody,
   CreateProductBody,
   CreateServerBody,
   CreateVoucherBody,
   DashboardSummary,
+  DeleteEasyInjectPresetResponse,
+  EasyInjectPreset,
+  EasyInjectPresetRevision,
   ErrorResponse,
   ForgotPasswordResetBody,
   ForgotPasswordSendOtp200,
@@ -79,6 +84,7 @@ import type {
   TopupTransaction,
   UnlinkTelegram200,
   UpdateBugPresetBody,
+  UpdateEasyInjectPresetBody,
   UpdateProductBody,
   UpdateProfileBody,
   UpdateServerBody,
@@ -86,6 +92,7 @@ import type {
   User,
   ValidateVoucherBody,
   ValidateVoucherResponse,
+  ValidationErrorResponse,
   Voucher,
   VpnAccount,
   VpnServer,
@@ -6038,4 +6045,624 @@ export const useAdminDeleteBugPreset = <
   TContext
 > => {
   return useMutation(getAdminDeleteBugPresetMutationOptions(options));
+};
+
+/**
+ * @summary List active Easy Inject presets for authenticated users
+ */
+export const getListActiveEasyInjectPresetsUrl = () => {
+  return `/api/easy-inject-presets`;
+};
+
+export const listActiveEasyInjectPresets = async (
+  options?: RequestInit,
+): Promise<EasyInjectPreset[]> => {
+  return customFetch<EasyInjectPreset[]>(getListActiveEasyInjectPresetsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListActiveEasyInjectPresetsQueryKey = () => {
+  return [`/api/easy-inject-presets`] as const;
+};
+
+export const getListActiveEasyInjectPresetsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listActiveEasyInjectPresets>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listActiveEasyInjectPresets>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListActiveEasyInjectPresetsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listActiveEasyInjectPresets>>
+  > = ({ signal }) =>
+    listActiveEasyInjectPresets({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listActiveEasyInjectPresets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListActiveEasyInjectPresetsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listActiveEasyInjectPresets>>
+>;
+export type ListActiveEasyInjectPresetsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List active Easy Inject presets for authenticated users
+ */
+
+export function useListActiveEasyInjectPresets<
+  TData = Awaited<ReturnType<typeof listActiveEasyInjectPresets>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listActiveEasyInjectPresets>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListActiveEasyInjectPresetsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all Easy Inject presets (admin)
+ */
+export const getAdminListEasyInjectPresetsUrl = () => {
+  return `/api/admin/easy-inject-presets`;
+};
+
+export const adminListEasyInjectPresets = async (
+  options?: RequestInit,
+): Promise<AdminEasyInjectPreset[]> => {
+  return customFetch<AdminEasyInjectPreset[]>(
+    getAdminListEasyInjectPresetsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getAdminListEasyInjectPresetsQueryKey = () => {
+  return [`/api/admin/easy-inject-presets`] as const;
+};
+
+export const getAdminListEasyInjectPresetsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListEasyInjectPresets>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListEasyInjectPresets>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListEasyInjectPresetsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListEasyInjectPresets>>
+  > = ({ signal }) => adminListEasyInjectPresets({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListEasyInjectPresets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListEasyInjectPresetsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListEasyInjectPresets>>
+>;
+export type AdminListEasyInjectPresetsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List all Easy Inject presets (admin)
+ */
+
+export function useAdminListEasyInjectPresets<
+  TData = Awaited<ReturnType<typeof adminListEasyInjectPresets>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListEasyInjectPresets>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListEasyInjectPresetsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an Easy Inject preset (admin)
+ */
+export const getAdminCreateEasyInjectPresetUrl = () => {
+  return `/api/admin/easy-inject-presets`;
+};
+
+export const adminCreateEasyInjectPreset = async (
+  createEasyInjectPresetBody: CreateEasyInjectPresetBody,
+  options?: RequestInit,
+): Promise<AdminEasyInjectPreset> => {
+  return customFetch<AdminEasyInjectPreset>(
+    getAdminCreateEasyInjectPresetUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createEasyInjectPresetBody),
+    },
+  );
+};
+
+export const getAdminCreateEasyInjectPresetMutationOptions = <
+  TError = ErrorType<ValidationErrorResponse | ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateEasyInjectPreset>>,
+    TError,
+    { data: BodyType<CreateEasyInjectPresetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminCreateEasyInjectPreset>>,
+  TError,
+  { data: BodyType<CreateEasyInjectPresetBody> },
+  TContext
+> => {
+  const mutationKey = ["adminCreateEasyInjectPreset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminCreateEasyInjectPreset>>,
+    { data: BodyType<CreateEasyInjectPresetBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminCreateEasyInjectPreset(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminCreateEasyInjectPresetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminCreateEasyInjectPreset>>
+>;
+export type AdminCreateEasyInjectPresetMutationBody =
+  BodyType<CreateEasyInjectPresetBody>;
+export type AdminCreateEasyInjectPresetMutationError = ErrorType<
+  ValidationErrorResponse | ErrorResponse
+>;
+
+/**
+ * @summary Create an Easy Inject preset (admin)
+ */
+export const useAdminCreateEasyInjectPreset = <
+  TError = ErrorType<ValidationErrorResponse | ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateEasyInjectPreset>>,
+    TError,
+    { data: BodyType<CreateEasyInjectPresetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminCreateEasyInjectPreset>>,
+  TError,
+  { data: BodyType<CreateEasyInjectPresetBody> },
+  TContext
+> => {
+  return useMutation(getAdminCreateEasyInjectPresetMutationOptions(options));
+};
+
+/**
+ * @summary Update or activate/deactivate an Easy Inject preset (admin)
+ */
+export const getAdminPatchEasyInjectPresetUrl = (id: number) => {
+  return `/api/admin/easy-inject-presets/${id}`;
+};
+
+export const adminPatchEasyInjectPreset = async (
+  id: number,
+  updateEasyInjectPresetBody: UpdateEasyInjectPresetBody,
+  options?: RequestInit,
+): Promise<AdminEasyInjectPreset> => {
+  return customFetch<AdminEasyInjectPreset>(
+    getAdminPatchEasyInjectPresetUrl(id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateEasyInjectPresetBody),
+    },
+  );
+};
+
+export const getAdminPatchEasyInjectPresetMutationOptions = <
+  TError = ErrorType<ValidationErrorResponse | ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchEasyInjectPreset>>,
+    TError,
+    { id: number; data: BodyType<UpdateEasyInjectPresetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminPatchEasyInjectPreset>>,
+  TError,
+  { id: number; data: BodyType<UpdateEasyInjectPresetBody> },
+  TContext
+> => {
+  const mutationKey = ["adminPatchEasyInjectPreset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminPatchEasyInjectPreset>>,
+    { id: number; data: BodyType<UpdateEasyInjectPresetBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminPatchEasyInjectPreset(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminPatchEasyInjectPresetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminPatchEasyInjectPreset>>
+>;
+export type AdminPatchEasyInjectPresetMutationBody =
+  BodyType<UpdateEasyInjectPresetBody>;
+export type AdminPatchEasyInjectPresetMutationError = ErrorType<
+  ValidationErrorResponse | ErrorResponse
+>;
+
+/**
+ * @summary Update or activate/deactivate an Easy Inject preset (admin)
+ */
+export const useAdminPatchEasyInjectPreset = <
+  TError = ErrorType<ValidationErrorResponse | ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchEasyInjectPreset>>,
+    TError,
+    { id: number; data: BodyType<UpdateEasyInjectPresetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminPatchEasyInjectPreset>>,
+  TError,
+  { id: number; data: BodyType<UpdateEasyInjectPresetBody> },
+  TContext
+> => {
+  return useMutation(getAdminPatchEasyInjectPresetMutationOptions(options));
+};
+
+/**
+ * Built-in presets cannot be deleted and must be deactivated instead.
+ * @summary Delete a custom Easy Inject preset (admin)
+ */
+export const getAdminDeleteEasyInjectPresetUrl = (id: number) => {
+  return `/api/admin/easy-inject-presets/${id}`;
+};
+
+export const adminDeleteEasyInjectPreset = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteEasyInjectPresetResponse> => {
+  return customFetch<DeleteEasyInjectPresetResponse>(
+    getAdminDeleteEasyInjectPresetUrl(id),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getAdminDeleteEasyInjectPresetMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteEasyInjectPreset>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeleteEasyInjectPreset>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDeleteEasyInjectPreset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeleteEasyInjectPreset>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDeleteEasyInjectPreset(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeleteEasyInjectPresetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeleteEasyInjectPreset>>
+>;
+
+export type AdminDeleteEasyInjectPresetMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete a custom Easy Inject preset (admin)
+ */
+export const useAdminDeleteEasyInjectPreset = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteEasyInjectPreset>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeleteEasyInjectPreset>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDeleteEasyInjectPresetMutationOptions(options));
+};
+
+/**
+ * @summary List revision snapshots for an Easy Inject preset (admin)
+ */
+export const getAdminListEasyInjectPresetRevisionsUrl = (id: number) => {
+  return `/api/admin/easy-inject-presets/${id}/revisions`;
+};
+
+export const adminListEasyInjectPresetRevisions = async (
+  id: number,
+  options?: RequestInit,
+): Promise<EasyInjectPresetRevision[]> => {
+  return customFetch<EasyInjectPresetRevision[]>(
+    getAdminListEasyInjectPresetRevisionsUrl(id),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getAdminListEasyInjectPresetRevisionsQueryKey = (id: number) => {
+  return [`/api/admin/easy-inject-presets/${id}/revisions`] as const;
+};
+
+export const getAdminListEasyInjectPresetRevisionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListEasyInjectPresetRevisions>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListEasyInjectPresetRevisions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListEasyInjectPresetRevisionsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListEasyInjectPresetRevisions>>
+  > = ({ signal }) =>
+    adminListEasyInjectPresetRevisions(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListEasyInjectPresetRevisions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListEasyInjectPresetRevisionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListEasyInjectPresetRevisions>>
+>;
+export type AdminListEasyInjectPresetRevisionsQueryError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary List revision snapshots for an Easy Inject preset (admin)
+ */
+
+export function useAdminListEasyInjectPresetRevisions<
+  TData = Awaited<ReturnType<typeof adminListEasyInjectPresetRevisions>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListEasyInjectPresetRevisions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListEasyInjectPresetRevisionsQueryOptions(
+    id,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Preserves the preset id, slug, and built-in identity while creating a new version.
+ * @summary Restore an Easy Inject preset revision into a new version (admin)
+ */
+export const getAdminRestoreEasyInjectPresetRevisionUrl = (
+  id: number,
+  revisionId: number,
+) => {
+  return `/api/admin/easy-inject-presets/${id}/revisions/${revisionId}/restore`;
+};
+
+export const adminRestoreEasyInjectPresetRevision = async (
+  id: number,
+  revisionId: number,
+  options?: RequestInit,
+): Promise<AdminEasyInjectPreset> => {
+  return customFetch<AdminEasyInjectPreset>(
+    getAdminRestoreEasyInjectPresetRevisionUrl(id, revisionId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getAdminRestoreEasyInjectPresetRevisionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminRestoreEasyInjectPresetRevision>>,
+    TError,
+    { id: number; revisionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminRestoreEasyInjectPresetRevision>>,
+  TError,
+  { id: number; revisionId: number },
+  TContext
+> => {
+  const mutationKey = ["adminRestoreEasyInjectPresetRevision"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminRestoreEasyInjectPresetRevision>>,
+    { id: number; revisionId: number }
+  > = (props) => {
+    const { id, revisionId } = props ?? {};
+
+    return adminRestoreEasyInjectPresetRevision(id, revisionId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminRestoreEasyInjectPresetRevisionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminRestoreEasyInjectPresetRevision>>
+>;
+
+export type AdminRestoreEasyInjectPresetRevisionMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Restore an Easy Inject preset revision into a new version (admin)
+ */
+export const useAdminRestoreEasyInjectPresetRevision = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminRestoreEasyInjectPresetRevision>>,
+    TError,
+    { id: number; revisionId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminRestoreEasyInjectPresetRevision>>,
+  TError,
+  { id: number; revisionId: number },
+  TContext
+> => {
+  return useMutation(
+    getAdminRestoreEasyInjectPresetRevisionMutationOptions(options),
+  );
 };

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { BugPresetMode } from "./bugPresetMode";
+import type { BugPresetSshInjectConfig } from "./bugPresetSshInjectConfig";
 
 export interface BugPreset {
   id: number;
@@ -13,6 +14,7 @@ export interface BugPreset {
   bugDomain: string;
   mode: BugPresetMode;
   isActive: boolean;
+  sshInjectConfig?: BugPresetSshInjectConfig;
   createdAt: Date;
   updatedAt: Date;
 }

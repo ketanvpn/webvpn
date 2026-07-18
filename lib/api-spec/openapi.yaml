@@ -29,6 +29,8 @@ tags:
     description: Dashboard stats
   - name: bug-presets
     description: Bug presets and converter config
+  - name: easy-inject-presets
+    description: Managed Easy Inject presets for DarkTunnel and HTTP Custom
 
 paths:
   /healthz:
@@ -1768,12 +1770,255 @@ paths:
                   success:
                     type: boolean
 
+  # ─── Easy Inject Presets ──────────────────────────────────────────────
+  /easy-inject-presets:
+    get:
+      operationId: listActiveEasyInjectPresets
+      tags: [easy-inject-presets]
+      summary: List active Easy Inject presets for authenticated users
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Active presets in display order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EasyInjectPreset"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/easy-inject-presets:
+    get:
+      operationId: adminListEasyInjectPresets
+      tags: [admin, easy-inject-presets]
+      summary: List all Easy Inject presets (admin)
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: All presets in display order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminEasyInjectPreset"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: adminCreateEasyInjectPreset
+      tags: [admin, easy-inject-presets]
+      summary: Create an Easy Inject preset (admin)
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEasyInjectPresetBody"
+      responses:
+        "201":
+          description: Preset created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminEasyInjectPreset"
+        "400":
+          description: Invalid preset configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "409":
+          description: Slug already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/easy-inject-presets/{id}:
+    patch:
+      operationId: adminPatchEasyInjectPreset
+      tags: [admin, easy-inject-presets]
+      summary: Update or activate/deactivate an Easy Inject preset (admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EasyInjectPresetId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEasyInjectPresetBody"
+      responses:
+        "200":
+          description: Current preset; unchanged valid patches do not increment version
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminEasyInjectPreset"
+        "400":
+          description: Invalid id, empty patch, or invalid preset configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "404":
+          description: Preset not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Unique identity conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: adminDeleteEasyInjectPreset
+      tags: [admin, easy-inject-presets]
+      summary: Delete a custom Easy Inject preset (admin)
+      description: Built-in presets cannot be deleted and must be deactivated instead.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EasyInjectPresetId"
+      responses:
+        "200":
+          description: Custom preset deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteEasyInjectPresetResponse"
+        "400":
+          description: Invalid preset id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Preset not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Built-in preset; deactivate it instead
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/easy-inject-presets/{id}/revisions:
+    get:
+      operationId: adminListEasyInjectPresetRevisions
+      tags: [admin, easy-inject-presets]
+      summary: List revision snapshots for an Easy Inject preset (admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EasyInjectPresetId"
+      responses:
+        "200":
+          description: Revisions ordered newest version first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EasyInjectPresetRevision"
+        "400":
+          description: Invalid preset id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Preset not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/easy-inject-presets/{id}/revisions/{revisionId}/restore:
+    post:
+      operationId: adminRestoreEasyInjectPresetRevision
+      tags: [admin, easy-inject-presets]
+      summary: Restore an Easy Inject preset revision into a new version (admin)
+      description: Preserves the preset id, slug, and built-in identity while creating a new version.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EasyInjectPresetId"
+        - $ref: "#/components/parameters/EasyInjectPresetRevisionId"
+      responses:
+        "200":
+          description: Revision restored as a newly incremented preset version
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminEasyInjectPreset"
+        "400":
+          description: Invalid preset or revision id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Preset or revision not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Stored revision cannot be restored safely
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   securitySchemes:
     cookieAuth:
       type: apiKey
       in: cookie
       name: token
+
+  parameters:
+    EasyInjectPresetId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+    EasyInjectPresetRevisionId:
+      name: revisionId
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
 
   schemas:
     BalanceLog:
@@ -1923,6 +2168,23 @@ components:
       properties:
         message:
           type: string
+
+    ValidationErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        issues:
+          type: array
+          items:
+            type: object
+            required: [path, message]
+            properties:
+              path:
+                type: string
+              message:
+                type: string
 
     # ─── Auth ─────────────────────────────────────────────────────────────
     RegisterBody:
@@ -2701,6 +2963,9 @@ components:
           enum: [wildcard, sni, host]
         isActive:
           type: boolean
+        sshInjectConfig:
+          type: object
+          additionalProperties: true
         createdAt:
           type: string
           format: date-time
@@ -2722,6 +2987,9 @@ components:
         isActive:
           type: boolean
           default: true
+        sshInjectConfig:
+          type: object
+          additionalProperties: true
 
     UpdateBugPresetBody:
       type: object
@@ -2735,3 +3003,372 @@ components:
           enum: [wildcard, sni, host]
         isActive:
           type: boolean
+        sshInjectConfig:
+          type: object
+          additionalProperties: true
+
+    # ─── Easy Inject Presets ──────────────────────────────────────────────
+    EasyInjectPreset:
+      type: object
+      required:
+        - id
+        - slug
+        - name
+        - description
+        - accountLabel
+        - requiredAccountKind
+        - sshPort
+        - mode
+        - proxyHost
+        - proxyPort
+        - payload
+        - sniPolicy
+        - customSni
+        - usePayload
+        - ssl
+        - supportsDarkTunnel
+        - supportsHttpCustom
+        - version
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 100
+          pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        accountLabel:
+          type: string
+          minLength: 1
+          maxLength: 120
+        requiredAccountKind:
+          type: string
+          enum: [normal, cloudfront]
+        sshPort:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        mode:
+          type: string
+          enum: [PROXY, PROXY_SNI]
+        proxyHost:
+          type: string
+          minLength: 1
+          maxLength: 255
+        proxyPort:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        payload:
+          type: string
+          minLength: 1
+          maxLength: 16000
+        sniPolicy:
+          type: string
+          enum: [none, account_host, custom]
+        customSni:
+          type: [string, "null"]
+          minLength: 1
+          maxLength: 255
+        usePayload:
+          type: boolean
+        ssl:
+          type: boolean
+        supportsDarkTunnel:
+          type: boolean
+        supportsHttpCustom:
+          type: boolean
+        version:
+          type: integer
+          minimum: 1
+
+    AdminEasyInjectPreset:
+      allOf:
+        - $ref: "#/components/schemas/EasyInjectPreset"
+        - type: object
+          required: [isActive, isBuiltIn, sortOrder, createdAt, updatedAt]
+          properties:
+            isActive:
+              type: boolean
+            isBuiltIn:
+              type: boolean
+            sortOrder:
+              type: integer
+              minimum: 0
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    EasyInjectPresetConfigurationInput:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - description
+        - accountLabel
+        - requiredAccountKind
+        - sshPort
+        - mode
+        - proxyHost
+        - proxyPort
+        - payload
+        - sniPolicy
+        - usePayload
+        - ssl
+        - supportsDarkTunnel
+        - supportsHttpCustom
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        accountLabel:
+          type: string
+          minLength: 1
+          maxLength: 120
+        requiredAccountKind:
+          type: string
+          enum: [normal, cloudfront]
+        sshPort:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        mode:
+          type: string
+          enum: [PROXY, PROXY_SNI]
+        proxyHost:
+          type: string
+          minLength: 1
+          maxLength: 255
+        proxyPort:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        payload:
+          type: string
+          minLength: 1
+          maxLength: 16000
+        sniPolicy:
+          type: string
+          enum: [none, account_host, custom]
+        customSni:
+          type: [string, "null"]
+          minLength: 1
+          maxLength: 255
+          default: null
+        usePayload:
+          type: boolean
+        ssl:
+          type: boolean
+        supportsDarkTunnel:
+          type: boolean
+        supportsHttpCustom:
+          type: boolean
+        isActive:
+          type: boolean
+          default: true
+        sortOrder:
+          type: integer
+          minimum: 0
+          default: 0
+
+    CreateEasyInjectPresetBody:
+      type: object
+      additionalProperties: false
+      required:
+        - slug
+        - name
+        - description
+        - accountLabel
+        - requiredAccountKind
+        - sshPort
+        - mode
+        - proxyHost
+        - proxyPort
+        - payload
+        - sniPolicy
+        - usePayload
+        - ssl
+        - supportsDarkTunnel
+        - supportsHttpCustom
+      properties:
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 100
+          pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        accountLabel:
+          type: string
+          minLength: 1
+          maxLength: 120
+        requiredAccountKind:
+          type: string
+          enum: [normal, cloudfront]
+        sshPort:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        mode:
+          type: string
+          enum: [PROXY, PROXY_SNI]
+        proxyHost:
+          type: string
+          minLength: 1
+          maxLength: 255
+        proxyPort:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        payload:
+          type: string
+          minLength: 1
+          maxLength: 16000
+        sniPolicy:
+          type: string
+          enum: [none, account_host, custom]
+        customSni:
+          type: [string, "null"]
+          minLength: 1
+          maxLength: 255
+          default: null
+        usePayload:
+          type: boolean
+        ssl:
+          type: boolean
+        supportsDarkTunnel:
+          type: boolean
+        supportsHttpCustom:
+          type: boolean
+        isActive:
+          type: boolean
+          default: true
+        sortOrder:
+          type: integer
+          minimum: 0
+          default: 0
+
+    UpdateEasyInjectPresetBody:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        accountLabel:
+          type: string
+          minLength: 1
+          maxLength: 120
+        requiredAccountKind:
+          type: string
+          enum: [normal, cloudfront]
+        sshPort:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        mode:
+          type: string
+          enum: [PROXY, PROXY_SNI]
+        proxyHost:
+          type: string
+          minLength: 1
+          maxLength: 255
+        proxyPort:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        payload:
+          type: string
+          minLength: 1
+          maxLength: 16000
+        sniPolicy:
+          type: string
+          enum: [none, account_host, custom]
+        customSni:
+          type: [string, "null"]
+          minLength: 1
+          maxLength: 255
+        usePayload:
+          type: boolean
+        ssl:
+          type: boolean
+        supportsDarkTunnel:
+          type: boolean
+        supportsHttpCustom:
+          type: boolean
+        isActive:
+          type: boolean
+        sortOrder:
+          type: integer
+          minimum: 0
+
+    EasyInjectPresetSnapshot:
+      allOf:
+        - $ref: "#/components/schemas/AdminEasyInjectPreset"
+      description: Full credential-free preset state stored for one version.
+
+    EasyInjectPresetRevision:
+      type: object
+      additionalProperties: false
+      required: [id, presetId, version, snapshot, action, adminUserId, createdAt]
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        presetId:
+          type: integer
+          minimum: 1
+        version:
+          type: integer
+          minimum: 1
+        snapshot:
+          $ref: "#/components/schemas/EasyInjectPresetSnapshot"
+        action:
+          type: string
+          minLength: 1
+        adminUserId:
+          type: [integer, "null"]
+          minimum: 1
+        createdAt:
+          type: string
+          format: date-time
+
+    DeleteEasyInjectPresetResponse:
+      type: object
+      additionalProperties: false
+      required: [success, id]
+      properties:
+        success:
+          type: boolean
+        id:
+          type: integer
+          minimum: 1

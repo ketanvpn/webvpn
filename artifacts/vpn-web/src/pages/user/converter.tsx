@@ -30,8 +30,6 @@ import {
   Copy,
   Download,
   ExternalLink,
-  Gamepad2,
-  GraduationCap,
   Loader2,
   RefreshCw,
   ShieldPlus,
@@ -50,12 +48,11 @@ import {
   buildDarkTunnelConfig,
   buildHttpCustomGuide,
   classifySshAccount,
-  DARKTUNNEL_TARGETS,
-  isAccountCompatibleWithTarget,
+  isAccountCompatibleWithPreset,
   isActiveSshAccount,
   type DarkTunnelAccount,
   type DarkTunnelBuildResult,
-  type DarkTunnelTarget,
+  type EasyInjectPreset,
   type HttpCustomGuide,
 } from "@/lib/darktunnel";
 
@@ -84,25 +81,30 @@ type EasyApp = "darktunnel" | "http-custom";
 
 type EasyAppSelectorProps = {
   value: EasyApp | null;
+  preset: EasyInjectPreset;
   onChange: (app: EasyApp) => void;
 };
 
-function EasyAppSelector({ value, onChange }: EasyAppSelectorProps) {
+function EasyAppSelector({ value, preset, onChange }: EasyAppSelectorProps) {
   const applications = [
-    {
-      id: "darktunnel" as const,
-      label: "DarkTunnel",
-      description: "Otomatis: download file .dark atau import melalui link.",
-      icon: ShieldPlus,
-      iconClass: "text-emerald-300",
-    },
-    {
-      id: "http-custom" as const,
-      label: "HTTP Custom",
-      description: "Panduan: salin data SSH, proxy, payload, dan SNI secara bertahap.",
-      icon: Smartphone,
-      iconClass: "text-cyan-300",
-    },
+    ...(preset.supportsDarkTunnel
+      ? [{
+          id: "darktunnel" as const,
+          label: "DarkTunnel",
+          description: "Otomatis: download file .dark atau import melalui link.",
+          icon: ShieldPlus,
+          iconClass: "text-emerald-300",
+        }]
+      : []),
+    ...(preset.supportsHttpCustom
+      ? [{
+          id: "http-custom" as const,
+          label: "HTTP Custom",
+          description: "Panduan: salin data SSH, proxy, payload, dan SNI secara bertahap.",
+          icon: Smartphone,
+          iconClass: "text-cyan-300",
+        }]
+      : []),
   ];
 
   return (
@@ -202,11 +204,15 @@ function HttpCustomGuideCard({
   const steps = [
     "Pilih mode SSH di HTTP Custom, lalu tempel SSH Login.",
     "Ketuk ikon tiga garis (☰) di kiri atas, lalu pilih menu Payload.",
-    "Di kolom Payload, tempel Payload. Di kolom tepat di bawahnya, tempel Remote Proxy, lalu pilih Apply.",
-    "Aktifkan Use Payload.",
+    guide.usePayload
+      ? "Di kolom Payload, tempel Payload. Di kolom tepat di bawahnya, tempel Remote Proxy, lalu pilih Apply."
+      : "Biarkan kolom Payload kosong. Tempel Remote Proxy pada kolom yang tersedia, lalu pilih Apply.",
+    guide.usePayload
+      ? "Aktifkan Use Payload."
+      : "Biarkan Use Payload nonaktif sesuai pengaturan preset.",
     guide.ssl
       ? "Ketuk ikon tiga garis (☰) lagi, pilih menu SNI yang berada di bawah Payload, tempel Server Name Indication, lalu aktifkan SSL."
-      : "Untuk GameMax, biarkan SSL dan SNI mati/kosong.",
+      : "Biarkan SSL mati dan SNI kosong sesuai pengaturan preset.",
     "Tekan CONNECT. Jika gagal, buka tab LOG dan kirim screenshot error ke admin.",
   ];
 
@@ -246,7 +252,9 @@ function HttpCustomGuideCard({
         </Button>
 
         <div className="flex flex-wrap gap-2">
-          <Badge className="bg-emerald-600">Use Payload: ON</Badge>
+          <Badge className={guide.usePayload ? "bg-emerald-600" : "bg-slate-600"}>
+            Use Payload: {guide.usePayload ? "ON" : "OFF"}
+          </Badge>
           <Badge className={guide.ssl ? "bg-emerald-600" : "bg-slate-600"}>
             SSL: {guide.ssl ? "ON" : "OFF"}
           </Badge>
@@ -270,15 +278,17 @@ function HttpCustomGuideCard({
               copied={copiedField === "ssh-login"}
               onCopy={onCopy}
             />
-            <CopyableGuideField
-              id="payload"
-              label="Payload"
-              value={guide.payload}
-              hint="☰ kiri atas → Payload → kolom Payload. Tempel persis; jangan ganti placeholder."
-              multiline
-              copied={copiedField === "payload"}
-              onCopy={onCopy}
-            />
+            {guide.usePayload && (
+              <CopyableGuideField
+                id="payload"
+                label="Payload"
+                value={guide.payload}
+                hint="☰ kiri atas → Payload → kolom Payload. Tempel persis; jangan ganti placeholder."
+                multiline
+                copied={copiedField === "payload"}
+                onCopy={onCopy}
+              />
+            )}
             <CopyableGuideField
               id="remote-proxy"
               label="Remote Proxy"
@@ -511,8 +521,9 @@ export default function ConfigConverter() {
   const queryClient = useQueryClient();
   const search = useSearch();
   const initializedFromQuery = useRef(false);
+  const selectedPresetVersionRef = useRef<string | null>(null);
 
-  const [easyTarget, setEasyTarget] = useState<DarkTunnelTarget | null>(null);
+  const [easyPresetId, setEasyPresetId] = useState("");
   const [easyAccountId, setEasyAccountId] = useState("");
   const [easyApp, setEasyApp] = useState<EasyApp | null>(null);
   const [easyResult, setEasyResult] = useState<DarkTunnelBuildResult | null>(null);
@@ -539,8 +550,26 @@ export default function ConfigConverter() {
   });
 
   const {
+    data: easyPresets = [],
+    isLoading: presetsLoading,
+    isError: presetsError,
+    error: presetsQueryError,
+    refetch: refetchPresets,
+    isFetching: presetsFetching,
+  } = useQuery<EasyInjectPreset[]>({
+    queryKey: ["easy-inject-presets"],
+    queryFn: () => apiFetch("/easy-inject-presets"),
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+  });
+
+  const {
     data: mySshAccounts = [],
     isLoading: accountsLoading,
+    isError: accountsError,
+    error: accountsQueryError,
+    refetch: refetchAccounts,
+    isFetching: accountsFetching,
   } = useQuery<DarkTunnelAccount[]>({
     queryKey: ["my-ssh-accounts"],
     queryFn: () => apiFetch("/accounts"),
@@ -550,6 +579,13 @@ export default function ConfigConverter() {
     new URLSearchParams(search).get("account") ?? "0",
   );
 
+  const selectedEasyPreset = useMemo(
+    () =>
+      presetsError
+        ? null
+        : easyPresets.find((preset) => String(preset.id) === easyPresetId) ?? null,
+    [easyPresetId, easyPresets, presetsError],
+  );
   const activeSshAccounts = useMemo(
     () => mySshAccounts.filter((account) => isActiveSshAccount(account)),
     [mySshAccounts],
@@ -563,16 +599,21 @@ export default function ConfigConverter() {
   );
   const compatibleAccounts = useMemo(
     () =>
-      easyTarget
+      selectedEasyPreset
         ? activeSshAccounts.filter((account) =>
-            isAccountCompatibleWithTarget(account, easyTarget),
+            isAccountCompatibleWithPreset(account, selectedEasyPreset),
           )
         : [],
-    [activeSshAccounts, easyTarget],
+    [activeSshAccounts, selectedEasyPreset],
   );
 
   useEffect(() => {
-    if (initializedFromQuery.current || accountsLoading || !requestedAccountId) return;
+    if (
+      initializedFromQuery.current ||
+      accountsLoading ||
+      presetsLoading ||
+      !requestedAccountId
+    ) return;
     initializedFromQuery.current = true;
 
     const requested = activeSshAccounts.find(
@@ -580,15 +621,30 @@ export default function ConfigConverter() {
     );
     if (!requested) return;
 
-    const kind = classifySshAccount(requested);
-    if (kind === "cloudfront") setEasyTarget("ilmupedia");
-    if (kind === "normal") setEasyTarget("gamemax");
-    if (kind !== "unknown") setEasyAccountId(String(requested.id));
-  }, [accountsLoading, activeSshAccounts, requestedAccountId]);
+    const compatiblePresets = easyPresets.filter((preset) =>
+      isAccountCompatibleWithPreset(requested, preset),
+    );
+    setEasyAccountId(String(requested.id));
+    if (compatiblePresets.length === 1) {
+      setEasyPresetId(String(compatiblePresets[0].id));
+    }
+  }, [
+    accountsLoading,
+    activeSshAccounts,
+    easyPresets,
+    presetsLoading,
+    requestedAccountId,
+  ]);
 
   useEffect(() => {
-    if (!easyTarget) return;
-    if (compatibleAccounts.length === 1) {
+    if (!easyPresetId || presetsLoading || presetsError) return;
+    if (!selectedEasyPreset) {
+      setEasyPresetId("");
+      setEasyAccountId("");
+      resetEasyApplicationState();
+      return;
+    }
+    if (compatibleAccounts.length === 1 && !easyAccountId) {
       setEasyAccountId(String(compatibleAccounts[0].id));
       return;
     }
@@ -599,8 +655,28 @@ export default function ConfigConverter() {
       )
     ) {
       setEasyAccountId("");
+      resetEasyApplicationState();
     }
-  }, [compatibleAccounts, easyAccountId, easyTarget]);
+  }, [compatibleAccounts, easyAccountId, easyPresetId, selectedEasyPreset]);
+
+  useEffect(() => {
+    if (!selectedEasyPreset) {
+      selectedPresetVersionRef.current = null;
+      return;
+    }
+
+    const signature = `${selectedEasyPreset.id}:${selectedEasyPreset.version}`;
+    const previous = selectedPresetVersionRef.current;
+    selectedPresetVersionRef.current = signature;
+
+    const appIsSupported =
+      !easyApp ||
+      (easyApp === "darktunnel" && selectedEasyPreset.supportsDarkTunnel) ||
+      (easyApp === "http-custom" && selectedEasyPreset.supportsHttpCustom);
+    if (!appIsSupported || (previous !== null && previous !== signature)) {
+      resetEasyApplicationState();
+    }
+  }, [easyApp, selectedEasyPreset]);
 
   const syncAccountMutation = useMutation({
     mutationFn: (accountId: number) =>
@@ -628,9 +704,15 @@ export default function ConfigConverter() {
     setCopiedHttpField(null);
   }
 
-  function selectEasyTarget(target: DarkTunnelTarget) {
-    setEasyTarget(target);
-    setEasyAccountId("");
+  function selectEasyPreset(presetId: string) {
+    setEasyPresetId(presetId);
+    const nextPreset = easyPresets.find((preset) => String(preset.id) === presetId);
+    const currentAccount = activeSshAccounts.find(
+      (account) => String(account.id) === easyAccountId,
+    );
+    if (!nextPreset || !currentAccount || !isAccountCompatibleWithPreset(currentAccount, nextPreset)) {
+      setEasyAccountId("");
+    }
     resetEasyApplicationState();
   }
 
@@ -648,10 +730,10 @@ export default function ConfigConverter() {
   }
 
   function generateEasyConfig() {
-    if (easyApp !== "darktunnel" || !easyTarget || !easyAccountId) {
+    if (easyApp !== "darktunnel" || !selectedEasyPreset || !easyAccountId) {
       toast({
         title: "Pilih paket, akun, dan aplikasi",
-        description: "Pilih GameMax/Ilmupedia, akun SSH yang cocok, lalu DarkTunnel.",
+        description: "Pilih preset aktif, akun SSH yang cocok, lalu DarkTunnel.",
         variant: "destructive",
       });
       return;
@@ -670,7 +752,10 @@ export default function ConfigConverter() {
     }
 
     try {
-      const generated = buildDarkTunnelConfig({ account, target: easyTarget });
+      const generated = buildDarkTunnelConfig({
+        account,
+        preset: selectedEasyPreset,
+      });
       setEasyResult(generated);
       setIsEasyCopied(false);
       setShowEasyResult(true);
@@ -849,10 +934,10 @@ export default function ConfigConverter() {
     (account) => String(account.id) === easyAccountId,
   );
   const httpCustomGuide =
-    easyApp === "http-custom" && easyTarget && selectedEasyAccount
+    easyApp === "http-custom" && selectedEasyPreset && selectedEasyAccount
       ? buildHttpCustomGuide({
           account: selectedEasyAccount,
-          target: easyTarget,
+          preset: selectedEasyPreset,
         })
       : null;
 
@@ -861,7 +946,7 @@ export default function ConfigConverter() {
       <div>
         <h1 className="text-2xl font-bold">Inject Paket Internet</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Pilih GameMax atau Ilmupedia, lalu gunakan DarkTunnel otomatis atau panduan HTTP Custom.
+          Pilih trik aktif dari admin, lalu gunakan DarkTunnel otomatis atau panduan HTTP Custom.
         </p>
       </div>
 
@@ -879,46 +964,83 @@ export default function ConfigConverter() {
                 Sistem akan memasangkan paket dengan jenis akun SSH yang benar.
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2">
-              {(
-                [
-                  ["gamemax", Gamepad2, "text-violet-300"],
-                  ["ilmupedia", GraduationCap, "text-cyan-300"],
-                ] as const
-              ).map(([target, Icon, iconClass]) => {
-                const definition = DARKTUNNEL_TARGETS[target];
-                const active = easyTarget === target;
-                return (
-                  <button
-                    key={target}
-                    type="button"
-                    onClick={() => selectEasyTarget(target)}
-                    className={`rounded-2xl border p-5 text-left transition-all ${
-                      active
-                        ? "border-primary bg-primary/15 ring-2 ring-primary/30"
-                        : "border-white/10 bg-background/40 hover:border-primary/40"
-                    }`}
-                  >
-                    <Icon className={`mb-3 h-8 w-8 ${iconClass}`} />
-                    <div className="text-lg font-bold">{definition.label}</div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {definition.description}
+            <CardContent>
+              {presetsLoading ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[1, 2].map((item) => (
+                    <div key={item} className="h-40 animate-pulse rounded-2xl bg-muted/20" />
+                  ))}
+                </div>
+              ) : presetsError ? (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Trik injek gagal dimuat</AlertTitle>
+                  <AlertDescription className="space-y-3">
+                    <p>
+                      {presetsQueryError instanceof Error
+                        ? presetsQueryError.message
+                        : "Tidak dapat mengambil preset aktif dari server."}
                     </p>
-                    <Badge variant="outline" className="mt-3">
-                      {definition.accountLabel}
-                    </Badge>
-                  </button>
-                );
-              })}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={presetsFetching}
+                      onClick={() => void refetchPresets()}
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${presetsFetching ? "animate-spin" : ""}`} />
+                      Coba Lagi
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              ) : easyPresets.length === 0 ? (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Mode Mudah sementara tidak tersedia</AlertTitle>
+                  <AlertDescription>
+                    Semua trik sedang dinonaktifkan atau diperbarui oleh admin. Coba lagi nanti.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {easyPresets.map((preset, index) => {
+                    const active = easyPresetId === String(preset.id);
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => selectEasyPreset(String(preset.id))}
+                        className={`rounded-2xl border p-5 text-left transition-all ${
+                          active
+                            ? "border-primary bg-primary/15 ring-2 ring-primary/30"
+                            : "border-white/10 bg-background/40 hover:border-primary/40"
+                        }`}
+                      >
+                        <ShieldPlus className={`mb-3 h-8 w-8 ${index % 2 === 0 ? "text-violet-300" : "text-cyan-300"}`} />
+                        <div className="text-lg font-bold">{preset.name}</div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {preset.description}
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Badge variant="outline">{preset.accountLabel}</Badge>
+                          <Badge variant="outline" className="font-mono text-[10px]">
+                            v{preset.version}
+                          </Badge>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {easyTarget && (
+          {selectedEasyPreset && (
             <Card className="glass-panel overflow-hidden border-cyan-500/20">
               <CardHeader>
-                <CardTitle>2. Pilih Akun {DARKTUNNEL_TARGETS[easyTarget].accountLabel}</CardTitle>
+                <CardTitle>2. Pilih Akun {selectedEasyPreset.accountLabel}</CardTitle>
                 <CardDescription>
-                  Hanya akun aktif dan cocok untuk {DARKTUNNEL_TARGETS[easyTarget].label} yang ditampilkan.
+                  Hanya akun aktif dan cocok untuk {selectedEasyPreset.name} yang ditampilkan.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -926,6 +1048,28 @@ export default function ConfigConverter() {
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" /> Memeriksa akun...
                   </div>
+                ) : accountsError ? (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Akun gagal dimuat</AlertTitle>
+                    <AlertDescription className="space-y-3">
+                      <p>
+                        {accountsQueryError instanceof Error
+                          ? accountsQueryError.message
+                          : "Tidak dapat mengambil akun SSH dari server."}
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={accountsFetching}
+                        onClick={() => void refetchAccounts()}
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${accountsFetching ? "animate-spin" : ""}`} />
+                        Coba Lagi
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
                 ) : compatibleAccounts.length > 0 ? (
                   <>
                     <Select value={easyAccountId} onValueChange={selectEasyAccount}>
@@ -965,7 +1109,7 @@ export default function ConfigConverter() {
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Belum ada akun yang cocok</AlertTitle>
                     <AlertDescription>
-                      {DARKTUNNEL_TARGETS[easyTarget].label} membutuhkan akun {DARKTUNNEL_TARGETS[easyTarget].accountLabel}. Beli akun tersebut terlebih dahulu atau perbarui data akun Nadia di bawah.
+                      {selectedEasyPreset.name} membutuhkan akun {selectedEasyPreset.accountLabel}. Beli akun tersebut terlebih dahulu atau perbarui data akun Nadia di bawah.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -1007,7 +1151,11 @@ export default function ConfigConverter() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <EasyAppSelector value={easyApp} onChange={selectEasyApp} />
+                <EasyAppSelector
+                  value={easyApp}
+                  preset={selectedEasyPreset!}
+                  onChange={selectEasyApp}
+                />
               </CardContent>
             </Card>
           )}

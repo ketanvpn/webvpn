@@ -1,9 +1,94 @@
 import { db } from "@workspace/db";
-import { usersTable } from "@workspace/db";
+import {
+  easyInjectPresetRevisionsTable,
+  easyInjectPresetsTable,
+  usersTable,
+  type EasyInjectPreset,
+  type EasyInjectPresetSnapshot,
+  type InsertEasyInjectPreset,
+} from "@workspace/db";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import { logger } from "./logger";
+
+const EASY_INJECT_PAYLOAD =
+  "GET / HTTP/1.1[crlf]Host: [host][crlf]Connection: Upgrade[crlf]User-Agent: [ua][crlf]Upgrade: websocket[crlf][crlf]";
+
+const DEFAULT_EASY_INJECT_PRESETS: InsertEasyInjectPreset[] = [
+  {
+    slug: "gamemax",
+    name: "GameMax",
+    description: "Untuk paket GameMax menggunakan akun SSH biasa.",
+    accountLabel: "SSH biasa",
+    requiredAccountKind: "normal",
+    sshPort: 80,
+    mode: "PROXY",
+    proxyHost: "ir.huya.com",
+    proxyPort: 80,
+    payload: EASY_INJECT_PAYLOAD,
+    sniPolicy: "none",
+    customSni: null,
+    usePayload: true,
+    ssl: false,
+    supportsDarkTunnel: true,
+    supportsHttpCustom: true,
+    isActive: true,
+    isBuiltIn: true,
+    sortOrder: 10,
+    version: 1,
+  },
+  {
+    slug: "ilmupedia",
+    name: "Ilmupedia",
+    description: "Untuk paket Ilmupedia menggunakan akun SSH CloudFront.",
+    accountLabel: "SSH CloudFront",
+    requiredAccountKind: "cloudfront",
+    sshPort: 443,
+    mode: "PROXY_SNI",
+    proxyHost: "wpassets.kuncie.com",
+    proxyPort: 443,
+    payload: EASY_INJECT_PAYLOAD,
+    sniPolicy: "account_host",
+    customSni: null,
+    usePayload: true,
+    ssl: true,
+    supportsDarkTunnel: true,
+    supportsHttpCustom: true,
+    isActive: true,
+    isBuiltIn: true,
+    sortOrder: 20,
+    version: 1,
+  },
+];
+
+function toSeedSnapshot(preset: EasyInjectPreset): EasyInjectPresetSnapshot {
+  return {
+    id: preset.id,
+    slug: preset.slug,
+    name: preset.name,
+    description: preset.description,
+    accountLabel: preset.accountLabel,
+    requiredAccountKind: preset.requiredAccountKind,
+    sshPort: preset.sshPort,
+    mode: preset.mode,
+    proxyHost: preset.proxyHost,
+    proxyPort: preset.proxyPort,
+    payload: preset.payload,
+    sniPolicy: preset.sniPolicy,
+    customSni: preset.customSni,
+    usePayload: preset.usePayload,
+    ssl: preset.ssl,
+    supportsDarkTunnel: preset.supportsDarkTunnel,
+    supportsHttpCustom: preset.supportsHttpCustom,
+    isActive: preset.isActive,
+    isBuiltIn: preset.isBuiltIn,
+    sortOrder: preset.sortOrder,
+    version: preset.version,
+    createdAt: preset.createdAt.toISOString(),
+    updatedAt: preset.updatedAt.toISOString(),
+  };
+}
 
 export async function seedDefaultAdmin() {
   try {
@@ -35,5 +120,40 @@ export async function seedDefaultAdmin() {
     logger.warn("PENTING: Segera ganti password admin default setelah login pertama!");
   } catch (err) {
     logger.error({ err }, "Gagal membuat admin default");
+  }
+}
+
+export async function seedEasyInjectPresets() {
+  let insertedCount = 0;
+
+  for (const defaultPreset of DEFAULT_EASY_INJECT_PRESETS) {
+    const inserted = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(easyInjectPresetsTable)
+        .values(defaultPreset)
+        .onConflictDoNothing({ target: easyInjectPresetsTable.slug })
+        .returning();
+
+      if (!created) {
+        return false;
+      }
+
+      await tx.insert(easyInjectPresetRevisionsTable).values({
+        presetId: created.id,
+        version: created.version,
+        snapshot: toSeedSnapshot(created),
+        action: "seed",
+        adminUserId: null,
+      });
+      return true;
+    });
+
+    if (inserted) {
+      insertedCount += 1;
+    }
+  }
+
+  if (insertedCount > 0) {
+    logger.info({ insertedCount }, "Default Easy Inject presets created");
   }
 }

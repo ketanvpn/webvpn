@@ -28,6 +28,7 @@ import announcementsRouter from "./announcements";
 import pointsRouter from "./points";
 import ticketsRouter from "./tickets";
 import bugPresetsRouter from "./bug-presets";
+import easyInjectPresetsRouter from "./easy-inject-presets";
 
 const router: IRouter = Router();
 
@@ -57,5 +58,6 @@ router.use(announcementsRouter);
 router.use(pointsRouter);
 router.use(ticketsRouter);
 router.use(bugPresetsRouter);
+router.use(easyInjectPresetsRouter);
 
 export default router;

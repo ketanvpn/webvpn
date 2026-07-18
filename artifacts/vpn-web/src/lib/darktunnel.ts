@@ -1,36 +1,34 @@
-export const DARKTUNNEL_TARGETS = {
-  gamemax: {
-    label: "GameMax",
-    accountLabel: "SSH biasa",
-    description: "Untuk paket GameMax menggunakan akun SSH biasa.",
-    requiredKind: "normal",
-    sshPort: 80,
-    injectConfig: {
-      mode: "PROXY",
-      proxyHost: "ir.huya.com",
-      proxyPort: 80,
-      payload:
-        "GET / HTTP/1.1[crlf]Host: [host][crlf]Connection: Upgrade[crlf]User-Agent: [ua][crlf]Upgrade: websocket[crlf][crlf]",
-    },
-  },
-  ilmupedia: {
-    label: "Ilmupedia",
-    accountLabel: "SSH CloudFront",
-    description: "Untuk paket Ilmupedia menggunakan akun SSH CloudFront.",
-    requiredKind: "cloudfront",
-    sshPort: 443,
-    injectConfig: {
-      mode: "PROXY_SNI",
-      proxyHost: "wpassets.kuncie.com",
-      proxyPort: 443,
-      payload:
-        "GET / HTTP/1.1[crlf]Host: [host][crlf]Connection: Upgrade[crlf]User-Agent: [ua][crlf]Upgrade: websocket[crlf][crlf]",
-    },
-  },
-} as const;
+export type EasyInjectAccountKind = "normal" | "cloudfront";
+export type EasyInjectMode = "PROXY" | "PROXY_SNI";
+export type EasyInjectSniPolicy = "none" | "account_host" | "custom";
 
-export type DarkTunnelTarget = keyof typeof DARKTUNNEL_TARGETS;
-export type SshAccountKind = "normal" | "cloudfront" | "unknown";
+export type EasyInjectPreset = {
+  id: number;
+  slug: string;
+  name: string;
+  description: string;
+  accountLabel: string;
+  requiredAccountKind: EasyInjectAccountKind;
+  sshPort: number;
+  mode: EasyInjectMode;
+  proxyHost: string;
+  proxyPort: number;
+  payload: string;
+  sniPolicy: EasyInjectSniPolicy;
+  customSni: string | null;
+  usePayload: boolean;
+  ssl: boolean;
+  supportsDarkTunnel: boolean;
+  supportsHttpCustom: boolean;
+  version: number;
+  isActive?: boolean;
+  isBuiltIn?: boolean;
+  sortOrder?: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type SshAccountKind = EasyInjectAccountKind | "unknown";
 
 type NullableString = string | null | undefined;
 
@@ -74,9 +72,10 @@ export type DarkTunnelBuildResult = {
 };
 
 export type HttpCustomGuide = {
-  target: DarkTunnelTarget;
+  presetId: number;
+  presetSlug: string;
   targetLabel: string;
-  mode: "PROXY" | "PROXY_SNI";
+  mode: EasyInjectMode;
   ssh: {
     host: string;
     port: number;
@@ -91,7 +90,7 @@ export type HttpCustomGuide = {
   };
   payload: string;
   sni: string | null;
-  usePayload: true;
+  usePayload: boolean;
   ssl: boolean;
 };
 
@@ -217,29 +216,15 @@ export function isActiveSshAccount(
   );
 }
 
-export function isAccountCompatibleWithTarget(
+export function getEasyInjectAccountHost(
   account: DarkTunnelAccount,
-  target: DarkTunnelTarget,
-): boolean {
-  return (
-    isActiveSshAccount(account) &&
-    classifySshAccount(account) === DARKTUNNEL_TARGETS[target].requiredKind &&
-    Boolean(getDarkTunnelAccountHost(account, target)) &&
-    Boolean(usableString(account.username)) &&
-    Boolean(usableString(account.password))
-  );
-}
-
-export function getDarkTunnelAccountHost(
-  account: DarkTunnelAccount,
-  target: DarkTunnelTarget,
+  preset: Pick<EasyInjectPreset, "requiredAccountKind">,
 ): string | null {
-  const links = account.allLinks ?? {};
-
-  if (target === "ilmupedia") {
+  if (preset.requiredAccountKind === "cloudfront") {
     return getExplicitCloudFrontHost(account);
   }
 
+  const links = account.allLinks ?? {};
   return firstUsable(
     links.domain,
     links.host,
@@ -253,6 +238,19 @@ export function getDarkTunnelAccountHost(
     extractHostFromConnectionValue(links.udp),
     account.server?.originalHost,
     account.server?.host,
+  );
+}
+
+export function isAccountCompatibleWithPreset(
+  account: DarkTunnelAccount,
+  preset: EasyInjectPreset,
+): boolean {
+  return (
+    isActiveSshAccount(account) &&
+    classifySshAccount(account) === preset.requiredAccountKind &&
+    Boolean(getEasyInjectAccountHost(account, preset)) &&
+    Boolean(usableString(account.username)) &&
+    Boolean(usableString(account.password))
   );
 }
 
@@ -275,26 +273,53 @@ export function sanitizeDarkTunnelFilename(value: string): string {
   return `${base || "config-darktunnel"}.dark`;
 }
 
+export function resolveEasyInjectSni(
+  preset: Pick<EasyInjectPreset, "sniPolicy" | "customSni">,
+  accountHost: string,
+): string | null {
+  if (preset.sniPolicy === "none") return null;
+  if (preset.sniPolicy === "account_host") return accountHost;
+
+  const customSni = usableString(preset.customSni);
+  if (!customSni) {
+    throw new Error("SNI custom pada preset belum diisi.");
+  }
+  return customSni.replaceAll("[host]", accountHost);
+}
+
+function validatePresetRuntime(preset: EasyInjectPreset): void {
+  if (!Number.isInteger(preset.sshPort) || preset.sshPort < 1 || preset.sshPort > 65535) {
+    throw new Error("Port SSH pada preset tidak valid.");
+  }
+  if (!Number.isInteger(preset.proxyPort) || preset.proxyPort < 1 || preset.proxyPort > 65535) {
+    throw new Error("Port Remote Proxy pada preset tidak valid.");
+  }
+  if (!usableString(preset.proxyHost) || !usableString(preset.payload)) {
+    throw new Error("Remote Proxy atau payload pada preset belum lengkap.");
+  }
+  if (preset.mode === "PROXY_SNI" && preset.sniPolicy === "none") {
+    throw new Error("Mode PROXY_SNI membutuhkan pengaturan SNI.");
+  }
+}
+
 function resolveSshInjectValues(params: {
   account: DarkTunnelAccount;
-  target: DarkTunnelTarget;
+  preset: EasyInjectPreset;
   name?: string;
 }) {
-  const { account, target } = params;
-  const definition = DARKTUNNEL_TARGETS[target];
+  const { account, preset } = params;
+  validatePresetRuntime(preset);
 
   if (!isActiveSshAccount(account)) {
     throw new Error("Akun SSH tidak aktif atau sudah kedaluwarsa.");
   }
 
   const kind = classifySshAccount(account);
-  if (kind !== definition.requiredKind) {
-    throw new Error(
-      `${definition.label} membutuhkan akun ${definition.accountLabel}.`,
-    );
+  if (kind !== preset.requiredAccountKind) {
+    throw new Error(`${preset.name} membutuhkan akun ${preset.accountLabel}.`);
   }
 
-  const host = getDarkTunnelAccountHost(account, target);
+  const host = getEasyInjectAccountHost(account, preset);
   const username = usableString(account.username);
   const password = usableString(account.password);
 
@@ -303,57 +328,66 @@ function resolveSshInjectValues(params: {
   }
 
   return {
-    definition,
     host,
     username,
     password,
-    name: params.name?.trim() || `${definition.label} - ${account.username}`,
+    sni: resolveEasyInjectSni(preset, host),
+    name: params.name?.trim() || `${preset.name} - ${account.username}`,
   };
 }
 
 export function buildHttpCustomGuide(params: {
   account: DarkTunnelAccount;
-  target: DarkTunnelTarget;
+  preset: EasyInjectPreset;
 }): HttpCustomGuide {
-  const { definition, host, username, password } =
-    resolveSshInjectValues(params);
-  const proxyHost = definition.injectConfig.proxyHost;
-  const proxyPort = definition.injectConfig.proxyPort;
+  if (!params.preset.supportsHttpCustom) {
+    throw new Error("HTTP Custom sedang dinonaktifkan untuk preset ini.");
+  }
+
+  const { host, username, password, sni } = resolveSshInjectValues(params);
+  const { preset } = params;
 
   return {
-    target: params.target,
-    targetLabel: definition.label,
-    mode: definition.injectConfig.mode,
+    presetId: preset.id,
+    presetSlug: preset.slug,
+    targetLabel: preset.name,
+    mode: preset.mode,
     ssh: {
       host,
-      port: definition.sshPort,
+      port: preset.sshPort,
       username,
       password,
-      login: `${host}:${definition.sshPort}@${username}:${password}`,
+      login: `${host}:${preset.sshPort}@${username}:${password}`,
     },
     proxy: {
-      host: proxyHost,
-      port: proxyPort,
-      address: `${proxyHost}:${proxyPort}`,
+      host: preset.proxyHost,
+      port: preset.proxyPort,
+      address: `${preset.proxyHost}:${preset.proxyPort}`,
     },
-    payload: definition.injectConfig.payload,
-    sni: params.target === "ilmupedia" ? host : null,
-    usePayload: true,
-    ssl: params.target === "ilmupedia",
+    payload: preset.usePayload ? preset.payload : "",
+    sni,
+    usePayload: preset.usePayload,
+    ssl: preset.ssl,
   };
 }
 
 export function buildDarkTunnelConfig(params: {
   account: DarkTunnelAccount;
-  target: DarkTunnelTarget;
+  preset: EasyInjectPreset;
   name?: string;
 }): DarkTunnelBuildResult {
-  const { account, target } = params;
-  const { definition, host, username, password, name } =
-    resolveSshInjectValues(params);
+  if (!params.preset.supportsDarkTunnel) {
+    throw new Error("DarkTunnel sedang dinonaktifkan untuk preset ini.");
+  }
+
+  const { account, preset } = params;
+  const { host, username, password, sni, name } = resolveSshInjectValues(params);
   const injectConfig: Record<string, unknown> = {
-    ...definition.injectConfig,
-    ...(target === "ilmupedia" ? { serverNameIndication: host } : {}),
+    mode: preset.mode,
+    proxyHost: preset.proxyHost,
+    proxyPort: preset.proxyPort,
+    ...(preset.usePayload ? { payload: preset.payload } : {}),
+    ...(sni ? { serverNameIndication: sni } : {}),
   };
 
   const config: DarkTunnelBuildResult["config"] = {
@@ -362,7 +396,7 @@ export function buildDarkTunnelConfig(params: {
     sshTunnelConfig: {
       sshConfig: {
         host,
-        port: definition.sshPort,
+        port: preset.sshPort,
         username,
         password,
       },
@@ -372,7 +406,7 @@ export function buildDarkTunnelConfig(params: {
 
   return {
     link: `darktunnel://${encodeBase64Utf8(JSON.stringify(config))}`,
-    filename: sanitizeDarkTunnelFilename(`${definition.label}-${account.username}`),
+    filename: sanitizeDarkTunnelFilename(`${preset.name}-${account.username}`),
     config,
   };
 }
