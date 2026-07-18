@@ -488,6 +488,8 @@ export async function notifyAdminPriceChanged(changes: {
   provider: string;
   costPerDayOld: number;
   costPerDayNew: number;
+  costPerWeekOld: number;
+  costPerWeekNew: number;
   costPerMonthOld: number;
   costPerMonthNew: number;
 }[]): Promise<void> {
@@ -507,6 +509,14 @@ export async function notifyAdminPriceChanged(changes: {
         : "∞";
       const arrow = c.costPerDayNew > c.costPerDayOld ? "📈" : "📉";
       text += `  ${arrow} /hari: ${formatRupiah(c.costPerDayOld)} → ${formatRupiah(c.costPerDayNew)} (${Number(pct) > 0 ? "+" : ""}${pct}%)\n`;
+    }
+
+    if (c.costPerWeekOld !== c.costPerWeekNew) {
+      const pct = c.costPerWeekOld > 0
+        ? ((c.costPerWeekNew - c.costPerWeekOld) / c.costPerWeekOld * 100).toFixed(0)
+        : "∞";
+      const arrow = c.costPerWeekNew > c.costPerWeekOld ? "📈" : "📉";
+      text += `  ${arrow} /minggu: ${formatRupiah(c.costPerWeekOld)} → ${formatRupiah(c.costPerWeekNew)} (${Number(pct) > 0 ? "+" : ""}${pct}%)\n`;
     }
 
     if (c.costPerMonthOld !== c.costPerMonthNew) {

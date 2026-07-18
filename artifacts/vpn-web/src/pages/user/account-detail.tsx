@@ -15,6 +15,11 @@ import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { formatRupiah } from "@/lib/format";
 import { useState } from "react";
 import { getApiError } from "@/lib/utils";
+import {
+  dynamicDurationOptionLabel,
+  isDynamicDurationType,
+  type DynamicDurationType,
+} from "@/lib/dynamic-duration";
 
 const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
 
@@ -310,17 +315,23 @@ function RenewDialog({ accountId, serverId, protocol, serverName, serverFlag, se
   );
 }
 
-function DynamicRenewDialog({ accountId, protocol, serverName, serverFlag, serverLocation }: {
+function DynamicRenewDialog({ accountId, protocol, serverName, serverFlag, serverLocation, supportedTypes }: {
   accountId: number;
   protocol: string;
   serverName: string;
   serverFlag: string;
   serverLocation: string;
+  supportedTypes: DynamicDurationType[];
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [durationType, setDurationType] = useState<"day" | "month">("month");
+  const defaultDurationType: DynamicDurationType = supportedTypes.includes("month")
+    ? "month"
+    : supportedTypes.includes("week")
+      ? "week"
+      : "day";
+  const [durationType, setDurationType] = useState<DynamicDurationType>(defaultDurationType);
   const [duration, setDuration] = useState("1");
   const [renewedAmount, setRenewedAmount] = useState<number | null>(null);
 
@@ -381,7 +392,7 @@ function DynamicRenewDialog({ accountId, protocol, serverName, serverFlag, serve
       quoteMutation.mutate();
       return;
     }
-    setDurationType("month");
+    setDurationType(defaultDurationType);
     setDuration("1");
     setRenewedAmount(null);
     renewMutation.reset();
@@ -432,13 +443,16 @@ function DynamicRenewDialog({ accountId, protocol, serverName, serverFlag, serve
                 <select
                   value={durationType}
                   onChange={(e) => {
-                    setDurationType(e.target.value as "day" | "month");
+                    if (!isDynamicDurationType(e.target.value)) return;
+                    setDurationType(e.target.value);
+                    if (e.target.value === "week") setDuration("1");
                     quoteMutation.reset();
                   }}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
-                  <option value="day">Harian</option>
-                  <option value="month">Bulanan</option>
+                  {supportedTypes.map((type) => (
+                    <option key={type} value={type}>{dynamicDurationOptionLabel(type)}</option>
+                  ))}
                 </select>
               </div>
               <div className="space-y-2">
@@ -447,6 +461,7 @@ function DynamicRenewDialog({ accountId, protocol, serverName, serverFlag, serve
                   type="number"
                   min={1}
                   value={duration}
+                  disabled={durationType === "week"}
                   onChange={(e) => {
                     setDuration(e.target.value);
                     quoteMutation.reset();
@@ -595,8 +610,18 @@ export default function AccountDetail() {
   }
 
   const allLinks = account.allLinks as Record<string, string | null> | null | undefined;
-  const dynamicOrder = (account as typeof account & { dynamicOrder?: { provider?: string | null } | null }).dynamicOrder;
+  const dynamicOrder = (account as typeof account & {
+    dynamicOrder?: {
+      provider?: string | null;
+      renewEnabled?: boolean;
+      supportedTypes?: string[];
+      sellPricePerDay?: number;
+      sellPricePerWeek?: number;
+      sellPricePerMonth?: number;
+    } | null;
+  }).dynamicOrder;
   const isDynamicAccount = dynamicOrder?.provider === "nadiavpn" || dynamicOrder?.provider === "local_panel";
+  const dynamicRenewTypes = (dynamicOrder?.supportedTypes ?? []).filter(isDynamicDurationType);
   const isSsh = account.protocol === "ssh";
   const accountHost = pickDisplayHost(allLinks, account.server.host ?? "");
   const hasAllLinks = !isSsh && allLinks && Object.entries(allLinks).some(([key, value]) => !["hostname", "servername", "host", "domain", "server", "cloudfront", "sni"].includes(key) && !!value);
@@ -933,13 +958,16 @@ export default function AccountDetail() {
             <CardContent className="space-y-3">
               {account.isActive && new Date(account.expiresAt) > new Date() && (
                 isDynamicAccount ? (
-                  <DynamicRenewDialog
-                    accountId={accountId}
-                    protocol={account.protocol}
-                    serverName={account.server.name}
-                    serverFlag={account.server.flag}
-                    serverLocation={account.server.location}
-                  />
+                  dynamicOrder?.renewEnabled !== false && dynamicRenewTypes.length > 0 ? (
+                    <DynamicRenewDialog
+                      accountId={accountId}
+                      protocol={account.protocol}
+                      serverName={account.server.name}
+                      serverFlag={account.server.flag}
+                      serverLocation={account.server.location}
+                      supportedTypes={dynamicRenewTypes}
+                    />
+                  ) : null
                 ) : (
                   <RenewDialog
                     accountId={accountId}

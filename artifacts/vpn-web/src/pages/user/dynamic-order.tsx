@@ -13,6 +13,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLocation, Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import {
+  dynamicDurationLabel,
+  dynamicDurationOptionLabel,
+  getDynamicSellPrice,
+  isDynamicDurationType,
+  type DynamicDurationType,
+} from "@/lib/dynamic-duration";
 
 const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
 
@@ -22,8 +29,9 @@ type DynamicServer = {
   displayName: string;
   location: string | null;
   enabledProtocols: string[];
-  supportedTypes: string[];
+  supportedTypes: DynamicDurationType[];
   sellPricePerDay: number;
+  sellPricePerWeek: number;
   sellPricePerMonth: number;
   minDays: number;
   maxDays: number;
@@ -65,6 +73,8 @@ function countryFlag(location?: string | null) {
 }
 
 function ServerCard({ server, onSelect }: { server: DynamicServer; onSelect: () => void }) {
+  const supportedTypes = server.supportedTypes.filter(isDynamicDurationType);
+
   return (
     <div className="relative flex flex-col rounded-xl overflow-hidden transition-all duration-300 border border-white/5 hover:border-primary/30 glass-card">
       <button type="button" onClick={onSelect} className="p-4 flex gap-3 text-left w-full">
@@ -103,15 +113,13 @@ function ServerCard({ server, onSelect }: { server: DynamicServer; onSelect: () 
         </div>
       </button>
 
-      <div className="grid grid-cols-2 gap-3 p-3 bg-black/20 border-t border-white/5">
-        <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center">
-          <p className="text-[9px] font-bold tracking-widest text-muted-foreground uppercase">Harian</p>
-          <p className="text-xs font-bold text-foreground mt-0.5">{rupiah(server.sellPricePerDay)}</p>
-        </div>
-        <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center">
-          <p className="text-[9px] font-bold tracking-widest text-muted-foreground uppercase">Bulanan</p>
-          <p className="text-xs font-bold text-foreground mt-0.5">{rupiah(server.sellPricePerMonth)}</p>
-        </div>
+      <div className={`grid gap-3 p-3 bg-black/20 border-t border-white/5 ${supportedTypes.length >= 3 ? "grid-cols-3" : supportedTypes.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
+        {supportedTypes.map((type) => (
+          <div key={type} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center">
+            <p className="text-[9px] font-bold tracking-widest text-muted-foreground uppercase">{dynamicDurationOptionLabel(type)}</p>
+            <p className="text-xs font-bold text-foreground mt-0.5">{rupiah(getDynamicSellPrice(server, type))}</p>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -122,7 +130,7 @@ export default function DynamicOrderPage() {
   const [, setLocation] = useLocation();
   const [selectedServer, setSelectedServer] = useState<DynamicServer | null>(null);
   const [protocol, setProtocol] = useState("");
-  const [durationType, setDurationType] = useState("month");
+  const [durationType, setDurationType] = useState<DynamicDurationType>("month");
   const [duration, setDuration] = useState("1");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -147,13 +155,13 @@ export default function DynamicOrderPage() {
 
   const localQuote = useMemo<Quote | null>(() => {
     if (!selectedServer || !durationNum || durationNum < 1) return null;
-    const unitPrice = durationType === "day" ? selectedServer.sellPricePerDay : selectedServer.sellPricePerMonth;
+    const unitPrice = getDynamicSellPrice(selectedServer, durationType);
     const baseAmount = unitPrice * durationNum;
     return {
       unitPrice,
       baseAmount,
       amount: baseAmount,
-      durationLabel: `${durationNum} ${durationType === "day" ? "Hari" : "Bulan"}`,
+      durationLabel: dynamicDurationLabel(durationType, durationNum),
       resellerDiscountAmount: 0,
       voucherDiscountAmount: 0,
       discountAmount: 0,
@@ -229,7 +237,12 @@ export default function DynamicOrderPage() {
   const openOrder = (server: DynamicServer) => {
     setSelectedServer(server);
     setProtocol(server.enabledProtocols?.[0] ?? "");
-    setDurationType(server.supportedTypes.includes("month") ? "month" : server.supportedTypes[0] ?? "day");
+    const defaultType: DynamicDurationType = server.supportedTypes.includes("month")
+      ? "month"
+      : server.supportedTypes.includes("week")
+        ? "week"
+        : "day";
+    setDurationType(defaultType);
     setDuration("1");
     setUsername("");
     setPassword("");
@@ -255,7 +268,9 @@ export default function DynamicOrderPage() {
   const durationHelp = selectedServer
     ? durationType === "day"
       ? `Batas ${selectedServer.minDays}-${selectedServer.maxDays} hari`
-      : `Batas ${selectedServer.minMonths}-${selectedServer.maxMonths} bulan`
+      : durationType === "week"
+        ? "Paket berlaku tepat 1 minggu"
+        : `Batas ${selectedServer.minMonths}-${selectedServer.maxMonths} bulan`
     : "Pilih server dahulu";
 
   return (
@@ -316,11 +331,16 @@ export default function DynamicOrderPage() {
                   </div>
                   <div className="grid gap-2">
                     <Label>Tipe Durasi</Label>
-                    <Select value={durationType} onValueChange={setDurationType}>
+                    <Select value={durationType} onValueChange={(value) => {
+                      if (!isDynamicDurationType(value)) return;
+                      setDurationType(value);
+                      if (value === "week") setDuration("1");
+                    }}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {selectedServer.supportedTypes.includes("day") && <SelectItem value="day">Harian</SelectItem>}
-                        {selectedServer.supportedTypes.includes("month") && <SelectItem value="month">Bulanan</SelectItem>}
+                        {selectedServer.supportedTypes.filter(isDynamicDurationType).map((type) => (
+                          <SelectItem key={type} value={type}>{dynamicDurationOptionLabel(type)}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -329,7 +349,7 @@ export default function DynamicOrderPage() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="grid gap-2">
                     <Label>Jumlah</Label>
-                    <Input type="number" min={1} value={duration} onChange={(e) => setDuration(e.target.value)} />
+                    <Input type="number" min={1} value={duration} disabled={durationType === "week"} onChange={(e) => setDuration(e.target.value)} />
                     <p className="text-xs text-muted-foreground">{durationHelp}</p>
                   </div>
                   <div className="grid gap-2">

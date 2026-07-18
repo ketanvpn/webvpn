@@ -20,10 +20,19 @@ import { notifyAdminDynamicOrderFulfilled, notifyUserDynamicVpnAccountCreated, n
 import { logger } from "../lib/logger";
 import { logAdminAction } from "./admin-audit";
 import { getClientIp } from "../lib/request-ip";
+import {
+  DYNAMIC_DURATION_TYPES,
+  getDynamicCost,
+  getDynamicDurationDays,
+  getDynamicDurationLabel,
+  getDynamicSellPrice,
+  isDynamicDurationType,
+  type DynamicDurationType,
+} from "../lib/dynamic-duration";
 
 const router = Router();
 const VALID_PROTOCOLS = ["ssh", "vmess", "vless", "trojan"];
-const VALID_TYPES = ["day", "month"];
+const VALID_TYPES = [...DYNAMIC_DURATION_TYPES];
 
 function sendError(res: Response, status: number, message: string) {
   res.status(status).json({ error: message });
@@ -52,7 +61,9 @@ function formatServer(row: typeof dynamicProviderServersTable.$inferSelect, admi
     isActive: row.isActive,
     trialEnabled: row.trialEnabled,
     trialDuration: row.trialDuration,
+    renewEnabled: row.renewEnabled,
     sellPricePerDay: Number(row.sellPricePerDay ?? 0),
+    sellPricePerWeek: Number(row.sellPricePerWeek ?? 0),
     sellPricePerMonth: Number(row.sellPricePerMonth ?? 0),
     minDays: row.minDays,
     maxDays: row.maxDays,
@@ -75,6 +86,7 @@ function formatServer(row: typeof dynamicProviderServersTable.$inferSelect, admi
     supportedProtocols: row.supportedProtocols,
     providerTrialEnabled: row.providerTrialEnabled,
     costPerDay: Number(row.costPerDay ?? 0),
+    costPerWeek: Number(row.costPerWeek ?? 0),
     costPerMonth: Number(row.costPerMonth ?? 0),
     pricingMode: row.pricingMode,
     markupPercent: row.markupPercent,
@@ -90,27 +102,26 @@ function applyMarkup(cost: number, markupPercent: number): number {
 }
 
 function calculateBaseQuote(server: typeof dynamicProviderServersTable.$inferSelect, durationType: string, duration: number) {
-  if (durationType === "day") {
-    if (!server.supportedTypes.includes("day")) throw new Error("Server ini tidak mendukung durasi harian");
-    if (duration < server.minDays || duration > server.maxDays) {
-      throw new Error(`Durasi harian harus ${server.minDays}-${server.maxDays} hari`);
-    }
-    const unitPrice = Number(server.sellPricePerDay ?? 0);
-    if (unitPrice <= 0) throw new Error("Harga harian belum diatur admin");
-    return { unitPrice, baseAmount: unitPrice * duration, durationLabel: `${duration} Hari` };
+  if (!isDynamicDurationType(durationType)) throw new Error("Tipe durasi tidak valid");
+  if (!server.supportedTypes.includes(durationType)) {
+    const labels: Record<DynamicDurationType, string> = { day: "harian", week: "mingguan", month: "bulanan" };
+    throw new Error(`Server ini tidak mendukung durasi ${labels[durationType]}`);
   }
 
-  if (durationType === "month") {
-    if (!server.supportedTypes.includes("month")) throw new Error("Server ini tidak mendukung durasi bulanan");
-    if (duration < server.minMonths || duration > server.maxMonths) {
-      throw new Error(`Durasi bulanan harus ${server.minMonths}-${server.maxMonths} bulan`);
-    }
-    const unitPrice = Number(server.sellPricePerMonth ?? 0);
-    if (unitPrice <= 0) throw new Error("Harga bulanan belum diatur admin");
-    return { unitPrice, baseAmount: unitPrice * duration, durationLabel: `${duration} Bulan` };
+  if (durationType === "day" && (duration < server.minDays || duration > server.maxDays)) {
+    throw new Error(`Durasi harian harus ${server.minDays}-${server.maxDays} hari`);
+  }
+  if (durationType === "week") {
+    if (server.provider !== "nadiavpn") throw new Error("Paket mingguan hanya tersedia untuk server NadiaVPN");
+    if (duration !== 1) throw new Error("Paket mingguan hanya tersedia untuk tepat 1 minggu");
+  }
+  if (durationType === "month" && (duration < server.minMonths || duration > server.maxMonths)) {
+    throw new Error(`Durasi bulanan harus ${server.minMonths}-${server.maxMonths} bulan`);
   }
 
-  throw new Error("Tipe durasi tidak valid");
+  const unitPrice = getDynamicSellPrice(server, durationType);
+  if (unitPrice <= 0) throw new Error(`Harga ${getDynamicDurationLabel(durationType, 1).toLowerCase()} belum diatur admin`);
+  return { unitPrice, baseAmount: unitPrice * duration, durationLabel: getDynamicDurationLabel(durationType, duration) };
 }
 
 async function calculateDynamicPrice(server: typeof dynamicProviderServersTable.$inferSelect, durationType: string, duration: number, userId: number, voucherCode?: unknown) {
@@ -272,10 +283,6 @@ function extractPanelConnectionDetails(result: Awaited<ReturnType<typeof createP
   return Object.keys(details).length ? details : null;
 }
 
-function getDurationDays(durationType: string, duration: number) {
-  return durationType === "day" ? duration : duration * 30;
-}
-
 async function getLocalServerCapacity(localServerId: number) {
   const [{ activeCount }] = await db
     .select({ activeCount: count(vpnAccountsTable.id) })
@@ -344,7 +351,9 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
   let configLink: string | null = null;
   let allLinks: Record<string, string | null> | null = null;
   let localServerId: number;
-  const fallbackExpiry = new Date(Date.now() + getDurationDays(order.durationType, order.duration) * 24 * 60 * 60 * 1000);
+  if (!isDynamicDurationType(order.durationType)) throw new Error("Tipe durasi order tidak valid");
+  calculateBaseQuote(server, order.durationType, order.duration);
+  const fallbackExpiry = new Date(Date.now() + getDynamicDurationDays(order.durationType, order.duration) * 24 * 60 * 60 * 1000);
   let expiresAt = fallbackExpiry;
   let rollbackPanelAccount: null | { apiUrl: string; apiToken: string; protocol: string; username: string } = null;
 
@@ -366,7 +375,7 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
         protocol: order.protocol,
         username: order.username,
         password: order.password ?? undefined,
-        durationDays: getDurationDays(order.durationType, order.duration),
+        durationDays: getDynamicDurationDays(order.durationType, order.duration),
         uuid: randomUUID(),
         maxConnections: server.maxConnections ?? null,
       });
@@ -554,7 +563,16 @@ async function syncNadiaVpnServersFromProvider() {
   const servers = response?.data?.servers ?? [];
   const now = new Date();
   const synced = [];
-  const priceChanges: { serverName: string; provider: string; costPerDayOld: number; costPerDayNew: number; costPerMonthOld: number; costPerMonthNew: number }[] = [];
+  const priceChanges: {
+    serverName: string;
+    provider: string;
+    costPerDayOld: number;
+    costPerDayNew: number;
+    costPerWeekOld: number;
+    costPerWeekNew: number;
+    costPerMonthOld: number;
+    costPerMonthNew: number;
+  }[] = [];
 
   // Ambil default markup % dari admin settings
   const rawDefaultMarkup = await getSettingValue("dynamicDefaultMarkupPercent");
@@ -569,8 +587,9 @@ async function syncNadiaVpnServersFromProvider() {
       .limit(1);
 
     const supportedProtocols = Array.isArray(srv.supported_protocols) ? srv.supported_protocols.map(normalizeProtocol).filter(Boolean) : [];
-    const supportedTypes = Array.isArray(srv.supported_types) ? srv.supported_types.map(normalizeDurationType).filter((t: string) => VALID_TYPES.includes(t)) : [];
+    const supportedTypes = Array.isArray(srv.supported_types) ? srv.supported_types.map(normalizeDurationType).filter((t: string) => VALID_TYPES.includes(t as DynamicDurationType)) : [];
     const costDay = Number(srv.pricing?.per_day ?? 0);
+    const costWeek = Number(srv.pricing?.per_week ?? 0);
     const costMonth = Number(srv.pricing?.per_month ?? 0);
 
     // Tentukan markup: pakai existing atau default dari settings
@@ -579,14 +598,17 @@ async function syncNadiaVpnServersFromProvider() {
 
     // Hitung harga jual berdasarkan mode
     let sellDay: string;
+    let sellWeek: string;
     let sellMonth: string;
     if (pricingMode === "auto_markup") {
       // Auto: hitung dari cost + markup %
       sellDay = String(applyMarkup(costDay, markupPercent));
+      sellWeek = String(applyMarkup(costWeek, markupPercent));
       sellMonth = String(applyMarkup(costMonth, markupPercent));
     } else {
       // Manual: pertahankan harga yang sudah diset admin, atau fallback
       sellDay = existing?.sellPricePerDay ?? String(Math.max(costDay, 1000));
+      sellWeek = existing?.sellPricePerWeek ?? String(Math.max(costWeek, 1000));
       sellMonth = existing?.sellPricePerMonth ?? String(Math.max(costMonth, 10000));
     }
 
@@ -600,9 +622,12 @@ async function syncNadiaVpnServersFromProvider() {
       providerTrialEnabled: !!srv.trial_enabled,
       trialEnabled: existing?.trialEnabled ?? !!srv.trial_enabled,
       trialDuration: srv.trial_duration ? String(srv.trial_duration) : null,
+      renewEnabled: srv.renew_enabled !== false,
       costPerDay: String(costDay),
+      costPerWeek: String(costWeek),
       costPerMonth: String(costMonth),
       sellPricePerDay: sellDay,
+      sellPricePerWeek: sellWeek,
       sellPricePerMonth: sellMonth,
       pricingMode,
       markupPercent,
@@ -621,13 +646,16 @@ async function syncNadiaVpnServersFromProvider() {
     // Deteksi perubahan harga cost dari provider
     if (existing) {
       const oldCostDay = Number(existing.costPerDay ?? 0);
+      const oldCostWeek = Number(existing.costPerWeek ?? 0);
       const oldCostMonth = Number(existing.costPerMonth ?? 0);
-      if (oldCostDay !== costDay || oldCostMonth !== costMonth) {
+      if (oldCostDay !== costDay || oldCostWeek !== costWeek || oldCostMonth !== costMonth) {
         priceChanges.push({
           serverName: existing.displayName ?? String(srv.name ?? providerServerId),
           provider: "nadiavpn",
           costPerDayOld: oldCostDay,
           costPerDayNew: costDay,
+          costPerWeekOld: oldCostWeek,
+          costPerWeekNew: costWeek,
           costPerMonthOld: oldCostMonth,
           costPerMonthNew: costMonth,
         });
@@ -675,13 +703,16 @@ async function syncLocalPanelServers() {
       location: srv.location ?? null,
       supportedProtocols,
       enabledProtocols: existing?.enabledProtocols?.length ? existing.enabledProtocols.filter((p: string) => supportedProtocols.includes(p)) : supportedProtocols,
-      supportedTypes: existing?.supportedTypes?.length ? existing.supportedTypes : ["day", "month"],
+      supportedTypes: ["day", "month"],
       providerTrialEnabled: false,
       trialEnabled: existing?.trialEnabled ?? false,
       trialDuration: existing?.trialDuration ?? null,
+      renewEnabled: true,
       costPerDay: existing?.costPerDay ?? "0",
+      costPerWeek: "0",
       costPerMonth: existing?.costPerMonth ?? "0",
       sellPricePerDay: existing?.sellPricePerDay ?? "0",
+      sellPricePerWeek: "0",
       sellPricePerMonth: existing?.sellPricePerMonth ?? "0",
       minDays: existing?.minDays ?? 1,
       maxDays: existing?.maxDays ?? 30,
@@ -786,6 +817,7 @@ router.patch("/admin/dynamic-vpn/servers/:id", requireAdmin, async (req, res) =>
     update.enabledProtocols = protocols;
   }
   if (body.sellPricePerDay !== undefined) update.sellPricePerDay = String(Math.max(0, Number(body.sellPricePerDay)));
+  if (body.sellPricePerWeek !== undefined) update.sellPricePerWeek = String(Math.max(0, Number(body.sellPricePerWeek)));
   if (body.sellPricePerMonth !== undefined) update.sellPricePerMonth = String(Math.max(0, Number(body.sellPricePerMonth)));
   if (body.minDays !== undefined) update.minDays = Math.max(1, parseInt(String(body.minDays), 10));
   if (body.maxDays !== undefined) update.maxDays = Math.max(1, parseInt(String(body.maxDays), 10));
@@ -807,6 +839,7 @@ router.patch("/admin/dynamic-vpn/servers/:id", requireAdmin, async (req, res) =>
       const markup = newMarkup ?? current.markupPercent;
       if (mode === "auto_markup") {
         update.sellPricePerDay = String(applyMarkup(Number(current.costPerDay ?? 0), markup));
+        update.sellPricePerWeek = String(applyMarkup(Number(current.costPerWeek ?? 0), markup));
         update.sellPricePerMonth = String(applyMarkup(Number(current.costPerMonth ?? 0), markup));
       }
     }
@@ -1058,14 +1091,7 @@ router.get("/admin/stats/profit-tracking", requireAdmin, async (req, res) => {
       const server = order.dynamicServerId ? serverMap.get(order.dynamicServerId) : null;
 
       // Hitung cost berdasarkan durationType
-      let cost = 0;
-      if (server) {
-        if (order.durationType === "day") {
-          cost = Number(server.costPerDay ?? 0) * order.duration;
-        } else {
-          cost = Number(server.costPerMonth ?? 0) * order.duration;
-        }
-      }
+      const cost = server ? getDynamicCost(server, order.durationType) * order.duration : 0;
 
       totalRevenue += revenue;
       totalCost += cost;
@@ -1108,8 +1134,10 @@ router.get("/admin/stats/profit-tracking", requireAdmin, async (req, res) => {
           profit,
           marginPercent: margin,
           costPerDay: Number(serverData?.costPerDay ?? 0),
+          costPerWeek: Number(serverData?.costPerWeek ?? 0),
           costPerMonth: Number(serverData?.costPerMonth ?? 0),
           sellPricePerDay: Number(serverData?.sellPricePerDay ?? 0),
+          sellPricePerWeek: Number(serverData?.sellPricePerWeek ?? 0),
           sellPricePerMonth: Number(serverData?.sellPricePerMonth ?? 0),
         };
       })

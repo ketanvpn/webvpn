@@ -14,6 +14,13 @@ import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { notifyAdminDynamicOrderFulfilled } from "../lib/telegram";
 import { logger } from "../lib/logger";
+import {
+  getDynamicDurationDays,
+  getDynamicDurationLabel,
+  getDynamicDurationUnit,
+  getDynamicSellPrice,
+  isDynamicDurationType,
+} from "../lib/dynamic-duration";
 
 const router = Router();
 const renewLocks = new Map<number, number>();
@@ -175,20 +182,22 @@ async function calculateDynamicRenewAmount(params: {
   if (!dynamicServerId) throw new Error("Dynamic server tidak ditemukan");
   const [server] = await db.select().from(dynamicProviderServersTable).where(eq(dynamicProviderServersTable.id, dynamicServerId)).limit(1);
   if (!server || !server.isActive) throw new Error("Server dynamic tidak aktif");
+  if (server.provider === "nadiavpn" && !server.renewEnabled) throw new Error("Server NadiaVPN ini tidak mendukung renew");
 
-  let unitPrice = 0;
-  if (durationType === "day") {
-    if (!server.supportedTypes.includes("day")) throw new Error("Server ini tidak mendukung renew harian");
-    if (duration < server.minDays || duration > server.maxDays) throw new Error(`Durasi harian harus ${server.minDays}-${server.maxDays} hari`);
-    unitPrice = Number(server.sellPricePerDay ?? 0);
-  } else if (durationType === "month") {
-    if (!server.supportedTypes.includes("month")) throw new Error("Server ini tidak mendukung renew bulanan");
-    if (duration < server.minMonths || duration > server.maxMonths) throw new Error(`Durasi bulanan harus ${server.minMonths}-${server.maxMonths} bulan`);
-    unitPrice = Number(server.sellPricePerMonth ?? 0);
-  } else {
-    throw new Error("Tipe durasi tidak valid");
+  if (!isDynamicDurationType(durationType)) throw new Error("Tipe durasi tidak valid");
+  if (!server.supportedTypes.includes(durationType)) throw new Error(`Server ini tidak mendukung renew ${getDynamicDurationUnit(durationType)}`);
+  if (durationType === "day" && (duration < server.minDays || duration > server.maxDays)) {
+    throw new Error(`Durasi harian harus ${server.minDays}-${server.maxDays} hari`);
+  }
+  if (durationType === "week") {
+    if (server.provider !== "nadiavpn") throw new Error("Renew mingguan hanya tersedia untuk server NadiaVPN");
+    if (duration !== 1) throw new Error("Renew mingguan hanya tersedia untuk tepat 1 minggu");
+  }
+  if (durationType === "month" && (duration < server.minMonths || duration > server.maxMonths)) {
+    throw new Error(`Durasi bulanan harus ${server.minMonths}-${server.maxMonths} bulan`);
   }
 
+  const unitPrice = getDynamicSellPrice(server, durationType);
   if (unitPrice <= 0) throw new Error("Harga renew belum diatur admin");
   const baseAmount = unitPrice * duration;
   let amount = baseAmount;
@@ -232,8 +241,14 @@ async function formatAccount(a: typeof vpnAccountsTable.$inferSelect) {
       serverDisplayName: dynamicVpnOrdersTable.serverDisplayName,
       providerAccountId: dynamicVpnOrdersTable.providerAccountId,
       dynamicServerId: dynamicVpnOrdersTable.dynamicServerId,
+      renewEnabled: dynamicProviderServersTable.renewEnabled,
+      supportedTypes: dynamicProviderServersTable.supportedTypes,
+      sellPricePerDay: dynamicProviderServersTable.sellPricePerDay,
+      sellPricePerWeek: dynamicProviderServersTable.sellPricePerWeek,
+      sellPricePerMonth: dynamicProviderServersTable.sellPricePerMonth,
     })
     .from(dynamicVpnOrdersTable)
+    .leftJoin(dynamicProviderServersTable, eq(dynamicVpnOrdersTable.dynamicServerId, dynamicProviderServersTable.id))
     .where(eq(dynamicVpnOrdersTable.vpnAccountId, a.id))
     .limit(1);
 
@@ -244,7 +259,16 @@ async function formatAccount(a: typeof vpnAccountsTable.$inferSelect) {
     id: a.id,
     userId: a.userId,
     orderId: a.orderId,
-    dynamicOrder: dynamicOrder ?? null,
+    dynamicOrder: dynamicOrder
+      ? {
+          ...dynamicOrder,
+          renewEnabled: dynamicOrder.renewEnabled ?? false,
+          supportedTypes: dynamicOrder.supportedTypes ?? [],
+          sellPricePerDay: Number(dynamicOrder.sellPricePerDay ?? 0),
+          sellPricePerWeek: Number(dynamicOrder.sellPricePerWeek ?? 0),
+          sellPricePerMonth: Number(dynamicOrder.sellPricePerMonth ?? 0),
+        }
+      : null,
     protocol: a.protocol,
     username: a.username,
     password: a.password,
@@ -346,7 +370,7 @@ router.post("/accounts/:id/renew-dynamic/quote", requireAuth, async (req, res) =
   const durationType = String(req.body?.durationType ?? "").trim().toLowerCase();
   const duration = parseInt(String(req.body?.duration ?? ""), 10);
 
-  if (!["day", "month"].includes(durationType) || !Number.isInteger(duration) || duration < 1) {
+  if (!isDynamicDurationType(durationType) || !Number.isInteger(duration) || duration < 1) {
     res.status(400).json({ error: "Durasi renew tidak valid" });
     return;
   }
@@ -379,7 +403,7 @@ router.post("/accounts/:id/renew-dynamic/quote", requireAuth, async (req, res) =
       ...price,
       durationType,
       duration,
-      durationLabel: `${duration} ${durationType === "day" ? "Hari" : "Bulan"}`,
+      durationLabel: getDynamicDurationLabel(durationType, duration),
     });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Quote renew gagal" });
@@ -398,7 +422,7 @@ router.post("/accounts/:id/renew-dynamic", requireAuth, async (req, res) => {
   }
 
   try {
-    if (!["day", "month"].includes(durationType) || !Number.isInteger(duration) || duration < 1) {
+    if (!isDynamicDurationType(durationType) || !Number.isInteger(duration) || duration < 1) {
       res.status(400).json({ error: "Durasi renew tidak valid" });
       return;
     }
@@ -437,7 +461,7 @@ router.post("/accounts/:id/renew-dynamic", requireAuth, async (req, res) => {
     }
 
     let synced = account;
-    let finalExpiresAt = new Date(account.expiresAt.getTime() + (durationType === "day" ? duration : duration * 30) * 24 * 60 * 60 * 1000);
+    let finalExpiresAt = new Date(account.expiresAt.getTime() + getDynamicDurationDays(durationType, duration) * 24 * 60 * 60 * 1000);
 
     if (dynamicOrder.provider === "nadiavpn") {
       await renewNadiaVpnAccount({ account_id: dynamicOrder.providerAccountId!, type: durationType, duration });
@@ -455,7 +479,7 @@ router.post("/accounts/:id/renew-dynamic", requireAuth, async (req, res) => {
         apiToken: localServer.apiToken,
         protocol: account.protocol,
         username: account.username,
-        durationDays: durationType === "day" ? duration : duration * 30,
+        durationDays: getDynamicDurationDays(durationType, duration),
         quota: account.quota ? Number(account.quota) : null,
       });
 
@@ -501,7 +525,7 @@ router.post("/accounts/:id/renew-dynamic", requireAuth, async (req, res) => {
 
       await tx
         .update(vpnAccountsTable)
-        .set({ expiresAt: finalExpiresAt, isActive: true, updatedAt: new Date() })
+        .set({ expiresAt: finalExpiresAt, isActive: true, notified3Days: false, notified1Day: false, updatedAt: new Date() })
         .where(eq(vpnAccountsTable.id, account.id));
     });
 
@@ -511,7 +535,7 @@ router.post("/accounts/:id/renew-dynamic", requireAuth, async (req, res) => {
       amount: -price.amount,
       balanceBefore,
       balanceAfter,
-      description: `Renew dynamic VPN: ${account.username} (+${duration} ${durationType === "day" ? "hari" : "bulan"})`,
+      description: `Renew dynamic VPN: ${account.username} (+${duration} ${getDynamicDurationUnit(durationType)})`,
       relatedId: account.id,
     }).catch(() => {});
 
@@ -524,7 +548,7 @@ router.post("/accounts/:id/renew-dynamic", requireAuth, async (req, res) => {
         `✅ *Renew Akun VPN Berhasil!*\n\n` +
         `Akun: *${account.username}*\n` +
         `Protokol: *${account.protocol.toUpperCase()}*\n` +
-        `Paket: *${providerLabel}* (+${duration} ${durationType === "day" ? "hari" : "bulan"})\n` +
+        `Paket: *${providerLabel}* (+${duration} ${getDynamicDurationUnit(durationType)})\n` +
         `Aktif hingga: *${expiryFormatted}*\n` +
         `Harga: *Rp ${price.amount.toLocaleString("id-ID")}*\n\n` +
         `Terima kasih telah menggunakan KETANTECH VPN! 🚀`;

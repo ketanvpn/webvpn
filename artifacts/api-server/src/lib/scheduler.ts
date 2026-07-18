@@ -5,6 +5,7 @@ import { logger } from "./logger";
 import { sendWhatsapp } from "./fonnte";
 import { sendMessage } from "./telegram";
 import { notifyAdminLowMarginServers } from "./telegram";
+import { getDynamicCost } from "./dynamic-duration";
 
 async function getReferralBonusAmount(): Promise<number> {
   const [row] = await db
@@ -592,12 +593,7 @@ async function checkLowMarginServers(): Promise<void> {
     for (const order of orders) {
       const revenue = Number(order.amount ?? 0);
       const server = order.dynamicServerId ? serverMap.get(order.dynamicServerId) : null;
-      let cost = 0;
-      if (server) {
-        cost = order.durationType === "day"
-          ? Number(server.costPerDay ?? 0) * order.duration
-          : Number(server.costPerMonth ?? 0) * order.duration;
-      }
+      const cost = server ? getDynamicCost(server, order.durationType) * order.duration : 0;
 
       const key = order.dynamicServerId ?? 0;
       const existing = statsMap.get(key);

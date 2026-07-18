@@ -35,7 +35,8 @@ type NadiaServer = {
   supported_types: string[];
   trial_enabled: boolean;
   trial_duration?: string;
-  pricing?: { per_day?: number; per_month?: number };
+  renew_enabled: boolean;
+  pricing?: { per_day?: number; per_week?: number; per_month?: number };
   capacity?: { limit: number | string; used: number; is_full: boolean };
 };
 
@@ -292,7 +293,7 @@ export default function AdminNadiaVpn() {
             </div>
             {selectedServer && (
               <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-3 text-xs text-cyan-100">
-                Trial: {selectedServer.trial_duration ?? "-"} • Harga bulan: {formatCurrency(selectedServer.pricing?.per_month)}
+                Trial: {selectedServer.trial_duration ?? "-"} • Tipe: {selectedServer.supported_types.map((type) => type === "day" ? "harian" : type === "week" ? "mingguan" : type === "month" ? "bulanan" : type).join(", ")}
               </div>
             )}
             <AlertDialog>
@@ -348,11 +349,14 @@ export default function AdminNadiaVpn() {
                       </Badge>
                     </div>
                     <div className="mb-3 flex flex-wrap gap-1.5">
-                      {server.supported_protocols.map((protocol) => <Badge key={protocol} variant="outline" className="text-[10px]">{protocol}</Badge>)}
+                      {server.supported_protocols.map((protocol) => <Badge key={protocol} variant="outline" className="text-[10px] uppercase">{protocol}</Badge>)}
+                      {server.supported_types.map((type) => <Badge key={type} variant="secondary" className="text-[10px] uppercase">{type === "day" ? "Harian" : type === "week" ? "Mingguan" : type === "month" ? "Bulanan" : type}</Badge>)}
                     </div>
                     <div className="space-y-2 text-xs">
-                      <div className="flex justify-between"><span className="text-muted-foreground">Harga / hari</span><span>{formatCurrency(server.pricing?.per_day)}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Harga / bulan</span><span>{formatCurrency(server.pricing?.per_month)}</span></div>
+                      {server.supported_types.includes("day") && <div className="flex justify-between"><span className="text-muted-foreground">Harga / hari</span><span>{formatCurrency(server.pricing?.per_day)}</span></div>}
+                      {server.supported_types.includes("week") && <div className="flex justify-between"><span className="text-muted-foreground">Harga / minggu</span><span>{formatCurrency(server.pricing?.per_week)}</span></div>}
+                      {server.supported_types.includes("month") && <div className="flex justify-between"><span className="text-muted-foreground">Harga / bulan</span><span>{formatCurrency(server.pricing?.per_month)}</span></div>}
+                      <div className="flex justify-between"><span className="text-muted-foreground">Renew</span><span className={server.renew_enabled ? "text-emerald-400" : "text-amber-400"}>{server.renew_enabled ? "Aktif" : "Nonaktif"}</span></div>
                       <div className="flex justify-between"><span className="text-muted-foreground">Trial</span><span>{server.trial_enabled ? server.trial_duration : "Nonaktif"}</span></div>
                       <div>
                         <div className="mb-1 flex justify-between"><span className="text-muted-foreground">Kapasitas</span><span>{server.capacity?.used ?? 0} / {server.capacity?.limit ?? "-"}</span></div>

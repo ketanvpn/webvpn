@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "wouter";
+import { dynamicDurationUnit } from "@/lib/dynamic-duration";
 
 const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
 
@@ -112,7 +113,7 @@ export default function DynamicOrderHistory() {
                       <div>
                         <h3 className="break-words font-bold">{order.serverDisplayName}</h3>
                         <p className="break-words text-sm text-muted-foreground">
-                          Akun VPN: <span className="font-mono text-foreground">{order.username}</span> • {order.duration} {order.durationType === "day" ? "hari" : "bulan"}
+                          Akun VPN: <span className="font-mono text-foreground">{order.username}</span> • {order.duration} {dynamicDurationUnit(order.durationType)}
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">

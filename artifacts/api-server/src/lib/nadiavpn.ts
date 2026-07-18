@@ -4,7 +4,7 @@ const DEFAULT_BASE_URL = "https://www.nadiavpn.web.id/api/v1";
 const REQUEST_TIMEOUT_MS = 20000;
 
 export type NadiaVpnProtocol = "ssh" | "vmess" | "vless" | "trojan" | "zivpn" | string;
-export type NadiaVpnDurationType = "day" | "month" | string;
+export type NadiaVpnDurationType = "day" | "week" | "month";
 
 export interface NadiaVpnTrialPayload {
   server_id: string;

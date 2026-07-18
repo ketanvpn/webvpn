@@ -15,6 +15,7 @@ import {
   NadiaVpnConfigError,
   renewNadiaVpnAccount,
   syncNadiaVpnAccount,
+  type NadiaVpnDurationType,
 } from "../lib/nadiavpn";
 
 const router = Router();
@@ -41,6 +42,14 @@ function requireString(value: unknown, field: string): string {
     throw new Error(`${field} wajib diisi`);
   }
   return value.trim();
+}
+
+function requireDurationType(value: unknown): NadiaVpnDurationType {
+  const type = requireString(value, "type").toLowerCase();
+  if (type !== "day" && type !== "week" && type !== "month") {
+    throw new Error("type harus day, week, atau month");
+  }
+  return type;
 }
 
 function requirePositiveInteger(value: unknown, field: string): number {
@@ -109,7 +118,7 @@ router.post("/admin/nadiavpn/order", requireAdmin, async (req, res) => {
   const payload = parseValidation(res, () => ({
     server_id: requireString(req.body?.server_id, "server_id"),
     protocol: requireString(req.body?.protocol, "protocol"),
-    type: requireString(req.body?.type, "type"),
+    type: requireDurationType(req.body?.type),
     duration: requirePositiveInteger(req.body?.duration, "duration"),
     username: requireString(req.body?.username, "username"),
   }));
@@ -135,7 +144,7 @@ router.post("/admin/nadiavpn/order", requireAdmin, async (req, res) => {
 router.post("/admin/nadiavpn/renew", requireAdmin, async (req, res) => {
   const payload = parseValidation(res, () => ({
     account_id: requireString(req.body?.account_id, "account_id"),
-    type: requireString(req.body?.type, "type"),
+    type: requireDurationType(req.body?.type),
     duration: requirePositiveInteger(req.body?.duration, "duration"),
   }));
   if (!payload) return;

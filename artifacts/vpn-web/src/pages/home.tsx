@@ -321,6 +321,14 @@ export default function Home() {
                 {dynamicServers.map((s: any) => {
                   const capacityPct = s.capacityLimit > 0 ? Math.round((s.capacityUsed / s.capacityLimit) * 100) : 0;
                   const slotsLeft = Math.max(0, (s.capacityLimit ?? 0) - (s.capacityUsed ?? 0));
+                  const supportedTypes = Array.isArray(s.supportedTypes) ? s.supportedTypes : [];
+                  const priceHint = supportedTypes.includes("day") && s.sellPricePerDay > 0
+                    ? { price: s.sellPricePerDay, unit: "hari" }
+                    : supportedTypes.includes("week") && s.sellPricePerWeek > 0
+                      ? { price: s.sellPricePerWeek, unit: "minggu" }
+                      : supportedTypes.includes("month") && s.sellPricePerMonth > 0
+                        ? { price: s.sellPricePerMonth, unit: "bulan" }
+                        : null;
                   return (
                     <motion.div
                       key={s.id}
@@ -390,10 +398,10 @@ export default function Home() {
                       )}
 
                       {/* Price hint */}
-                      {s.sellPricePerDay > 0 && (
+                      {priceHint && (
                         <div className="flex items-center justify-between pt-1 border-t border-white/5">
                           <span className="text-xs text-muted-foreground">Mulai dari</span>
-                          <span className="text-sm font-bold text-primary">{formatRupiah(s.sellPricePerDay)}<span className="text-xs text-muted-foreground font-normal">/hari</span></span>
+                          <span className="text-sm font-bold text-primary">{formatRupiah(priceHint.price)}<span className="text-xs text-muted-foreground font-normal">/{priceHint.unit}</span></span>
                         </div>
                       )}
                     </motion.div>

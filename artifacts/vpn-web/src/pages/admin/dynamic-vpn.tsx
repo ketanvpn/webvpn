@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { dynamicDurationOptionLabel, isDynamicDurationType, type DynamicDurationType } from "@/lib/dynamic-duration";
 
 const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
 const PROTOCOLS = ["ssh", "vmess", "vless", "trojan"];
@@ -21,11 +22,14 @@ type DynamicServer = {
   location: string | null;
   supportedProtocols: string[];
   enabledProtocols: string[];
-  supportedTypes: string[];
+  supportedTypes: DynamicDurationType[];
   isActive: boolean;
+  renewEnabled: boolean;
   costPerDay: number;
+  costPerWeek: number;
   costPerMonth: number;
   sellPricePerDay: number;
+  sellPricePerWeek: number;
   sellPricePerMonth: number;
   pricingMode: string;
   markupPercent: number;
@@ -188,7 +192,9 @@ export default function AdminDynamicVpn() {
             const isAutoMarkup = (s.pricingMode ?? "manual") === "auto_markup";
             const isNadia = server.provider !== "local_panel";
             const previewDay = isAutoMarkup ? calcMarkupPrice(server.costPerDay, s.markupPercent ?? 30) : s.sellPricePerDay;
+            const previewWeek = isAutoMarkup ? calcMarkupPrice(server.costPerWeek, s.markupPercent ?? 30) : s.sellPricePerWeek;
             const previewMonth = isAutoMarkup ? calcMarkupPrice(server.costPerMonth, s.markupPercent ?? 30) : s.sellPricePerMonth;
+            const supportedTypes = server.supportedTypes.filter(isDynamicDurationType);
             return (
               <Card key={server.id} className="glass-panel border-white/5">
                 <CardHeader>
@@ -201,6 +207,10 @@ export default function AdminDynamicVpn() {
                         </Badge>
                       </CardTitle>
                       <CardDescription>{server.location ?? "-"} • Kapasitas {server.capacityUsed}/{server.capacityLimit ?? "-"}</CardDescription>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {supportedTypes.map((type) => <Badge key={type} variant="secondary">{dynamicDurationOptionLabel(type)}</Badge>)}
+                        {isNadia && <Badge variant="outline" className={server.renewEnabled ? "border-emerald-500/30 text-emerald-300" : "border-amber-500/30 text-amber-300"}>{server.renewEnabled ? "Bisa renew" : "Tidak bisa renew"}</Badge>}
+                      </div>
                     </div>
                     <Badge className={server.capacityIsFull ? "bg-red-500/10 text-red-300 border-red-500/30" : "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"}>{server.capacityIsFull ? "Penuh" : "Tersedia"}</Badge>
                   </div>
@@ -254,14 +264,15 @@ export default function AdminDynamicVpn() {
                         onChange={(e) => setDraft(server.id, { markupPercent: Number(e.target.value) } as any)}
                       />
                       <div className="text-xs text-muted-foreground space-y-0.5">
-                        <p>Modal/hari: {rupiah(server.costPerDay)} → Jual: <span className="font-semibold text-emerald-400">{rupiah(previewDay)}</span></p>
-                        <p>Modal/bulan: {rupiah(server.costPerMonth)} → Jual: <span className="font-semibold text-emerald-400">{rupiah(previewMonth)}</span></p>
+                        {server.supportedTypes.includes("day") && <p>Modal/hari: {rupiah(server.costPerDay)} → Jual: <span className="font-semibold text-emerald-400">{rupiah(previewDay)}</span></p>}
+                        {server.supportedTypes.includes("week") && <p>Modal/minggu: {rupiah(server.costPerWeek)} → Jual: <span className="font-semibold text-emerald-400">{rupiah(previewWeek)}</span></p>}
+                        {server.supportedTypes.includes("month") && <p>Modal/bulan: {rupiah(server.costPerMonth)} → Jual: <span className="font-semibold text-emerald-400">{rupiah(previewMonth)}</span></p>}
                       </div>
                     </div>
                   )}
 
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="grid gap-2">
+                    {server.supportedTypes.includes("day") && <div className="grid gap-2">
                       <Label>Harga jual / hari</Label>
                       <Input
                         type="number"
@@ -271,8 +282,19 @@ export default function AdminDynamicVpn() {
                         className={isNadia && isAutoMarkup ? "opacity-60" : ""}
                       />
                       <p className="text-xs text-muted-foreground">Modal: {rupiah(server.costPerDay)}</p>
-                    </div>
-                    <div className="grid gap-2">
+                    </div>}
+                    {server.supportedTypes.includes("week") && <div className="grid gap-2">
+                      <Label>Harga jual / minggu</Label>
+                      <Input
+                        type="number"
+                        value={isAutoMarkup ? previewWeek : s.sellPricePerWeek}
+                        onChange={(e) => setDraft(server.id, { sellPricePerWeek: Number(e.target.value) })}
+                        disabled={isNadia && isAutoMarkup}
+                        className={isNadia && isAutoMarkup ? "opacity-60" : ""}
+                      />
+                      <p className="text-xs text-muted-foreground">Modal: {rupiah(server.costPerWeek)} • Paket tepat 1 minggu</p>
+                    </div>}
+                    {server.supportedTypes.includes("month") && <div className="grid gap-2">
                       <Label>Harga jual / bulan</Label>
                       <Input
                         type="number"
@@ -282,9 +304,9 @@ export default function AdminDynamicVpn() {
                         className={isNadia && isAutoMarkup ? "opacity-60" : ""}
                       />
                       <p className="text-xs text-muted-foreground">Modal: {rupiah(server.costPerMonth)}</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2"><div><Label>Min hari</Label><Input type="number" value={s.minDays} onChange={(e) => setDraft(server.id, { minDays: Number(e.target.value) })} /></div><div><Label>Max hari</Label><Input type="number" value={s.maxDays} onChange={(e) => setDraft(server.id, { maxDays: Number(e.target.value) })} /></div></div>
-                    <div className="grid grid-cols-2 gap-2"><div><Label>Min bulan</Label><Input type="number" value={s.minMonths} onChange={(e) => setDraft(server.id, { minMonths: Number(e.target.value) })} /></div><div><Label>Max bulan</Label><Input type="number" value={s.maxMonths} onChange={(e) => setDraft(server.id, { maxMonths: Number(e.target.value) })} /></div></div>
+                    </div>}
+                    {server.supportedTypes.includes("day") && <div className="grid grid-cols-2 gap-2"><div><Label>Min hari</Label><Input type="number" value={s.minDays} onChange={(e) => setDraft(server.id, { minDays: Number(e.target.value) })} /></div><div><Label>Max hari</Label><Input type="number" value={s.maxDays} onChange={(e) => setDraft(server.id, { maxDays: Number(e.target.value) })} /></div></div>}
+                    {server.supportedTypes.includes("month") && <div className="grid grid-cols-2 gap-2"><div><Label>Min bulan</Label><Input type="number" value={s.minMonths} onChange={(e) => setDraft(server.id, { minMonths: Number(e.target.value) })} /></div><div><Label>Max bulan</Label><Input type="number" value={s.maxMonths} onChange={(e) => setDraft(server.id, { maxMonths: Number(e.target.value) })} /></div></div>}
                     {server.provider === "local_panel" && (
                       <div className="grid gap-2 sm:col-span-2">
                         <Label>Limit IP</Label>
