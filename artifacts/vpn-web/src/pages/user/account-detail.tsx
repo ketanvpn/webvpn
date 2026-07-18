@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Copy, QrCode, Clock, Activity, ShieldCheck, ExternalLink, RefreshCw, CheckCircle2, AlertCircle, RotateCcw, Tag } from "lucide-react";
+import { ArrowLeft, Copy, QrCode, Clock, Activity, ShieldCheck, ShieldPlus, ExternalLink, RefreshCw, CheckCircle2, AlertCircle, RotateCcw, Tag } from "lucide-react";
 import { format, differenceInCalendarDays } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -956,6 +956,14 @@ export default function AccountDetail() {
               <CardTitle className="text-base">Aksi</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              {isSsh && account.isActive && new Date(account.expiresAt) > new Date() && (
+                <Button className="w-full gap-2" asChild>
+                  <Link href={`/converter?account=${accountId}`}>
+                    <ShieldPlus className="h-4 w-4" />
+                    Buat Config DarkTunnel
+                  </Link>
+                </Button>
+              )}
               {account.isActive && new Date(account.expiresAt) > new Date() && (
                 isDynamicAccount ? (
                   dynamicOrder?.renewEnabled !== false && dynamicRenewTypes.length > 0 ? (

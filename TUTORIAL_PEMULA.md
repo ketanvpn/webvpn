@@ -75,38 +75,39 @@ Ini akun yang khusus buat dipakai bareng bug/injek di DarkTunnel.
 
 ---
 
-## Langkah 4: Convert Akun (Inject Bug supaya bisa dipakai)
+## Langkah 4: Buat Config DarkTunnel
 
-Ini langkah penting! Akun mentah harus di-"convert" dulu pakai bug yang cocok.
+Kamu tidak perlu mengisi bug, SNI, payload, host, port, username, atau password secara manual.
 
-1. Dari Dashboard atau menu, buka **Convert Config** atau **Alat Convert** (biasanya ada di menu).
-2. Kamu akan lihat halaman Convert.
-3. **PENTING:** Pilih dulu **Injek / Bug Preset** yang kamu mau pakai.
-   - Contoh: Pilih "Ilmupedia Telkomsel" atau "Gamemax" sesuai paket yang kamu target.
-   - Port akan otomatis berubah mengikuti preset itu.
-4. Setelah pilih injek, baru pilih **Akun SSH** yang sudah kamu beli (dari dropdown).
-   - Akun akan otomatis terisi (Host, Username, Password).
-5. (Opsional) Isi Nama Config, misalnya "Ilmupedia - HPku".
-6. Ketuk tombol **Buat Link Injek SSH**.
-7. Tunggu beberapa detik (ada loading supaya tidak langsung muncul).
-8. Akan muncul **popup** (kotak di tengah layar) berisi link.
-9. Ketuk tombol besar **Salin Link** (atau icon copy di textarea).
+1. Dari Dashboard atau menu, buka **Inject Paket**.
+2. Pastikan tab **Mode Mudah** yang terbuka.
+3. Pilih paket internet:
+   - **GameMax** untuk akun SSH biasa.
+   - **Ilmupedia** untuk akun SSH CloudFront.
+4. Pilih akun yang tersedia. Website hanya menampilkan akun yang aktif dan cocok dengan paket tersebut.
+5. Kalau hanya ada satu akun yang cocok, akun akan dipilih otomatis.
+6. Ketuk **Buat Config DarkTunnel**.
+7. Saat popup muncul, ketuk **Download File .dark**.
 
-**Selesai!** Link sudah tersalin di clipboard kamu.
+Kalau website menampilkan akun Nadia yang belum teridentifikasi, ketuk **Perbarui Data Akun**, lalu pilih paket dan akun kembali.
 
 ---
 
-## Langkah 5: Masukkan ke Aplikasi DarkTunnel
+## Langkah 5: Buka di Aplikasi DarkTunnel
 
-1. Buka aplikasi **DarkTunnel** di HP kamu.
-2. Di DarkTunnel, cari tombol **Import** atau **Tambah Config** atau **+**.
-3. Pilih **Import from Link** atau **Paste Link**.
-4. Paste (tempel) link yang tadi kamu salin dari website.
-5. Beri nama jika diminta (contoh: "Ilmupedia - 30 Hari").
-6. Simpan.
-7. Kembali ke daftar config.
-8. Ketuk config yang baru kamu import.
-9. Ketuk **Connect** atau **Start**.
+Cara paling mudah:
+
+1. Setelah file selesai di-download, buka notifikasi download atau aplikasi **File/Downloads** di HP.
+2. Ketuk file yang namanya berakhiran **.dark**.
+3. Pilih aplikasi **DarkTunnel** jika Android menanyakan aplikasi pembuka.
+4. Pilih config yang baru masuk, lalu ketuk **Connect** atau **Start**.
+
+Cara cadangan jika file tidak bisa dibuka langsung:
+
+1. Kembali ke popup hasil di website.
+2. Coba tombol **Buka di DarkTunnel**.
+3. Kalau masih tidak terbuka, ketuk **Salin Link**.
+4. Buka DarkTunnel, pilih **Import from Link/Paste Link**, lalu tempel link tersebut.
 
 Kalau berhasil, akan muncul tulisan "Connected" atau ikon hijau.
 
@@ -129,7 +130,7 @@ Kalau berhasil, akan muncul tulisan "Connected" atau ikon hijau.
 - Website: https://ketantech.my.id
 - Login: Buka website lalu klik Login
 - Dashboard: Otomatis muncul setelah login
-- Convert Config: Cari menu "Convert" atau "Alat Convert"
+- Inject Paket: Cari menu "Inject Paket", lalu gunakan Mode Mudah
 - Akun VPN: Menu "Akun" atau "Kelola Akun"
 
 Kalau masih bingung di langkah tertentu, balas pesan ini atau buka Tiket Bantuan di website. Admin siap bantu!

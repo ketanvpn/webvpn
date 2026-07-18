@@ -291,7 +291,7 @@ export default function AdminBugPresets() {
                   } catch {}
                 }}
               />
-              <p className="text-[10px] text-muted-foreground">Isi struktur injectConfig. Gunakan <b>[host]</b> sebagai placeholder — nanti otomatis diganti dengan SSH Host yang user ketik. Untuk Ilmupedia CloudFront, set <code>"serverNameIndication": "[host]"</code> supaya pakai host SSH yang user beli.</p>
+              <p className="text-[10px] text-muted-foreground">Isi struktur injectConfig untuk Mode Lanjutan. <code>[host]</code> di field <code>serverNameIndication</code> akan diganti dengan SSH Host akun. <code>[host]</code> yang berada di dalam <code>payload</code> tetap dipertahankan sebagai placeholder runtime DarkTunnel.</p>
             </div>
 
             <DialogFooter>

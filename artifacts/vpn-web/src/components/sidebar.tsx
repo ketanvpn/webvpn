@@ -74,7 +74,7 @@ const userNav: NavItem[] = [
   { title: "Saldo", href: "/balance", icon: Wallet },
   { title: "Riwayat Saldo", href: "/balance/logs", icon: History },
   { title: "Program Poin", href: "/points", icon: Star },
-  { title: "Convert Config", href: "/converter", icon: ArrowRightLeft },
+  { title: "Inject Paket", href: "/converter", icon: ArrowRightLeft },
   { title: "Bantuan", href: "/tickets", icon: TicketCheck },
   { title: "Profil", href: "/profile", icon: Settings },
 ];
@@ -141,7 +141,7 @@ const mobileBottomNav: NavItem[] = [
 ];
 
 const mobileMoreNav: NavItem[] = [
-  { title: "Convert Config", href: "/converter", icon: ArrowRightLeft },
+  { title: "Inject Paket", href: "/converter", icon: ArrowRightLeft },
   { title: "Bantuan", href: "/tickets", icon: TicketCheck },
   { title: "Program Poin", href: "/points", icon: Star },
   { title: "Riwayat Saldo", href: "/balance/logs", icon: History },

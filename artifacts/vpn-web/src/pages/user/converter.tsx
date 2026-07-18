@@ -1,13 +1,41 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter,
+} from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Bug, Copy, ArrowRightLeft, CheckCircle2, ShieldPlus, Loader2 } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowRightLeft,
+  CheckCircle2,
+  Copy,
+  Download,
+  ExternalLink,
+  Gamepad2,
+  GraduationCap,
+  Loader2,
+  RefreshCw,
+  ShieldPlus,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,13 +45,27 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  buildDarkTunnelConfig,
+  classifySshAccount,
+  DARKTUNNEL_TARGETS,
+  isAccountCompatibleWithTarget,
+  isActiveSshAccount,
+  type DarkTunnelAccount,
+  type DarkTunnelBuildResult,
+  type DarkTunnelTarget,
+} from "@/lib/darktunnel";
 
 const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
 
-async function apiFetch(path: string) {
-  const res = await fetch(`${API}${path}`, { credentials: "include" });
-  if (!res.ok) throw new Error("Failed to fetch");
-  return res.json();
+async function apiFetch(path: string, options?: RequestInit) {
+  const res = await fetch(`${API}${path}`, {
+    credentials: "include",
+    ...options,
+  });
+  const body = await res.json().catch(() => ({ error: "Response tidak valid" }));
+  if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
+  return body;
 }
 
 type BugPreset = {
@@ -40,23 +82,20 @@ function convertVmess(raw: string, bug: BugPreset) {
     const b64 = raw.replace("vmess://", "");
     const decoded = atob(b64);
     const json = JSON.parse(decoded);
-    
     const originalHost = json.host || json.add;
-    
+
     if (bug.mode === "wildcard") {
       json.add = bug.bugDomain;
       json.host = `${bug.bugDomain}.${originalHost}`;
       json.sni = `${bug.bugDomain}.${originalHost}`;
     } else if (bug.mode === "sni") {
-      // json.add = originalHost; // Keep original
       json.sni = bug.bugDomain;
     } else if (bug.mode === "host") {
-      // json.add = originalHost; // Keep original
       json.host = bug.bugDomain;
     }
-    
+
     return "vmess://" + btoa(JSON.stringify(json));
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -65,11 +104,10 @@ function convertVlessOrTrojan(raw: string, bug: BugPreset) {
   try {
     const url = new URL(raw);
     const params = new URLSearchParams(url.search);
-    
     const originalHost = url.hostname;
     const originalSni = params.get("sni") || originalHost;
     const originalHostParam = params.get("host") || originalHost;
-    
+
     if (bug.mode === "wildcard") {
       url.hostname = bug.bugDomain;
       params.set("host", `${bug.bugDomain}.${originalHostParam}`);
@@ -79,24 +117,20 @@ function convertVlessOrTrojan(raw: string, bug: BugPreset) {
     } else if (bug.mode === "host") {
       params.set("host", bug.bugDomain);
     }
-    
+
     url.search = params.toString();
-    // Re-decode the URL components to keep it cleaner
     return url.toString().replace(/%2F/g, "/").replace(/%3A/g, ":");
-  } catch (e) {
+  } catch {
     return null;
   }
 }
 
 function convertShadowsocks(raw: string, bug: BugPreset) {
   try {
-    let config = raw.trim();
+    const config = raw.trim();
     if (!config.startsWith("ss://")) return null;
 
-    // Remove ss:// prefix
     let body = config.slice(5);
-
-    // Handle remark (#)
     let remark = "";
     const hashPos = body.indexOf("#");
     if (hashPos !== -1) {
@@ -106,166 +140,320 @@ function convertShadowsocks(raw: string, bug: BugPreset) {
 
     let userinfo: string;
     let hostPort: string;
-
     if (body.includes("@")) {
-      // SIP002 format: method:password@host:port or base64@host:port
       const atPos = body.lastIndexOf("@");
       userinfo = body.slice(0, atPos);
       hostPort = body.slice(atPos + 1);
     } else {
-      // Legacy base64 encoded userinfo@host:port inside
-      try {
-        const decoded = atob(body);
-        if (decoded.includes("@")) {
-          const atPos = decoded.lastIndexOf("@");
-          userinfo = decoded.slice(0, atPos);
-          hostPort = decoded.slice(atPos + 1);
-        } else {
-          return null;
-        }
-      } catch {
-        return null;
-      }
+      const decoded = atob(body);
+      if (!decoded.includes("@")) return null;
+      const atPos = decoded.lastIndexOf("@");
+      userinfo = decoded.slice(0, atPos);
+      hostPort = decoded.slice(atPos + 1);
     }
 
     const [host, ...portParts] = hostPort.split(":");
     const portRest = portParts.join(":");
-
-    let newHost = host;
-    if (bug.mode === "wildcard") {
-      newHost = bug.bugDomain;
-    } else if (bug.mode === "sni" || bug.mode === "host") {
-      newHost = bug.bugDomain;
-    }
-
-    const newHostPort = `${newHost}:${portRest}`;
-    return `ss://${userinfo}@${newHostPort}${remark}`;
-  } catch (e) {
+    const newHost = bug.mode === "wildcard" ? bug.bugDomain : bug.bugDomain;
+    return `ss://${userinfo}@${newHost}:${portRest}${remark}`;
+  } catch {
     return null;
   }
 }
 
 function convertSshOrText(raw: string, bug: BugPreset) {
   try {
-    let result = raw;
-    
-    // Replace common BUG placeholder (case insensitive)
-    if (bug.mode === "wildcard") {
-      result = result.replace(/BUG/gi, `${bug.bugDomain}`);
-      // For wildcard, sometimes people use bug.domain.original
-      // But simple replace is most common for SSH payloads
-    } else {
-      result = result.replace(/BUG/gi, bug.bugDomain);
-    }
-
-    // Also try to replace common host patterns if they look like original host
-    // This is heuristic for SSH / payload
-    if (bug.mode === "wildcard") {
-      // Example: replace host: example.com with bug.example.com in some payloads
-      // Keep simple for now
-    }
-
-    return result;
-  } catch (e) {
+    return raw.replace(/BUG/gi, bug.bugDomain);
+  } catch {
     return raw;
   }
 }
 
-// Build DarkTunnel SSH link from raw SSH + bug's sshInjectConfig
-function replacePlaceholders(value: any, sshHost: string): any {
+// Dalam payload DarkTunnel, [host] adalah placeholder runtime dan harus tetap utuh.
+// Pada field lain (misalnya serverNameIndication), [host] berarti host SSH akun.
+function replaceInjectPlaceholders(value: unknown, sshHost: string, key = ""): unknown {
   if (typeof value === "string") {
-    return value.replace(/\[host\]/gi, sshHost);
+    return key === "payload" ? value : value.replace(/\[host\]/gi, sshHost);
   }
   if (Array.isArray(value)) {
-    return value.map((item) => replacePlaceholders(item, sshHost));
+    return value.map((item) => replaceInjectPlaceholders(item, sshHost, key));
   }
   if (value && typeof value === "object") {
-    const result: any = {};
-    for (const key in value) {
-      result[key] = replacePlaceholders(value[key], sshHost);
-    }
-    return result;
+    return Object.fromEntries(
+      Object.entries(value).map(([childKey, childValue]) => [
+        childKey,
+        replaceInjectPlaceholders(childValue, sshHost, childKey),
+      ]),
+    );
   }
   return value;
 }
 
-function buildDarkTunnelSsh(ssh: { host: string; port: number; username: string; password: string }, inject: any, name?: string) {
-  const processedInject = replacePlaceholders(inject || {}, ssh.host);
+function buildAdvancedDarkTunnelSsh(
+  ssh: { host: string; port: number; username: string; password: string },
+  inject: Record<string, unknown>,
+  name?: string,
+) {
   const config = {
     type: "SSH",
     name: name || "SSH Injek",
     sshTunnelConfig: {
-      sshConfig: {
-        host: ssh.host,
-        port: ssh.port,
-        username: ssh.username,
-        password: ssh.password,
-      },
-      injectConfig: processedInject,
+      sshConfig: ssh,
+      injectConfig: replaceInjectPlaceholders(inject, ssh.host),
     },
   };
+
   try {
-    const jsonStr = JSON.stringify(config);
-    // btoa for browser base64
-    const b64 = btoa(unescape(encodeURIComponent(jsonStr)));
-    return `darktunnel://${b64}`;
+    const bytes = new TextEncoder().encode(JSON.stringify(config));
+    let binary = "";
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return `darktunnel://${btoa(binary)}`;
   } catch {
     return "";
   }
 }
 
+function formatExpiry(value: string | Date): string {
+  return new Date(value).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+async function writeClipboard(value: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = value;
+  textArea.style.position = "fixed";
+  textArea.style.left = "-9999px";
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+  const copied = document.execCommand("copy");
+  document.body.removeChild(textArea);
+  if (!copied) throw new Error("Clipboard tidak tersedia");
+}
+
 export default function ConfigConverter() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const search = useSearch();
+  const initializedFromQuery = useRef(false);
+
+  const [easyTarget, setEasyTarget] = useState<DarkTunnelTarget | null>(null);
+  const [easyAccountId, setEasyAccountId] = useState("");
+  const [easyResult, setEasyResult] = useState<DarkTunnelBuildResult | null>(null);
+  const [showEasyResult, setShowEasyResult] = useState(false);
+  const [isEasyCopied, setIsEasyCopied] = useState(false);
+
   const [rawConfig, setRawConfig] = useState("");
-  const [selectedBugId, setSelectedBugId] = useState<string>("");
+  const [selectedBugId, setSelectedBugId] = useState("");
   const [result, setResult] = useState("");
   const [isCopied, setIsCopied] = useState(false);
-
-  // SSH Injek states (4 fields as requested)
   const [sshHost, setSshHost] = useState("");
   const [sshPort, setSshPort] = useState("443");
   const [sshUsername, setSshUsername] = useState("");
   const [sshPassword, setSshPassword] = useState("");
   const [sshConfigName, setSshConfigName] = useState("");
   const [isSshConverting, setIsSshConverting] = useState(false);
-  const [showResultDialog, setShowResultDialog] = useState(false);
+  const [showAdvancedResult, setShowAdvancedResult] = useState(false);
   const [sshLink, setSshLink] = useState("");
 
-  const { data: bugs = [], isLoading } = useQuery<BugPreset[]>({
+  const { data: bugs = [], isLoading: bugsLoading } = useQuery<BugPreset[]>({
     queryKey: ["bug-presets"],
     queryFn: () => apiFetch("/bug-presets"),
   });
 
-  const { data: mySshAccounts = [] } = useQuery<any[]>({
+  const {
+    data: mySshAccounts = [],
+    isLoading: accountsLoading,
+  } = useQuery<DarkTunnelAccount[]>({
     queryKey: ["my-ssh-accounts"],
-    queryFn: () => apiFetch("/accounts").then((accs: any[]) =>
-      accs.filter((a: any) => 
-        a.protocol === 'ssh' && 
-        a.isActive && 
-        new Date(a.expiresAt) > new Date()
-      )
-    ),
+    queryFn: () => apiFetch("/accounts"),
   });
 
-  const handleConvert = () => {
-    if (!rawConfig.trim()) {
-      toast({ title: "Masukkan Config", description: "Config mentah tidak boleh kosong.", variant: "destructive" });
+  const requestedAccountId = Number(
+    new URLSearchParams(search).get("account") ?? "0",
+  );
+
+  const activeSshAccounts = useMemo(
+    () => mySshAccounts.filter((account) => isActiveSshAccount(account)),
+    [mySshAccounts],
+  );
+  const unknownAccounts = useMemo(
+    () =>
+      activeSshAccounts.filter(
+        (account) => classifySshAccount(account) === "unknown",
+      ),
+    [activeSshAccounts],
+  );
+  const compatibleAccounts = useMemo(
+    () =>
+      easyTarget
+        ? activeSshAccounts.filter((account) =>
+            isAccountCompatibleWithTarget(account, easyTarget),
+          )
+        : [],
+    [activeSshAccounts, easyTarget],
+  );
+
+  useEffect(() => {
+    if (initializedFromQuery.current || accountsLoading || !requestedAccountId) return;
+    initializedFromQuery.current = true;
+
+    const requested = activeSshAccounts.find(
+      (account) => account.id === requestedAccountId,
+    );
+    if (!requested) return;
+
+    const kind = classifySshAccount(requested);
+    if (kind === "cloudfront") setEasyTarget("ilmupedia");
+    if (kind === "normal") setEasyTarget("gamemax");
+    if (kind !== "unknown") setEasyAccountId(String(requested.id));
+  }, [accountsLoading, activeSshAccounts, requestedAccountId]);
+
+  useEffect(() => {
+    if (!easyTarget) return;
+    if (compatibleAccounts.length === 1) {
+      setEasyAccountId(String(compatibleAccounts[0].id));
       return;
     }
-    if (!selectedBugId) {
-      toast({ title: "Pilih Bug", description: "Silakan pilih preset bug terlebih dahulu.", variant: "destructive" });
+    if (
+      easyAccountId &&
+      !compatibleAccounts.some(
+        (account) => String(account.id) === easyAccountId,
+      )
+    ) {
+      setEasyAccountId("");
+    }
+  }, [compatibleAccounts, easyAccountId, easyTarget]);
+
+  const syncAccountMutation = useMutation({
+    mutationFn: (accountId: number) =>
+      apiFetch(`/accounts/${accountId}/sync-provider`, { method: "POST" }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["my-ssh-accounts"] });
+      toast({
+        title: "Data akun diperbarui",
+        description: "Silakan pilih kembali paket dan akun yang sesuai.",
+      });
+    },
+    onError: (error: Error) =>
+      toast({
+        title: "Gagal memperbarui akun",
+        description: error.message,
+        variant: "destructive",
+      }),
+  });
+
+  function selectEasyTarget(target: DarkTunnelTarget) {
+    setEasyTarget(target);
+    setEasyAccountId("");
+    setEasyResult(null);
+    setIsEasyCopied(false);
+  }
+
+  function generateEasyConfig() {
+    if (!easyTarget || !easyAccountId) {
+      toast({
+        title: "Pilih paket dan akun",
+        description: "Pilih GameMax/Ilmupedia lalu pilih akun SSH yang cocok.",
+        variant: "destructive",
+      });
       return;
     }
 
-    const bug = bugs.find((b) => b.id.toString() === selectedBugId);
+    const account = compatibleAccounts.find(
+      (item) => String(item.id) === easyAccountId,
+    );
+    if (!account) {
+      toast({
+        title: "Akun tidak kompatibel",
+        description: "Pilih akun yang ditampilkan pada daftar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const generated = buildDarkTunnelConfig({ account, target: easyTarget });
+      setEasyResult(generated);
+      setIsEasyCopied(false);
+      setShowEasyResult(true);
+    } catch (error) {
+      toast({
+        title: "Config gagal dibuat",
+        description: error instanceof Error ? error.message : "Data akun tidak valid.",
+        variant: "destructive",
+      });
+    }
+  }
+
+  function downloadEasyConfig() {
+    if (!easyResult) return;
+    const blob = new Blob([easyResult.link], {
+      type: "application/octet-stream;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = easyResult.filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    toast({
+      title: "File .dark diunduh",
+      description: "Buka file tersebut menggunakan aplikasi DarkTunnel.",
+    });
+  }
+
+  async function copyEasyLink() {
+    if (!easyResult) return;
+    try {
+      await writeClipboard(easyResult.link);
+      setIsEasyCopied(true);
+      toast({ title: "Link DarkTunnel tersalin" });
+      window.setTimeout(() => setIsEasyCopied(false), 2000);
+    } catch {
+      toast({
+        title: "Gagal menyalin",
+        description: "Gunakan tombol Download File .dark sebagai gantinya.",
+        variant: "destructive",
+      });
+    }
+  }
+
+  function openDarkTunnel() {
+    if (!easyResult) return;
+    window.location.assign(easyResult.link);
+  }
+
+  const handleConvert = () => {
+    if (!rawConfig.trim() || !selectedBugId) {
+      toast({
+        title: "Data belum lengkap",
+        description: "Masukkan config mentah dan pilih preset bug.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const bug = bugs.find((item) => item.id.toString() === selectedBugId);
     if (!bug) return;
 
-    const lines = rawConfig.split("\n").map(l => l.trim()).filter(Boolean);
-    const convertedLines = lines.map(line => {
+    const lines = rawConfig.split("\n").map((line) => line.trim()).filter(Boolean);
+    const convertedLines = lines.map((line) => {
       if (line.startsWith("vmess://")) return convertVmess(line, bug) || line;
-      if (line.startsWith("vless://") || line.startsWith("trojan://")) return convertVlessOrTrojan(line, bug) || line;
+      if (line.startsWith("vless://") || line.startsWith("trojan://")) {
+        return convertVlessOrTrojan(line, bug) || line;
+      }
       if (line.startsWith("ss://")) return convertShadowsocks(line, bug) || line;
-      // Support SSH payloads, HTTP injector payloads, or any text config containing "BUG" or ssh keywords
       if (
         line.toLowerCase().includes("bug") ||
         line.toLowerCase().includes("ssh") ||
@@ -275,427 +463,420 @@ export default function ConfigConverter() {
       ) {
         return convertSshOrText(line, bug) || line;
       }
-      return line; // Not recognized, leave as is
+      return line;
     });
 
-    const isAllFailed = convertedLines.every((l, i) => l === lines[i]);
-    if (isAllFailed) {
-      toast({ title: "Gagal Mengonversi", description: "Format tidak dikenali. Pastikan pakai protokol yang didukung (VMess/VLess/Trojan/SS/SSH payload).", variant: "destructive" });
+    if (convertedLines.every((line, index) => line === lines[index])) {
+      toast({
+        title: "Gagal mengonversi",
+        description: "Format config tidak dikenali.",
+        variant: "destructive",
+      });
       return;
     }
 
     setResult(convertedLines.join("\n"));
-    toast({ title: "Config Berhasil Di-convert!" });
     setIsCopied(false);
-    // Hasil muncul di bawah secara natural. Tidak ada auto-scroll.
+    toast({ title: "Config berhasil dikonversi" });
   };
 
-  const handleSshConvert = () => {
+  const handleAdvancedSshConvert = () => {
     if (!sshHost.trim() || !sshUsername.trim() || !sshPassword.trim()) {
-      toast({ title: "Lengkapi Data SSH", description: "Host, Username, dan Password wajib diisi.", variant: "destructive" });
+      toast({
+        title: "Lengkapi data SSH",
+        description: "Host, username, dan password wajib diisi.",
+        variant: "destructive",
+      });
       return;
     }
-    if (!selectedBugId) {
-      toast({ title: "Pilih Injek", description: "Pilih preset injek / bug terlebih dahulu.", variant: "destructive" });
-      return;
-    }
-
-    const bug = bugs.find((b) => b.id.toString() === selectedBugId);
-    if (!bug || !bug.sshInjectConfig || Object.keys(bug.sshInjectConfig).length === 0) {
-      toast({ title: "Preset Tidak Valid", description: "Preset ini belum punya konfigurasi SSH Inject. Edit dulu di admin.", variant: "destructive" });
+    const bug = bugs.find((item) => item.id.toString() === selectedBugId);
+    if (!bug?.sshInjectConfig || Object.keys(bug.sshInjectConfig).length === 0) {
+      toast({
+        title: "Pilih preset yang valid",
+        description: "Preset harus memiliki SSH Inject Config.",
+        variant: "destructive",
+      });
       return;
     }
 
     setIsSshConverting(true);
+    const link = buildAdvancedDarkTunnelSsh(
+      {
+        host: sshHost.trim(),
+        port: Number.parseInt(sshPort, 10) || 80,
+        username: sshUsername.trim(),
+        password: sshPassword,
+      },
+      bug.sshInjectConfig,
+      sshConfigName.trim() || undefined,
+    );
+    setIsSshConverting(false);
 
-    // Beri sedikit delay biar terasa lebih halus & profesional (bukan langsung muncul)
-    setTimeout(() => {
-      const portNum = parseInt(sshPort) || 80;
-      const link = buildDarkTunnelSsh(
-        { host: sshHost.trim(), port: portNum, username: sshUsername.trim(), password: sshPassword },
-        bug.sshInjectConfig,
-        sshConfigName.trim() || undefined
-      );
-
-      if (!link) {
-        toast({ title: "Gagal", description: "Gagal membangun link.", variant: "destructive" });
-        setIsSshConverting(false);
-        return;
-      }
-
-      setSshLink(link);
-      toast({ title: "Berhasil!", description: "Link DarkTunnel (dan kompatibel app lain) sudah dibuat." });
-      setIsCopied(false);
-      setIsSshConverting(false);
-      setShowResultDialog(true);
-
-      // Popup dialog langsung muncul sebagai modal, tidak ada scroll.
-    }, 1200); // ~1.2 detik, cukup untuk terasa "loading" tapi tidak lama
-  };
-
-  const copyToClipboard = async () => {
-    if (!result) return;
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(result);
-      } else {
-        // Fallback for HTTP (non-secure) environments
-        const textArea = document.createElement("textarea");
-        textArea.value = result;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-9999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textArea);
-      }
-      setIsCopied(true);
-      toast({ title: "Tersalin!", description: "Config berhasil disalin ke clipboard." });
-      setTimeout(() => setIsCopied(false), 2000);
-    } catch (error) {
-      toast({ title: "Gagal menyalin", description: "Browser Anda tidak mendukung fitur salin otomatis.", variant: "destructive" });
+    if (!link) {
+      toast({ title: "Gagal membuat link", variant: "destructive" });
+      return;
     }
+    setSshLink(link);
+    setIsCopied(false);
+    setShowAdvancedResult(true);
   };
 
-  const copySshLink = async () => {
-    if (!sshLink) return;
+  async function copyValue(value: string, successMessage: string) {
     try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(sshLink);
-      } else {
-        const textArea = document.createElement("textarea");
-        textArea.value = sshLink;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-9999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textArea);
-      }
+      await writeClipboard(value);
       setIsCopied(true);
-      toast({ title: "Tersalin!", description: "Link berhasil disalin ke clipboard." });
-      setTimeout(() => setIsCopied(false), 2000);
-    } catch (error) {
-      toast({ title: "Gagal menyalin", description: "Browser Anda tidak mendukung fitur salin otomatis.", variant: "destructive" });
+      toast({ title: successMessage });
+      window.setTimeout(() => setIsCopied(false), 2000);
+    } catch {
+      toast({ title: "Gagal menyalin", variant: "destructive" });
     }
-  };
+  }
+
+  const selectedEasyAccount = compatibleAccounts.find(
+    (account) => String(account.id) === easyAccountId,
+  );
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="mx-auto max-w-4xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Alat Convert Config</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Ubah konfigurasi akun VPN mentah (VMess, VLess, Trojan, Shadowsocks, SSH Payload) dengan otomatis menyisipkan Bug/SNI dari preset admin.
+        <h1 className="text-2xl font-bold">Inject Paket DarkTunnel</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Buat config GameMax atau Ilmupedia tanpa mengatur bug, SNI, port, dan payload secara manual.
         </p>
       </div>
 
-      {/* SSH Injek Section - diletakkan paling atas sesuai request */}
-      <Card className="border-primary/20 bg-card/40 backdrop-blur-md shadow-xl overflow-hidden relative">
-        <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none" />
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ShieldPlus className="w-5 h-5 text-primary" />
-            SSH Injek (DarkTunnel & App Lain)
-          </CardTitle>
-          <CardDescription>
-            Masukkan data SSH mentah (dari akun yang kamu beli), pilih injek/bug, dapatkan link final siap pakai. Placeholder <b>[host]</b> di preset akan otomatis diganti dengan SSH Host yang kamu ketik.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label>Pilih Injek / Bug Preset (pilih dulu)</Label>
-            <Select value={selectedBugId} disabled={isSshConverting} onValueChange={(val) => {
-              setSelectedBugId(val);
-              const bug = bugs.find((b) => b.id.toString() === val);
-              if (bug && bug.sshInjectConfig) {
-                const inject = bug.sshInjectConfig as any;
-                if (inject && inject.proxyPort != null) {
-                  setSshPort(String(inject.proxyPort));
-                }
-              }
-            }}>
-              <SelectTrigger className="bg-background/50 h-12">
-                <SelectValue placeholder="Pilih injek untuk SSH..." />
-              </SelectTrigger>
-              <SelectContent>
-                {bugs
-                  .filter((b) => b.sshInjectConfig && Object.keys(b.sshInjectConfig).length > 0)
-                  .map((bug) => (
-                    <SelectItem key={bug.id} value={bug.id.toString()}>
-                      <div className="flex items-center gap-2">
-                        <Bug className="w-4 h-4 text-primary" />
-                        <span>{bug.name}</span>
-                        <span className="text-xs text-muted-foreground ml-2">({bug.bugDomain})</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                {bugs.filter((b) => b.sshInjectConfig && Object.keys(b.sshInjectConfig).length > 0).length === 0 && (
-                  <div className="p-2 text-sm text-muted-foreground">Belum ada preset dengan SSH Inject Config. Buat di Admin → Bug Presets.</div>
-                )}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">Pilih injek dulu supaya port otomatis pas dengan proxyPort preset.</p>
-          </div>
+      <Tabs defaultValue="easy" className="space-y-5">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="easy">Mode Mudah</TabsTrigger>
+          <TabsTrigger value="advanced">Mode Lanjutan</TabsTrigger>
+        </TabsList>
 
-          <div className="space-y-2">
-            <Label>Pilih Akun SSH Aktif (setelah pilih injek)</Label>
-            <Select disabled={isSshConverting} onValueChange={(val) => {
-              const acc = mySshAccounts.find((a: any) => a.id.toString() === val);
-              if (acc) {
-                setSshHost(acc.server?.host || acc.server?.originalHost || '');
-                setSshUsername(acc.username || '');
-                setSshPassword(acc.password || '');
-                // Jangan override port, biarkan dari preset
-              }
-            }}>
-              <SelectTrigger className="bg-background/50">
-                <SelectValue placeholder={mySshAccounts.length > 0 ? "Pilih akun SSH yang sudah dibeli..." : "Belum ada akun SSH aktif"} />
-              </SelectTrigger>
-              <SelectContent className="max-w-[320px]">
-                {[...mySshAccounts].sort((a, b) => new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime()).map((acc: any) => (
-                  <SelectItem key={acc.id} value={acc.id.toString()}>
-                    <div className="flex w-full items-center justify-between gap-1.5 overflow-hidden">
-                      <span className="min-w-0 truncate text-sm">
-                        {acc.username} @ {acc.server?.name || 'Server'}
-                      </span>
-                      <Badge variant="outline" className="shrink-0 text-[9px] px-1.5 py-0 font-mono leading-none">
-                        {acc.expiresAt ? new Date(acc.expiresAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : '-'}
-                      </Badge>
-                    </div>
-                  </SelectItem>
-                ))}
-                {mySshAccounts.length === 0 && (
-                  <div className="p-2 text-sm text-muted-foreground">Tidak ada akun SSH yang aktif & belum expired.</div>
-                )}
-              </SelectContent>
-            </Select>
-            <p className="text-[10px] text-muted-foreground">Hanya akun aktif & belum expired yang muncul di dropdown. Pilih akun → otomatis isi Host/Username/Password (port dari preset injek).</p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>SSH Host</Label>
-              <Input
-                disabled={isSshConverting}
-                placeholder="sshbiznet.nadia-lestari.my.id atau cloudfront.net"
-                value={sshHost}
-                onChange={(e) => setSshHost(e.target.value)}
-                className="font-mono"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Port (otomatis dari proxyPort preset injek)</Label>
-              <Input
-                disabled={isSshConverting}
-                type="number"
-                value={sshPort}
-                onChange={(e) => setSshPort(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Username</Label>
-              <Input
-                disabled={isSshConverting}
-                placeholder="username ssh"
-                value={sshUsername}
-                onChange={(e) => setSshUsername(e.target.value)}
-                className="font-mono"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Password</Label>
-              <Input
-                disabled={isSshConverting}
-                type="password"
-                placeholder="password ssh"
-                value={sshPassword}
-                onChange={(e) => setSshPassword(e.target.value)}
-                className="font-mono"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Nama Config (opsional)</Label>
-            <Input
-              disabled={isSshConverting}
-              placeholder="cth: Ilmupedia Telkomsel"
-              value={sshConfigName}
-              onChange={(e) => setSshConfigName(e.target.value)}
-            />
-          </div>
-        </CardContent>
-        <CardFooter className="bg-primary/5 flex justify-end p-4 border-t border-white/5">
-          <Button 
-            onClick={handleSshConvert} 
-            size="lg" 
-            disabled={isSshConverting}
-            className="w-full sm:w-auto shadow-lg shadow-primary/20"
-          >
-            {isSshConverting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Membuat link...
-              </>
-            ) : (
-              <>
-                <ArrowRightLeft className="w-4 h-4 mr-2" />
-                Buat Link Injek SSH
-              </>
-            )}
-          </Button>
-        </CardFooter>
-      </Card>
-
-      <Card className="border-primary/20 bg-card/40 backdrop-blur-md shadow-xl overflow-hidden relative">
-        {/* Dekorasi Background */}
-        <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/20 rounded-full blur-[80px] pointer-events-none" />
-        <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-purple-500/10 rounded-full blur-[80px] pointer-events-none" />
-
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ArrowRightLeft className="w-5 h-5 text-primary" />
-            Config Injector
-          </CardTitle>
-          <CardDescription>
-            Pilih preset bug, lalu tempel raw config dari semua protokol (termasuk SSH payload).
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          
-          <div className="space-y-2">
-            <Label className="font-semibold text-base">1. Pilih Preset Bug</Label>
-            <Select value={selectedBugId} onValueChange={setSelectedBugId}>
-              <SelectTrigger className="bg-background/50 h-12">
-                <SelectValue placeholder={isLoading ? "Memuat preset..." : "Klik untuk memilih bug..."} />
-              </SelectTrigger>
-              <SelectContent>
-                {bugs.map((bug) => (
-                  <SelectItem key={bug.id} value={bug.id.toString()}>
-                    <div className="flex items-center gap-2">
-                      <Bug className="w-4 h-4 text-primary" />
-                      <span>{bug.name}</span>
-                      <span className="text-xs text-muted-foreground ml-2">({bug.bugDomain})</span>
-                    </div>
-                  </SelectItem>
-                ))}
-                {bugs.length === 0 && !isLoading && (
-                  <div className="p-2 text-sm text-muted-foreground text-center">Belum ada preset bug.</div>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label className="font-semibold text-base">2. Config Mentah (Raw)</Label>
-            <Textarea
-              placeholder="Tempel config (vmess://, vless://, trojan://, ss://) atau payload SSH di sini.\nBisa multi-baris. Mendukung semua protokol + bug preset."
-              className="min-h-[120px] font-mono text-sm bg-background/50 resize-y"
-              value={rawConfig}
-              onChange={(e) => setRawConfig(e.target.value)}
-            />
-          </div>
-
-        </CardContent>
-        <CardFooter className="bg-primary/5 flex justify-end p-4 border-t border-white/5">
-          <Button onClick={handleConvert} size="lg" className="w-full sm:w-auto shadow-lg shadow-primary/20">
-            <ArrowRightLeft className="w-4 h-4 mr-2" />
-            Convert Sekarang
-          </Button>
-        </CardFooter>
-      </Card>
-
-
-
-      {result && (
-        <div id="hasil-convert">
-          <Card className="border-emerald-500/30 bg-emerald-950/10 backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <CardHeader className="pb-3 border-b border-white/5">
-              <CardTitle className="text-emerald-400 flex items-center justify-between">
-                <span>✅ Hasil Convert</span>
-                {isCopied ? (
-                  <Badge variant="outline" className="text-emerald-400 border-emerald-400/30 bg-emerald-400/10">
-                    <CheckCircle2 className="w-3 h-3 mr-1" /> Tersalin
-                  </Badge>
-                ) : null}
-              </CardTitle>
+        <TabsContent value="easy" className="space-y-5">
+          <Card className="glass-panel overflow-hidden border-primary/20">
+            <CardHeader>
+              <CardTitle>1. Pilih Paket Internet</CardTitle>
+              <CardDescription>
+                Sistem akan memasangkan paket dengan jenis akun SSH yang benar.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="pt-4">
-              <div className="relative">
-                <Textarea
-                  readOnly
-                  value={result}
-                  className="min-h-[120px] font-mono text-sm bg-background/80 pr-12 focus-visible:ring-emerald-500/30 border-emerald-500/20"
-                />
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  className="absolute top-2 right-2 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300"
-                  onClick={copyToClipboard}
-                >
-                  {isCopied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                </Button>
-              </div>
-              <Button
-                onClick={copyToClipboard}
-                className="w-full mt-3 gap-2 bg-emerald-600 hover:bg-emerald-500 text-white"
-              >
-                {isCopied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                {isCopied ? "Tersalin!" : "Salin Config"}
-              </Button>
+            <CardContent className="grid gap-3 sm:grid-cols-2">
+              {(
+                [
+                  ["gamemax", Gamepad2, "text-violet-300"],
+                  ["ilmupedia", GraduationCap, "text-cyan-300"],
+                ] as const
+              ).map(([target, Icon, iconClass]) => {
+                const definition = DARKTUNNEL_TARGETS[target];
+                const active = easyTarget === target;
+                return (
+                  <button
+                    key={target}
+                    type="button"
+                    onClick={() => selectEasyTarget(target)}
+                    className={`rounded-2xl border p-5 text-left transition-all ${
+                      active
+                        ? "border-primary bg-primary/15 ring-2 ring-primary/30"
+                        : "border-white/10 bg-background/40 hover:border-primary/40"
+                    }`}
+                  >
+                    <Icon className={`mb-3 h-8 w-8 ${iconClass}`} />
+                    <div className="text-lg font-bold">{definition.label}</div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {definition.description}
+                    </p>
+                    <Badge variant="outline" className="mt-3">
+                      {definition.accountLabel}
+                    </Badge>
+                  </button>
+                );
+              })}
             </CardContent>
           </Card>
-        </div>
-      )}
 
-      {/* Dialog Popup untuk hasil SSH Injek */}
-      <Dialog open={showResultDialog} onOpenChange={(open) => {
-        setShowResultDialog(open);
-        if (!open) {
-          setIsCopied(false);
-        }
-      }}>
-        <DialogContent className="sm:max-w-md">
+          {easyTarget && (
+            <Card className="glass-panel overflow-hidden border-cyan-500/20">
+              <CardHeader>
+                <CardTitle>2. Pilih Akun {DARKTUNNEL_TARGETS[easyTarget].accountLabel}</CardTitle>
+                <CardDescription>
+                  Hanya akun aktif dan cocok untuk {DARKTUNNEL_TARGETS[easyTarget].label} yang ditampilkan.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {accountsLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Memeriksa akun...
+                  </div>
+                ) : compatibleAccounts.length > 0 ? (
+                  <>
+                    <Select value={easyAccountId} onValueChange={(value) => {
+                      setEasyAccountId(value);
+                      setEasyResult(null);
+                    }}>
+                      <SelectTrigger className="h-12 bg-background/50">
+                        <SelectValue placeholder="Pilih akun yang akan dipakai" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {compatibleAccounts
+                          .slice()
+                          .sort(
+                            (a, b) =>
+                              new Date(a.expiresAt).getTime() -
+                              new Date(b.expiresAt).getTime(),
+                          )
+                          .map((account) => (
+                            <SelectItem key={account.id} value={String(account.id)}>
+                              {account.username} • {account.server?.name ?? "Server"} • aktif s/d {formatExpiry(account.expiresAt)}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+
+                    {selectedEasyAccount && (
+                      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                        <div className="flex items-center gap-2 font-semibold text-emerald-300">
+                          <CheckCircle2 className="h-4 w-4" /> Akun cocok
+                        </div>
+                        <div className="mt-2 grid gap-1 text-sm sm:grid-cols-2">
+                          <span>Username: <b>{selectedEasyAccount.username}</b></span>
+                          <span>Aktif sampai: <b>{formatExpiry(selectedEasyAccount.expiresAt)}</b></span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Belum ada akun yang cocok</AlertTitle>
+                    <AlertDescription>
+                      {DARKTUNNEL_TARGETS[easyTarget].label} membutuhkan akun {DARKTUNNEL_TARGETS[easyTarget].accountLabel}. Beli akun tersebut terlebih dahulu atau perbarui data akun Nadia di bawah.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {unknownAccounts.length > 0 && (
+                  <div className="space-y-2 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
+                    <div>
+                      <p className="text-sm font-semibold text-amber-200">Ada akun Nadia yang belum teridentifikasi</p>
+                      <p className="text-xs text-muted-foreground">Perbarui data agar sistem dapat menentukan SSH biasa atau CloudFront.</p>
+                    </div>
+                    {unknownAccounts.map((account) => (
+                      <div key={account.id} className="flex flex-col gap-2 rounded-xl bg-background/40 p-3 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="text-sm">{account.username} • {account.server?.name ?? "Server Nadia"}</span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="gap-2"
+                          disabled={syncAccountMutation.isPending}
+                          onClick={() => syncAccountMutation.mutate(account.id)}
+                        >
+                          <RefreshCw className={`h-3.5 w-3.5 ${syncAccountMutation.isPending ? "animate-spin" : ""}`} />
+                          Perbarui Data Akun
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+              <CardFooter className="border-t border-white/5 bg-primary/5 p-4">
+                <Button
+                  size="lg"
+                  className="w-full gap-2"
+                  disabled={!easyAccountId}
+                  onClick={generateEasyConfig}
+                >
+                  <ShieldPlus className="h-4 w-4" />
+                  3. Buat Config DarkTunnel
+                </Button>
+              </CardFooter>
+            </Card>
+          )}
+
+          <Card className="border-white/10 bg-background/30">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Cara Pakai Setelah Config Dibuat</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 text-sm sm:grid-cols-3">
+              {[
+                ["1", "Download file .dark"],
+                ["2", "Buka file dengan DarkTunnel"],
+                ["3", "Pilih config lalu Connect"],
+              ].map(([number, text]) => (
+                <div key={number} className="flex items-center gap-3 rounded-xl border border-white/5 p-3">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary font-bold text-primary-foreground">{number}</span>
+                  <span>{text}</span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="advanced" className="space-y-6">
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Untuk pengguna berpengalaman</AlertTitle>
+            <AlertDescription>
+              Gunakan mode ini hanya jika kamu perlu mengatur preset, host, port, atau config mentah secara manual.
+            </AlertDescription>
+          </Alert>
+
+          <Card className="relative overflow-hidden border-primary/20 bg-card/40 shadow-xl backdrop-blur-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ShieldPlus className="h-5 w-5 text-primary" /> SSH Injek DarkTunnel
+              </CardTitle>
+              <CardDescription>
+                Pilih preset admin dan isi data SSH secara manual untuk membuat link DarkTunnel.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="space-y-2">
+                <Label>Preset Injek</Label>
+                <Select
+                  value={selectedBugId}
+                  disabled={isSshConverting}
+                  onValueChange={(value) => {
+                    setSelectedBugId(value);
+                    const inject = bugs.find((bug) => String(bug.id) === value)?.sshInjectConfig;
+                    if (inject?.proxyPort != null) setSshPort(String(inject.proxyPort));
+                  }}
+                >
+                  <SelectTrigger><SelectValue placeholder="Pilih preset injek" /></SelectTrigger>
+                  <SelectContent>
+                    {bugs.filter((bug) => bug.sshInjectConfig && Object.keys(bug.sshInjectConfig).length > 0).map((bug) => (
+                      <SelectItem key={bug.id} value={String(bug.id)}>{bug.name} ({bug.bugDomain})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Pilih Akun SSH Aktif</Label>
+                <Select onValueChange={(value) => {
+                  const account = activeSshAccounts.find((item) => String(item.id) === value);
+                  if (!account) return;
+                  const links = account.allLinks ?? {};
+                  setSshHost(
+                    links.cloudfront || links.domain || links.host || links.hostname || account.server?.originalHost || account.server?.host || "",
+                  );
+                  setSshUsername(account.username || "");
+                  setSshPassword(account.password || "");
+                }}>
+                  <SelectTrigger><SelectValue placeholder={activeSshAccounts.length ? "Pilih akun SSH" : "Belum ada akun SSH aktif"} /></SelectTrigger>
+                  <SelectContent>
+                    {activeSshAccounts.map((account) => (
+                      <SelectItem key={account.id} value={String(account.id)}>
+                        {account.username} @ {account.server?.name ?? "Server"} • {formatExpiry(account.expiresAt)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2"><Label>SSH Host</Label><Input value={sshHost} onChange={(event) => setSshHost(event.target.value)} className="font-mono" /></div>
+                <div className="space-y-2"><Label>Port</Label><Input type="number" value={sshPort} onChange={(event) => setSshPort(event.target.value)} /></div>
+                <div className="space-y-2"><Label>Username</Label><Input value={sshUsername} onChange={(event) => setSshUsername(event.target.value)} className="font-mono" /></div>
+                <div className="space-y-2"><Label>Password</Label><Input type="password" value={sshPassword} onChange={(event) => setSshPassword(event.target.value)} className="font-mono" /></div>
+              </div>
+              <div className="space-y-2"><Label>Nama Config (opsional)</Label><Input value={sshConfigName} onChange={(event) => setSshConfigName(event.target.value)} /></div>
+            </CardContent>
+            <CardFooter className="justify-end border-t border-white/5 bg-primary/5 p-4">
+              <Button onClick={handleAdvancedSshConvert} disabled={isSshConverting} className="w-full gap-2 sm:w-auto">
+                {isSshConverting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRightLeft className="h-4 w-4" />}
+                Buat Link DarkTunnel
+              </Button>
+            </CardFooter>
+          </Card>
+
+          <Card className="border-primary/20 bg-card/40">
+            <CardHeader>
+              <CardTitle>Config Injector Umum</CardTitle>
+              <CardDescription>Untuk VMess, VLESS, Trojan, Shadowsocks, atau payload mentah.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="space-y-2">
+                <Label>1. Pilih Preset Bug</Label>
+                <Select value={selectedBugId} onValueChange={setSelectedBugId}>
+                  <SelectTrigger><SelectValue placeholder={bugsLoading ? "Memuat preset..." : "Pilih preset bug"} /></SelectTrigger>
+                  <SelectContent>
+                    {bugs.map((bug) => <SelectItem key={bug.id} value={String(bug.id)}>{bug.name} ({bug.bugDomain})</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>2. Config Mentah</Label>
+                <Textarea className="min-h-[120px] font-mono" value={rawConfig} onChange={(event) => setRawConfig(event.target.value)} placeholder="Tempel vmess://, vless://, trojan://, ss://, atau payload di sini" />
+              </div>
+            </CardContent>
+            <CardFooter className="justify-end border-t border-white/5 bg-primary/5 p-4">
+              <Button onClick={handleConvert} className="w-full gap-2 sm:w-auto"><ArrowRightLeft className="h-4 w-4" /> Convert Sekarang</Button>
+            </CardFooter>
+          </Card>
+
+          {result && (
+            <Card className="border-emerald-500/30 bg-emerald-950/10">
+              <CardHeader><CardTitle className="text-emerald-400">Hasil Convert</CardTitle></CardHeader>
+              <CardContent>
+                <Textarea readOnly value={result} className="min-h-[120px] font-mono" />
+                <Button onClick={() => copyValue(result, "Config tersalin")} className="mt-3 w-full gap-2">
+                  {isCopied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />} Salin Config
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={showEasyResult} onOpenChange={setShowEasyResult}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-emerald-400">✅ Link Injek Berhasil Dibuat</DialogTitle>
+            <DialogTitle className="text-emerald-400">Config DarkTunnel Siap</DialogTitle>
             <DialogDescription>
-              Link berikut siap disalin ke DarkTunnel atau aplikasi serupa. Klik tombol salin di bawah.
+              Download file adalah cara paling mudah. Jika tidak terbuka otomatis, import file dari aplikasi DarkTunnel.
             </DialogDescription>
           </DialogHeader>
-
-          <div className="relative">
-            <Textarea
-              readOnly
-              value={sshLink}
-              className="min-h-[100px] font-mono text-sm bg-background/80 pr-12 focus-visible:ring-emerald-500/30 border-emerald-500/20"
-            />
-            <Button
-              variant="secondary"
-              size="icon"
-              className="absolute top-2 right-2 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300"
-              onClick={copySshLink}
-            >
-              {isCopied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-            </Button>
-          </div>
-
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setShowResultDialog(false)}>
-              Tutup
-            </Button>
-            <Button
-              onClick={copySshLink}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white"
-            >
-              {isCopied ? <CheckCircle2 className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
-              {isCopied ? "Tersalin!" : "Salin Link"}
-            </Button>
+          {easyResult && (
+            <>
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm">
+                <div className="font-semibold">{easyResult.config.name}</div>
+                <div className="mt-1 text-xs text-muted-foreground">File: {easyResult.filename}</div>
+              </div>
+              <div className="grid gap-2">
+                <Button size="lg" className="gap-2" onClick={downloadEasyConfig}>
+                  <Download className="h-4 w-4" /> Download File .dark
+                </Button>
+                <Button variant="outline" className="gap-2" onClick={openDarkTunnel}>
+                  <ExternalLink className="h-4 w-4" /> Buka di DarkTunnel
+                </Button>
+                <Button variant="outline" className="gap-2" onClick={copyEasyLink}>
+                  {isEasyCopied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  {isEasyCopied ? "Link Tersalin" : "Salin Link"}
+                </Button>
+              </div>
+            </>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowEasyResult(false)}>Tutup</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      <Dialog open={showAdvancedResult} onOpenChange={setShowAdvancedResult}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-emerald-400">Link DarkTunnel Berhasil Dibuat</DialogTitle>
+            <DialogDescription>Salin link lalu import ke DarkTunnel.</DialogDescription>
+          </DialogHeader>
+          <Textarea readOnly value={sshLink} className="min-h-[100px] font-mono text-xs" />
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowAdvancedResult(false)}>Tutup</Button>
+            <Button onClick={() => copyValue(sshLink, "Link DarkTunnel tersalin")} className="gap-2">
+              <Copy className="h-4 w-4" /> Salin Link
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
