@@ -269,9 +269,10 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
     finalPassword = panelResult.password ?? vpnPassword;
     finalUuid = panelResult.uuid ?? vpnUuid;
     configLink = panelResult.configLink ?? null;
-    if (panelResult.allLinks) {
+    if (panelResult.allLinks || panelResult.hostname) {
       const links: Record<string, string | null> = {};
-      for (const [k, v] of Object.entries(panelResult.allLinks)) links[k] = v ?? null;
+      for (const [k, v] of Object.entries(panelResult.allLinks ?? {})) links[k] = v ?? null;
+      if (panelResult.hostname) links.hostname = panelResult.hostname;
       allLinks = links;
     }
     logger.info(`[orders:fulfill] Panel account created: ${product.protocol}/${finalUsername}${isTrial ? " (TRIAL 60m)" : ""}`);

@@ -40,6 +40,7 @@ export type DarkTunnelAccount = {
   protocol: string;
   username: string;
   password?: string | null;
+  configLink?: string | null;
   expiresAt: string | Date;
   isActive: boolean;
   allLinks?: Record<string, NullableString> | null;
@@ -101,11 +102,70 @@ function hasOwn(object: object, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(object, key);
 }
 
+function extractHostFromConnectionValue(value: NullableString): string | null {
+  const usable = usableString(value);
+  if (!usable) return null;
+
+  let candidate = usable;
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(candidate)) {
+    try {
+      return new URL(candidate).hostname || null;
+    } catch {
+      return null;
+    }
+  }
+
+  candidate = candidate.split("@")[0]?.trim() ?? "";
+  if (candidate.startsWith("[")) {
+    const closingBracket = candidate.indexOf("]");
+    return closingBracket > 1 ? candidate.slice(1, closingBracket) : null;
+  }
+
+  return usableString(candidate.split(":")[0]);
+}
+
+function isCloudFrontHostname(value: NullableString): boolean {
+  const host = extractHostFromConnectionValue(value)?.toLowerCase();
+  return Boolean(
+    host &&
+      (host === "cloudfront.net" || host.endsWith(".cloudfront.net")),
+  );
+}
+
+function getExplicitCloudFrontHost(account: DarkTunnelAccount): string | null {
+  const links = account.allLinks ?? {};
+  const providerCloudFront = extractHostFromConnectionValue(links.cloudfront);
+  if (providerCloudFront?.includes(".")) return providerCloudFront;
+
+  const candidates = [
+    links.domain,
+    links.host,
+    links.server,
+    links.sni,
+    links.servername,
+    links.hostname,
+    account.configLink,
+    links.tls,
+    links.ws,
+    links.udp,
+    account.server?.originalHost,
+    account.server?.host,
+  ];
+
+  for (const candidate of candidates) {
+    if (isCloudFrontHostname(candidate)) {
+      return extractHostFromConnectionValue(candidate);
+    }
+  }
+
+  return null;
+}
+
 export function classifySshAccount(account: DarkTunnelAccount): SshAccountKind {
   if (account.protocol.toLowerCase() !== "ssh") return "unknown";
 
   const links = account.allLinks ?? {};
-  if (usableString(links.cloudfront)) return "cloudfront";
+  if (getExplicitCloudFrontHost(account)) return "cloudfront";
 
   if (account.dynamicOrder?.provider === "local_panel" || account.orderId != null) {
     return "normal";
@@ -155,7 +215,7 @@ export function getDarkTunnelAccountHost(
   const links = account.allLinks ?? {};
 
   if (target === "ilmupedia") {
-    return usableString(links.cloudfront);
+    return getExplicitCloudFrontHost(account);
   }
 
   return firstUsable(
@@ -165,6 +225,10 @@ export function getDarkTunnelAccountHost(
     links.sni,
     links.servername,
     links.hostname,
+    extractHostFromConnectionValue(account.configLink),
+    extractHostFromConnectionValue(links.tls),
+    extractHostFromConnectionValue(links.ws),
+    extractHostFromConnectionValue(links.udp),
     account.server?.originalHost,
     account.server?.host,
   );
