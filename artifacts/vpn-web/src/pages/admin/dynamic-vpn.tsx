@@ -221,7 +221,21 @@ export default function AdminDynamicVpn() {
                     <Switch checked={!!s.isActive} onCheckedChange={(v) => setDraft(server.id, { isActive: v })} />
                   </div>
 
-                  <div className="grid gap-2"><Label>Nama tampil ke user</Label><Input value={s.displayName} onChange={(e) => setDraft(server.id, { displayName: e.target.value })} /></div>
+                  {/* Nama tampil - hanya untuk Server Saya, NadiaVPN pakai nama asli */}
+                  {!isNadia && (
+                    <div className="grid gap-2">
+                      <Label>Nama tampil ke user</Label>
+                      <Input value={s.displayName} onChange={(e) => setDraft(server.id, { displayName: e.target.value })} />
+                      <p className="text-xs text-muted-foreground">Custom nama untuk Server Saya</p>
+                    </div>
+                  )}
+                  {isNadia && (
+                    <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3">
+                      <Label>Nama tampil ke user</Label>
+                      <p className="text-sm font-semibold text-foreground mt-1">{server.providerName}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Nama server NadiaVPN (otomatis sinkron)</p>
+                    </div>
+                  )}
 
                   <div className="grid gap-2">
                     <Label>Protocol dijual</Label>
