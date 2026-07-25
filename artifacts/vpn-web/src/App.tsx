@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/use-auth";
 import { Layout } from "@/components/layout";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { lazy, Suspense } from "react";
 import { Loader2 } from "lucide-react";
 
@@ -87,7 +88,8 @@ function PageLoader() {
 
 function Router() {
   return (
-    <Suspense fallback={<PageLoader />}>
+    <ErrorBoundary>
+      <Suspense fallback={<PageLoader />}>
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/login" component={Login} />
@@ -229,7 +231,8 @@ function Router() {
 
         <Route component={NotFound} />
       </Switch>
-    </Suspense>
+      </Suspense>
+    </ErrorBoundary>
   );
 }
 

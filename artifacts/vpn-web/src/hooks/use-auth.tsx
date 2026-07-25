@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { useGetMe, useLogout, getGetMeQueryKey } from "@workspace/api-client-react";
 import type { User } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface AuthContextType {
   user: User | null;
@@ -15,6 +16,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
   const { data: user, isLoading, error } = useGetMe({
     query: {
       queryKey: getGetMeQueryKey(),
@@ -27,8 +29,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const handleLogout = () => {
     logoutMutation.mutate(undefined, {
       onSuccess: () => {
+        // Clear all cached queries to prevent stale auth state
+        queryClient.clear();
         setLocation("/login");
-        window.location.reload();
       },
     });
   };
