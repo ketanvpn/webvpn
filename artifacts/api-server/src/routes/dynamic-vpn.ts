@@ -578,8 +578,13 @@ async function syncNadiaVpnServersFromProvider() {
   const rawDefaultMarkup = await getSettingValue("dynamicDefaultMarkupPercent");
   const defaultMarkup = rawDefaultMarkup ? parseInt(rawDefaultMarkup, 10) : 30;
 
+  // Track server IDs dari API response untuk detect stale servers
+  const apiServerIds = new Set<string>();
+
   for (const srv of servers) {
     const providerServerId = String(srv.server_id);
+    apiServerIds.add(providerServerId);
+    
     const [existing] = await db
       .select()
       .from(dynamicProviderServersTable)
@@ -614,7 +619,7 @@ async function syncNadiaVpnServersFromProvider() {
 
     const values = {
       providerName: String(srv.name ?? providerServerId),
-      displayName: existing?.displayName ?? String(srv.name ?? providerServerId),
+      displayName: String(srv.name ?? providerServerId), // ALWAYS use providerName from API
       location: srv.location ? String(srv.location) : null,
       supportedProtocols,
       enabledProtocols: existing?.enabledProtocols?.length ? existing.enabledProtocols.filter((p: string) => supportedProtocols.includes(p)) : supportedProtocols,
@@ -650,7 +655,7 @@ async function syncNadiaVpnServersFromProvider() {
       const oldCostMonth = Number(existing.costPerMonth ?? 0);
       if (oldCostDay !== costDay || oldCostWeek !== costWeek || oldCostMonth !== costMonth) {
         priceChanges.push({
-          serverName: existing.displayName ?? String(srv.name ?? providerServerId),
+          serverName: String(srv.name ?? providerServerId),
           provider: "nadiavpn",
           costPerDayOld: oldCostDay,
           costPerDayNew: costDay,
@@ -666,6 +671,25 @@ async function syncNadiaVpnServersFromProvider() {
       ? await db.update(dynamicProviderServersTable).set(values).where(eq(dynamicProviderServersTable.id, existing.id)).returning()
       : await db.insert(dynamicProviderServersTable).values({ provider: "nadiavpn", providerServerId, ...values }).returning();
     synced.push(formatServer(row, true));
+  }
+
+  // CRITICAL FIX: Deactivate stale NadiaVPN servers that are no longer in API response
+  const allNadiaServers = await db
+    .select()
+    .from(dynamicProviderServersTable)
+    .where(eq(dynamicProviderServersTable.provider, "nadiavpn"));
+
+  const staleServers = allNadiaServers.filter(s => !apiServerIds.has(s.providerServerId));
+  
+  if (staleServers.length > 0) {
+    logger.info({ count: staleServers.length, serverIds: staleServers.map(s => s.providerServerId) }, "Deactivating stale NadiaVPN servers");
+    
+    for (const stale of staleServers) {
+      await db
+        .update(dynamicProviderServersTable)
+        .set({ isActive: false, updatedAt: now })
+        .where(eq(dynamicProviderServersTable.id, stale.id));
+    }
   }
 
   // Kirim notifikasi Telegram jika ada perubahan harga
