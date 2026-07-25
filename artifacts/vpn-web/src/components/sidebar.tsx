@@ -67,6 +67,11 @@ type NavItem = {
   badgeKey?: "pendingTopups" | "pendingTickets";
 };
 
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
 const userNav: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Order VPN", href: "/order-vpn", icon: ShieldPlus },
@@ -80,33 +85,71 @@ const userNav: NavItem[] = [
   { title: "Profil", href: "/profile", icon: Settings },
 ];
 
-const adminNav: NavItem[] = [
-  { title: "Overview", href: "/admin", icon: LayoutDashboard },
-  { title: "Pengguna", href: "/admin/users", icon: Users },
-  { title: "Produk", href: "/admin/products", icon: Package },
-  { title: "Server", href: "/admin/servers", icon: Server },
-  { title: "Order", href: "/admin/orders", icon: ShoppingCart },
-  { title: "Topup", href: "/admin/topups", icon: CreditCard, badgeKey: "pendingTopups" },
-  { title: "Akun VPN", href: "/admin/accounts", icon: Shield },
-  { title: "Payment Gateway", href: "/admin/settings/payment", icon: QrCode },
-  { title: "Notifikasi Telegram", href: "/admin/settings/telegram", icon: Bell },
-  { title: "WhatsApp OTP", href: "/admin/settings/whatsapp", icon: Smartphone },
-  { title: "Program Referral", href: "/admin/settings/referral", icon: Gift },
-  { title: "Program Reseller", href: "/admin/settings/reseller", icon: Users },
-  { title: "Notifikasi Kedaluwarsa", href: "/admin/settings/expiry-notif", icon: Bell },
-  { title: "Monitor Server", href: "/admin/server-monitor", icon: Activity },
-  { title: "Order Dynamic", href: "/admin/dynamic-vpn", icon: ShieldPlus },
-  { title: "NadiaVPN", href: "/admin/nadiavpn", icon: Cloud },
-  { title: "Voucher / Kode Promo", href: "/admin/vouchers", icon: Tag },
-  { title: "Tiket Bantuan", href: "/admin/tickets", icon: TicketCheck, badgeKey: "pendingTickets" },
-  { title: "Pengumuman", href: "/admin/announcements", icon: Megaphone },
-  { title: "Sistem Poin", href: "/admin/settings/points", icon: Star },
-  { title: "Preset Inject Paket", href: "/admin/inject-presets", icon: Network },
-  { title: "Manajemen Bug", href: "/admin/bug-presets", icon: Bug },
-  { title: "Broadcast", href: "/admin/broadcast", icon: Send },
-  { title: "Backup & Restore DB", href: "/admin/backup", icon: HardDrive },
-  { title: "Riwayat Aksi Admin", href: "/admin/audit-logs", icon: History },
+const adminNavGroups: NavGroup[] = [
+  {
+    label: "Dashboard",
+    items: [
+      { title: "Overview", href: "/admin", icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: "Manajemen Utama",
+    items: [
+      { title: "Pengguna", href: "/admin/users", icon: Users },
+      { title: "Produk", href: "/admin/products", icon: Package },
+      { title: "Server", href: "/admin/servers", icon: Server },
+      { title: "Akun VPN", href: "/admin/accounts", icon: Shield },
+    ],
+  },
+  {
+    label: "Transaksi",
+    items: [
+      { title: "Order", href: "/admin/orders", icon: ShoppingCart },
+      { title: "Topup", href: "/admin/topups", icon: CreditCard, badgeKey: "pendingTopups" },
+      { title: "Voucher / Kode Promo", href: "/admin/vouchers", icon: Tag },
+    ],
+  },
+  {
+    label: "Layanan VPN",
+    items: [
+      { title: "Order Dynamic", href: "/admin/dynamic-vpn", icon: ShieldPlus },
+      { title: "NadiaVPN", href: "/admin/nadiavpn", icon: Cloud },
+      { title: "Preset Inject Paket", href: "/admin/inject-presets", icon: Network },
+      { title: "Manajemen Bug", href: "/admin/bug-presets", icon: Bug },
+      { title: "Monitor Server", href: "/admin/server-monitor", icon: Activity },
+    ],
+  },
+  {
+    label: "Pengaturan",
+    items: [
+      { title: "Payment Gateway", href: "/admin/settings/payment", icon: QrCode },
+      { title: "Notifikasi Telegram", href: "/admin/settings/telegram", icon: Bell },
+      { title: "WhatsApp OTP", href: "/admin/settings/whatsapp", icon: Smartphone },
+      { title: "Program Referral", href: "/admin/settings/referral", icon: Gift },
+      { title: "Program Reseller", href: "/admin/settings/reseller", icon: Users },
+      { title: "Sistem Poin", href: "/admin/settings/points", icon: Star },
+      { title: "Notifikasi Kedaluwarsa", href: "/admin/settings/expiry-notif", icon: Bell },
+    ],
+  },
+  {
+    label: "Komunikasi",
+    items: [
+      { title: "Tiket Bantuan", href: "/admin/tickets", icon: TicketCheck, badgeKey: "pendingTickets" },
+      { title: "Pengumuman", href: "/admin/announcements", icon: Megaphone },
+      { title: "Broadcast", href: "/admin/broadcast", icon: Send },
+    ],
+  },
+  {
+    label: "Sistem",
+    items: [
+      { title: "Backup & Restore DB", href: "/admin/backup", icon: HardDrive },
+      { title: "Riwayat Aksi Admin", href: "/admin/audit-logs", icon: History },
+    ],
+  },
 ];
+
+// Flatten for backward compatibility with existing code
+const adminNav: NavItem[] = adminNavGroups.flatMap(group => group.items);
 
 const adminPageTitles: Record<string, string> = {
   "/admin": "Overview",
@@ -272,6 +315,8 @@ function NavLinks({
   logout: () => void;
   location: string;
 }) {
+  const groups = isAdmin ? adminNavGroups : [{ label: "", items: nav }];
+
   return (
     <nav className="flex flex-col gap-1 p-4 h-full overflow-y-auto">
       <div className="mb-6 px-2 flex items-center gap-3">
@@ -284,35 +329,46 @@ function NavLinks({
         </div>
       </div>
 
-      {nav.map((item) => {
-        const active = isNavActive(location, item.href);
-        const badge =
-          item.badgeKey === "pendingTopups" ? pendingTopups :
-          item.badgeKey === "pendingTickets" ? pendingTickets : 0;
-        const badgeColor =
-          item.badgeKey === "pendingTickets"
-            ? (active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-red-500 text-white")
-            : (active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-yellow-500 text-white");
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
-              active
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            }`}
-          >
-            <item.icon className="h-4 w-4 shrink-0" />
-            <span className="flex-1">{item.title}</span>
-            {badge > 0 && (
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${badgeColor}`}>
-                {badge > 99 ? "99+" : badge}
+      {groups.map((group, groupIndex) => (
+        <div key={groupIndex} className={groupIndex > 0 ? "mt-6" : ""}>
+          {group.label && (
+            <div className="px-3 mb-2">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                {group.label}
               </span>
-            )}
-          </Link>
-        );
-      })}
+            </div>
+          )}
+          {group.items.map((item) => {
+            const active = isNavActive(location, item.href);
+            const badge =
+              item.badgeKey === "pendingTopups" ? pendingTopups :
+              item.badgeKey === "pendingTickets" ? pendingTickets : 0;
+            const badgeColor =
+              item.badgeKey === "pendingTickets"
+                ? (active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-red-500 text-white")
+                : (active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-yellow-500 text-white");
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
+                  active
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                }`}
+              >
+                <item.icon className="h-4 w-4 shrink-0" />
+                <span className="flex-1">{item.title}</span>
+                {badge > 0 && (
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${badgeColor}`}>
+                    {badge > 99 ? "99+" : badge}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
 
       {!isAdmin && userIsAdmin && (
         <div className="mt-8">
