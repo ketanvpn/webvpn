@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLocation, Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -88,7 +89,18 @@ function ServerCard({ server, onSelect }: { server: DynamicServer; onSelect: () 
         </div>
 
         <div className="flex-1 min-w-0 py-0.5">
-          <h3 className="font-semibold text-sm sm:text-base leading-snug text-foreground truncate mb-1.5">{server.displayName}</h3>
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <h3 className="font-semibold text-sm sm:text-base leading-snug text-foreground truncate mb-1.5 cursor-help">
+                  {server.displayName}
+                </h3>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs">
+                <p className="text-sm font-medium">{server.displayName}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <div className="flex flex-wrap gap-1.5">
             {server.enabledProtocols.slice(0, 4).map((protocol) => (
               <span key={protocol} className="text-[9px] sm:text-[10px] bg-white/5 text-muted-foreground px-1.5 py-0.5 rounded border border-white/5 uppercase">
