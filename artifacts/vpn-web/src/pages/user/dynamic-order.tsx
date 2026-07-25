@@ -92,11 +92,11 @@ function ServerCard({ server, onSelect }: { server: DynamicServer; onSelect: () 
           <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <h3 className="font-semibold text-sm sm:text-base leading-snug text-foreground truncate mb-1.5 cursor-help">
+                <h3 className="font-semibold text-sm sm:text-base leading-snug text-foreground line-clamp-2 sm:truncate mb-1.5 sm:cursor-help">
                   {server.displayName}
                 </h3>
               </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-xs">
+              <TooltipContent side="top" className="max-w-xs hidden sm:block">
                 <p className="text-sm font-medium">{server.displayName}</p>
               </TooltipContent>
             </Tooltip>
