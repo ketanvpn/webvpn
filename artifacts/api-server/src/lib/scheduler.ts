@@ -6,6 +6,7 @@ import { sendWhatsapp } from "./fonnte";
 import { sendMessage } from "./telegram";
 import { notifyAdminLowMarginServers } from "./telegram";
 import { getDynamicCost } from "./dynamic-duration";
+import { syncNadiaVpnServersFromProvider } from "../routes/dynamic-vpn";
 
 async function getReferralBonusAmount(): Promise<number> {
   const [row] = await db
@@ -353,6 +354,7 @@ export function startScheduler(): void {
   const THREE_HOURS = 3 * 60 * 60 * 1000;
   const FIVE_MIN = 5 * 60 * 1000;
   const FIFTEEN_MIN = 15 * 60 * 1000;
+  const THIRTY_MIN = 30 * 60 * 1000;
 
   runSafely("initial-checkExpiringAccounts", checkExpiringAccounts);
   runSafely("initial-cancelExpiredQrisOrders", cancelExpiredQrisOrders);
@@ -361,6 +363,7 @@ export function startScheduler(): void {
   runSafely("initial-checkAndAutoDisableServers", checkAndAutoDisableServers);
   runSafely("initial-cleanupGhostAccounts", cleanupGhostAccounts);
   runSafely("initial-cleanupExpiredWaVerifications", cleanupExpiredWaVerifications);
+  runSafely("initial-syncNadiaVpn", syncNadiaVpnServersFromProvider);
 
   setInterval(() => {
     runSafely("checkExpiringAccounts", checkExpiringAccounts);
@@ -398,6 +401,11 @@ export function startScheduler(): void {
     runSafely("runProactiveAlerts", runProactiveAlerts);
   }, FIFTEEN_MIN);
 
+  // Auto-sync NadiaVPN setiap 30 menit
+  setInterval(() => {
+    runSafely("syncNadiaVpn", syncNadiaVpnServersFromProvider);
+  }, THIRTY_MIN);
+
   logger.info("Scheduler notifikasi kedaluwarsa aktif (cek setiap jam, kirim sesuai jam WIB yang dikonfigurasi)");
   logger.info("Scheduler auto-cancel QRIS expired aktif (interval: 5 menit)");
   logger.info("Scheduler cek target reseller aktif (cek setiap jam, eksekusi tanggal 1 jam 07.00 WIB)");
@@ -407,6 +415,7 @@ export function startScheduler(): void {
   logger.info("Scheduler low margin alert aktif (cek setiap jam, kirim jam 08.00 WIB)");
   logger.info("Scheduler proactive alerts aktif (interval: 15 menit)");
   logger.info("Scheduler laporan harian aktif (cek setiap jam, kirim jam 08.00 WIB)");
+  logger.info("Scheduler auto-sync NadiaVPN aktif (interval: 30 menit)");
 
   // Auto-backup: cek setiap jam apakah sudah waktunya backup
   import("./backup").then(({ isBackupDue, performBackup }) => {

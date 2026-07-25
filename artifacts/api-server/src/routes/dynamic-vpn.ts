@@ -558,7 +558,7 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
   }).catch((err) => logger.error({ err, orderId }, "notifyAdminDynamicOrderFulfilled failed"));
 }
 
-async function syncNadiaVpnServersFromProvider() {
+export async function syncNadiaVpnServersFromProvider() {
   const response: any = await getNadiaVpnServers();
   const servers = response?.data?.servers ?? [];
   const now = new Date();
