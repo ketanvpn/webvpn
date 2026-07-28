@@ -1,227 +1,282 @@
-import { Router } from "express";
 import crypto from "crypto";
-import { db } from "@workspace/db";
-import { usersTable, topupsTable, ordersTable } from "@workspace/db";
-import { tryAutoUpgradeReseller } from "../lib/reseller-upgrade";
-import { eq, sql, and } from "drizzle-orm";
-import { getPaymentSettingsMap } from "./settings";
+import { Router } from "express";
 import { logger } from "../lib/logger";
-import { fulfillOrder } from "./orders";
-import { notifyUserTopupConfirmed, notifyAdminTopupAutoConfirmed } from "../lib/telegram";
-import { addPoints, getPointsSettings } from "./points";
+import {
+  settleProviderPayment,
+  type SettlementProvider,
+} from "../lib/payment/settlement";
+import { isPaidStatus } from "../lib/payment/helpers";
+import { getPaymentSettingsMap } from "./settings";
 
 const router = Router();
+const KETANTECH_TIMESTAMP_TOLERANCE_MS = 5 * 60_000;
 
-const WEBHOOK_REPLAY_TTL_MS = 10 * 60 * 1000;
-const replayCache = new Map<string, number>();
+const asRecord = (value: unknown): Record<string, unknown> | undefined =>
+  typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
 
-function markReplay(key: string): boolean {
-  const now = Date.now();
-
-  for (const [k, ts] of replayCache) {
-    if (now - ts > WEBHOOK_REPLAY_TTL_MS) replayCache.delete(k);
+const firstRecord = (...values: unknown[]): Record<string, unknown> | undefined => {
+  for (const value of values) {
+    const record = asRecord(value);
+    if (record) return record;
   }
+  return undefined;
+};
 
-  if (replayCache.has(key)) return true;
-  replayCache.set(key, now);
-  return false;
+const firstString = (...values: unknown[]): string | undefined => {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value);
+    }
+  }
+  return undefined;
+};
+
+const firstNumber = (...values: unknown[]): number | undefined => {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return undefined;
+};
+
+function parseRawJson(rawBody: string): Record<string, unknown> | undefined {
+  try {
+    return asRecord(JSON.parse(rawBody));
+  } catch {
+    return undefined;
+  }
 }
 
-function toNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const n = Number(value);
-    if (Number.isFinite(n)) return n;
-  }
-  return null;
+function validSha256HmacHex(
+  signature: string | undefined,
+  secret: string,
+  signedPayload: string,
+): boolean {
+  // Buffer.from(hex) silently truncates malformed hex, so validate syntax first.
+  if (!signature || !/^[0-9a-f]{64}$/iu.test(signature)) return false;
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(signedPayload, "utf8")
+    .digest();
+  const received = Buffer.from(signature, "hex");
+  return received.length === expected.length && crypto.timingSafeEqual(received, expected);
 }
 
-async function handlePaidTransaction(params: {
+function parseWebhookTimestamp(value: string): Date | undefined {
+  const normalized = value.trim();
+  if (!normalized) return undefined;
+  if (/^\d{10,13}$/u.test(normalized)) {
+    const number = Number(normalized);
+    const date = new Date(normalized.length === 10 ? number * 1000 : number);
+    return Number.isNaN(date.getTime()) ? undefined : date;
+  }
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+function isFreshWebhookTimestamp(value: string): boolean {
+  const timestamp = parseWebhookTimestamp(value);
+  return (
+    timestamp !== undefined &&
+    Math.abs(Date.now() - timestamp.getTime()) <=
+      KETANTECH_TIMESTAMP_TOLERANCE_MS
+  );
+}
+
+function transactionFromPayload(payload: Record<string, unknown>) {
+  const data = firstRecord(payload.data);
+  return (
+    firstRecord(
+      payload.transaction,
+      payload.payment,
+      data?.transaction,
+      data?.payment,
+      data,
+      payload,
+    ) ?? payload
+  );
+}
+
+function transactionFields(
+  transaction: Record<string, unknown>,
+  envelope: Record<string, unknown>,
+) {
+  return {
+    transactionId: firstString(
+      transaction.transactionId,
+      transaction.transaction_id,
+      transaction.id,
+      transaction.paymentId,
+      transaction.payment_id,
+      envelope.transactionId,
+      envelope.transaction_id,
+      envelope.id,
+    ),
+    status: firstString(
+      transaction.transactionStatus,
+      transaction.transaction_status,
+      transaction.paymentStatus,
+      transaction.payment_status,
+      transaction.status,
+      envelope.transactionStatus,
+      envelope.transaction_status,
+      envelope.paymentStatus,
+      envelope.payment_status,
+      envelope.status,
+    )?.toLowerCase(),
+    amount: firstNumber(
+      transaction.payableAmount,
+      transaction.payable_amount,
+      transaction.totalAmount,
+      transaction.total_amount,
+      transaction.grossAmount,
+      transaction.gross_amount,
+      transaction.amount,
+      envelope.payableAmount,
+      envelope.payable_amount,
+      envelope.totalAmount,
+      envelope.total_amount,
+      envelope.amount,
+    ),
+  };
+}
+
+async function handlePaidTransaction(input: {
+  provider: SettlementProvider;
   transactionId: string;
-  transactionAmount: number | null;
+  transactionAmount?: number;
   source: string;
 }) {
-  const { transactionId, transactionAmount, source } = params;
+  const result = await settleProviderPayment({
+    provider: input.provider,
+    providerTransactionId: input.transactionId,
+    transactionAmount: input.transactionAmount,
+    source: input.source,
+    requireAmount: true,
+  });
 
-  // 1) Topup
-  const [topup] = await db
-    .select()
-    .from(topupsTable)
-    .where(eq(topupsTable.autogopayTransactionId, transactionId))
-    .limit(1);
-
-  if (topup) {
-    const expectedAmount = Number(topup.amount);
-    if (transactionAmount === null || Math.abs(transactionAmount - expectedAmount) > 0.01) {
-      logger.warn(
-        { topupId: topup.id, transactionId, expectedAmount, receivedAmount: transactionAmount, source },
-        "Webhook: topup amount mismatch",
-      );
-      return { ok: false as const, status: 400, body: { error: "Amount mismatch" } };
-    }
-
-    if (topup.status !== "pending") {
-      logger.info({ transactionId, status: topup.status, source }, "Webhook: topup already processed");
-      return { ok: true as const, status: 200, body: { success: true } };
-    }
-
-    const [updatedTopup] = await db
-      .update(topupsTable)
-      .set({ status: "confirmed", updatedAt: new Date() })
-      .where(and(eq(topupsTable.id, topup.id), eq(topupsTable.status, "pending")))
-      .returning();
-
-    if (!updatedTopup) {
-      logger.warn({ topupId: topup.id, source }, "Webhook: race condition prevented (topup already processed)");
-      return { ok: true as const, status: 200, body: { success: true } };
-    }
-
-    const [updatedUser] = await db
-      .update(usersTable)
-      .set({ balance: sql`balance + ${Number(topup.amount)}` })
-      .where(eq(usersTable.id, topup.userId))
-      .returning({ newBalance: usersTable.balance, username: usersTable.username });
-
-    const newBalance = Number(updatedUser?.newBalance ?? 0);
-    const username = updatedUser?.username ?? `User#${topup.userId}`;
-
-    import("../routes/balance-logs").then(({ addBalanceLog }) => {
-      addBalanceLog({
-        userId: topup.userId,
-        type: "topup",
-        amount: Number(topup.amount),
-        balanceBefore: newBalance - Number(topup.amount),
-        balanceAfter: newBalance,
-        description: `Isi saldo otomatis via QRIS`,
-        relatedId: topup.id,
-      }).catch(() => {});
-    }).catch(() => {});
-
-    notifyUserTopupConfirmed(topup.userId, Number(topup.amount), newBalance).catch((err) =>
-      logger.error({ err }, "notifyUserTopupConfirmed failed"),
+  if (result.outcome === "amount_mismatch") {
+    logger.warn(
+      {
+        provider: input.provider,
+        transactionId: input.transactionId,
+        ownerType: result.ownerType,
+        ownerId: result.ownerId,
+        expectedAmount: result.expectedAmount,
+        receivedAmount: input.transactionAmount ?? null,
+      },
+      "Payment webhook rejected an amount mismatch",
     );
-    notifyAdminTopupAutoConfirmed(topup.id, Number(topup.amount), username, newBalance).catch((err) =>
-      logger.error({ err }, "notifyAdminTopupAutoConfirmed failed"),
+  } else if (result.outcome === "identity_conflict") {
+    logger.warn(
+      {
+        provider: input.provider,
+        transactionId: input.transactionId,
+        attemptId: result.attemptId,
+      },
+      "Payment webhook transaction identity is already claimed",
     );
-    tryAutoUpgradeReseller(topup.userId, Number(topup.amount)).catch(() => {});
-
-    getPointsSettings().then(async (pts) => {
-      const topupAmount = Number(topup.amount);
-      if (pts.enabled && topupAmount >= pts.pointsMinTopup && pts.pointsRateTopup > 0) {
-        const pointsEarned = Math.floor(topupAmount / pts.pointsRateTopup);
-        if (pointsEarned > 0) {
-          await addPoints(topup.userId, pointsEarned, "topup", `Topup QRIS otomatis #${topup.id}`, topup.id);
-        }
-      }
-    }).catch((err) => logger.error({ err }, "[webhook] addPoints for QRIS topup failed"));
-
-    return { ok: true as const, status: 200, body: { success: true } };
+  } else if (result.outcome === "not_found") {
+    logger.warn(
+      { provider: input.provider, transactionId: input.transactionId },
+      "Payment webhook has no matching local payment",
+    );
+  } else {
+    logger.info(
+      {
+        provider: input.provider,
+        transactionId: input.transactionId,
+        outcome: result.outcome,
+        ownerType: result.ownerType,
+        ownerId: result.ownerId,
+        attemptId: result.attemptId,
+      },
+      "Payment webhook processed",
+    );
   }
 
-  // 2) Order
-  const [order] = await db
-    .select()
-    .from(ordersTable)
-    .where(eq(ordersTable.autogopayTransactionId, transactionId))
-    .limit(1);
-
-  if (order) {
-    const expectedAmount = Number(order.amount);
-    if (transactionAmount === null || Math.abs(transactionAmount - expectedAmount) > 0.01) {
-      logger.warn(
-        { orderId: order.id, transactionId, expectedAmount, receivedAmount: transactionAmount, source },
-        "Webhook: order amount mismatch",
-      );
-      return { ok: false as const, status: 400, body: { error: "Amount mismatch" } };
-    }
-
-    if (order.status !== "pending") {
-      logger.info({ transactionId, orderId: order.id, status: order.status, source }, "Webhook: order already processed");
-      return { ok: true as const, status: 200, body: { success: true } };
-    }
-
-    const [locked] = await db
-      .update(ordersTable)
-      .set({ status: "processing", updatedAt: new Date() })
-      .where(and(eq(ordersTable.id, order.id), eq(ordersTable.status, "pending")))
-      .returning();
-
-    if (!locked) {
-      logger.warn({ transactionId, orderId: order.id, source }, "Webhook: order already being processed");
-      return { ok: true as const, status: 200, body: { success: true } };
-    }
-
-    try {
-      await fulfillOrder(order.id, { deductBalance: false });
-      logger.info({ orderId: order.id, transactionId, source }, "Webhook: order fulfilled via QRIS");
-    } catch (err) {
-      logger.error({ err, orderId: order.id, source }, "Webhook: fulfillOrder failed");
-      await db
-        .update(ordersTable)
-        .set({ status: "pending", updatedAt: new Date() })
-        .where(eq(ordersTable.id, order.id))
-        .catch(() => {});
-    }
-
-    return { ok: true as const, status: 200, body: { success: true } };
-  }
-
-  logger.warn({ transactionId, source }, "Webhook: no matching topup or order found");
-  return { ok: true as const, status: 200, body: { success: true } };
+  // A valid provider event is acknowledged even when it is duplicate, unmatched,
+  // or permanently invalid. This prevents retry storms while retaining audit logs.
+  return { success: true };
 }
 
 router.post("/webhooks/ketantechpay", async (req, res) => {
-  const rawBody: string = (req as any).rawBody ?? "";
-  const bodyStr: string = rawBody || JSON.stringify(req.body);
-  const signature = (req.headers["x-ketantechpay-signature"] as string | undefined) ??
-    (req.headers["x-signature"] as string | undefined);
-  const timestamp = (req.headers["x-ketantechpay-timestamp"] as string | undefined) ?? "";
+  const rawBody = typeof (req as any).rawBody === "string"
+    ? (req as any).rawBody as string
+    : "";
+  const signature = firstString(
+    req.headers["x-ketantechpay-signature"],
+    req.headers["x-signature"],
+  );
+  const timestamp = firstString(
+    req.headers["x-ketantechpay-timestamp"],
+    req.headers["x-timestamp"],
+  );
 
   const settingsMap = await getPaymentSettingsMap();
   const secret = settingsMap["ketantechPayWebhookSecret"];
   if (!secret) {
-    res.status(503).json({ error: "KetantechPay webhook secret not configured" });
+    logger.error("KetantechPay webhook rejected: secret not configured");
+    res.status(503).json({ error: "Payment gateway not configured" });
+    return;
+  }
+  if (!rawBody) {
+    res.status(400).json({ error: "Raw request body required" });
     return;
   }
   if (!signature || !timestamp) {
     res.status(401).json({ error: "Missing webhook signature/timestamp" });
     return;
   }
-
-  const expected = crypto.createHmac("sha256", secret).update(`${timestamp}.${bodyStr}`).digest("hex");
-  const sigBuf = Buffer.from(signature, "hex");
-  const expBuf = Buffer.from(expected, "hex");
-  const valid = sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf);
-  if (!valid) {
+  if (!isFreshWebhookTimestamp(timestamp)) {
+    logger.warn("KetantechPay webhook rejected: stale or invalid timestamp");
+    res.status(401).json({ error: "Invalid webhook timestamp" });
+    return;
+  }
+  if (!validSha256HmacHex(signature, secret, `${timestamp}.${rawBody}`)) {
+    // Never log signature material, including seemingly harmless prefixes.
+    logger.warn("KetantechPay webhook rejected: invalid signature");
     res.status(401).json({ error: "Invalid signature" });
     return;
   }
 
-  const payload = typeof req.body === "object" ? req.body : JSON.parse(bodyStr || "{}");
-  const data = (payload?.data ?? payload) as Record<string, unknown>;
-  const status = String(data?.status ?? "").toLowerCase();
-  const txId = String(data?.transactionId ?? "");
-  const amount = toNumber(data?.amount);
-
-  const isPaid = status === "success" || status === "paid" || status === "settlement" || status === "completed";
-  if (!isPaid || !txId) {
+  const payload = parseRawJson(rawBody);
+  if (!payload) {
+    res.status(400).json({ error: "Invalid JSON" });
+    return;
+  }
+  const fields = transactionFields(transactionFromPayload(payload), payload);
+  if (!fields.transactionId || !isPaidStatus(fields.status)) {
     res.json({ success: true });
     return;
   }
 
-  const result = await handlePaidTransaction({
-    transactionId: txId,
-    transactionAmount: amount,
-    source: "ketantechpay",
-  });
-  res.status(result.status).json(result.body);
+  try {
+    res.json(
+      await handlePaidTransaction({
+        provider: "ketantechpay",
+        transactionId: fields.transactionId,
+        transactionAmount: fields.amount,
+        source: "ketantechpay-webhook",
+      }),
+    );
+  } catch (err) {
+    logger.error({ err }, "KetantechPay webhook settlement failed");
+    res.status(500).json({ error: "Temporary settlement failure" });
+  }
 });
 
 router.post("/webhooks/autogopay", async (req, res) => {
-  const rawBody: string = (req as any).rawBody ?? "";
-  const reserializedBody: string = JSON.stringify(req.body);
-  const signature = req.headers["x-signature"] as string | undefined;
-
+  const rawBody = typeof (req as any).rawBody === "string"
+    ? (req as any).rawBody as string
+    : "";
+  const signature = firstString(req.headers["x-signature"]);
   const settingsMap = await getPaymentSettingsMap();
   const apiKey = settingsMap["autoGopaySecretKey"];
 
@@ -230,107 +285,64 @@ router.post("/webhooks/autogopay", async (req, res) => {
     res.status(503).json({ error: "Payment gateway not configured" });
     return;
   }
-
+  if (!rawBody) {
+    res.status(400).json({ error: "Raw request body required" });
+    return;
+  }
   if (!signature) {
     logger.warn("AutoGoPay webhook rejected: missing signature");
     res.status(401).json({ error: "Missing signature" });
     return;
   }
-
-  // Try both raw body (PHP docs) and re-serialized (Node.js docs) for compatibility
-  const sigFromRaw = crypto.createHmac("sha256", apiKey).update(rawBody).digest("hex");
-  const sigFromReserialized = crypto.createHmac("sha256", apiKey).update(reserializedBody).digest("hex");
-
-  const sigBuffer = Buffer.from(signature, "hex");
-  const sigRawBuffer = Buffer.from(sigFromRaw, "hex");
-  const sigReserializedBuffer = Buffer.from(sigFromReserialized, "hex");
-
-  const validRaw = sigBuffer.length === sigRawBuffer.length && crypto.timingSafeEqual(sigBuffer, sigRawBuffer);
-  const validReserialized = sigBuffer.length === sigReserializedBuffer.length && crypto.timingSafeEqual(sigBuffer, sigReserializedBuffer);
-
-  if (!validRaw && !validReserialized) {
-    logger.warn({
-      receivedSig: signature.substring(0, 16) + "...",
-      expectedRaw: sigFromRaw.substring(0, 16) + "...",
-      expectedReserialized: sigFromReserialized.substring(0, 16) + "...",
-    }, "AutoGoPay webhook: invalid signature — periksa API Key di Admin > Payment Gateway");
+  // AutoGoPay signs the exact bytes received. Re-serialized JSON is not valid.
+  if (!validSha256HmacHex(signature, apiKey, rawBody)) {
+    logger.warn("AutoGoPay webhook rejected: invalid signature");
     res.status(401).json({ error: "Invalid signature" });
     return;
   }
 
-  logger.info({ method: validRaw ? "rawBody" : "reserialized" }, "AutoGoPay webhook: signature valid");
-
-  let body: Record<string, unknown>;
-  try {
-    body = typeof req.body === "object" ? req.body : JSON.parse(rawBody || reserializedBody);
-  } catch {
+  const payload = parseRawJson(rawBody);
+  if (!payload) {
     res.status(400).json({ error: "Invalid JSON" });
     return;
   }
 
-  const event = body.event as string | undefined;
-  const transaction = (body.transaction ?? body.data ?? body) as {
-    id?: string;
-    transaction_id?: string;
-    amount?: number;
-    status?: string;
-  };
-
+  const event = firstString(payload.event, payload.eventName, payload.type);
   if (event === "verification.challenge") {
-    logger.info("AutoGoPay webhook: verification challenge accepted");
     res.json({ success: true });
     return;
   }
 
-  // Support multiple event names and status values AutoGoPay might use
-  const isPaidEvent =
-    event === "transaction.received" ||
-    event === "transaction.settlement" ||
-    event === "payment.received" ||
-    event === "payment.success" ||
-    !event; // some gateways send no event field
-
-  const isPaidStatus =
-    transaction?.status?.toLowerCase() === "settlement" ||
-    transaction?.status?.toLowerCase() === "paid" ||
-    transaction?.status?.toLowerCase() === "success" ||
-    transaction?.status?.toLowerCase() === "completed";
-
-  const transactionId = transaction?.id ?? transaction?.transaction_id;
-  const transactionStatus = transaction?.status?.toLowerCase();
-  const transactionAmount = toNumber(transaction?.amount);
-
+  const fields = transactionFields(transactionFromPayload(payload), payload);
   logger.info(
     {
       event: event ?? null,
-      transactionId: transactionId ?? null,
-      status: transactionStatus ?? null,
-      amount: transactionAmount,
+      transactionId: fields.transactionId ?? null,
+      status: fields.status ?? null,
+      amount: fields.amount ?? null,
     },
-    "AutoGoPay webhook: payload received",
+    "AutoGoPay webhook payload verified",
   );
 
-  if (transactionId) {
-    const replayKey = `${transactionId}:${event ?? "none"}:${transactionStatus ?? "none"}:${signature}`;
-    if (markReplay(replayKey)) {
-      logger.warn({ transactionId, event: event ?? null }, "AutoGoPay webhook: replay detected");
-      res.json({ success: true });
-      return;
-    }
-  }
-
-  if ((isPaidEvent || isPaidStatus) && transactionId) {
-    logger.info({ transactionId }, "AutoGoPay webhook: settlement received");
-    const result = await handlePaidTransaction({
-      transactionId,
-      transactionAmount,
-      source: "autogopay",
-    });
-    res.status(result.status).json(result.body);
+  // Event names are informational. A paid transaction status is mandatory.
+  if (!fields.transactionId || !isPaidStatus(fields.status)) {
+    res.json({ success: true });
     return;
   }
 
-  res.json({ success: true });
+  try {
+    res.json(
+      await handlePaidTransaction({
+        provider: "autogopay",
+        transactionId: fields.transactionId,
+        transactionAmount: fields.amount,
+        source: "autogopay-webhook",
+      }),
+    );
+  } catch (err) {
+    logger.error({ err }, "AutoGoPay webhook settlement failed");
+    res.status(500).json({ error: "Temporary settlement failure" });
+  }
 });
 
 export default router;

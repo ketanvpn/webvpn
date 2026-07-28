@@ -189,7 +189,7 @@ export default function AdminOrders() {
 
                   <div className="flex items-center gap-3 sm:justify-end flex-wrap">
                     <div className="font-bold text-lg text-primary">
-                      {formatRupiah(order.amount)}
+                      {formatRupiah(order.payableAmount ?? order.amount)}
                     </div>
                     {order.status === "pending" && (
                       <Button

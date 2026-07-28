@@ -5,6 +5,8 @@
  * KETANTECH VPN Store API
  * OpenAPI spec version: 0.1.0
  */
+import type { OrderPaymentChannel } from "./orderPaymentChannel";
+import type { OrderPaymentProvider } from "./orderPaymentProvider";
 import type { OrderStatus } from "./orderStatus";
 import type { Product } from "./product";
 
@@ -13,14 +15,27 @@ export interface Order {
   userId: number;
   productId: number;
   product?: Product | null;
+  /** processing berarti pembayaran sudah diterima dan akun VPN sedang dibuat */
   status: OrderStatus;
+  /** Harga dasar order dalam IDR, sebelum kode unik */
   amount: number;
   vpnAccountId?: number | null;
   paymentMethod?: string | null;
+  /** Penyedia pembayaran yang memproses transaksi; null untuk pembayaran saldo atau QRIS statis legacy */
+  paymentProvider?: OrderPaymentProvider;
+  /** Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan channel yang dipilih secara terpisah. */
+  paymentChannel?: OrderPaymentChannel;
+  /** Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null */
+  payableAmount?: number | null;
+  /**
+   * Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna
+   * @minimum 0
+   */
+  uniqueCode?: number | null;
   notes?: string | null;
-  /** URL gambar QRIS (hanya untuk paymentMethod=qris via AutoGoPay) */
+  /** URL gambar QRIS untuk paymentMethod=qris */
   qrisUrl?: string | null;
-  /** Waktu kedaluwarsa QRIS */
+  /** Waktu kedaluwarsa pembayaran QRIS */
   expiresAt?: Date | null;
   createdAt: Date;
   updatedAt?: Date;

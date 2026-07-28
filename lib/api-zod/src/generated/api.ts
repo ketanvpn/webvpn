@@ -265,10 +265,14 @@ export const listOrdersQueryLimitDefault = 20;
 export const listOrdersQueryOffsetDefault = 0;
 
 export const ListOrdersQueryParams = zod.object({
-  status: zod.enum(["pending", "paid", "failed", "expired"]).optional(),
+  status: zod
+    .enum(["pending", "processing", "paid", "failed", "expired"])
+    .optional(),
   limit: zod.coerce.number().default(listOrdersQueryLimitDefault),
   offset: zod.coerce.number().default(listOrdersQueryOffsetDefault),
 });
+
+export const listOrdersResponseOrdersItemUniqueCodeMin = 0;
 
 export const ListOrdersResponse = zod.object({
   orders: zod.array(
@@ -322,18 +326,50 @@ export const ListOrdersResponse = zod.object({
             .describe("Nama server yang di-pin (null jika tidak di-pin)"),
         })
         .nullish(),
-      status: zod.enum(["pending", "paid", "failed", "expired"]),
-      amount: zod.number(),
+      status: zod
+        .enum(["pending", "processing", "paid", "failed", "expired"])
+        .describe(
+          "processing berarti pembayaran sudah diterima dan akun VPN sedang dibuat",
+        ),
+      amount: zod
+        .number()
+        .describe("Harga dasar order dalam IDR, sebelum kode unik"),
       vpnAccountId: zod.number().nullish(),
       paymentMethod: zod.string().nullish(),
+      paymentProvider: zod
+        .enum(["ketantechpay", "autogopay"])
+        .nullish()
+        .describe(
+          "Penyedia pembayaran yang memproses transaksi; null untuk pembayaran saldo atau QRIS statis legacy",
+        ),
+      paymentChannel: zod
+        .enum(["ketantechpay", "autogopay_gopay", "autogopay_shopeepay"])
+        .nullish()
+        .describe(
+          "Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan channel yang dipilih secara terpisah.",
+        ),
+      payableAmount: zod
+        .number()
+        .nullish()
+        .describe(
+          "Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null",
+        ),
+      uniqueCode: zod
+        .number()
+        .min(listOrdersResponseOrdersItemUniqueCodeMin)
+        .nullish()
+        .describe(
+          "Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna",
+        ),
       notes: zod.string().nullish(),
       qrisUrl: zod
         .string()
         .nullish()
-        .describe(
-          "URL gambar QRIS (hanya untuk paymentMethod=qris via AutoGoPay)",
-        ),
-      expiresAt: zod.coerce.date().nullish().describe("Waktu kedaluwarsa QRIS"),
+        .describe("URL gambar QRIS untuk paymentMethod=qris"),
+      expiresAt: zod.coerce
+        .date()
+        .nullish()
+        .describe("Waktu kedaluwarsa pembayaran QRIS"),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date().optional(),
     }),
@@ -373,6 +409,8 @@ export const CreateOrderBody = zod.object({
 export const GetOrderParams = zod.object({
   id: zod.coerce.number(),
 });
+
+export const getOrderResponseUniqueCodeMin = 0;
 
 export const GetOrderResponse = zod.object({
   id: zod.number(),
@@ -418,16 +456,50 @@ export const GetOrderResponse = zod.object({
         .describe("Nama server yang di-pin (null jika tidak di-pin)"),
     })
     .nullish(),
-  status: zod.enum(["pending", "paid", "failed", "expired"]),
-  amount: zod.number(),
+  status: zod
+    .enum(["pending", "processing", "paid", "failed", "expired"])
+    .describe(
+      "processing berarti pembayaran sudah diterima dan akun VPN sedang dibuat",
+    ),
+  amount: zod
+    .number()
+    .describe("Harga dasar order dalam IDR, sebelum kode unik"),
   vpnAccountId: zod.number().nullish(),
   paymentMethod: zod.string().nullish(),
+  paymentProvider: zod
+    .enum(["ketantechpay", "autogopay"])
+    .nullish()
+    .describe(
+      "Penyedia pembayaran yang memproses transaksi; null untuk pembayaran saldo atau QRIS statis legacy",
+    ),
+  paymentChannel: zod
+    .enum(["ketantechpay", "autogopay_gopay", "autogopay_shopeepay"])
+    .nullish()
+    .describe(
+      "Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan channel yang dipilih secara terpisah.",
+    ),
+  payableAmount: zod
+    .number()
+    .nullish()
+    .describe(
+      "Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null",
+    ),
+  uniqueCode: zod
+    .number()
+    .min(getOrderResponseUniqueCodeMin)
+    .nullish()
+    .describe(
+      "Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna",
+    ),
   notes: zod.string().nullish(),
   qrisUrl: zod
     .string()
     .nullish()
-    .describe("URL gambar QRIS (hanya untuk paymentMethod=qris via AutoGoPay)"),
-  expiresAt: zod.coerce.date().nullish().describe("Waktu kedaluwarsa QRIS"),
+    .describe("URL gambar QRIS untuk paymentMethod=qris"),
+  expiresAt: zod.coerce
+    .date()
+    .nullish()
+    .describe("Waktu kedaluwarsa pembayaran QRIS"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date().optional(),
 });
@@ -438,6 +510,8 @@ export const GetOrderResponse = zod.object({
 export const PayOrderParams = zod.object({
   id: zod.coerce.number(),
 });
+
+export const payOrderResponseUniqueCodeMin = 0;
 
 export const PayOrderResponse = zod.object({
   id: zod.number(),
@@ -483,16 +557,50 @@ export const PayOrderResponse = zod.object({
         .describe("Nama server yang di-pin (null jika tidak di-pin)"),
     })
     .nullish(),
-  status: zod.enum(["pending", "paid", "failed", "expired"]),
-  amount: zod.number(),
+  status: zod
+    .enum(["pending", "processing", "paid", "failed", "expired"])
+    .describe(
+      "processing berarti pembayaran sudah diterima dan akun VPN sedang dibuat",
+    ),
+  amount: zod
+    .number()
+    .describe("Harga dasar order dalam IDR, sebelum kode unik"),
   vpnAccountId: zod.number().nullish(),
   paymentMethod: zod.string().nullish(),
+  paymentProvider: zod
+    .enum(["ketantechpay", "autogopay"])
+    .nullish()
+    .describe(
+      "Penyedia pembayaran yang memproses transaksi; null untuk pembayaran saldo atau QRIS statis legacy",
+    ),
+  paymentChannel: zod
+    .enum(["ketantechpay", "autogopay_gopay", "autogopay_shopeepay"])
+    .nullish()
+    .describe(
+      "Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan channel yang dipilih secara terpisah.",
+    ),
+  payableAmount: zod
+    .number()
+    .nullish()
+    .describe(
+      "Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null",
+    ),
+  uniqueCode: zod
+    .number()
+    .min(payOrderResponseUniqueCodeMin)
+    .nullish()
+    .describe(
+      "Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna",
+    ),
   notes: zod.string().nullish(),
   qrisUrl: zod
     .string()
     .nullish()
-    .describe("URL gambar QRIS (hanya untuk paymentMethod=qris via AutoGoPay)"),
-  expiresAt: zod.coerce.date().nullish().describe("Waktu kedaluwarsa QRIS"),
+    .describe("URL gambar QRIS untuk paymentMethod=qris"),
+  expiresAt: zod.coerce
+    .date()
+    .nullish()
+    .describe("Waktu kedaluwarsa pembayaran QRIS"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date().optional(),
 });
@@ -528,12 +636,51 @@ export const ListTopupHistoryQueryParams = zod.object({
   offset: zod.coerce.number().default(listTopupHistoryQueryOffsetDefault),
 });
 
+export const listTopupHistoryResponseUniqueCodeMin = 0;
+
 export const ListTopupHistoryResponseItem = zod.object({
   id: zod.number(),
   userId: zod.number(),
   username: zod.string().nullish(),
-  amount: zod.number(),
+  amount: zod
+    .number()
+    .describe("Nominal saldo yang diminta dalam IDR, sebelum kode unik"),
+  paymentProvider: zod
+    .enum(["ketantechpay", "autogopay"])
+    .nullish()
+    .describe(
+      "Penyedia pembayaran yang memproses topup; null untuk QRIS statis legacy",
+    ),
+  paymentChannel: zod
+    .enum(["ketantechpay", "autogopay_gopay", "autogopay_shopeepay"])
+    .nullish()
+    .describe(
+      "Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. Semua QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan pilihan channel terpisah.",
+    ),
+  payableAmount: zod
+    .number()
+    .nullish()
+    .describe(
+      "Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null",
+    ),
+  uniqueCode: zod
+    .number()
+    .min(listTopupHistoryResponseUniqueCodeMin)
+    .nullish()
+    .describe(
+      "Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna",
+    ),
   qrisUrl: zod.string().nullish(),
+  expiresAt: zod.coerce
+    .date()
+    .nullish()
+    .describe("Waktu kedaluwarsa pembayaran QRIS"),
+  gateway: zod
+    .enum(["qris_static", "autogopay", "ketantechpay"])
+    .nullish()
+    .describe(
+      "Metadata gateway legacy; gunakan paymentProvider dan paymentChannel untuk integrasi baru",
+    ),
   status: zod.enum(["pending", "confirmed", "rejected"]),
   confirmedBy: zod.number().nullish(),
   rejectionNote: zod.string().nullish(),
@@ -692,6 +839,8 @@ export const RenewAccountResponse = zod.object({
 /**
  * @summary Get user dashboard summary (balance, active accounts, recent orders)
  */
+export const getDashboardSummaryResponseRecentOrdersItemUniqueCodeMin = 0;
+
 export const GetDashboardSummaryResponse = zod.object({
   balance: zod.number(),
   activeAccounts: zod.number(),
@@ -748,18 +897,50 @@ export const GetDashboardSummaryResponse = zod.object({
             .describe("Nama server yang di-pin (null jika tidak di-pin)"),
         })
         .nullish(),
-      status: zod.enum(["pending", "paid", "failed", "expired"]),
-      amount: zod.number(),
+      status: zod
+        .enum(["pending", "processing", "paid", "failed", "expired"])
+        .describe(
+          "processing berarti pembayaran sudah diterima dan akun VPN sedang dibuat",
+        ),
+      amount: zod
+        .number()
+        .describe("Harga dasar order dalam IDR, sebelum kode unik"),
       vpnAccountId: zod.number().nullish(),
       paymentMethod: zod.string().nullish(),
+      paymentProvider: zod
+        .enum(["ketantechpay", "autogopay"])
+        .nullish()
+        .describe(
+          "Penyedia pembayaran yang memproses transaksi; null untuk pembayaran saldo atau QRIS statis legacy",
+        ),
+      paymentChannel: zod
+        .enum(["ketantechpay", "autogopay_gopay", "autogopay_shopeepay"])
+        .nullish()
+        .describe(
+          "Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan channel yang dipilih secara terpisah.",
+        ),
+      payableAmount: zod
+        .number()
+        .nullish()
+        .describe(
+          "Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null",
+        ),
+      uniqueCode: zod
+        .number()
+        .min(getDashboardSummaryResponseRecentOrdersItemUniqueCodeMin)
+        .nullish()
+        .describe(
+          "Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna",
+        ),
       notes: zod.string().nullish(),
       qrisUrl: zod
         .string()
         .nullish()
-        .describe(
-          "URL gambar QRIS (hanya untuk paymentMethod=qris via AutoGoPay)",
-        ),
-      expiresAt: zod.coerce.date().nullish().describe("Waktu kedaluwarsa QRIS"),
+        .describe("URL gambar QRIS untuk paymentMethod=qris"),
+      expiresAt: zod.coerce
+        .date()
+        .nullish()
+        .describe("Waktu kedaluwarsa pembayaran QRIS"),
       createdAt: zod.coerce.date(),
       updatedAt: zod.coerce.date().optional(),
     }),
@@ -811,6 +992,10 @@ export const GetDashboardSummaryResponse = zod.object({
 /**
  * @summary Admin dashboard stats
  */
+export const getAdminDashboardResponseRecentOrdersItemOneUniqueCodeMin = 0;
+
+export const getAdminDashboardResponseRecentTopupsItemUniqueCodeMin = 0;
+
 export const GetAdminDashboardResponse = zod.object({
   totalUsers: zod.number(),
   totalOrders: zod.number(),
@@ -880,21 +1065,50 @@ export const GetAdminDashboardResponse = zod.object({
               .describe("Nama server yang di-pin (null jika tidak di-pin)"),
           })
           .nullish(),
-        status: zod.enum(["pending", "paid", "failed", "expired"]),
-        amount: zod.number(),
+        status: zod
+          .enum(["pending", "processing", "paid", "failed", "expired"])
+          .describe(
+            "processing berarti pembayaran sudah diterima dan akun VPN sedang dibuat",
+          ),
+        amount: zod
+          .number()
+          .describe("Harga dasar order dalam IDR, sebelum kode unik"),
         vpnAccountId: zod.number().nullish(),
         paymentMethod: zod.string().nullish(),
+        paymentProvider: zod
+          .enum(["ketantechpay", "autogopay"])
+          .nullish()
+          .describe(
+            "Penyedia pembayaran yang memproses transaksi; null untuk pembayaran saldo atau QRIS statis legacy",
+          ),
+        paymentChannel: zod
+          .enum(["ketantechpay", "autogopay_gopay", "autogopay_shopeepay"])
+          .nullish()
+          .describe(
+            "Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan channel yang dipilih secara terpisah.",
+          ),
+        payableAmount: zod
+          .number()
+          .nullish()
+          .describe(
+            "Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null",
+          ),
+        uniqueCode: zod
+          .number()
+          .min(getAdminDashboardResponseRecentOrdersItemOneUniqueCodeMin)
+          .nullish()
+          .describe(
+            "Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna",
+          ),
         notes: zod.string().nullish(),
         qrisUrl: zod
           .string()
           .nullish()
-          .describe(
-            "URL gambar QRIS (hanya untuk paymentMethod=qris via AutoGoPay)",
-          ),
+          .describe("URL gambar QRIS untuk paymentMethod=qris"),
         expiresAt: zod.coerce
           .date()
           .nullish()
-          .describe("Waktu kedaluwarsa QRIS"),
+          .describe("Waktu kedaluwarsa pembayaran QRIS"),
         createdAt: zod.coerce.date(),
         updatedAt: zod.coerce.date().optional(),
       })
@@ -934,8 +1148,45 @@ export const GetAdminDashboardResponse = zod.object({
       id: zod.number(),
       userId: zod.number(),
       username: zod.string().nullish(),
-      amount: zod.number(),
+      amount: zod
+        .number()
+        .describe("Nominal saldo yang diminta dalam IDR, sebelum kode unik"),
+      paymentProvider: zod
+        .enum(["ketantechpay", "autogopay"])
+        .nullish()
+        .describe(
+          "Penyedia pembayaran yang memproses topup; null untuk QRIS statis legacy",
+        ),
+      paymentChannel: zod
+        .enum(["ketantechpay", "autogopay_gopay", "autogopay_shopeepay"])
+        .nullish()
+        .describe(
+          "Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. Semua QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan pilihan channel terpisah.",
+        ),
+      payableAmount: zod
+        .number()
+        .nullish()
+        .describe(
+          "Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null",
+        ),
+      uniqueCode: zod
+        .number()
+        .min(getAdminDashboardResponseRecentTopupsItemUniqueCodeMin)
+        .nullish()
+        .describe(
+          "Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna",
+        ),
       qrisUrl: zod.string().nullish(),
+      expiresAt: zod.coerce
+        .date()
+        .nullish()
+        .describe("Waktu kedaluwarsa pembayaran QRIS"),
+      gateway: zod
+        .enum(["qris_static", "autogopay", "ketantechpay"])
+        .nullish()
+        .describe(
+          "Metadata gateway legacy; gunakan paymentProvider dan paymentChannel untuk integrasi baru",
+        ),
       status: zod.enum(["pending", "confirmed", "rejected"]),
       confirmedBy: zod.number().nullish(),
       rejectionNote: zod.string().nullish(),
@@ -994,6 +1245,10 @@ export const AdminListUsersResponse = zod.object({
 export const AdminGetUserParams = zod.object({
   id: zod.coerce.number(),
 });
+
+export const adminGetUserResponseTwoOrdersItemUniqueCodeMin = 0;
+
+export const adminGetUserResponseTwoTopupHistoryItemUniqueCodeMin = 0;
 
 export const AdminGetUserResponse = zod
   .object({
@@ -1070,21 +1325,50 @@ export const AdminGetUserResponse = zod
                   .describe("Nama server yang di-pin (null jika tidak di-pin)"),
               })
               .nullish(),
-            status: zod.enum(["pending", "paid", "failed", "expired"]),
-            amount: zod.number(),
+            status: zod
+              .enum(["pending", "processing", "paid", "failed", "expired"])
+              .describe(
+                "processing berarti pembayaran sudah diterima dan akun VPN sedang dibuat",
+              ),
+            amount: zod
+              .number()
+              .describe("Harga dasar order dalam IDR, sebelum kode unik"),
             vpnAccountId: zod.number().nullish(),
             paymentMethod: zod.string().nullish(),
+            paymentProvider: zod
+              .enum(["ketantechpay", "autogopay"])
+              .nullish()
+              .describe(
+                "Penyedia pembayaran yang memproses transaksi; null untuk pembayaran saldo atau QRIS statis legacy",
+              ),
+            paymentChannel: zod
+              .enum(["ketantechpay", "autogopay_gopay", "autogopay_shopeepay"])
+              .nullish()
+              .describe(
+                "Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan channel yang dipilih secara terpisah.",
+              ),
+            payableAmount: zod
+              .number()
+              .nullish()
+              .describe(
+                "Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null",
+              ),
+            uniqueCode: zod
+              .number()
+              .min(adminGetUserResponseTwoOrdersItemUniqueCodeMin)
+              .nullish()
+              .describe(
+                "Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna",
+              ),
             notes: zod.string().nullish(),
             qrisUrl: zod
               .string()
               .nullish()
-              .describe(
-                "URL gambar QRIS (hanya untuk paymentMethod=qris via AutoGoPay)",
-              ),
+              .describe("URL gambar QRIS untuk paymentMethod=qris"),
             expiresAt: zod.coerce
               .date()
               .nullish()
-              .describe("Waktu kedaluwarsa QRIS"),
+              .describe("Waktu kedaluwarsa pembayaran QRIS"),
             createdAt: zod.coerce.date(),
             updatedAt: zod.coerce.date().optional(),
           }),
@@ -1143,8 +1427,47 @@ export const AdminGetUserResponse = zod
             id: zod.number(),
             userId: zod.number(),
             username: zod.string().nullish(),
-            amount: zod.number(),
+            amount: zod
+              .number()
+              .describe(
+                "Nominal saldo yang diminta dalam IDR, sebelum kode unik",
+              ),
+            paymentProvider: zod
+              .enum(["ketantechpay", "autogopay"])
+              .nullish()
+              .describe(
+                "Penyedia pembayaran yang memproses topup; null untuk QRIS statis legacy",
+              ),
+            paymentChannel: zod
+              .enum(["ketantechpay", "autogopay_gopay", "autogopay_shopeepay"])
+              .nullish()
+              .describe(
+                "Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. Semua QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan pilihan channel terpisah.",
+              ),
+            payableAmount: zod
+              .number()
+              .nullish()
+              .describe(
+                "Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null",
+              ),
+            uniqueCode: zod
+              .number()
+              .min(adminGetUserResponseTwoTopupHistoryItemUniqueCodeMin)
+              .nullish()
+              .describe(
+                "Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna",
+              ),
             qrisUrl: zod.string().nullish(),
+            expiresAt: zod.coerce
+              .date()
+              .nullish()
+              .describe("Waktu kedaluwarsa pembayaran QRIS"),
+            gateway: zod
+              .enum(["qris_static", "autogopay", "ketantechpay"])
+              .nullish()
+              .describe(
+                "Metadata gateway legacy; gunakan paymentProvider dan paymentChannel untuk integrasi baru",
+              ),
             status: zod.enum(["pending", "confirmed", "rejected"]),
             confirmedBy: zod.number().nullish(),
             rejectionNote: zod.string().nullish(),
@@ -1512,12 +1835,16 @@ export const adminListOrdersQueryLimitDefault = 20;
 export const adminListOrdersQueryOffsetDefault = 0;
 
 export const AdminListOrdersQueryParams = zod.object({
-  status: zod.enum(["pending", "paid", "failed", "expired"]).optional(),
+  status: zod
+    .enum(["pending", "processing", "paid", "failed", "expired"])
+    .optional(),
   userId: zod.coerce.number().optional(),
   search: zod.coerce.string().optional().describe("Search by username"),
   limit: zod.coerce.number().default(adminListOrdersQueryLimitDefault),
   offset: zod.coerce.number().default(adminListOrdersQueryOffsetDefault),
 });
+
+export const adminListOrdersResponseOrdersItemOneUniqueCodeMin = 0;
 
 export const AdminListOrdersResponse = zod.object({
   orders: zod.array(
@@ -1572,21 +1899,50 @@ export const AdminListOrdersResponse = zod.object({
               .describe("Nama server yang di-pin (null jika tidak di-pin)"),
           })
           .nullish(),
-        status: zod.enum(["pending", "paid", "failed", "expired"]),
-        amount: zod.number(),
+        status: zod
+          .enum(["pending", "processing", "paid", "failed", "expired"])
+          .describe(
+            "processing berarti pembayaran sudah diterima dan akun VPN sedang dibuat",
+          ),
+        amount: zod
+          .number()
+          .describe("Harga dasar order dalam IDR, sebelum kode unik"),
         vpnAccountId: zod.number().nullish(),
         paymentMethod: zod.string().nullish(),
+        paymentProvider: zod
+          .enum(["ketantechpay", "autogopay"])
+          .nullish()
+          .describe(
+            "Penyedia pembayaran yang memproses transaksi; null untuk pembayaran saldo atau QRIS statis legacy",
+          ),
+        paymentChannel: zod
+          .enum(["ketantechpay", "autogopay_gopay", "autogopay_shopeepay"])
+          .nullish()
+          .describe(
+            "Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan channel yang dipilih secara terpisah.",
+          ),
+        payableAmount: zod
+          .number()
+          .nullish()
+          .describe(
+            "Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null",
+          ),
+        uniqueCode: zod
+          .number()
+          .min(adminListOrdersResponseOrdersItemOneUniqueCodeMin)
+          .nullish()
+          .describe(
+            "Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna",
+          ),
         notes: zod.string().nullish(),
         qrisUrl: zod
           .string()
           .nullish()
-          .describe(
-            "URL gambar QRIS (hanya untuk paymentMethod=qris via AutoGoPay)",
-          ),
+          .describe("URL gambar QRIS untuk paymentMethod=qris"),
         expiresAt: zod.coerce
           .date()
           .nullish()
-          .describe("Waktu kedaluwarsa QRIS"),
+          .describe("Waktu kedaluwarsa pembayaran QRIS"),
         createdAt: zod.coerce.date(),
         updatedAt: zod.coerce.date().optional(),
       })
@@ -1630,6 +1986,8 @@ export const AdminListOrdersResponse = zod.object({
 export const AdminConfirmOrderParams = zod.object({
   id: zod.coerce.number(),
 });
+
+export const adminConfirmOrderResponseUniqueCodeMin = 0;
 
 export const AdminConfirmOrderResponse = zod.object({
   id: zod.number(),
@@ -1675,16 +2033,50 @@ export const AdminConfirmOrderResponse = zod.object({
         .describe("Nama server yang di-pin (null jika tidak di-pin)"),
     })
     .nullish(),
-  status: zod.enum(["pending", "paid", "failed", "expired"]),
-  amount: zod.number(),
+  status: zod
+    .enum(["pending", "processing", "paid", "failed", "expired"])
+    .describe(
+      "processing berarti pembayaran sudah diterima dan akun VPN sedang dibuat",
+    ),
+  amount: zod
+    .number()
+    .describe("Harga dasar order dalam IDR, sebelum kode unik"),
   vpnAccountId: zod.number().nullish(),
   paymentMethod: zod.string().nullish(),
+  paymentProvider: zod
+    .enum(["ketantechpay", "autogopay"])
+    .nullish()
+    .describe(
+      "Penyedia pembayaran yang memproses transaksi; null untuk pembayaran saldo atau QRIS statis legacy",
+    ),
+  paymentChannel: zod
+    .enum(["ketantechpay", "autogopay_gopay", "autogopay_shopeepay"])
+    .nullish()
+    .describe(
+      "Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan channel yang dipilih secara terpisah.",
+    ),
+  payableAmount: zod
+    .number()
+    .nullish()
+    .describe(
+      "Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null",
+    ),
+  uniqueCode: zod
+    .number()
+    .min(adminConfirmOrderResponseUniqueCodeMin)
+    .nullish()
+    .describe(
+      "Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna",
+    ),
   notes: zod.string().nullish(),
   qrisUrl: zod
     .string()
     .nullish()
-    .describe("URL gambar QRIS (hanya untuk paymentMethod=qris via AutoGoPay)"),
-  expiresAt: zod.coerce.date().nullish().describe("Waktu kedaluwarsa QRIS"),
+    .describe("URL gambar QRIS untuk paymentMethod=qris"),
+  expiresAt: zod.coerce
+    .date()
+    .nullish()
+    .describe("Waktu kedaluwarsa pembayaran QRIS"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date().optional(),
 });
@@ -1701,12 +2093,51 @@ export const AdminListTopupsQueryParams = zod.object({
   offset: zod.coerce.number().default(adminListTopupsQueryOffsetDefault),
 });
 
+export const adminListTopupsResponseUniqueCodeMin = 0;
+
 export const AdminListTopupsResponseItem = zod.object({
   id: zod.number(),
   userId: zod.number(),
   username: zod.string().nullish(),
-  amount: zod.number(),
+  amount: zod
+    .number()
+    .describe("Nominal saldo yang diminta dalam IDR, sebelum kode unik"),
+  paymentProvider: zod
+    .enum(["ketantechpay", "autogopay"])
+    .nullish()
+    .describe(
+      "Penyedia pembayaran yang memproses topup; null untuk QRIS statis legacy",
+    ),
+  paymentChannel: zod
+    .enum(["ketantechpay", "autogopay_gopay", "autogopay_shopeepay"])
+    .nullish()
+    .describe(
+      "Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. Semua QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan pilihan channel terpisah.",
+    ),
+  payableAmount: zod
+    .number()
+    .nullish()
+    .describe(
+      "Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null",
+    ),
+  uniqueCode: zod
+    .number()
+    .min(adminListTopupsResponseUniqueCodeMin)
+    .nullish()
+    .describe(
+      "Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna",
+    ),
   qrisUrl: zod.string().nullish(),
+  expiresAt: zod.coerce
+    .date()
+    .nullish()
+    .describe("Waktu kedaluwarsa pembayaran QRIS"),
+  gateway: zod
+    .enum(["qris_static", "autogopay", "ketantechpay"])
+    .nullish()
+    .describe(
+      "Metadata gateway legacy; gunakan paymentProvider dan paymentChannel untuk integrasi baru",
+    ),
   status: zod.enum(["pending", "confirmed", "rejected"]),
   confirmedBy: zod.number().nullish(),
   rejectionNote: zod.string().nullish(),
@@ -1722,12 +2153,51 @@ export const AdminConfirmTopupParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const adminConfirmTopupResponseUniqueCodeMin = 0;
+
 export const AdminConfirmTopupResponse = zod.object({
   id: zod.number(),
   userId: zod.number(),
   username: zod.string().nullish(),
-  amount: zod.number(),
+  amount: zod
+    .number()
+    .describe("Nominal saldo yang diminta dalam IDR, sebelum kode unik"),
+  paymentProvider: zod
+    .enum(["ketantechpay", "autogopay"])
+    .nullish()
+    .describe(
+      "Penyedia pembayaran yang memproses topup; null untuk QRIS statis legacy",
+    ),
+  paymentChannel: zod
+    .enum(["ketantechpay", "autogopay_gopay", "autogopay_shopeepay"])
+    .nullish()
+    .describe(
+      "Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. Semua QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan pilihan channel terpisah.",
+    ),
+  payableAmount: zod
+    .number()
+    .nullish()
+    .describe(
+      "Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null",
+    ),
+  uniqueCode: zod
+    .number()
+    .min(adminConfirmTopupResponseUniqueCodeMin)
+    .nullish()
+    .describe(
+      "Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna",
+    ),
   qrisUrl: zod.string().nullish(),
+  expiresAt: zod.coerce
+    .date()
+    .nullish()
+    .describe("Waktu kedaluwarsa pembayaran QRIS"),
+  gateway: zod
+    .enum(["qris_static", "autogopay", "ketantechpay"])
+    .nullish()
+    .describe(
+      "Metadata gateway legacy; gunakan paymentProvider dan paymentChannel untuk integrasi baru",
+    ),
   status: zod.enum(["pending", "confirmed", "rejected"]),
   confirmedBy: zod.number().nullish(),
   rejectionNote: zod.string().nullish(),
@@ -1746,12 +2216,51 @@ export const AdminRejectTopupBody = zod.object({
   rejectionNote: zod.string().nullish(),
 });
 
+export const adminRejectTopupResponseUniqueCodeMin = 0;
+
 export const AdminRejectTopupResponse = zod.object({
   id: zod.number(),
   userId: zod.number(),
   username: zod.string().nullish(),
-  amount: zod.number(),
+  amount: zod
+    .number()
+    .describe("Nominal saldo yang diminta dalam IDR, sebelum kode unik"),
+  paymentProvider: zod
+    .enum(["ketantechpay", "autogopay"])
+    .nullish()
+    .describe(
+      "Penyedia pembayaran yang memproses topup; null untuk QRIS statis legacy",
+    ),
+  paymentChannel: zod
+    .enum(["ketantechpay", "autogopay_gopay", "autogopay_shopeepay"])
+    .nullish()
+    .describe(
+      "Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. Semua QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan pilihan channel terpisah.",
+    ),
+  payableAmount: zod
+    .number()
+    .nullish()
+    .describe(
+      "Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null",
+    ),
+  uniqueCode: zod
+    .number()
+    .min(adminRejectTopupResponseUniqueCodeMin)
+    .nullish()
+    .describe(
+      "Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna",
+    ),
   qrisUrl: zod.string().nullish(),
+  expiresAt: zod.coerce
+    .date()
+    .nullish()
+    .describe("Waktu kedaluwarsa pembayaran QRIS"),
+  gateway: zod
+    .enum(["qris_static", "autogopay", "ketantechpay"])
+    .nullish()
+    .describe(
+      "Metadata gateway legacy; gunakan paymentProvider dan paymentChannel untuk integrasi baru",
+    ),
   status: zod.enum(["pending", "confirmed", "rejected"]),
   confirmedBy: zod.number().nullish(),
   rejectionNote: zod.string().nullish(),
@@ -1934,97 +2443,330 @@ export const AdminToggleAccountResponse = zod.object({
 /**
  * @summary Get payment gateway settings
  */
+export const adminGetPaymentSettingsResponseQrisStaticUrlRegExp = new RegExp(
+  "^https:\/",
+);
+export const adminGetPaymentSettingsResponseQrisExpiryMinutesMax = 1440;
+
+export const adminGetPaymentSettingsResponsePaymentChannelOrderMax = 3;
+
+export const adminGetPaymentSettingsResponseAutoGopayApiUrlRegExp = new RegExp(
+  "^https:\/",
+);
+export const adminGetPaymentSettingsResponseKetantechPayBaseUrlRegExp =
+  new RegExp("^https:\/");
+
 export const AdminGetPaymentSettingsResponse = zod.object({
   qrisStaticUrl: zod
     .string()
+    .url()
+    .regex(adminGetPaymentSettingsResponseQrisStaticUrlRegExp)
     .nullish()
-    .describe("URL gambar QRIS statis untuk topup manual"),
-  qrisEnabled: zod.boolean().optional().describe("Aktifkan metode QRIS statis"),
+    .describe("URL HTTPS gambar QRIS statis untuk topup manual (legacy)"),
+  qrisEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan metode QRIS statis legacy"),
   qrisExpiryMinutes: zod
     .number()
+    .min(1)
+    .max(adminGetPaymentSettingsResponseQrisExpiryMinutesMax)
     .nullish()
-    .describe("Durasi QRIS statis berlaku dalam menit (default 15)"),
+    .describe("Durasi pembayaran berlaku dalam menit (default 15)"),
+  paymentFallbackEnabled: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Coba channel aktif berikutnya sesuai paymentChannelOrder bila channel sebelumnya gagal",
+    ),
+  paymentChannelOrder: zod
+    .array(zod.enum(["ketantechpay", "autogopay_gopay", "autogopay_shopeepay"]))
+    .min(1)
+    .max(adminGetPaymentSettingsResponsePaymentChannelOrderMax)
+    .optional()
+    .describe(
+      "Urutan prioritas channel pembayaran; backend menambahkan channel yang belum disebutkan dalam urutan default",
+    ),
   autoGopayEnabled: zod
     .boolean()
     .optional()
-    .describe("Aktifkan integrasi AutoGoPay"),
-  autoGopayApiUrl: zod.string().nullish().describe("Base URL API AutoGoPay"),
-  autoGopayMerchantId: zod.string().nullish().describe("Merchant ID AutoGoPay"),
+    .describe(
+      "Kompatibilitas legacy; bernilai true bila GoPay atau ShopeePay AutoGoPay aktif",
+    ),
+  autoGopayApiUrl: zod
+    .string()
+    .url()
+    .regex(adminGetPaymentSettingsResponseAutoGopayApiUrlRegExp)
+    .nullish()
+    .describe("Base URL HTTPS bersama untuk channel AutoGoPay"),
+  autoGopayMerchantId: zod
+    .string()
+    .nullish()
+    .describe("Merchant ID AutoGoPay (legacy)"),
   autoGopaySecretKey: zod
     .string()
     .nullish()
-    .describe("API Key AutoGoPay (untuk auth dan verifikasi webhook)"),
+    .describe("API Key bersama AutoGoPay (untuk auth dan verifikasi webhook)"),
   autoGopayCallbackToken: zod
     .string()
     .nullish()
-    .describe("Token verifikasi callback\/webhook AutoGoPay"),
-  activeGateway: zod
-    .enum(["qris_static", "autogopay"])
+    .describe("Token verifikasi callback\/webhook AutoGoPay (legacy)"),
+  autoGopayGopayEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan channel GoPay melalui AutoGoPay"),
+  autoGopayShopeePayEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan channel ShopeePay melalui AutoGoPay"),
+  autoGopayShopeePayQrisStatic: zod
+    .string()
     .nullish()
-    .describe("Gateway aktif: 'qris_static' | 'autogopay'"),
+    .describe(
+      "String payload QRIS statis ShopeePay; OVO tetap memindai payload ini sebagai QRIS, bukan menjadi channel OVO terpisah",
+    ),
+  activeGateway: zod
+    .enum(["qris_static", "autogopay", "ketantechpay"])
+    .nullish()
+    .describe(
+      "Gateway aktif legacy yang disinkronkan dari channel pertama yang aktif",
+    ),
+  ketantechPayEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan channel KetantechPay"),
+  ketantechPayWebhookSecret: zod
+    .string()
+    .nullish()
+    .describe("Webhook Secret KetantechPay"),
+  ketantechPayBaseUrl: zod
+    .string()
+    .url()
+    .regex(adminGetPaymentSettingsResponseKetantechPayBaseUrlRegExp)
+    .nullish()
+    .describe("Base URL HTTPS KetantechPay"),
+  ketantechPayClientKey: zod
+    .string()
+    .nullish()
+    .describe("Client API Key KetantechPay"),
 });
 
 /**
  * @summary Update payment gateway settings
  */
+export const adminUpdatePaymentSettingsBodyQrisStaticUrlRegExp = new RegExp(
+  "^https:\/",
+);
+export const adminUpdatePaymentSettingsBodyQrisExpiryMinutesMax = 1440;
+
+export const adminUpdatePaymentSettingsBodyPaymentChannelOrderMax = 3;
+
+export const adminUpdatePaymentSettingsBodyAutoGopayApiUrlRegExp = new RegExp(
+  "^https:\/",
+);
+export const adminUpdatePaymentSettingsBodyKetantechPayBaseUrlRegExp =
+  new RegExp("^https:\/");
+
 export const AdminUpdatePaymentSettingsBody = zod.object({
   qrisStaticUrl: zod
     .string()
+    .url()
+    .regex(adminUpdatePaymentSettingsBodyQrisStaticUrlRegExp)
     .nullish()
-    .describe("URL gambar QRIS statis untuk topup manual"),
-  qrisEnabled: zod.boolean().optional().describe("Aktifkan metode QRIS statis"),
+    .describe("URL HTTPS gambar QRIS statis untuk topup manual (legacy)"),
+  qrisEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan metode QRIS statis legacy"),
   qrisExpiryMinutes: zod
     .number()
+    .min(1)
+    .max(adminUpdatePaymentSettingsBodyQrisExpiryMinutesMax)
     .nullish()
-    .describe("Durasi QRIS statis berlaku dalam menit (default 15)"),
+    .describe("Durasi pembayaran berlaku dalam menit (default 15)"),
+  paymentFallbackEnabled: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Coba channel aktif berikutnya sesuai paymentChannelOrder bila channel sebelumnya gagal",
+    ),
+  paymentChannelOrder: zod
+    .array(zod.enum(["ketantechpay", "autogopay_gopay", "autogopay_shopeepay"]))
+    .min(1)
+    .max(adminUpdatePaymentSettingsBodyPaymentChannelOrderMax)
+    .optional()
+    .describe(
+      "Urutan prioritas channel pembayaran; backend menambahkan channel yang belum disebutkan dalam urutan default",
+    ),
   autoGopayEnabled: zod
     .boolean()
     .optional()
-    .describe("Aktifkan integrasi AutoGoPay"),
-  autoGopayApiUrl: zod.string().nullish().describe("Base URL API AutoGoPay"),
-  autoGopayMerchantId: zod.string().nullish().describe("Merchant ID AutoGoPay"),
+    .describe(
+      "Kompatibilitas legacy; bernilai true bila GoPay atau ShopeePay AutoGoPay aktif",
+    ),
+  autoGopayApiUrl: zod
+    .string()
+    .url()
+    .regex(adminUpdatePaymentSettingsBodyAutoGopayApiUrlRegExp)
+    .nullish()
+    .describe("Base URL HTTPS bersama untuk channel AutoGoPay"),
+  autoGopayMerchantId: zod
+    .string()
+    .nullish()
+    .describe("Merchant ID AutoGoPay (legacy)"),
   autoGopaySecretKey: zod
     .string()
     .nullish()
-    .describe("API Key AutoGoPay (untuk auth dan verifikasi webhook)"),
+    .describe("API Key bersama AutoGoPay (untuk auth dan verifikasi webhook)"),
   autoGopayCallbackToken: zod
     .string()
     .nullish()
-    .describe("Token verifikasi callback\/webhook AutoGoPay"),
-  activeGateway: zod
-    .enum(["qris_static", "autogopay"])
+    .describe("Token verifikasi callback\/webhook AutoGoPay (legacy)"),
+  autoGopayGopayEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan channel GoPay melalui AutoGoPay"),
+  autoGopayShopeePayEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan channel ShopeePay melalui AutoGoPay"),
+  autoGopayShopeePayQrisStatic: zod
+    .string()
     .nullish()
-    .describe("Gateway aktif: 'qris_static' | 'autogopay'"),
+    .describe(
+      "String payload QRIS statis ShopeePay; OVO tetap memindai payload ini sebagai QRIS, bukan menjadi channel OVO terpisah",
+    ),
+  activeGateway: zod
+    .enum(["qris_static", "autogopay", "ketantechpay"])
+    .nullish()
+    .describe(
+      "Gateway aktif legacy yang disinkronkan dari channel pertama yang aktif",
+    ),
+  ketantechPayEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan channel KetantechPay"),
+  ketantechPayWebhookSecret: zod
+    .string()
+    .nullish()
+    .describe("Webhook Secret KetantechPay"),
+  ketantechPayBaseUrl: zod
+    .string()
+    .url()
+    .regex(adminUpdatePaymentSettingsBodyKetantechPayBaseUrlRegExp)
+    .nullish()
+    .describe("Base URL HTTPS KetantechPay"),
+  ketantechPayClientKey: zod
+    .string()
+    .nullish()
+    .describe("Client API Key KetantechPay"),
 });
+
+export const adminUpdatePaymentSettingsResponseQrisStaticUrlRegExp = new RegExp(
+  "^https:\/",
+);
+export const adminUpdatePaymentSettingsResponseQrisExpiryMinutesMax = 1440;
+
+export const adminUpdatePaymentSettingsResponsePaymentChannelOrderMax = 3;
+
+export const adminUpdatePaymentSettingsResponseAutoGopayApiUrlRegExp =
+  new RegExp("^https:\/");
+export const adminUpdatePaymentSettingsResponseKetantechPayBaseUrlRegExp =
+  new RegExp("^https:\/");
 
 export const AdminUpdatePaymentSettingsResponse = zod.object({
   qrisStaticUrl: zod
     .string()
+    .url()
+    .regex(adminUpdatePaymentSettingsResponseQrisStaticUrlRegExp)
     .nullish()
-    .describe("URL gambar QRIS statis untuk topup manual"),
-  qrisEnabled: zod.boolean().optional().describe("Aktifkan metode QRIS statis"),
+    .describe("URL HTTPS gambar QRIS statis untuk topup manual (legacy)"),
+  qrisEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan metode QRIS statis legacy"),
   qrisExpiryMinutes: zod
     .number()
+    .min(1)
+    .max(adminUpdatePaymentSettingsResponseQrisExpiryMinutesMax)
     .nullish()
-    .describe("Durasi QRIS statis berlaku dalam menit (default 15)"),
+    .describe("Durasi pembayaran berlaku dalam menit (default 15)"),
+  paymentFallbackEnabled: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Coba channel aktif berikutnya sesuai paymentChannelOrder bila channel sebelumnya gagal",
+    ),
+  paymentChannelOrder: zod
+    .array(zod.enum(["ketantechpay", "autogopay_gopay", "autogopay_shopeepay"]))
+    .min(1)
+    .max(adminUpdatePaymentSettingsResponsePaymentChannelOrderMax)
+    .optional()
+    .describe(
+      "Urutan prioritas channel pembayaran; backend menambahkan channel yang belum disebutkan dalam urutan default",
+    ),
   autoGopayEnabled: zod
     .boolean()
     .optional()
-    .describe("Aktifkan integrasi AutoGoPay"),
-  autoGopayApiUrl: zod.string().nullish().describe("Base URL API AutoGoPay"),
-  autoGopayMerchantId: zod.string().nullish().describe("Merchant ID AutoGoPay"),
+    .describe(
+      "Kompatibilitas legacy; bernilai true bila GoPay atau ShopeePay AutoGoPay aktif",
+    ),
+  autoGopayApiUrl: zod
+    .string()
+    .url()
+    .regex(adminUpdatePaymentSettingsResponseAutoGopayApiUrlRegExp)
+    .nullish()
+    .describe("Base URL HTTPS bersama untuk channel AutoGoPay"),
+  autoGopayMerchantId: zod
+    .string()
+    .nullish()
+    .describe("Merchant ID AutoGoPay (legacy)"),
   autoGopaySecretKey: zod
     .string()
     .nullish()
-    .describe("API Key AutoGoPay (untuk auth dan verifikasi webhook)"),
+    .describe("API Key bersama AutoGoPay (untuk auth dan verifikasi webhook)"),
   autoGopayCallbackToken: zod
     .string()
     .nullish()
-    .describe("Token verifikasi callback\/webhook AutoGoPay"),
-  activeGateway: zod
-    .enum(["qris_static", "autogopay"])
+    .describe("Token verifikasi callback\/webhook AutoGoPay (legacy)"),
+  autoGopayGopayEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan channel GoPay melalui AutoGoPay"),
+  autoGopayShopeePayEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan channel ShopeePay melalui AutoGoPay"),
+  autoGopayShopeePayQrisStatic: zod
+    .string()
     .nullish()
-    .describe("Gateway aktif: 'qris_static' | 'autogopay'"),
+    .describe(
+      "String payload QRIS statis ShopeePay; OVO tetap memindai payload ini sebagai QRIS, bukan menjadi channel OVO terpisah",
+    ),
+  activeGateway: zod
+    .enum(["qris_static", "autogopay", "ketantechpay"])
+    .nullish()
+    .describe(
+      "Gateway aktif legacy yang disinkronkan dari channel pertama yang aktif",
+    ),
+  ketantechPayEnabled: zod
+    .boolean()
+    .optional()
+    .describe("Aktifkan channel KetantechPay"),
+  ketantechPayWebhookSecret: zod
+    .string()
+    .nullish()
+    .describe("Webhook Secret KetantechPay"),
+  ketantechPayBaseUrl: zod
+    .string()
+    .url()
+    .regex(adminUpdatePaymentSettingsResponseKetantechPayBaseUrlRegExp)
+    .nullish()
+    .describe("Base URL HTTPS KetantechPay"),
+  ketantechPayClientKey: zod
+    .string()
+    .nullish()
+    .describe("Client API Key KetantechPay"),
 });
 
 /**

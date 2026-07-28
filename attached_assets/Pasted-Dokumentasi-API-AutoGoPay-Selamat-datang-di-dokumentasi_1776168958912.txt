@@ -15,10 +15,7 @@ Response time 50ms untuk performa maksimal
 Autentikasi
 Semua request API memerlukan API Key yang dikirim melalui header Authorization dengan format Bearer Token.
 
-API Key Anda
-agp_02cbafec••••••••••••••••••••••••••••••••••••••••••••••••••••
-
-
+<AUTOGOPAY_API_KEY>
 ⚠️ Jangan bagikan API Key Anda kepada siapapun. Jika bocor, segera regenerate di halaman Settings.
 
 Contoh Header

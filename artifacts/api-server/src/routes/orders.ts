@@ -14,6 +14,11 @@ import { notifyUserVpnAccountCreated, notifyAdminOrderFulfilled } from "../lib/t
 import { addPoints, getPointsSettings } from "./points";
 import { getReferralBonusAmount } from "../lib/scheduler";
 import { createOrderLimiter } from "../lib/rate-limit";
+import {
+  createEntityQrPayment,
+  isPaymentProviderError,
+  markEntityQrCreationFailed,
+} from "../lib/payment";
 
 const router = Router();
 
@@ -31,6 +36,10 @@ async function formatOrder(o: typeof ordersTable.$inferSelect) {
     product: product ? formatProduct(product) : null,
     status: o.status,
     amount: Number(o.amount),
+    payableAmount: Number(o.payableAmount ?? o.amount),
+    paymentProvider: o.paymentProvider ?? null,
+    paymentChannel: o.paymentChannel ?? null,
+    uniqueCode: o.uniqueCode ?? 0,
     vpnAccountId: o.vpnAccountId,
     paymentMethod: o.paymentMethod,
     notes: o.notes,
@@ -38,113 +47,6 @@ async function formatOrder(o: typeof ordersTable.$inferSelect) {
     expiresAt: o.expiresAt ?? null,
     createdAt: o.createdAt,
     updatedAt: o.updatedAt,
-  };
-}
-
-/**
- * Generate a QRIS via AutoGoPay and return the QRIS data.
- * Returns null if AutoGoPay is not the active gateway or not configured.
- */
-async function generateAutoGopayQris(amount: number): Promise<{
-  transactionId: string;
-  qrisUrl: string;
-  expiresAt: Date;
-} | null> {
-  const settingsMap = await getPaymentSettingsMap();
-  const activeGateway = settingsMap["activeGateway"] ?? "qris_static";
-
-  if (activeGateway !== "autogopay" && activeGateway !== "ketantechpay") return null;
-
-  if (activeGateway === "ketantechpay") {
-    const baseUrl = (settingsMap["ketantechPayBaseUrl"] ?? "").replace(/\/$/, "");
-    const clientKey = settingsMap["ketantechPayClientKey"];
-    const expiryMinutes = settingsMap["qrisExpiryMinutes"] ? parseInt(settingsMap["qrisExpiryMinutes"], 10) : 15;
-
-    if (!baseUrl) {
-      logger.warn("KetantechPay not configured — missing base URL");
-      return null;
-    }
-
-    const orderId = `VPN-ORD-${Date.now()}`;
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "Idempotency-Key": `${orderId}-${Math.random().toString(36).slice(2, 10)}`,
-    };
-    if (clientKey) {
-      headers["X-Client-Key"] = clientKey;
-      headers["x-api-key"] = clientKey;
-    }
-
-    const resp = await fetch(`${baseUrl}/api/v1/payments/charge`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        orderId,
-        amount,
-        currency: "IDR",
-        method: "qris",
-        customer: {
-          name: "WebVPN User",
-          email: "webvpn@local.invalid",
-        },
-        description: "WebVPN QRIS order",
-      }),
-    });
-
-    const data = (await resp.json().catch(() => ({}))) as {
-      data?: { id?: string; paymentUrl?: string };
-      message?: string;
-    };
-
-    if (!resp.ok || !data?.data?.id || !data?.data?.paymentUrl) {
-      logger.error({ status: resp.status, data }, "KetantechPay: generate QRIS for order failed");
-      throw new Error(data?.message ?? "Gagal membuat QRIS dari KetantechPay");
-    }
-
-    return {
-      transactionId: data.data.id,
-      qrisUrl: data.data.paymentUrl,
-      expiresAt: new Date(Date.now() + expiryMinutes * 60 * 1000),
-    };
-  }
-
-  const apiUrl = (settingsMap["autoGopayApiUrl"] ?? "https://v1-gateway.autogopay.site").replace(/\/$/, "");
-  const apiKey = settingsMap["autoGopaySecretKey"];
-
-  if (!apiKey) {
-    logger.warn("AutoGoPay not configured — cannot generate QRIS for order");
-    return null;
-  }
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
-  let resp: Response;
-  try {
-    resp = await fetch(`${apiUrl}/qris/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ amount }),
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timeoutId);
-  }
-
-  const data = await resp.json() as {
-    success: boolean;
-    data?: { transaction_id: string; qr_url: string; expiry_time: string };
-    message?: string;
-  };
-
-  if (!data.success || !data.data) {
-    logger.error({ data }, "AutoGoPay: generate QRIS for order failed");
-    throw new Error(data.message ?? "Gagal membuat QRIS dari AutoGoPay");
-  }
-
-  return {
-    transactionId: data.data.transaction_id,
-    qrisUrl: data.data.qr_url,
-    expiresAt: new Date(data.data.expiry_time.replace(" ", "T") + "+07:00"),
   };
 }
 
@@ -709,22 +611,8 @@ router.post("/orders", requireAuth, createOrderLimiter, async (req, res) => {
     return;
   }
 
-  // ─── Generate QRIS via AutoGoPay jika paymentMethod = "qris" ─────────────
-  let qrisData: { transactionId: string; qrisUrl: string; expiresAt: Date } | null = null;
-  if (paymentMethod === "qris") {
-    try {
-      qrisData = await generateAutoGopayQris(amount);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      res.status(502).json({ error: `Gagal membuat QRIS: ${msg}` });
-      return;
-    }
-    if (!qrisData) {
-      res.status(400).json({ error: "Pembayaran QRIS via AutoGoPay belum dikonfigurasi. Hubungi admin." });
-      return;
-    }
-  }
-
+  // Persist first so every provider sees the same local reference/idempotency key.
+  // Balance orders keep their existing pending/fulfillment behavior.
   const [order] = await db
     .insert(ordersTable)
     .values({
@@ -732,17 +620,72 @@ router.post("/orders", requireAuth, createOrderLimiter, async (req, res) => {
       productId,
       status: "pending",
       amount: String(amount),
+      payableAmount: String(amount),
       paymentMethod,
       notes: normalizedRemarks,
       voucherId: appliedVoucherId,
       discountAmount: String(appliedDiscountAmount),
-      autogopayTransactionId: qrisData?.transactionId ?? null,
-      qrisUrl: qrisData?.qrisUrl ?? null,
-      expiresAt: qrisData?.expiresAt ?? null,
     })
     .returning();
 
-  res.status(201).json(await formatOrder(order));
+  if (paymentMethod === "qris") {
+    const settingsMap = await getPaymentSettingsMap();
+    const activeGateway = settingsMap["activeGateway"] ?? "qris_static";
+
+    if (activeGateway === "qris_static") {
+      // Order QRIS historically requires an outbound gateway; preserve that
+      // validation rather than silently creating a manual/static QR order.
+      await markEntityQrCreationFailed(
+        { kind: "order", id: order.id },
+        new Error("No outbound QRIS provider is configured"),
+      );
+      res.status(400).json({
+        error: "Pembayaran QRIS via AutoGoPay belum dikonfigurasi. Hubungi admin.",
+        orderId: order.id,
+      });
+      return;
+    }
+
+    try {
+      await createEntityQrPayment({
+        entity: { kind: "order", id: order.id },
+        baseAmount: amount,
+        settings: settingsMap,
+        customer: {
+          name: "WebVPN User",
+          email: "webvpn@local.invalid",
+        },
+        description: `WebVPN QRIS order #${order.id}`,
+      });
+    } catch (err) {
+      await markEntityQrCreationFailed({ kind: "order", id: order.id }, err);
+      const ambiguous =
+        isPaymentProviderError(err) && err.category === "ambiguous";
+      logger.error(
+        {
+          err,
+          orderId: order.id,
+          paymentOutcome: ambiguous ? "unknown" : "failed",
+        },
+        "Order QRIS creation failed",
+      );
+      res.status(ambiguous ? 503 : 502).json({
+        error: ambiguous
+          ? "Status pembuatan QRIS belum dapat dipastikan. Jangan buat order ulang; hubungi admin."
+          : "Gagal membuat QRIS. Coba lagi.",
+        orderId: order.id,
+        paymentStatus: ambiguous ? "unknown" : "failed",
+      });
+      return;
+    }
+  }
+
+  const [updatedOrder] = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.id, order.id))
+    .limit(1);
+  res.status(201).json(await formatOrder(updatedOrder ?? order));
 });
 
 router.get("/orders/:id", requireAuth, async (req, res) => {

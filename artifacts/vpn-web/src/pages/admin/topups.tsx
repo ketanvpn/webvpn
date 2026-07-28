@@ -166,7 +166,7 @@ export default function AdminTopups() {
 
                     <div className="flex items-center gap-4 sm:justify-end flex-wrap">
                       <div className="font-bold text-xl text-primary">
-                        {formatRupiah(topup.amount)}
+                        {formatRupiah(topup.payableAmount ?? topup.amount)}
                       </div>
                       {topup.status === "pending" && (
                         <div className="flex gap-2 flex-wrap">

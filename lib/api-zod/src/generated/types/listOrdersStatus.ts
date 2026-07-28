@@ -11,6 +11,7 @@ export type ListOrdersStatus =
 
 export const ListOrdersStatus = {
   pending: "pending",
+  processing: "processing",
   paid: "paid",
   failed: "failed",
   expired: "expired",

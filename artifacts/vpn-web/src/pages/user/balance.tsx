@@ -1,5 +1,12 @@
 import { getApiError } from "@/lib/utils";
-import { useGetBalance, useTopupBalance, useListTopupHistory, getGetBalanceQueryKey, getListTopupHistoryQueryKey } from "@workspace/api-client-react";
+import {
+  useGetBalance,
+  useTopupBalance,
+  useListTopupHistory,
+  getGetBalanceQueryKey,
+  getListTopupHistoryQueryKey,
+  type TopupTransaction,
+} from "@workspace/api-client-react";
 import { formatRupiah } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,23 +52,94 @@ const topupSchema = z.object({
 
 const presetAmounts = [10000, 25000, 50000, 100000, 200000];
 
+const dynamicPaymentChannels = new Set([
+  "ketantechpay",
+  "autogopay_gopay",
+  "autogopay_shopeepay",
+]);
+
+type ActiveTopup = {
+  id: number;
+  amount: number;
+  payableAmount: number;
+  uniqueCode: number;
+  qrisUrl: string;
+  expiresAt: string | null;
+  paymentProvider: string | null;
+  paymentChannel: string | null;
+  gateway: string | null;
+};
+
+function getPaymentChannelName(
+  channel?: string | null,
+  provider?: string | null,
+  gateway?: string | null,
+) {
+  switch (channel) {
+    case "ketantechpay":
+      return "QRIS dinamis (KetantechPay)";
+    case "autogopay_gopay":
+      return "QRIS dinamis (GoPay)";
+    case "autogopay_shopeepay":
+      return "QRIS (ShopeePay)";
+  }
+
+  if (provider === "ketantechpay") return "QRIS dinamis (KetantechPay)";
+  if (provider === "autogopay") return "QRIS dinamis (AutoGoPay)";
+
+  switch (gateway) {
+    case "ketantechpay":
+      return "QRIS dinamis (KetantechPay)";
+    case "autogopay":
+      return "QRIS dinamis (AutoGoPay)";
+    case "qris_static":
+      return "QRIS statis";
+    default:
+      return "QRIS";
+  }
+}
+
+function isDynamicPaymentChannel(
+  channel?: string | null,
+  provider?: string | null,
+  gateway?: string | null,
+) {
+  return (
+    (!!channel && dynamicPaymentChannels.has(channel)) ||
+    provider === "autogopay" ||
+    provider === "ketantechpay" ||
+    gateway === "autogopay" ||
+    gateway === "ketantechpay"
+  );
+}
+
+function toActiveTopup(tx: TopupTransaction): ActiveTopup {
+  return {
+    id: tx.id,
+    amount: tx.amount,
+    payableAmount: tx.payableAmount ?? tx.amount,
+    uniqueCode: tx.uniqueCode ?? 0,
+    qrisUrl: tx.qrisUrl ?? "",
+    expiresAt: tx.expiresAt ?? null,
+    paymentProvider: tx.paymentProvider ?? null,
+    paymentChannel: tx.paymentChannel ?? null,
+    gateway: tx.gateway ?? null,
+  };
+}
+
 export default function Balance() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showQris, setShowQris] = useState(false);
-  const [qrisUrl, setQrisUrl] = useState("");
-  const [qrisExpiresAt, setQrisExpiresAt] = useState<string | null>(null);
-  const [qrisGateway, setQrisGateway] = useState<string | null>(null);
-  const countdown = useCountdown(showQris ? qrisExpiresAt : null);
+  const [activeTopup, setActiveTopup] = useState<ActiveTopup | null>(null);
+  const [qrisImageError, setQrisImageError] = useState(false);
+  const countdown = useCountdown(showQris ? activeTopup?.expiresAt ?? null : null);
 
-  const openQrisFromHistory = (tx: { qrisUrl?: string | null; expiresAt?: string | null }) => {
-    setQrisUrl(tx.qrisUrl ?? "");
-    setQrisExpiresAt(tx.expiresAt ?? null);
-    setQrisGateway(null);
+  const openQrisFromHistory = (tx: TopupTransaction) => {
+    setActiveTopup(toActiveTopup(tx));
+    setQrisImageError(false);
     setShowQris(true);
   };
-
-  const prevBalanceRef = useRef<number | null>(null);
 
   const { data: balanceData, isLoading: isLoadingBalance } = useGetBalance({
     query: { queryKey: getGetBalanceQueryKey(), refetchInterval: showQris ? 3000 : false },
@@ -72,23 +150,31 @@ export default function Balance() {
   );
   const topup = useTopupBalance();
 
+  const confirmedTopupIdsRef = useRef<Set<number>>(new Set());
+
   useEffect(() => {
-    if (!showQris) { prevBalanceRef.current = null; return; }
-    const currentBalance = balanceData?.balance ?? null;
-    if (currentBalance === null) return;
-    if (prevBalanceRef.current === null) { prevBalanceRef.current = currentBalance; return; }
-    if (currentBalance > prevBalanceRef.current) {
-      const added = currentBalance - prevBalanceRef.current;
-      prevBalanceRef.current = currentBalance;
-      setShowQris(false);
-      toast({
-        title: "Pembayaran Diterima!",
-        description: `Saldo kamu bertambah ${formatRupiah(added)}. Terima kasih!`,
-      });
-      queryClient.invalidateQueries({ queryKey: getListTopupHistoryQueryKey() });
-      queryClient.invalidateQueries({ queryKey: getGetBalanceQueryKey() });
-    }
-  }, [balanceData?.balance, showQris]);
+    const transactions = historyData ?? [];
+    const confirmedIds = new Set(
+      transactions.filter((tx) => tx.status === "confirmed").map((tx) => tx.id),
+    );
+    const currentTopupConfirmed =
+      showQris &&
+      activeTopup !== null &&
+      confirmedIds.has(activeTopup.id) &&
+      !confirmedTopupIdsRef.current.has(activeTopup.id);
+
+    confirmedTopupIdsRef.current = confirmedIds;
+
+    if (!currentTopupConfirmed || !activeTopup) return;
+
+    setShowQris(false);
+    toast({
+      title: "Pembayaran Diterima!",
+      description: `Topup #${activeTopup.id} dikonfirmasi. Saldo bertambah ${formatRupiah(activeTopup.payableAmount)}.`,
+    });
+    queryClient.invalidateQueries({ queryKey: getListTopupHistoryQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetBalanceQueryKey() });
+  }, [activeTopup, historyData, queryClient, showQris, toast]);
 
   const form = useForm<z.infer<typeof topupSchema>>({
     resolver: zodResolver(topupSchema),
@@ -97,10 +183,19 @@ export default function Balance() {
 
   const onSubmit = (values: z.infer<typeof topupSchema>) => {
     topup.mutate({ data: values }, {
-      onSuccess: (res) => {
-        setQrisUrl(res.qrisUrl ?? "");
-        setQrisExpiresAt(res.expiresAt ?? null);
-        setQrisGateway(res.gateway ?? null);
+      onSuccess: (response) => {
+        setActiveTopup({
+          id: response.id,
+          amount: response.amount,
+          payableAmount: response.payableAmount ?? response.amount,
+          uniqueCode: response.uniqueCode ?? 0,
+          qrisUrl: response.qrisUrl ?? "",
+          expiresAt: response.expiresAt ?? null,
+          paymentProvider: response.paymentProvider ?? null,
+          paymentChannel: response.paymentChannel ?? null,
+          gateway: response.gateway ?? null,
+        });
+        setQrisImageError(false);
         setShowQris(true);
         queryClient.invalidateQueries({ queryKey: getListTopupHistoryQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetBalanceQueryKey() });
@@ -114,6 +209,18 @@ export default function Balance() {
       }
     });
   };
+
+  const topupHistory = historyData ?? [];
+  const activePaymentChannelName = getPaymentChannelName(
+    activeTopup?.paymentChannel,
+    activeTopup?.paymentProvider,
+    activeTopup?.gateway,
+  );
+  const activeTopupUsesDynamicChannel = isDynamicPaymentChannel(
+    activeTopup?.paymentChannel,
+    activeTopup?.paymentProvider,
+    activeTopup?.gateway,
+  );
 
   return (
     <div className="space-y-5 max-w-5xl mx-auto">
@@ -214,10 +321,10 @@ export default function Balance() {
               <div className="p-4 space-y-3">
                 {[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}
               </div>
-            ) : historyData && historyData.length > 0 ? (
+            ) : topupHistory.length > 0 ? (
               <div className="divide-y">
-                {historyData.map((tx) => {
-                  const isExpired = (tx as any).expiresAt ? new Date((tx as any).expiresAt) < new Date() : false;
+                {topupHistory.map((tx) => {
+                  const isExpired = tx.expiresAt ? new Date(tx.expiresAt) < new Date() : false;
                   const canViewQris = tx.status === 'pending' && tx.qrisUrl && !isExpired;
                   return (
                     <div key={tx.id} className="px-4 py-3 hover:bg-accent/20 transition-colors">
@@ -233,9 +340,9 @@ export default function Balance() {
                              <XCircle className="h-4 w-4" />}
                           </div>
                           <div>
-                            <div className="font-semibold text-sm">{formatRupiah(tx.amount)}</div>
+                            <div className="font-semibold text-sm">{formatRupiah(tx.payableAmount ?? tx.amount)}</div>
                             <div className="text-[11px] text-muted-foreground">
-                              {format(new Date(tx.createdAt), "d MMM yyyy HH:mm")}
+                              {getPaymentChannelName(tx.paymentChannel, tx.paymentProvider, tx.gateway)} · {format(new Date(tx.createdAt), "d MMM yyyy HH:mm")}
                             </div>
                           </div>
                         </div>
@@ -304,7 +411,29 @@ export default function Balance() {
             </div>
           )}
 
-          <div className="flex justify-center p-4 bg-white rounded-lg my-2 relative">
+          <div className="w-full rounded-lg border bg-muted/20 divide-y text-sm text-left">
+            <div className="flex justify-between gap-4 px-4 py-2.5">
+              <span className="text-muted-foreground">Channel pembayaran</span>
+              <span className="font-medium text-right">{activePaymentChannelName}</span>
+            </div>
+            <div className="flex justify-between gap-4 px-4 py-2.5">
+              <span className="text-muted-foreground">Total bayar</span>
+              <span className="font-bold text-primary">{formatRupiah(activeTopup?.payableAmount ?? 0)}</span>
+            </div>
+            {!!activeTopup?.uniqueCode && (
+              <div className="px-4 py-2.5">
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Kode unik</span>
+                  <span className="font-medium">+{formatRupiah(activeTopup.uniqueCode)}</span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Kode unik ini termasuk dalam total bayar dan akan dikreditkan ke saldo kamu setelah pembayaran dikonfirmasi.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-center p-4 bg-white rounded-lg my-2 relative min-h-52">
             {countdown?.expired && (
               <div className="absolute inset-0 bg-white/90 rounded-lg flex flex-col items-center justify-center z-10 gap-2">
                 <XCircle className="h-10 w-10 text-red-500" />
@@ -312,24 +441,27 @@ export default function Balance() {
                 <p className="text-xs text-muted-foreground">Buat permintaan topup baru.</p>
               </div>
             )}
-            {qrisUrl ? (
+            {activeTopup?.qrisUrl && !qrisImageError ? (
               <img
-                src={qrisUrl}
-                alt="QRIS Code"
+                src={activeTopup.qrisUrl}
+                alt={`Kode QR ${activePaymentChannelName} untuk topup #${activeTopup.id}`}
                 className="max-w-full h-auto max-h-64 object-contain"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src =
-                    "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=qris_mock";
-                }}
+                onError={() => setQrisImageError(true)}
               />
             ) : (
-              <div className="w-48 h-48 bg-gray-200 animate-pulse flex items-center justify-center text-muted-foreground text-sm">
-                QR Code
+              <div className="w-52 min-h-48 flex flex-col items-center justify-center gap-2 text-red-600 text-center" role="alert">
+                <XCircle className="h-9 w-9" />
+                <p className="text-sm font-semibold">QRIS tidak dapat ditampilkan</p>
+                <p className="text-xs text-muted-foreground">Tutup dialog lalu coba buka kembali dari riwayat, atau hubungi admin.</p>
               </div>
             )}
           </div>
 
-          {qrisGateway === "autogopay" ? (
+          <p className="text-xs text-muted-foreground">
+            Pindai QRIS dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lainnya. OVO cukup memindai QRIS yang tampil—tidak perlu memilih channel ShopeePay.
+          </p>
+
+          {activeTopupUsesDynamicChannel ? (
             <div className="bg-green-500/10 text-green-700 p-3 rounded-md text-sm border border-green-500/20 text-left flex items-start gap-2">
               <Zap className="h-4 w-4 mt-0.5 shrink-0" />
               <span><strong>Konfirmasi otomatis!</strong> Saldo dikreditkan langsung setelah pembayaran berhasil.</span>

@@ -6,10 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * processing berarti pembayaran sudah diterima dan akun VPN sedang dibuat
+ */
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 
 export const OrderStatus = {
   pending: "pending",
+  processing: "processing",
   paid: "paid",
   failed: "failed",
   expired: "expired",

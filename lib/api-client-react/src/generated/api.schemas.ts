@@ -28,8 +28,17 @@ export interface BalanceLogList {
   offset: number;
 }
 
+export type PaymentSettingsPaymentChannelOrderItem =
+  (typeof PaymentSettingsPaymentChannelOrderItem)[keyof typeof PaymentSettingsPaymentChannelOrderItem];
+
+export const PaymentSettingsPaymentChannelOrderItem = {
+  ketantechpay: "ketantechpay",
+  autogopay_gopay: "autogopay_gopay",
+  autogopay_shopeepay: "autogopay_shopeepay",
+} as const;
+
 /**
- * Gateway aktif: 'qris_static' | 'autogopay'
+ * Gateway aktif legacy yang disinkronkan dari channel pertama yang aktif
  */
 export type PaymentSettingsActiveGateway =
   | (typeof PaymentSettingsActiveGateway)[keyof typeof PaymentSettingsActiveGateway]
@@ -38,27 +47,63 @@ export type PaymentSettingsActiveGateway =
 export const PaymentSettingsActiveGateway = {
   qris_static: "qris_static",
   autogopay: "autogopay",
+  ketantechpay: "ketantechpay",
 } as const;
 
 export interface PaymentSettings {
-  /** URL gambar QRIS statis untuk topup manual */
+  /**
+   * URL HTTPS gambar QRIS statis untuk topup manual (legacy)
+   * @pattern ^https://
+   */
   qrisStaticUrl?: string | null;
-  /** Aktifkan metode QRIS statis */
+  /** Aktifkan metode QRIS statis legacy */
   qrisEnabled?: boolean;
-  /** Durasi QRIS statis berlaku dalam menit (default 15) */
+  /**
+   * Durasi pembayaran berlaku dalam menit (default 15)
+   * @minimum 1
+   * @maximum 1440
+   */
   qrisExpiryMinutes?: number | null;
-  /** Aktifkan integrasi AutoGoPay */
+  /** Coba channel aktif berikutnya sesuai paymentChannelOrder bila channel sebelumnya gagal */
+  paymentFallbackEnabled?: boolean;
+  /**
+   * Urutan prioritas channel pembayaran; backend menambahkan channel yang belum disebutkan dalam urutan default
+   * @minItems 1
+   * @maxItems 3
+   */
+  paymentChannelOrder?: PaymentSettingsPaymentChannelOrderItem[];
+  /** Kompatibilitas legacy; bernilai true bila GoPay atau ShopeePay AutoGoPay aktif */
   autoGopayEnabled?: boolean;
-  /** Base URL API AutoGoPay */
+  /**
+   * Base URL HTTPS bersama untuk channel AutoGoPay
+   * @pattern ^https://
+   */
   autoGopayApiUrl?: string | null;
-  /** Merchant ID AutoGoPay */
+  /** Merchant ID AutoGoPay (legacy) */
   autoGopayMerchantId?: string | null;
-  /** API Key AutoGoPay (untuk auth dan verifikasi webhook) */
+  /** API Key bersama AutoGoPay (untuk auth dan verifikasi webhook) */
   autoGopaySecretKey?: string | null;
-  /** Token verifikasi callback/webhook AutoGoPay */
+  /** Token verifikasi callback/webhook AutoGoPay (legacy) */
   autoGopayCallbackToken?: string | null;
-  /** Gateway aktif: 'qris_static' | 'autogopay' */
+  /** Aktifkan channel GoPay melalui AutoGoPay */
+  autoGopayGopayEnabled?: boolean;
+  /** Aktifkan channel ShopeePay melalui AutoGoPay */
+  autoGopayShopeePayEnabled?: boolean;
+  /** String payload QRIS statis ShopeePay; OVO tetap memindai payload ini sebagai QRIS, bukan menjadi channel OVO terpisah */
+  autoGopayShopeePayQrisStatic?: string | null;
+  /** Gateway aktif legacy yang disinkronkan dari channel pertama yang aktif */
   activeGateway?: PaymentSettingsActiveGateway;
+  /** Aktifkan channel KetantechPay */
+  ketantechPayEnabled?: boolean;
+  /** Webhook Secret KetantechPay */
+  ketantechPayWebhookSecret?: string | null;
+  /**
+   * Base URL HTTPS KetantechPay
+   * @pattern ^https://
+   */
+  ketantechPayBaseUrl?: string | null;
+  /** Client API Key KetantechPay */
+  ketantechPayClientKey?: string | null;
 }
 
 export interface TelegramSettings {
@@ -251,13 +296,42 @@ export interface UpdateProductBody {
   serverId?: number | null;
 }
 
+/**
+ * processing berarti pembayaran sudah diterima dan akun VPN sedang dibuat
+ */
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 
 export const OrderStatus = {
   pending: "pending",
+  processing: "processing",
   paid: "paid",
   failed: "failed",
   expired: "expired",
+} as const;
+
+/**
+ * Penyedia pembayaran yang memproses transaksi; null untuk pembayaran saldo atau QRIS statis legacy
+ */
+export type OrderPaymentProvider =
+  | (typeof OrderPaymentProvider)[keyof typeof OrderPaymentProvider]
+  | null;
+
+export const OrderPaymentProvider = {
+  ketantechpay: "ketantechpay",
+  autogopay: "autogopay",
+} as const;
+
+/**
+ * Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan channel yang dipilih secara terpisah.
+ */
+export type OrderPaymentChannel =
+  | (typeof OrderPaymentChannel)[keyof typeof OrderPaymentChannel]
+  | null;
+
+export const OrderPaymentChannel = {
+  ketantechpay: "ketantechpay",
+  autogopay_gopay: "autogopay_gopay",
+  autogopay_shopeepay: "autogopay_shopeepay",
 } as const;
 
 export interface Order {
@@ -265,14 +339,27 @@ export interface Order {
   userId: number;
   productId: number;
   product?: Product | null;
+  /** processing berarti pembayaran sudah diterima dan akun VPN sedang dibuat */
   status: OrderStatus;
+  /** Harga dasar order dalam IDR, sebelum kode unik */
   amount: number;
   vpnAccountId?: number | null;
   paymentMethod?: string | null;
+  /** Penyedia pembayaran yang memproses transaksi; null untuk pembayaran saldo atau QRIS statis legacy */
+  paymentProvider?: OrderPaymentProvider;
+  /** Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan channel yang dipilih secara terpisah. */
+  paymentChannel?: OrderPaymentChannel;
+  /** Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null */
+  payableAmount?: number | null;
+  /**
+   * Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna
+   * @minimum 0
+   */
+  uniqueCode?: number | null;
   notes?: string | null;
-  /** URL gambar QRIS (hanya untuk paymentMethod=qris via AutoGoPay) */
+  /** URL gambar QRIS untuk paymentMethod=qris */
   qrisUrl?: string | null;
-  /** Waktu kedaluwarsa QRIS */
+  /** Waktu kedaluwarsa pembayaran QRIS */
   expiresAt?: string | null;
   createdAt: string;
   updatedAt?: string;
@@ -326,6 +413,44 @@ export interface TopupBody {
   amount: number;
 }
 
+/**
+ * Penyedia pembayaran yang memproses topup; null untuk QRIS statis legacy
+ */
+export type TopupResponsePaymentProvider =
+  | (typeof TopupResponsePaymentProvider)[keyof typeof TopupResponsePaymentProvider]
+  | null;
+
+export const TopupResponsePaymentProvider = {
+  ketantechpay: "ketantechpay",
+  autogopay: "autogopay",
+} as const;
+
+/**
+ * Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. Semua QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan pilihan channel terpisah.
+ */
+export type TopupResponsePaymentChannel =
+  | (typeof TopupResponsePaymentChannel)[keyof typeof TopupResponsePaymentChannel]
+  | null;
+
+export const TopupResponsePaymentChannel = {
+  ketantechpay: "ketantechpay",
+  autogopay_gopay: "autogopay_gopay",
+  autogopay_shopeepay: "autogopay_shopeepay",
+} as const;
+
+/**
+ * Metadata gateway legacy; gunakan paymentProvider dan paymentChannel untuk integrasi baru
+ */
+export type TopupResponseGateway =
+  | (typeof TopupResponseGateway)[keyof typeof TopupResponseGateway]
+  | null;
+
+export const TopupResponseGateway = {
+  qris_static: "qris_static",
+  autogopay: "autogopay",
+  ketantechpay: "ketantechpay",
+} as const;
+
 export type TopupResponseStatus =
   (typeof TopupResponseStatus)[keyof typeof TopupResponseStatus];
 
@@ -337,14 +462,65 @@ export const TopupResponseStatus = {
 
 export interface TopupResponse {
   id: number;
+  /** Nominal saldo yang diminta dalam IDR, sebelum kode unik */
   amount: number;
-  /** URL of QRIS payment image */
+  /** Penyedia pembayaran yang memproses topup; null untuk QRIS statis legacy */
+  paymentProvider?: TopupResponsePaymentProvider;
+  /** Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. Semua QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan pilihan channel terpisah. */
+  paymentChannel?: TopupResponsePaymentChannel;
+  /** Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null */
+  payableAmount?: number | null;
+  /**
+   * Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna
+   * @minimum 0
+   */
+  uniqueCode?: number | null;
+  /** URL gambar pembayaran QRIS */
   qrisUrl: string | null;
+  /** Waktu kedaluwarsa pembayaran QRIS */
   expiresAt?: string | null;
-  /** Gateway yang digunakan: 'qris_static' | 'autogopay' */
-  gateway?: string | null;
+  /** Metadata gateway legacy; gunakan paymentProvider dan paymentChannel untuk integrasi baru */
+  gateway?: TopupResponseGateway;
   status: TopupResponseStatus;
 }
+
+/**
+ * Penyedia pembayaran yang memproses topup; null untuk QRIS statis legacy
+ */
+export type TopupTransactionPaymentProvider =
+  | (typeof TopupTransactionPaymentProvider)[keyof typeof TopupTransactionPaymentProvider]
+  | null;
+
+export const TopupTransactionPaymentProvider = {
+  ketantechpay: "ketantechpay",
+  autogopay: "autogopay",
+} as const;
+
+/**
+ * Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. Semua QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan pilihan channel terpisah.
+ */
+export type TopupTransactionPaymentChannel =
+  | (typeof TopupTransactionPaymentChannel)[keyof typeof TopupTransactionPaymentChannel]
+  | null;
+
+export const TopupTransactionPaymentChannel = {
+  ketantechpay: "ketantechpay",
+  autogopay_gopay: "autogopay_gopay",
+  autogopay_shopeepay: "autogopay_shopeepay",
+} as const;
+
+/**
+ * Metadata gateway legacy; gunakan paymentProvider dan paymentChannel untuk integrasi baru
+ */
+export type TopupTransactionGateway =
+  | (typeof TopupTransactionGateway)[keyof typeof TopupTransactionGateway]
+  | null;
+
+export const TopupTransactionGateway = {
+  qris_static: "qris_static",
+  autogopay: "autogopay",
+  ketantechpay: "ketantechpay",
+} as const;
 
 export type TopupTransactionStatus =
   (typeof TopupTransactionStatus)[keyof typeof TopupTransactionStatus];
@@ -359,8 +535,24 @@ export interface TopupTransaction {
   id: number;
   userId: number;
   username?: string | null;
+  /** Nominal saldo yang diminta dalam IDR, sebelum kode unik */
   amount: number;
+  /** Penyedia pembayaran yang memproses topup; null untuk QRIS statis legacy */
+  paymentProvider?: TopupTransactionPaymentProvider;
+  /** Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. Semua QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan pilihan channel terpisah. */
+  paymentChannel?: TopupTransactionPaymentChannel;
+  /** Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null */
+  payableAmount?: number | null;
+  /**
+   * Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna
+   * @minimum 0
+   */
+  uniqueCode?: number | null;
   qrisUrl?: string | null;
+  /** Waktu kedaluwarsa pembayaran QRIS */
+  expiresAt?: string | null;
+  /** Metadata gateway legacy; gunakan paymentProvider dan paymentChannel untuk integrasi baru */
+  gateway?: TopupTransactionGateway;
   status: TopupTransactionStatus;
   confirmedBy?: number | null;
   rejectionNote?: string | null;
@@ -1080,6 +1272,7 @@ export type ListOrdersStatus =
 
 export const ListOrdersStatus = {
   pending: "pending",
+  processing: "processing",
   paid: "paid",
   failed: "failed",
   expired: "expired",
@@ -1148,6 +1341,7 @@ export type AdminListOrdersStatus =
 
 export const AdminListOrdersStatus = {
   pending: "pending",
+  processing: "processing",
   paid: "paid",
   failed: "failed",
   expired: "expired",

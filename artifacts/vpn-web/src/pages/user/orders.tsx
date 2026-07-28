@@ -73,7 +73,7 @@ export default function Orders() {
                 {/* Kanan: Nominal + Status + Arrow */}
                 <div className="flex items-center gap-2 shrink-0">
                   <div className="text-right">
-                    <div className="text-sm font-bold">{formatRupiah(order.amount)}</div>
+                    <div className="text-sm font-bold">{formatRupiah(order.payableAmount ?? order.amount)}</div>
                     <Badge
                       variant="outline"
                       className={`text-[10px] h-4 px-1.5 mt-0.5 ${statusColors[order.status] ?? ""}`}

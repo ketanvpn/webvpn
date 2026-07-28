@@ -1,11 +1,17 @@
 import { db } from "@workspace/db";
-import { vpnAccountsTable, usersTable, settingsTable, ordersTable, serversTable, topupsTable, waVerificationsTable, dynamicVpnOrdersTable, dynamicProviderServersTable } from "@workspace/db";
+import { vpnAccountsTable, usersTable, settingsTable, ordersTable, serversTable, topupsTable, paymentAttemptsTable, waVerificationsTable, dynamicVpnOrdersTable, dynamicProviderServersTable } from "@workspace/db";
 import { eq, and, lte, gte, lt, sql, sum, ne, inArray } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendWhatsapp } from "./fonnte";
 import { sendMessage } from "./telegram";
 import { notifyAdminLowMarginServers } from "./telegram";
 import { getDynamicCost } from "./dynamic-duration";
+import {
+  reconcileAutoGoPayGoPay,
+  reconcileBeforePaymentExpiry,
+  reconcileShopeePayTransactions,
+  retryPaidOrderFulfillment,
+} from "./payment/reconciliation";
 
 async function getReferralBonusAmount(): Promise<number> {
   const [row] = await db
@@ -155,26 +161,48 @@ export async function checkExpiringAccounts(): Promise<void> {
 }
 
 /**
- * Auto-cancel order QRIS yang sudah lewat waktu bayar (expiresAt < now, status masih pending).
- * Dijalankan setiap 5 menit.
+ * Reconcile providers first, then expire only genuinely unpaid QRIS orders.
+ * Paid/processing attempts are explicitly excluded; late confirmed provider
+ * payments can recover an expired order through settlement reconciliation.
  */
 async function cancelExpiredQrisOrders(): Promise<void> {
   try {
+    await reconcileBeforePaymentExpiry();
     const now = new Date();
     const result = await db
       .update(ordersTable)
-      .set({ status: "expired", updatedAt: new Date() })
+      .set({ status: "expired", updatedAt: now })
       .where(
         and(
           eq(ordersTable.status, "pending"),
           eq(ordersTable.paymentMethod, "qris"),
-          lt(ordersTable.expiresAt, now)
-        )
+          lt(ordersTable.expiresAt, now),
+          sql`not exists (
+            select 1 from ${paymentAttemptsTable}
+            where ${paymentAttemptsTable.orderId} = ${ordersTable.id}
+              and ${paymentAttemptsTable.status} in ('paid', 'processing', 'completed')
+          )`,
+        ),
       )
       .returning({ id: ordersTable.id });
 
+    await db
+      .update(paymentAttemptsTable)
+      .set({ status: "expired", updatedAt: now })
+      .where(
+        and(
+          eq(paymentAttemptsTable.status, "pending"),
+          lt(paymentAttemptsTable.expiresAt, now),
+          sql`exists (
+            select 1 from ${ordersTable}
+            where ${ordersTable.id} = ${paymentAttemptsTable.orderId}
+              and ${ordersTable.status} = 'expired'
+          )`,
+        ),
+      );
+
     if (result.length > 0) {
-      logger.info({ count: result.length }, "Auto-expire: order QRIS melewati batas waktu pembayaran");
+      logger.info({ count: result.length }, "Auto-expire: unpaid QRIS orders exceeded expiresAt");
     }
   } catch (err) {
     logger.error({ err }, "Error saat auto-cancel order QRIS expired");
@@ -182,32 +210,53 @@ async function cancelExpiredQrisOrders(): Promise<void> {
 }
 
 /**
- * Auto-cancel topup manual (Bank/E-Wallet) yang sudah lewat 24 jam tapi masih pending.
- * Dijalankan setiap jam.
+ * Expire topups using the provider/local expiresAt value. Records without an
+ * expiry remain pending for manual handling rather than using an arbitrary 24h.
  */
 async function cancelExpiredTopups(): Promise<void> {
   try {
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    await reconcileBeforePaymentExpiry();
+    const now = new Date();
     const result = await db
       .update(topupsTable)
-      .set({ 
-        status: "rejected", 
-        rejectionNote: "Auto-cleanup: Melewati batas waktu 24 jam", 
-        updatedAt: new Date() 
+      .set({
+        status: "rejected",
+        rejectionNote: "Auto-cleanup: Melewati batas waktu pembayaran",
+        updatedAt: now,
       })
       .where(
         and(
           eq(topupsTable.status, "pending"),
-          lt(topupsTable.createdAt, twentyFourHoursAgo)
-        )
+          lt(topupsTable.expiresAt, now),
+          sql`not exists (
+            select 1 from ${paymentAttemptsTable}
+            where ${paymentAttemptsTable.topupId} = ${topupsTable.id}
+              and ${paymentAttemptsTable.status} in ('paid', 'processing', 'completed')
+          )`,
+        ),
       )
       .returning({ id: topupsTable.id });
 
+    await db
+      .update(paymentAttemptsTable)
+      .set({ status: "expired", updatedAt: now })
+      .where(
+        and(
+          eq(paymentAttemptsTable.status, "pending"),
+          lt(paymentAttemptsTable.expiresAt, now),
+          sql`exists (
+            select 1 from ${topupsTable}
+            where ${topupsTable.id} = ${paymentAttemptsTable.topupId}
+              and ${topupsTable.status} = 'rejected'
+          )`,
+        ),
+      );
+
     if (result.length > 0) {
-      logger.info({ count: result.length }, "Auto-expire: topup manual melewati batas waktu 24 jam");
+      logger.info({ count: result.length }, "Auto-expire: unpaid topups exceeded expiresAt");
     }
   } catch (err) {
-    logger.error({ err }, "Error saat auto-cancel topup manual expired");
+    logger.error({ err }, "Error saat auto-cancel topup expired");
   }
 }
 
@@ -351,10 +400,13 @@ async function cleanupExpiredWaVerifications(): Promise<void> {
 export function startScheduler(): void {
   const ONE_HOUR = 60 * 60 * 1000;
   const THREE_HOURS = 3 * 60 * 60 * 1000;
+  const FIVE_SECONDS = 5 * 1000;
+  const TWO_MIN = 2 * 60 * 1000;
   const FIVE_MIN = 5 * 60 * 1000;
   const FIFTEEN_MIN = 15 * 60 * 1000;
 
   runSafely("initial-checkExpiringAccounts", checkExpiringAccounts);
+  runSafely("initial-reconcilePayments", reconcileBeforePaymentExpiry);
   runSafely("initial-cancelExpiredQrisOrders", cancelExpiredQrisOrders);
   runSafely("initial-cancelExpiredTopups", cancelExpiredTopups);
   runSafely("initial-checkResellerTargets", checkResellerTargets);
@@ -368,6 +420,18 @@ export function startScheduler(): void {
     runSafely("sendDailyReport", sendDailyReport);
     runSafely("checkLowMarginServers", checkLowMarginServers);
   }, ONE_HOUR);
+
+  setInterval(() => {
+    runSafely("reconcileShopeePayTransactions", reconcileShopeePayTransactions);
+  }, FIVE_SECONDS);
+
+  setInterval(() => {
+    runSafely("retryPaidOrderFulfillment", retryPaidOrderFulfillment);
+  }, TWO_MIN);
+
+  setInterval(() => {
+    runSafely("reconcileAutoGoPayGoPay", reconcileAutoGoPayGoPay);
+  }, TWO_MIN);
 
   setInterval(() => {
     runSafely("cancelExpiredQrisOrders", cancelExpiredQrisOrders);
@@ -399,7 +463,11 @@ export function startScheduler(): void {
   }, FIFTEEN_MIN);
 
   logger.info("Scheduler notifikasi kedaluwarsa aktif (cek setiap jam, kirim sesuai jam WIB yang dikonfigurasi)");
-  logger.info("Scheduler auto-cancel QRIS expired aktif (interval: 5 menit)");
+  logger.info("Scheduler rekonsiliasi ShopeePay aktif (1 batch setiap 5 detik)");
+  logger.info("Scheduler rekonsiliasi GoPay aktif (attempt stale setiap 2 menit)");
+  logger.info("Scheduler retry fulfillment order berbayar aktif (interval: 2 menit)");
+  logger.info("Scheduler auto-cancel QRIS expired aktif (interval: 5 menit, sesudah rekonsiliasi)");
+  logger.info("Scheduler topup expiry aktif (setiap jam, berdasarkan expiresAt sesudah rekonsiliasi)");
   logger.info("Scheduler cek target reseller aktif (cek setiap jam, eksekusi tanggal 1 jam 07.00 WIB)");
   logger.info("Scheduler auto-disable server penuh aktif (interval: 5 menit)");
   logger.info("Scheduler auto-cleanup akun hantu aktif (cek setiap 3 jam)");

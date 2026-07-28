@@ -5,14 +5,33 @@
  * KETANTECH VPN Store API
  * OpenAPI spec version: 0.1.0
  */
+import type { TopupTransactionGateway } from "./topupTransactionGateway";
+import type { TopupTransactionPaymentChannel } from "./topupTransactionPaymentChannel";
+import type { TopupTransactionPaymentProvider } from "./topupTransactionPaymentProvider";
 import type { TopupTransactionStatus } from "./topupTransactionStatus";
 
 export interface TopupTransaction {
   id: number;
   userId: number;
   username?: string | null;
+  /** Nominal saldo yang diminta dalam IDR, sebelum kode unik */
   amount: number;
+  /** Penyedia pembayaran yang memproses topup; null untuk QRIS statis legacy */
+  paymentProvider?: TopupTransactionPaymentProvider;
+  /** Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. Semua QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan pilihan channel terpisah. */
+  paymentChannel?: TopupTransactionPaymentChannel;
+  /** Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null */
+  payableAmount?: number | null;
+  /**
+   * Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna
+   * @minimum 0
+   */
+  uniqueCode?: number | null;
   qrisUrl?: string | null;
+  /** Waktu kedaluwarsa pembayaran QRIS */
+  expiresAt?: Date | null;
+  /** Metadata gateway legacy; gunakan paymentProvider dan paymentChannel untuk integrasi baru */
+  gateway?: TopupTransactionGateway;
   status: TopupTransactionStatus;
   confirmedBy?: number | null;
   rejectionNote?: string | null;

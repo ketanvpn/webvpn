@@ -5,6 +5,7 @@ export * from "./orders";
 export * from "./vpn_accounts";
 export * from "./dynamic_vpn";
 export * from "./topups";
+export * from "./payment_attempts";
 export * from "./settings";
 export * from "./balance_logs";
 export * from "./otp";

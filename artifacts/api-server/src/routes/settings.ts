@@ -4,22 +4,71 @@ import { settingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "../lib/auth";
 import { sendOtp } from "../lib/fonnte";
+import {
+  paymentChannelOrderValidationError,
+  paymentSettingsUsabilityError,
+} from "../lib/payment/settings-update-policy";
 
 const router = Router();
+
+const PAYMENT_CHANNELS = [
+  "ketantechpay",
+  "autogopay_gopay",
+  "autogopay_shopeepay",
+] as const;
+const DEFAULT_PAYMENT_CHANNEL_ORDER = [...PAYMENT_CHANNELS];
+const PAYMENT_EXPIRY_MINUTES_MIN = 1;
+const PAYMENT_EXPIRY_MINUTES_MAX = 1440;
 
 const PAYMENT_KEYS = [
   "qrisStaticUrl",
   "qrisEnabled",
   "qrisExpiryMinutes",
+  "paymentFallbackEnabled",
+  "paymentChannelOrder",
   "autoGopayEnabled",
   "autoGopayApiUrl",
   "autoGopayMerchantId",
   "autoGopaySecretKey",
   "autoGopayCallbackToken",
+  "autoGopayGopayEnabled",
+  "autoGopayShopeePayEnabled",
+  "autoGopayShopeePayQrisStatic",
   "activeGateway",
+  "ketantechPayEnabled",
   "ketantechPayWebhookSecret",
   "ketantechPayBaseUrl",
   "ketantechPayClientKey",
+] as const;
+
+const PAYMENT_BOOLEAN_KEYS = [
+  "qrisEnabled",
+  "paymentFallbackEnabled",
+  "autoGopayEnabled",
+  "autoGopayGopayEnabled",
+  "autoGopayShopeePayEnabled",
+  "ketantechPayEnabled",
+] as const;
+
+const PAYMENT_HTTPS_URL_KEYS = [
+  "qrisStaticUrl",
+  "autoGopayApiUrl",
+  "ketantechPayBaseUrl",
+] as const;
+
+const PAYMENT_NULLABLE_STRING_KEYS = [
+  "autoGopayMerchantId",
+  "autoGopaySecretKey",
+  "autoGopayCallbackToken",
+  "autoGopayShopeePayQrisStatic",
+  "ketantechPayWebhookSecret",
+  "ketantechPayClientKey",
+] as const;
+
+const LEGACY_PAYMENT_GATEWAYS = [
+  "qris_static",
+  "autogopay",
+  "ketantechpay",
 ] as const;
 
 const TELEGRAM_KEYS = [
@@ -36,8 +85,10 @@ const WHATSAPP_KEYS = [
 ] as const;
 
 type TelegramKey = (typeof TELEGRAM_KEYS)[number];
-
+type PaymentChannel = (typeof PAYMENT_CHANNELS)[number];
 type PaymentKey = (typeof PAYMENT_KEYS)[number];
+type LegacyPaymentGateway = (typeof LEGACY_PAYMENT_GATEWAYS)[number];
+type SettingsMap = Record<string, string | null | undefined>;
 
 async function getSettingValue(key: string): Promise<string | null> {
   const [row] = await db
@@ -58,23 +109,189 @@ async function setSettingValue(key: string, value: string | null): Promise<void>
     });
 }
 
-function parseBoolean(v: string | null): boolean {
+function parseBoolean(v: string | null | undefined): boolean {
   return v === "true";
 }
 
-function buildPaymentSettingsResponse(map: Record<string, string | null>) {
-  const expiryRaw = map["qrisExpiryMinutes"];
-  const qrisExpiryMinutes = expiryRaw ? parseInt(expiryRaw, 10) : 15;
+function isPaymentChannel(value: unknown): value is PaymentChannel {
+  return (
+    typeof value === "string" &&
+    (PAYMENT_CHANNELS as readonly string[]).includes(value)
+  );
+}
+
+function normalizePaymentChannelOrder(
+  order: readonly PaymentChannel[],
+): PaymentChannel[] {
+  const uniqueChannels = order.filter(
+    (channel, index, channels) => channels.indexOf(channel) === index,
+  );
+  return [
+    ...uniqueChannels,
+    ...DEFAULT_PAYMENT_CHANNEL_ORDER.filter(
+      (channel) => !uniqueChannels.includes(channel),
+    ),
+  ];
+}
+
+function getLegacyChannel(
+  gateway: LegacyPaymentGateway,
+): PaymentChannel | null {
+  if (gateway === "ketantechpay") return "ketantechpay";
+  if (gateway === "autogopay") return "autogopay_gopay";
+  return null;
+}
+
+function getLegacyGateway(
+  order: readonly PaymentChannel[],
+  enabled: Record<PaymentChannel, boolean>,
+): LegacyPaymentGateway {
+  const firstEnabledChannel = order.find((channel) => enabled[channel]);
+  return firstEnabledChannel === "ketantechpay"
+    ? "ketantechpay"
+    : firstEnabledChannel
+      ? "autogopay"
+      : "qris_static";
+}
+
+function getStoredPaymentChannelOrder(map: SettingsMap): PaymentChannel[] {
+  const raw = map["paymentChannelOrder"];
+  if (raw) {
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.every(isPaymentChannel)) {
+        return normalizePaymentChannelOrder(parsed);
+      }
+    } catch {
+      // Corrupt persisted values fall back to the legacy gateway/default order.
+    }
+  }
+
+  const activeGateway = LEGACY_PAYMENT_GATEWAYS.includes(
+    map["activeGateway"] as LegacyPaymentGateway,
+  )
+    ? (map["activeGateway"] as LegacyPaymentGateway)
+    : "qris_static";
+  const legacyChannel = getLegacyChannel(activeGateway);
+  return legacyChannel
+    ? normalizePaymentChannelOrder([
+        legacyChannel,
+        ...DEFAULT_PAYMENT_CHANNEL_ORDER.filter(
+          (channel) => channel !== legacyChannel,
+        ),
+      ])
+    : DEFAULT_PAYMENT_CHANNEL_ORDER;
+}
+
+function isHttpsUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && Boolean(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function getPaymentValidationError(
+  body: Record<string, unknown>,
+): string | null {
+  for (const key of PAYMENT_BOOLEAN_KEYS) {
+    if (key in body && typeof body[key] !== "boolean") {
+      return `${key} harus berupa boolean`;
+    }
+  }
+
+  if ("qrisExpiryMinutes" in body && body.qrisExpiryMinutes !== null) {
+    const expiry = body.qrisExpiryMinutes;
+    if (
+      typeof expiry !== "number" ||
+      !Number.isInteger(expiry) ||
+      expiry < PAYMENT_EXPIRY_MINUTES_MIN ||
+      expiry > PAYMENT_EXPIRY_MINUTES_MAX
+    ) {
+      return `qrisExpiryMinutes harus berupa bilangan bulat ${PAYMENT_EXPIRY_MINUTES_MIN}-${PAYMENT_EXPIRY_MINUTES_MAX}`;
+    }
+  }
+
+  if ("paymentChannelOrder" in body) {
+    const error = paymentChannelOrderValidationError(body.paymentChannelOrder);
+    if (error) return error;
+  }
+
+  for (const key of PAYMENT_HTTPS_URL_KEYS) {
+    if (key in body && body[key] !== null) {
+      const value = body[key];
+      if (typeof value !== "string" || !isHttpsUrl(value.trim())) {
+        return `${key} harus berupa URL HTTPS yang valid atau null`;
+      }
+    }
+  }
+
+  for (const key of PAYMENT_NULLABLE_STRING_KEYS) {
+    if (key in body && body[key] !== null && typeof body[key] !== "string") {
+      return `${key} harus berupa string atau null`;
+    }
+  }
+
+  if ("activeGateway" in body && body.activeGateway !== null) {
+    if (
+      typeof body.activeGateway !== "string" ||
+      !(LEGACY_PAYMENT_GATEWAYS as readonly string[]).includes(
+        body.activeGateway,
+      )
+    ) {
+      return `activeGateway hanya boleh berisi: ${LEGACY_PAYMENT_GATEWAYS.join(", ")}`;
+    }
+  }
+
+  return null;
+}
+
+function buildPaymentSettingsResponse(map: SettingsMap) {
+  const parsedExpiry = Number(map["qrisExpiryMinutes"] ?? 15);
+  const qrisExpiryMinutes =
+    Number.isInteger(parsedExpiry) &&
+    parsedExpiry >= PAYMENT_EXPIRY_MINUTES_MIN &&
+    parsedExpiry <= PAYMENT_EXPIRY_MINUTES_MAX
+      ? parsedExpiry
+      : 15;
+  const activeGateway = (LEGACY_PAYMENT_GATEWAYS as readonly string[]).includes(
+    map["activeGateway"] ?? "",
+  )
+    ? (map["activeGateway"] as LegacyPaymentGateway)
+    : "qris_static";
+  const hasNewAutoGopayFlags =
+    map["autoGopayGopayEnabled"] != null ||
+    map["autoGopayShopeePayEnabled"] != null;
+  const autoGopayGopayEnabled =
+    map["autoGopayGopayEnabled"] != null
+      ? parseBoolean(map["autoGopayGopayEnabled"])
+      : parseBoolean(map["autoGopayEnabled"]) || activeGateway === "autogopay";
+  const autoGopayShopeePayEnabled = parseBoolean(
+    map["autoGopayShopeePayEnabled"],
+  );
+
   return {
     qrisStaticUrl: map["qrisStaticUrl"] ?? null,
     qrisEnabled: parseBoolean(map["qrisEnabled"] ?? "true"),
     qrisExpiryMinutes,
-    autoGopayEnabled: parseBoolean(map["autoGopayEnabled"] ?? null),
+    paymentFallbackEnabled: parseBoolean(map["paymentFallbackEnabled"]),
+    paymentChannelOrder: getStoredPaymentChannelOrder(map),
+    autoGopayEnabled: hasNewAutoGopayFlags
+      ? autoGopayGopayEnabled || autoGopayShopeePayEnabled
+      : parseBoolean(map["autoGopayEnabled"]) || activeGateway === "autogopay",
     autoGopayApiUrl: map["autoGopayApiUrl"] ?? null,
     autoGopayMerchantId: map["autoGopayMerchantId"] ?? null,
     autoGopaySecretKey: map["autoGopaySecretKey"] ?? null,
     autoGopayCallbackToken: map["autoGopayCallbackToken"] ?? null,
-    activeGateway: map["activeGateway"] ?? "qris_static",
+    autoGopayGopayEnabled,
+    autoGopayShopeePayEnabled,
+    autoGopayShopeePayQrisStatic: map["autoGopayShopeePayQrisStatic"] ?? null,
+    activeGateway,
+    ketantechPayEnabled:
+      map["ketantechPayEnabled"] != null
+        ? parseBoolean(map["ketantechPayEnabled"])
+        : activeGateway === "ketantechpay",
     ketantechPayWebhookSecret: map["ketantechPayWebhookSecret"] ?? null,
     ketantechPayBaseUrl: map["ketantechPayBaseUrl"] ?? null,
     ketantechPayClientKey: map["ketantechPayClientKey"] ?? null,
@@ -83,23 +300,164 @@ function buildPaymentSettingsResponse(map: Record<string, string | null>) {
 
 router.get("/admin/settings/payment", requireAdmin, async (_req, res) => {
   const rows = await db.select().from(settingsTable);
-  const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
+  const map: SettingsMap = Object.fromEntries(
+    rows.map((row) => [row.key, row.value]),
+  );
   res.json(buildPaymentSettingsResponse(map));
 });
 
 router.put("/admin/settings/payment", requireAdmin, async (req, res) => {
-  const body = req.body as Record<string, string | boolean | null | number>;
+  if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
+    res.status(400).json({ error: "Body pengaturan payment harus berupa object" });
+    return;
+  }
+
+  const body = req.body as Record<string, unknown>;
+  const validationError = getPaymentValidationError(body);
+  if (validationError) {
+    res.status(400).json({ error: validationError });
+    return;
+  }
+
+  const existingRows = await db.select().from(settingsTable);
+  const existingMap: SettingsMap = Object.fromEntries(
+    existingRows.map((row) => [row.key, row.value]),
+  );
+  const existingSettings = buildPaymentSettingsResponse(existingMap);
+  const updates: Partial<Record<PaymentKey, string | null>> = {};
 
   for (const key of PAYMENT_KEYS) {
-    if (key in body) {
-      const raw = body[key];
-      const value = raw === null || raw === undefined ? null : String(raw);
-      await setSettingValue(key, value);
+    if (!(key in body)) continue;
+    const raw = body[key];
+    if (raw === null || raw === undefined) {
+      updates[key] = null;
+    } else if (key === "paymentChannelOrder") {
+      updates[key] = JSON.stringify(
+        normalizePaymentChannelOrder(raw as PaymentChannel[]),
+      );
+    } else if ((PAYMENT_HTTPS_URL_KEYS as readonly string[]).includes(key)) {
+      updates[key] = String(raw).trim().replace(/\/$/, "");
+    } else if (key === "autoGopayShopeePayQrisStatic") {
+      updates[key] = String(raw).trim() || null;
+    } else {
+      updates[key] = String(raw);
     }
   }
 
+  let channelOrder =
+    "paymentChannelOrder" in body
+      ? normalizePaymentChannelOrder(
+          body.paymentChannelOrder as PaymentChannel[],
+        )
+      : existingSettings.paymentChannelOrder;
+
+  if ("activeGateway" in body && body.activeGateway) {
+    const legacyChannel = getLegacyChannel(
+      body.activeGateway as LegacyPaymentGateway,
+    );
+    if (legacyChannel && !("paymentChannelOrder" in body)) {
+      channelOrder = normalizePaymentChannelOrder([
+        legacyChannel,
+        ...channelOrder.filter((channel) => channel !== legacyChannel),
+      ]);
+      updates.paymentChannelOrder = JSON.stringify(channelOrder);
+    }
+    if (
+      body.activeGateway === "ketantechpay" &&
+      !("ketantechPayEnabled" in body)
+    ) {
+      updates.ketantechPayEnabled = "true";
+    }
+    if (
+      body.activeGateway === "autogopay" &&
+      !("autoGopayGopayEnabled" in body) &&
+      !("autoGopayShopeePayEnabled" in body)
+    ) {
+      updates.autoGopayGopayEnabled =
+        typeof body.autoGopayEnabled === "boolean"
+          ? String(body.autoGopayEnabled)
+          : "true";
+    }
+  }
+
+  if (
+    "autoGopayEnabled" in body &&
+    !("autoGopayGopayEnabled" in body) &&
+    !("autoGopayShopeePayEnabled" in body)
+  ) {
+    updates.autoGopayGopayEnabled = String(body.autoGopayEnabled);
+  }
+
+  const ketantechPayEnabled =
+    updates.ketantechPayEnabled != null
+      ? updates.ketantechPayEnabled === "true"
+      : existingSettings.ketantechPayEnabled;
+  const autoGopayGopayEnabled =
+    updates.autoGopayGopayEnabled != null
+      ? updates.autoGopayGopayEnabled === "true"
+      : existingSettings.autoGopayGopayEnabled;
+  const autoGopayShopeePayEnabled =
+    updates.autoGopayShopeePayEnabled != null
+      ? updates.autoGopayShopeePayEnabled === "true"
+      : existingSettings.autoGopayShopeePayEnabled;
+  const effectiveString = (
+    key: PaymentKey,
+    existingValue: string | null,
+  ): string | null =>
+    key in updates ? updates[key] ?? null : existingValue;
+  const usabilityError = paymentSettingsUsabilityError({
+    ketantechPayEnabled,
+    ketantechPayBaseUrl: effectiveString(
+      "ketantechPayBaseUrl",
+      existingSettings.ketantechPayBaseUrl,
+    ),
+    autoGopayGopayEnabled,
+    autoGopayShopeePayEnabled,
+    autoGopayApiUrl: effectiveString(
+      "autoGopayApiUrl",
+      existingSettings.autoGopayApiUrl,
+    ),
+    autoGopaySecretKey: effectiveString(
+      "autoGopaySecretKey",
+      existingSettings.autoGopaySecretKey,
+    ),
+    autoGopayShopeePayQrisStatic: effectiveString(
+      "autoGopayShopeePayQrisStatic",
+      existingSettings.autoGopayShopeePayQrisStatic,
+    ),
+  });
+  if (usabilityError) {
+    res.status(400).json({ error: usabilityError });
+    return;
+  }
+
+  const hasNewChannelConfiguration =
+    "paymentChannelOrder" in body ||
+    "ketantechPayEnabled" in body ||
+    "autoGopayGopayEnabled" in body ||
+    "autoGopayShopeePayEnabled" in body;
+
+  if (hasNewChannelConfiguration) {
+    updates.autoGopayEnabled = String(
+      autoGopayGopayEnabled || autoGopayShopeePayEnabled,
+    );
+    if (!("activeGateway" in body)) {
+      updates.activeGateway = getLegacyGateway(channelOrder, {
+        ketantechpay: ketantechPayEnabled,
+        autogopay_gopay: autoGopayGopayEnabled,
+        autogopay_shopeepay: autoGopayShopeePayEnabled,
+      });
+    }
+  }
+
+  for (const [key, value] of Object.entries(updates)) {
+    await setSettingValue(key, value);
+  }
+
   const rows = await db.select().from(settingsTable);
-  const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
+  const map: SettingsMap = Object.fromEntries(
+    rows.map((row) => [row.key, row.value]),
+  );
   res.json(buildPaymentSettingsResponse(map));
 });
 

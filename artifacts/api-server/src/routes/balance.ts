@@ -8,6 +8,11 @@ import { getPaymentSettingsMap } from "./settings";
 import { logger } from "../lib/logger";
 import { notifyAdminNewTopup } from "../lib/telegram";
 import { topupLimiter } from "../lib/rate-limit";
+import {
+  createEntityQrPayment,
+  isPaymentProviderError,
+  markEntityQrCreationFailed,
+} from "../lib/payment";
 
 const router = Router();
 
@@ -17,6 +22,10 @@ function formatTopup(t: typeof topupsTable.$inferSelect & { username?: string | 
     userId: t.userId,
     username: (t as { username?: string | null }).username ?? null,
     amount: Number(t.amount),
+    payableAmount: Number(t.payableAmount ?? t.amount),
+    paymentProvider: t.paymentProvider ?? null,
+    paymentChannel: t.paymentChannel ?? null,
+    uniqueCode: t.uniqueCode ?? 0,
     qrisUrl: t.qrisUrl,
     status: t.status,
     confirmedBy: t.confirmedBy,
@@ -68,150 +77,97 @@ router.post("/balance/topup", requireAuth, topupLimiter, async (req, res) => {
 
   const settingsMap = await getPaymentSettingsMap();
   const activeGateway = settingsMap["activeGateway"] ?? "qris_static";
+  const expiryMinutes = settingsMap["qrisExpiryMinutes"]
+    ? parseInt(settingsMap["qrisExpiryMinutes"], 10)
+    : 15;
 
-  let qrisUrl: string | null = null;
-  let autogopayTransactionId: string | null = null;
-  let expiresAt: Date | null = null;
-
-  if (activeGateway === "qris_static") {
-    qrisUrl = settingsMap["qrisStaticUrl"] ?? null;
-    const expiryMinutes = settingsMap["qrisExpiryMinutes"] ? parseInt(settingsMap["qrisExpiryMinutes"], 10) : 15;
-    expiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000);
-  } else if (activeGateway === "autogopay") {
-    const apiUrl = (settingsMap["autoGopayApiUrl"] ?? "https://v1-gateway.autogopay.site").replace(/\/$/, "");
-    const apiKey = settingsMap["autoGopaySecretKey"];
-
-    if (!apiKey) {
-      res.status(503).json({ error: "AutoGoPay belum dikonfigurasi. Hubungi admin." });
-      return;
-    }
-
-    let agpResponse: Response;
-    try {
-      agpResponse = await fetch(`${apiUrl}/qris/generate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({ amount }),
-      });
-    } catch (err) {
-      logger.error({ err }, "AutoGoPay: fetch error saat generate QRIS");
-      res.status(503).json({ error: "Gagal menghubungi AutoGoPay. Coba lagi." });
-      return;
-    }
-
-    let agpData: {
-      success: boolean;
-      data?: { transaction_id: string; qr_url: string; expiry_time: string };
-      message?: string;
-    };
-    try {
-      agpData = await agpResponse.json() as any;
-    } catch {
-      res.status(503).json({ error: "Response tidak valid dari AutoGoPay." });
-      return;
-    }
-
-    if (!agpData.success || !agpData.data) {
-      logger.error({ agpData }, "AutoGoPay: generate QRIS gagal");
-      res.status(502).json({ error: agpData.message ?? "Gagal membuat QRIS. Coba lagi." });
-      return;
-    }
-
-    autogopayTransactionId = agpData.data.transaction_id;
-    qrisUrl = agpData.data.qr_url;
-    expiresAt = new Date(agpData.data.expiry_time.replace(" ", "T") + "+07:00");
-  } else if (activeGateway === "ketantechpay") {
-    const baseUrl = (settingsMap["ketantechPayBaseUrl"] ?? "").replace(/\/$/, "");
-    const clientKey = settingsMap["ketantechPayClientKey"];
-    const expiryMinutes = settingsMap["qrisExpiryMinutes"] ? parseInt(settingsMap["qrisExpiryMinutes"], 10) : 15;
-
-    if (!baseUrl) {
-      res.status(503).json({ error: "KetantechPay belum dikonfigurasi. Hubungi admin." });
-      return;
-    }
-
-    const orderId = `VPN-TOPUP-${Date.now()}-${userId}`;
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "Idempotency-Key": `${orderId}-${Math.random().toString(36).slice(2, 10)}`,
-    };
-    if (clientKey) {
-      headers["X-Client-Key"] = clientKey;
-      headers["x-api-key"] = clientKey;
-    }
-
-    let kpResp: Response;
-    try {
-      kpResp = await fetch(`${baseUrl}/api/v1/payments/charge`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          orderId,
-          amount,
-          currency: "IDR",
-          method: "qris",
-          customer: {
-            name: userInfo?.username ?? `User#${userId}`,
-            email: userInfo?.email ?? "webvpn@local.invalid",
-          },
-          description: `Topup saldo user ${userInfo?.username ?? userId}`,
-        }),
-      });
-    } catch (err) {
-      logger.error({ err }, "KetantechPay: fetch error saat generate QRIS");
-      res.status(503).json({ error: "Gagal menghubungi KetantechPay. Coba lagi." });
-      return;
-    }
-
-    const kpData = (await kpResp.json().catch(() => ({}))) as {
-      data?: { id?: string; paymentUrl?: string };
-      message?: string;
-    };
-
-    if (!kpResp.ok || !kpData?.data?.id || !kpData?.data?.paymentUrl) {
-      logger.error({ kpData, status: kpResp.status }, "KetantechPay: generate QRIS gagal");
-      res.status(502).json({ error: kpData.message ?? "Gagal membuat QRIS. Coba lagi." });
-      return;
-    }
-
-    autogopayTransactionId = kpData.data.id;
-    qrisUrl = kpData.data.paymentUrl;
-    expiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000);
-  }
-
+  // Persist the local entity before any provider call so references and
+  // idempotency keys remain stable across provider retries/timeouts.
   const [topup] = await db
     .insert(topupsTable)
     .values({
       userId,
       amount: String(amount),
+      payableAmount: String(amount),
       status: "pending",
-      qrisUrl,
-      autogopayTransactionId,
-      expiresAt,
     })
     .returning();
 
-  // Untuk QRIS manual, kirim notif ke admin untuk dikonfirmasi manual
-  // Untuk AutoGoPay, notif admin dikirim dari webhook setelah auto-konfirmasi
-  if (activeGateway !== "autogopay" && activeGateway !== "ketantechpay") {
+  if (activeGateway === "qris_static") {
+    const qrisUrl = settingsMap["qrisStaticUrl"]?.trim() || null;
+    if (!qrisUrl) {
+      await markEntityQrCreationFailed(
+        { kind: "topup", id: topup.id },
+        new Error("Static QRIS image is not configured"),
+      );
+      res.status(400).json({
+        error: "QRIS statis belum dikonfigurasi. Hubungi admin.",
+        topupId: topup.id,
+      });
+      return;
+    }
+    const expiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000);
+    const [updatedTopup] = await db
+      .update(topupsTable)
+      .set({ qrisUrl, expiresAt, updatedAt: new Date() })
+      .where(eq(topupsTable.id, topup.id))
+      .returning();
+
     notifyAdminNewTopup(
       topup.id,
       amount,
       userInfo?.username ?? `User#${userId}`,
       userInfo?.email ?? "",
     ).catch((err) => logger.error({ err }, "notifyAdminNewTopup failed"));
+
+    res.status(201).json({
+      ...formatTopup(updatedTopup ?? topup),
+      gateway: activeGateway,
+    });
+    return;
   }
 
+  try {
+    await createEntityQrPayment({
+      entity: { kind: "topup", id: topup.id },
+      baseAmount: amount,
+      settings: settingsMap,
+      customer: {
+        name: userInfo?.username ?? `User#${userId}`,
+        email: userInfo?.email ?? "webvpn@local.invalid",
+      },
+      description: `Topup saldo user ${userInfo?.username ?? userId}`,
+    });
+  } catch (err) {
+    await markEntityQrCreationFailed({ kind: "topup", id: topup.id }, err);
+    const ambiguous =
+      isPaymentProviderError(err) && err.category === "ambiguous";
+    logger.error(
+      {
+        err,
+        topupId: topup.id,
+        paymentOutcome: ambiguous ? "unknown" : "failed",
+      },
+      "Topup QRIS creation failed",
+    );
+    res.status(ambiguous ? 503 : 502).json({
+      error: ambiguous
+        ? "Status pembuatan QRIS belum dapat dipastikan. Jangan ulangi pembayaran; hubungi admin."
+        : "Gagal membuat QRIS. Coba lagi.",
+      topupId: topup.id,
+      paymentStatus: ambiguous ? "unknown" : "failed",
+    });
+    return;
+  }
+
+  const [updatedTopup] = await db
+    .select()
+    .from(topupsTable)
+    .where(eq(topupsTable.id, topup.id))
+    .limit(1);
   res.status(201).json({
-    id: topup.id,
-    amount: Number(topup.amount),
-    qrisUrl: topup.qrisUrl,
-    status: topup.status,
-    expiresAt: topup.expiresAt,
-    gateway: activeGateway,
+    ...formatTopup(updatedTopup ?? topup),
+    gateway: updatedTopup?.paymentProvider ?? activeGateway,
   });
 });
 

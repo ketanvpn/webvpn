@@ -372,7 +372,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [pending, paid, failed, expired]
+            enum: [pending, processing, paid, failed, expired]
         - name: limit
           in: query
           schema:
@@ -1021,7 +1021,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [pending, paid, failed, expired]
+            enum: [pending, processing, paid, failed, expired]
         - name: userId
           in: query
           schema:
@@ -2072,39 +2072,83 @@ components:
       properties:
         qrisStaticUrl:
           type: string
+          format: uri
+          pattern: ^https://
           nullable: true
-          description: URL gambar QRIS statis untuk topup manual
+          description: URL HTTPS gambar QRIS statis untuk topup manual (legacy)
         qrisEnabled:
           type: boolean
-          description: Aktifkan metode QRIS statis
+          description: Aktifkan metode QRIS statis legacy
         qrisExpiryMinutes:
           type: integer
+          minimum: 1
+          maximum: 1440
           nullable: true
-          description: Durasi QRIS statis berlaku dalam menit (default 15)
+          description: Durasi pembayaran berlaku dalam menit (default 15)
+        paymentFallbackEnabled:
+          type: boolean
+          description: Coba channel aktif berikutnya sesuai paymentChannelOrder bila channel sebelumnya gagal
+        paymentChannelOrder:
+          type: array
+          minItems: 1
+          maxItems: 3
+          description: Urutan prioritas channel pembayaran; backend menambahkan channel yang belum disebutkan dalam urutan default
+          items:
+            type: string
+            enum: [ketantechpay, autogopay_gopay, autogopay_shopeepay]
         autoGopayEnabled:
           type: boolean
-          description: Aktifkan integrasi AutoGoPay
+          description: Kompatibilitas legacy; bernilai true bila GoPay atau ShopeePay AutoGoPay aktif
         autoGopayApiUrl:
           type: string
+          format: uri
+          pattern: ^https://
           nullable: true
-          description: Base URL API AutoGoPay
+          description: Base URL HTTPS bersama untuk channel AutoGoPay
         autoGopayMerchantId:
           type: string
           nullable: true
-          description: Merchant ID AutoGoPay
+          description: Merchant ID AutoGoPay (legacy)
         autoGopaySecretKey:
           type: string
           nullable: true
-          description: API Key AutoGoPay (untuk auth dan verifikasi webhook)
+          description: API Key bersama AutoGoPay (untuk auth dan verifikasi webhook)
         autoGopayCallbackToken:
           type: string
           nullable: true
-          description: Token verifikasi callback/webhook AutoGoPay
+          description: Token verifikasi callback/webhook AutoGoPay (legacy)
+        autoGopayGopayEnabled:
+          type: boolean
+          description: Aktifkan channel GoPay melalui AutoGoPay
+        autoGopayShopeePayEnabled:
+          type: boolean
+          description: Aktifkan channel ShopeePay melalui AutoGoPay
+        autoGopayShopeePayQrisStatic:
+          type: string
+          nullable: true
+          description: String payload QRIS statis ShopeePay; OVO tetap memindai payload ini sebagai QRIS, bukan menjadi channel OVO terpisah
         activeGateway:
           type: string
           nullable: true
-          description: "Gateway aktif: 'qris_static' | 'autogopay'"
-          enum: [qris_static, autogopay]
+          description: Gateway aktif legacy yang disinkronkan dari channel pertama yang aktif
+          enum: [qris_static, autogopay, ketantechpay]
+        ketantechPayEnabled:
+          type: boolean
+          description: Aktifkan channel KetantechPay
+        ketantechPayWebhookSecret:
+          type: string
+          nullable: true
+          description: Webhook Secret KetantechPay
+        ketantechPayBaseUrl:
+          type: string
+          format: uri
+          pattern: ^https://
+          nullable: true
+          description: Base URL HTTPS KetantechPay
+        ketantechPayClientKey:
+          type: string
+          nullable: true
+          description: Client API Key KetantechPay
 
     TelegramSettings:
       type: object
@@ -2408,27 +2452,48 @@ components:
           nullable: true
         status:
           type: string
-          enum: [pending, paid, failed, expired]
+          enum: [pending, processing, paid, failed, expired]
+          description: processing berarti pembayaran sudah diterima dan akun VPN sedang dibuat
         amount:
           type: number
+          description: Harga dasar order dalam IDR, sebelum kode unik
         vpnAccountId:
           type: integer
           nullable: true
         paymentMethod:
           type: string
           nullable: true
+        paymentProvider:
+          type: string
+          nullable: true
+          enum: [ketantechpay, autogopay]
+          description: Penyedia pembayaran yang memproses transaksi; null untuk pembayaran saldo atau QRIS statis legacy
+        paymentChannel:
+          type: string
+          nullable: true
+          enum: [ketantechpay, autogopay_gopay, autogopay_shopeepay]
+          description: "Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan channel yang dipilih secara terpisah."
+        payableAmount:
+          type: number
+          nullable: true
+          description: Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null
+        uniqueCode:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna
         notes:
           type: string
           nullable: true
         qrisUrl:
           type: string
           nullable: true
-          description: URL gambar QRIS (hanya untuk paymentMethod=qris via AutoGoPay)
+          description: URL gambar QRIS untuk paymentMethod=qris
         expiresAt:
           type: string
           format: date-time
           nullable: true
-          description: Waktu kedaluwarsa QRIS
+          description: Waktu kedaluwarsa pembayaran QRIS
         createdAt:
           type: string
           format: date-time
@@ -2516,18 +2581,40 @@ components:
           type: integer
         amount:
           type: number
+          description: Nominal saldo yang diminta dalam IDR, sebelum kode unik
+        paymentProvider:
+          type: string
+          nullable: true
+          enum: [ketantechpay, autogopay]
+          description: Penyedia pembayaran yang memproses topup; null untuk QRIS statis legacy
+        paymentChannel:
+          type: string
+          nullable: true
+          enum: [ketantechpay, autogopay_gopay, autogopay_shopeepay]
+          description: "Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. Semua QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan pilihan channel terpisah."
+        payableAmount:
+          type: number
+          nullable: true
+          description: Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null
+        uniqueCode:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna
         qrisUrl:
           type: string
           nullable: true
-          description: URL of QRIS payment image
+          description: URL gambar pembayaran QRIS
         expiresAt:
           type: string
           format: date-time
           nullable: true
+          description: Waktu kedaluwarsa pembayaran QRIS
         gateway:
           type: string
           nullable: true
-          description: "Gateway yang digunakan: 'qris_static' | 'autogopay'"
+          enum: [qris_static, autogopay, ketantechpay]
+          description: Metadata gateway legacy; gunakan paymentProvider dan paymentChannel untuk integrasi baru
         status:
           type: string
           enum: [pending, confirmed, rejected]
@@ -2545,9 +2632,39 @@ components:
           nullable: true
         amount:
           type: number
+          description: Nominal saldo yang diminta dalam IDR, sebelum kode unik
+        paymentProvider:
+          type: string
+          nullable: true
+          enum: [ketantechpay, autogopay]
+          description: Penyedia pembayaran yang memproses topup; null untuk QRIS statis legacy
+        paymentChannel:
+          type: string
+          nullable: true
+          enum: [ketantechpay, autogopay_gopay, autogopay_shopeepay]
+          description: "Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. Semua QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan pilihan channel terpisah."
+        payableAmount:
+          type: number
+          nullable: true
+          description: Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null
+        uniqueCode:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna
         qrisUrl:
           type: string
           nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Waktu kedaluwarsa pembayaran QRIS
+        gateway:
+          type: string
+          nullable: true
+          enum: [qris_static, autogopay, ketantechpay]
+          description: Metadata gateway legacy; gunakan paymentProvider dan paymentChannel untuk integrasi baru
         status:
           type: string
           enum: [pending, confirmed, rejected]

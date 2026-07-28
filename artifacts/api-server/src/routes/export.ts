@@ -3,20 +3,12 @@ import { db } from "@workspace/db";
 import { topupsTable, ordersTable, usersTable, productsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { requireAdmin } from "../lib/auth";
+import { escapeCsvCell } from "../lib/payment/csv-policy";
 
 const router = Router();
 
-function escapeCsv(val: unknown): string {
-  if (val === null || val === undefined) return "";
-  const str = String(val);
-  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
-}
-
 function toCsvRow(fields: unknown[]): string {
-  return fields.map(escapeCsv).join(",");
+  return fields.map(escapeCsvCell).join(",");
 }
 
 router.get("/admin/export/topups", requireAdmin, async (_req, res) => {
@@ -26,8 +18,12 @@ router.get("/admin/export/topups", requireAdmin, async (_req, res) => {
       userId: topupsTable.userId,
       username: usersTable.username,
       amount: topupsTable.amount,
+      paymentProvider: topupsTable.paymentProvider,
+      paymentChannel: topupsTable.paymentChannel,
+      payableAmount: topupsTable.payableAmount,
+      uniqueCode: topupsTable.uniqueCode,
       status: topupsTable.status,
-      autogopayTransactionId: topupsTable.autogopayTransactionId,
+      paymentReference: topupsTable.autogopayTransactionId,
       rejectionNote: topupsTable.rejectionNote,
       createdAt: topupsTable.createdAt,
       updatedAt: topupsTable.updatedAt,
@@ -37,15 +33,23 @@ router.get("/admin/export/topups", requireAdmin, async (_req, res) => {
     .orderBy(desc(topupsTable.createdAt))
     .limit(10000);
 
-  const header = toCsvRow(["ID", "User ID", "Username", "Nominal", "Status", "Ref AutoGoPay", "Catatan Tolak", "Dibuat", "Diperbarui"]);
-  const lines = rows.map((r: any) =>
+  const header = toCsvRow([
+    "ID", "User ID", "Username", "Nominal Dasar", "Provider Pembayaran",
+    "Channel Pembayaran", "Jumlah Dibayar", "Kode Unik", "Status",
+    "Referensi Pembayaran", "Catatan Tolak", "Dibuat", "Diperbarui",
+  ]);
+  const lines = rows.map((r) =>
     toCsvRow([
       r.id,
       r.userId,
       r.username ?? "",
       Number(r.amount),
+      r.paymentProvider ?? "",
+      r.paymentChannel ?? "",
+      Number(r.payableAmount ?? r.amount),
+      r.uniqueCode ?? 0,
       r.status,
-      r.autogopayTransactionId ?? "",
+      r.paymentReference ?? "",
       r.rejectionNote ?? "",
       r.createdAt?.toISOString() ?? "",
       r.updatedAt?.toISOString() ?? "",
@@ -69,8 +73,13 @@ router.get("/admin/export/orders", requireAdmin, async (_req, res) => {
       productId: ordersTable.productId,
       productName: productsTable.name,
       amount: ordersTable.amount,
+      paymentProvider: ordersTable.paymentProvider,
+      paymentChannel: ordersTable.paymentChannel,
+      payableAmount: ordersTable.payableAmount,
+      uniqueCode: ordersTable.uniqueCode,
       status: ordersTable.status,
       paymentMethod: ordersTable.paymentMethod,
+      paymentReference: ordersTable.autogopayTransactionId,
       notes: ordersTable.notes,
       createdAt: ordersTable.createdAt,
       updatedAt: ordersTable.updatedAt,
@@ -82,10 +91,11 @@ router.get("/admin/export/orders", requireAdmin, async (_req, res) => {
     .limit(10000);
 
   const header = toCsvRow([
-    "ID", "User ID", "Username", "Product ID", "Produk", "Nominal",
-    "Status", "Metode Bayar", "Catatan", "Dibuat", "Diperbarui",
+    "ID", "User ID", "Username", "Product ID", "Produk", "Nominal Dasar",
+    "Provider Pembayaran", "Channel Pembayaran", "Jumlah Dibayar", "Kode Unik",
+    "Status", "Metode Bayar", "Referensi Pembayaran", "Catatan", "Dibuat", "Diperbarui",
   ]);
-  const lines = rows.map((r: any) =>
+  const lines = rows.map((r) =>
     toCsvRow([
       r.id,
       r.userId,
@@ -93,8 +103,13 @@ router.get("/admin/export/orders", requireAdmin, async (_req, res) => {
       r.productId,
       r.productName ?? "",
       Number(r.amount),
+      r.paymentProvider ?? "",
+      r.paymentChannel ?? "",
+      Number(r.payableAmount ?? r.amount),
+      r.uniqueCode ?? 0,
       r.status,
       r.paymentMethod ?? "",
+      r.paymentReference ?? "",
       r.notes ?? "",
       r.createdAt?.toISOString() ?? "",
       r.updatedAt?.toISOString() ?? "",

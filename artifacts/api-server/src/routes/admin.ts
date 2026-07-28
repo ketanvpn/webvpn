@@ -13,6 +13,7 @@ import {
   ticketsTable,
   ticketMessagesTable,
   pointLogsTable,
+  paymentAttemptsTable,
 } from "@workspace/db";
 import { eq, and, or, ilike, like, desc, asc, sql, inArray } from "drizzle-orm";
 import { randomBytes } from "crypto";
@@ -32,6 +33,7 @@ import { tryAutoUpgradeReseller } from "../lib/reseller-upgrade";
 import { getReferralBonusAmount } from "../lib/scheduler";
 import { addPoints, getPointsSettings } from "./points";
 import { getSettingValue } from "./settings";
+import { manualTopupCredit } from "../lib/payment/manual-topup-policy";
 import {
   AdminListUsersQueryParams,
   AdminUpdateUserBody,
@@ -125,9 +127,16 @@ router.get("/admin/dashboard", requireAdmin, async (_req, res) => {
       userId: topupsTable.userId,
       username: usersTable.username,
       amount: topupsTable.amount,
+      paymentProvider: topupsTable.paymentProvider,
+      paymentChannel: topupsTable.paymentChannel,
+      payableAmount: topupsTable.payableAmount,
+      uniqueCode: topupsTable.uniqueCode,
       qrisUrl: topupsTable.qrisUrl,
       status: topupsTable.status,
       confirmedBy: topupsTable.confirmedBy,
+      rejectionNote: topupsTable.rejectionNote,
+      expiresAt: topupsTable.expiresAt,
+      autogopayTransactionId: topupsTable.autogopayTransactionId,
       createdAt: topupsTable.createdAt,
       updatedAt: topupsTable.updatedAt,
     })
@@ -1097,10 +1106,16 @@ router.get("/admin/topups", requireAdmin, async (req, res) => {
       userId: topupsTable.userId,
       username: usersTable.username,
       amount: topupsTable.amount,
+      paymentProvider: topupsTable.paymentProvider,
+      paymentChannel: topupsTable.paymentChannel,
+      payableAmount: topupsTable.payableAmount,
+      uniqueCode: topupsTable.uniqueCode,
       qrisUrl: topupsTable.qrisUrl,
       status: topupsTable.status,
       confirmedBy: topupsTable.confirmedBy,
       rejectionNote: topupsTable.rejectionNote,
+      expiresAt: topupsTable.expiresAt,
+      autogopayTransactionId: topupsTable.autogopayTransactionId,
       createdAt: topupsTable.createdAt,
       updatedAt: topupsTable.updatedAt,
     })
@@ -1129,7 +1144,7 @@ router.post("/admin/topups/:id/confirm", requireAdmin, async (req, res) => {
     return;
   }
 
-  const amount = Number(topup.amount);
+  const creditedAmount = manualTopupCredit(topup);
   let confirmed: typeof topupsTable.$inferSelect | null = null;
   let balanceAfter = 0;
 
@@ -1149,7 +1164,7 @@ router.post("/admin/topups/:id/confirm", requireAdmin, async (req, res) => {
 
       const [updatedUser] = await tx
         .update(usersTable)
-        .set({ balance: sql`balance + ${amount}` })
+        .set({ balance: sql`balance + ${creditedAmount}` })
         .where(eq(usersTable.id, topup.userId))
         .returning({ balance: usersTable.balance });
 
@@ -1158,12 +1173,12 @@ router.post("/admin/topups/:id/confirm", requireAdmin, async (req, res) => {
       }
 
       const after = Number(updatedUser.balance);
-      const before = after - amount;
+      const before = after - creditedAmount;
 
       await tx.insert(balanceLogsTable).values({
         userId: topup.userId,
         type: "topup",
-        amount: String(amount),
+        amount: String(creditedAmount),
         balanceBefore: String(before),
         balanceAfter: String(after),
         description: `Topup dikonfirmasi (ID #${topup.id})`,
@@ -1193,21 +1208,20 @@ router.post("/admin/topups/:id/confirm", requireAdmin, async (req, res) => {
     action: "approve_topup",
     targetType: "topup",
     targetId: topup.id,
-    details: { amount: Number(topup.amount), userId: topup.userId },
+    details: { amount: creditedAmount, userId: topup.userId },
     ipAddress: getClientIp(req as any),
   }).catch(() => {});
 
   // Notify user via Telegram (fire and forget)
-  notifyUserTopupConfirmed(topup.userId, Number(topup.amount), balanceAfter).catch(() => {});
+  notifyUserTopupConfirmed(topup.userId, creditedAmount, balanceAfter).catch(() => {});
 
   // Cek apakah user layak auto-upgrade jadi reseller
-  tryAutoUpgradeReseller(topup.userId, Number(topup.amount)).catch(() => {});
+  tryAutoUpgradeReseller(topup.userId, creditedAmount).catch(() => {});
 
   // Tambah poin jika sistem poin aktif
   getPointsSettings().then(async (pts) => {
-    const topupAmount = Number(topup.amount);
-    if (pts.enabled && topupAmount >= pts.pointsMinTopup && pts.pointsRateTopup > 0) {
-      const pointsEarned = Math.floor(topupAmount / pts.pointsRateTopup);
+    if (pts.enabled && creditedAmount >= pts.pointsMinTopup && pts.pointsRateTopup > 0) {
+      const pointsEarned = Math.floor(creditedAmount / pts.pointsRateTopup);
       if (pointsEarned > 0) {
         await addPoints(topup.userId, pointsEarned, "topup", `Topup dikonfirmasi #${topup.id}`, topup.id);
       }
@@ -1601,8 +1615,21 @@ router.delete("/admin/orders/:id", requireAdmin, async (req, res) => {
     return;
   }
 
-  if (order.status === "paid") {
-    res.status(400).json({ error: "Order yang sudah dibayar tidak bisa dihapus" });
+  if (order.status === "paid" || order.status === "processing") {
+    res.status(400).json({ error: "Order yang sedang/sudah diproses tidak bisa dihapus" });
+    return;
+  }
+
+  const [paymentAttempt] = await db
+    .select({ id: paymentAttemptsTable.id, status: paymentAttemptsTable.status })
+    .from(paymentAttemptsTable)
+    .where(eq(paymentAttemptsTable.orderId, id))
+    .limit(1);
+  if (paymentAttempt) {
+    res.status(409).json({
+      error:
+        "Order memiliki riwayat percobaan provider dan tidak boleh dihapus. Ubah status atau biarkan sebagai audit pembayaran.",
+    });
     return;
   }
 

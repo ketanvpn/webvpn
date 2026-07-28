@@ -1,5 +1,12 @@
 import { getApiError } from "@/lib/utils";
-import { useGetOrder, usePayOrder, getGetOrderQueryKey, useGetAccount, getGetBalanceQueryKey, getGetAccountQueryKey } from "@workspace/api-client-react";
+import {
+  useGetOrder,
+  usePayOrder,
+  getGetOrderQueryKey,
+  useGetAccount,
+  getGetBalanceQueryKey,
+  getGetAccountQueryKey,
+} from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { formatRupiah } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -41,6 +48,23 @@ const statusLabel: Record<string, string> = {
   failed: "Gagal",
   expired: "Kedaluwarsa",
 };
+
+function getPaymentChannelName(channel?: string | null, provider?: string | null) {
+  switch (channel) {
+    case "ketantechpay":
+      return "QRIS dinamis (KetantechPay)";
+    case "autogopay_gopay":
+      return "QRIS dinamis (GoPay)";
+    case "autogopay_shopeepay":
+      return "QRIS (ShopeePay)";
+    default:
+      return provider === "autogopay"
+        ? "QRIS dinamis (AutoGoPay)"
+        : provider === "ketantechpay"
+          ? "QRIS dinamis (KetantechPay)"
+          : "QRIS";
+  }
+}
 
 function QrCodeImage({ data, label }: { data: string; label: string }) {
   const url = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(data)}`;
@@ -164,6 +188,11 @@ export default function OrderDetail() {
     );
   }
 
+  const payableAmount = order.payableAmount ?? order.amount;
+  const paymentChannelName = getPaymentChannelName(
+    order.paymentChannel,
+    order.paymentProvider,
+  );
   const allLinks = vpnAccount?.allLinks as Record<string, string | null> | null | undefined;
   const hasAllLinks = allLinks && Object.values(allLinks).some((v) => !!v);
   const LINK_ORDER = ["tls", "none", "grpc", "uptls", "upntls"];
@@ -242,15 +271,26 @@ export default function OrderDetail() {
                   {order.paymentMethod === "balance" ? "Saldo Akun" : order.paymentMethod === "qris" ? "QRIS" : order.paymentMethod || "-"}
                 </span>
               </div>
+              {order.paymentMethod === "qris" && (
+                <div className="flex justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground">Channel pembayaran</span>
+                  <span className="font-medium text-right">{paymentChannelName}</span>
+                </div>
+              )}
               {order.notes && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Nama Akun</span>
                   <span className="font-mono font-medium">{order.notes}</span>
                 </div>
               )}
+              {!!order.uniqueCode && (
+                <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+                  Kode unik <strong className="text-foreground">+{formatRupiah(order.uniqueCode)}</strong> sudah termasuk dalam total. Setelah pembayaran berhasil, nilai kode unik akan dikreditkan ke saldo akun kamu.
+                </div>
+              )}
               <div className="flex justify-between font-bold text-lg pt-3 border-t">
                 <span>Total Pembayaran</span>
-                <span className="text-primary">{formatRupiah(order.amount)}</span>
+                <span className="text-primary">{formatRupiah(payableAmount)}</span>
               </div>
             </div>
           </div>
@@ -396,7 +436,7 @@ export default function OrderDetail() {
           )}
 
           {/* Status Processing — tampil animasi loading + info */}
-          {(order.status as string) === "processing" && (
+          {order.status === "processing" && (
             <div className="rounded-xl border-2 border-blue-500/30 bg-blue-500/5 p-6 flex flex-col items-center gap-3 text-center">
               <Loader2 className="h-10 w-10 text-blue-500 animate-spin" />
               <div>
@@ -456,8 +496,8 @@ export default function OrderDetail() {
                         onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                       />
                     </div>
-                    <p className="text-sm text-center text-muted-foreground max-w-xs">
-                      Scan QR code di atas menggunakan aplikasi dompet digital (GoPay, OVO, Dana, LinkAja, dll.) atau mobile banking.
+                    <p className="text-sm text-center text-muted-foreground max-w-sm">
+                      Pindai QRIS dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lainnya. OVO cukup memindai QRIS yang tampil—tidak perlu memilih channel ShopeePay.
                     </p>
                   </>
                 ) : (
@@ -469,10 +509,25 @@ export default function OrderDetail() {
 
                 {!qrisExpired && (
                   <div className="w-full rounded-lg border bg-background divide-y text-sm">
+                    <div className="flex justify-between gap-4 px-4 py-2.5">
+                      <span className="text-muted-foreground">Channel pembayaran</span>
+                      <span className="font-medium text-right">{paymentChannelName}</span>
+                    </div>
                     <div className="flex justify-between px-4 py-2.5">
                       <span className="text-muted-foreground">Total Bayar</span>
-                      <span className="font-bold text-primary">{formatRupiah(order.amount)}</span>
+                      <span className="font-bold text-primary">{formatRupiah(payableAmount)}</span>
                     </div>
+                    {!!order.uniqueCode && (
+                      <div className="px-4 py-2.5 text-left">
+                        <div className="flex justify-between gap-4">
+                          <span className="text-muted-foreground">Kode unik</span>
+                          <span className="font-medium">+{formatRupiah(order.uniqueCode)}</span>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Kode unik termasuk dalam total bayar dan akan dikreditkan ke saldo akun setelah pembayaran berhasil.
+                        </p>
+                      </div>
+                    )}
                     {order.expiresAt && (
                       <div className="flex justify-between px-4 py-2.5">
                         <span className="text-muted-foreground flex items-center gap-1.5">
@@ -527,7 +582,7 @@ export default function OrderDetail() {
                   </div>
                   <div className="flex justify-between px-4 py-2.5 bg-primary/5">
                     <span className="font-semibold">Total</span>
-                    <span className="font-bold text-primary">{formatRupiah(order.amount)}</span>
+                    <span className="font-bold text-primary">{formatRupiah(payableAmount)}</span>
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">Saldo akan dipotong dan akun VPN langsung aktif setelah pembayaran berhasil.</p>

@@ -7,7 +7,7 @@
  */
 
 /**
- * Gateway aktif: 'qris_static' | 'autogopay'
+ * Gateway aktif legacy yang disinkronkan dari channel pertama yang aktif
  */
 export type PaymentSettingsActiveGateway =
   | (typeof PaymentSettingsActiveGateway)[keyof typeof PaymentSettingsActiveGateway]
@@ -16,4 +16,5 @@ export type PaymentSettingsActiveGateway =
 export const PaymentSettingsActiveGateway = {
   qris_static: "qris_static",
   autogopay: "autogopay",
+  ketantechpay: "ketantechpay",
 } as const;

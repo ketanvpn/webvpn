@@ -6,24 +6,60 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { PaymentSettingsActiveGateway } from "./paymentSettingsActiveGateway";
+import type { PaymentSettingsPaymentChannelOrderItem } from "./paymentSettingsPaymentChannelOrderItem";
 
 export interface PaymentSettings {
-  /** URL gambar QRIS statis untuk topup manual */
+  /**
+   * URL HTTPS gambar QRIS statis untuk topup manual (legacy)
+   * @pattern ^https://
+   */
   qrisStaticUrl?: string | null;
-  /** Aktifkan metode QRIS statis */
+  /** Aktifkan metode QRIS statis legacy */
   qrisEnabled?: boolean;
-  /** Durasi QRIS statis berlaku dalam menit (default 15) */
+  /**
+   * Durasi pembayaran berlaku dalam menit (default 15)
+   * @minimum 1
+   * @maximum 1440
+   */
   qrisExpiryMinutes?: number | null;
-  /** Aktifkan integrasi AutoGoPay */
+  /** Coba channel aktif berikutnya sesuai paymentChannelOrder bila channel sebelumnya gagal */
+  paymentFallbackEnabled?: boolean;
+  /**
+   * Urutan prioritas channel pembayaran; backend menambahkan channel yang belum disebutkan dalam urutan default
+   * @minItems 1
+   * @maxItems 3
+   */
+  paymentChannelOrder?: PaymentSettingsPaymentChannelOrderItem[];
+  /** Kompatibilitas legacy; bernilai true bila GoPay atau ShopeePay AutoGoPay aktif */
   autoGopayEnabled?: boolean;
-  /** Base URL API AutoGoPay */
+  /**
+   * Base URL HTTPS bersama untuk channel AutoGoPay
+   * @pattern ^https://
+   */
   autoGopayApiUrl?: string | null;
-  /** Merchant ID AutoGoPay */
+  /** Merchant ID AutoGoPay (legacy) */
   autoGopayMerchantId?: string | null;
-  /** API Key AutoGoPay (untuk auth dan verifikasi webhook) */
+  /** API Key bersama AutoGoPay (untuk auth dan verifikasi webhook) */
   autoGopaySecretKey?: string | null;
-  /** Token verifikasi callback/webhook AutoGoPay */
+  /** Token verifikasi callback/webhook AutoGoPay (legacy) */
   autoGopayCallbackToken?: string | null;
-  /** Gateway aktif: 'qris_static' | 'autogopay' */
+  /** Aktifkan channel GoPay melalui AutoGoPay */
+  autoGopayGopayEnabled?: boolean;
+  /** Aktifkan channel ShopeePay melalui AutoGoPay */
+  autoGopayShopeePayEnabled?: boolean;
+  /** String payload QRIS statis ShopeePay; OVO tetap memindai payload ini sebagai QRIS, bukan menjadi channel OVO terpisah */
+  autoGopayShopeePayQrisStatic?: string | null;
+  /** Gateway aktif legacy yang disinkronkan dari channel pertama yang aktif */
   activeGateway?: PaymentSettingsActiveGateway;
+  /** Aktifkan channel KetantechPay */
+  ketantechPayEnabled?: boolean;
+  /** Webhook Secret KetantechPay */
+  ketantechPayWebhookSecret?: string | null;
+  /**
+   * Base URL HTTPS KetantechPay
+   * @pattern ^https://
+   */
+  ketantechPayBaseUrl?: string | null;
+  /** Client API Key KetantechPay */
+  ketantechPayClientKey?: string | null;
 }

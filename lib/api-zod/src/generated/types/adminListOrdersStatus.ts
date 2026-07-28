@@ -11,6 +11,7 @@ export type AdminListOrdersStatus =
 
 export const AdminListOrdersStatus = {
   pending: "pending",
+  processing: "processing",
   paid: "paid",
   failed: "failed",
   expired: "expired",
