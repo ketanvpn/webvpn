@@ -596,19 +596,27 @@ router.post("/orders", requireAuth, createOrderLimiter, async (req, res) => {
 
   // Persist first so every provider sees the same local reference/idempotency key.
   // Balance orders keep their existing pending/fulfillment behavior.
+  // Set default expiry 30 menit untuk QRIS orders (akan di-update oleh provider jika berhasil)
+  const DEFAULT_QRIS_EXPIRY_MINUTES = 30;
+  const orderValues: any = {
+    userId,
+    productId,
+    status: "pending",
+    amount: String(amount),
+    payableAmount: String(amount),
+    paymentMethod,
+    notes: normalizedRemarks,
+    voucherId: appliedVoucherId,
+    discountAmount: String(appliedDiscountAmount),
+  };
+  
+  if (paymentMethod === "qris") {
+    orderValues.expiresAt = new Date(Date.now() + DEFAULT_QRIS_EXPIRY_MINUTES * 60 * 1000);
+  }
+  
   const [order] = await db
     .insert(ordersTable)
-    .values({
-      userId,
-      productId,
-      status: "pending",
-      amount: String(amount),
-      payableAmount: String(amount),
-      paymentMethod,
-      notes: normalizedRemarks,
-      voucherId: appliedVoucherId,
-      discountAmount: String(appliedDiscountAmount),
-    })
+    .values(orderValues)
     .returning();
 
   if (paymentMethod === "qris") {

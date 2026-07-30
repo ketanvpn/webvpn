@@ -1,4 +1,4 @@
-import { pgTable, serial, text, boolean, numeric, integer, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, boolean, numeric, integer, timestamp, index, check } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -28,6 +28,17 @@ export const ordersTable = pgTable("orders", {
 }, (t) => [
   index("orders_user_id_idx").on(t.userId),
   index("orders_status_idx").on(t.status),
+  // Index untuk optimasi query scheduler cancelExpiredQrisOrders
+  index("orders_payment_status_created_idx").on(t.paymentMethod, t.status, t.createdAt),
+  // Constraint: QRIS order wajib punya expiresAt (kecuali status final)
+  check(
+    "orders_qris_requires_expiry_check",
+    sql`(
+      payment_method IS DISTINCT FROM 'qris' 
+      OR expires_at IS NOT NULL 
+      OR status IN ('paid', 'expired', 'cancelled', 'refunded')
+    )`
+  ),
 ]);
 
 export const insertOrderSchema = createInsertSchema(ordersTable).omit({

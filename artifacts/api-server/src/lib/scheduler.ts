@@ -164,11 +164,21 @@ export async function checkExpiringAccounts(): Promise<void> {
  * Reconcile providers first, then expire only genuinely unpaid QRIS orders.
  * Paid/processing attempts are explicitly excluded; late confirmed provider
  * payments can recover an expired order through settlement reconciliation.
+ * 
+ * Also handles orders with NULL expiresAt (legacy bug fix) - treated as expired
+ * if created more than 30 minutes ago.
  */
 async function cancelExpiredQrisOrders(): Promise<void> {
   try {
     await reconcileBeforePaymentExpiry();
     const now = new Date();
+    
+    // Fallback untuk order dengan expiresAt NULL (legacy bug)
+    // Jika order sudah lebih dari 30 menit dan masih pending tanpa expiresAt, expired
+    const FALLBACK_EXPIRY_MINUTES = 30;
+    const fallbackThreshold = new Date(now.getTime() - FALLBACK_EXPIRY_MINUTES * 60 * 1000);
+    
+    // Query: expired berdasarkan expiresAt ATAU (expiresAt NULL dan sudah > 30 menit)
     const result = await db
       .update(ordersTable)
       .set({ status: "expired", updatedAt: now })
@@ -176,7 +186,11 @@ async function cancelExpiredQrisOrders(): Promise<void> {
         and(
           eq(ordersTable.status, "pending"),
           eq(ordersTable.paymentMethod, "qris"),
-          lt(ordersTable.expiresAt, now),
+          sql`(
+            ${ordersTable.expiresAt} is not null and ${ordersTable.expiresAt} < ${now}
+            or
+            ${ordersTable.expiresAt} is null and ${ordersTable.createdAt} < ${fallbackThreshold}
+          )`,
           sql`not exists (
             select 1 from ${paymentAttemptsTable}
             where ${paymentAttemptsTable.orderId} = ${ordersTable.id}
@@ -184,7 +198,7 @@ async function cancelExpiredQrisOrders(): Promise<void> {
           )`,
         ),
       )
-      .returning({ id: ordersTable.id });
+      .returning({ id: ordersTable.id, expiresAt: ordersTable.expiresAt, createdAt: ordersTable.createdAt });
 
     await db
       .update(paymentAttemptsTable)
@@ -202,7 +216,12 @@ async function cancelExpiredQrisOrders(): Promise<void> {
       );
 
     if (result.length > 0) {
-      logger.info({ count: result.length }, "Auto-expire: unpaid QRIS orders exceeded expiresAt");
+      const nullExpiresCount = result.filter((r: any) => r.expiresAt === null).length;
+      logger.info({ 
+        count: result.length,
+        nullExpiresAt: nullExpiresCount,
+        withExpiresAt: result.length - nullExpiresCount
+      }, "Auto-expire: unpaid QRIS orders exceeded expiresAt (or NULL + fallback 30min)");
     }
   } catch (err) {
     logger.error({ err }, "Error saat auto-cancel order QRIS expired");
@@ -462,6 +481,12 @@ export function startScheduler(): void {
     runSafely("runProactiveAlerts", runProactiveAlerts);
   }, FIFTEEN_MIN);
 
+  // Stuck orders health check setiap 1 jam
+  runSafely("initial-checkStuckOrders", checkStuckOrders);
+  setInterval(() => {
+    runSafely("checkStuckOrders", checkStuckOrders);
+  }, ONE_HOUR);
+
   logger.info("Scheduler notifikasi kedaluwarsa aktif (cek setiap jam, kirim sesuai jam WIB yang dikonfigurasi)");
   logger.info("Scheduler rekonsiliasi ShopeePay aktif (1 batch setiap 5 detik)");
   logger.info("Scheduler rekonsiliasi GoPay aktif (attempt stale setiap 2 menit)");
@@ -474,6 +499,7 @@ export function startScheduler(): void {
   logger.info("Scheduler cleanup wa_verifications expired aktif (cek setiap 6 jam)");
   logger.info("Scheduler low margin alert aktif (cek setiap jam, kirim jam 08.00 WIB)");
   logger.info("Scheduler proactive alerts aktif (interval: 15 menit)");
+  logger.info("Scheduler stuck orders health check aktif (interval: 1 jam)");
   logger.info("Scheduler laporan harian aktif (cek setiap jam, kirim jam 08.00 WIB)");
 
   // Auto-backup: cek setiap jam apakah sudah waktunya backup
@@ -810,6 +836,80 @@ async function runProactiveAlerts(): Promise<void> {
     }
   } catch (err) {
     logger.error({ err }, "Error saat proactive alert monitoring");
+  }
+}
+
+// ─── Stuck Order Health Check ────────────────────────────────────────────────
+
+/**
+ * Health check untuk order yang stuck pending terlalu lama (> 1 jam).
+ * Alert ke admin jika ada anomali.
+ */
+const STUCK_ORDER_THRESHOLD_HOURS = 1;
+
+async function checkStuckOrders(): Promise<void> {
+  try {
+    const adminChatId = await getAdminChatIdForAlert();
+    if (!adminChatId) return;
+
+    const threshold = new Date(Date.now() - STUCK_ORDER_THRESHOLD_HOURS * 60 * 60 * 1000);
+
+    // Cari order pending yang sudah > 1 jam
+    const stuckOrders = await db
+      .select({
+        id: ordersTable.id,
+        paymentMethod: ordersTable.paymentMethod,
+        createdAt: ordersTable.createdAt,
+        expiresAt: ordersTable.expiresAt,
+      })
+      .from(ordersTable)
+      .where(
+        and(
+          eq(ordersTable.status, "pending"),
+          lt(ordersTable.createdAt, threshold)
+        )
+      );
+
+    if (stuckOrders.length === 0) return;
+
+    // Group by payment method untuk insight
+    const byMethod: Record<string, number> = {};
+    let nullExpiresCount = 0;
+
+    for (const order of stuckOrders) {
+      const method = order.paymentMethod ?? "unknown";
+      byMethod[method] = (byMethod[method] ?? 0) + 1;
+      if (order.expiresAt === null) nullExpiresCount++;
+    }
+
+    // Alert dengan cooldown 1 jam
+    if (!shouldAlert("stuck_orders")) return;
+
+    const lines = [
+      `⚠️ <b>ORDER PENDING TERLALU LAMA</b>`,
+      `━━━━━━━━━━━━━━━━━━`,
+      ``,
+      `Ditemukan <b>${stuckOrders.length} order</b> pending > ${STUCK_ORDER_THRESHOLD_HOURS} jam:`,
+    ];
+
+    for (const [method, count] of Object.entries(byMethod)) {
+      lines.push(`  • ${method}: ${count} order`);
+    }
+
+    if (nullExpiresCount > 0) {
+      lines.push(``);
+      lines.push(`🔴 <b>${nullExpiresCount} order tanpa expiresAt</b> (indikasi bug)`);
+    }
+
+    lines.push(``);
+    lines.push(`Cek dashboard admin → Orders untuk detail.`);
+    lines.push(``);
+    lines.push(`🕐 ${new Date().toLocaleString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })} WIB`);
+
+    await sendMessage(adminChatId, lines.join("\n"));
+    logger.info({ count: stuckOrders.length, byMethod, nullExpiresCount }, "Stuck orders alert sent to admin");
+  } catch (err) {
+    logger.error({ err }, "Error saat check stuck orders");
   }
 }
 
