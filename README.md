@@ -1,6 +1,26 @@
 # KETANTECH VPN Store
 
+![Node.js](https://img.shields.io/badge/Node.js-22%2B-339933?logo=node.js&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14%2B-336791?logo=postgresql&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-blue.svg)
+![Platform](https://img.shields.io/badge/Platform-Ubuntu%20%7C%20Debian-orange)
+
 Platform penjualan VPN berbasis web lengkap — dashboard user, panel admin, verifikasi WhatsApp, pembayaran QRIS otomatis, dan bot Telegram. Landing page menampilkan server yang tersedia (lokasi, protokol) tanpa harga — harga hanya terlihat setelah pengguna login.
+
+---
+
+## Tech Stack
+
+| Layer | Teknologi |
+|-------|-----------|
+| **Frontend** | React 19, Vite, TypeScript, Tailwind CSS v4, shadcn/ui, Framer Motion, TanStack Query |
+| **Backend** | Node.js 22+, Express, TypeScript |
+| **Database** | PostgreSQL 14+, Drizzle ORM |
+| **Authentication** | express-session, Cloudflare Turnstile (anti-bot) |
+| **Payment** | AutoGoPay QRIS (webhook-based) |
+| **Notifications** | Fonnte (WhatsApp OTP), Telegram Bot API |
+| **VPN Integration** | NadiaVPN API, Custom VPN Panels (SSH, VMess, VLess, Trojan, Shadowsocks) |
+| **Deployment** | PM2, Nginx, Let's Encrypt (Certbot) |
 
 ---
 
@@ -965,6 +985,105 @@ ketantech-vpn/
 └── .env                  → Variabel konfigurasi (jangan di-upload ke GitHub!)
 ```
 
+---
+
+## Environment Variables
+
+File `.env` berisi semua konfigurasi aplikasi. Berikut daftar lengkapnya:
+
+### Wajib (Harus Diisi)
+
+| Variable | Deskripsi | Contoh |
+|----------|-----------|--------|
+| `DATABASE_URL` | Connection string PostgreSQL | `postgresql://ketantech:password@localhost:5432/ketantech_db` |
+| `SESSION_SECRET` | String acak untuk session (min 32 karakter) | `a3f8b2c1d4e5f6...` |
+| `NODE_ENV` | Environment mode | `production` |
+| `PORT` | Port internal API server | `5000` |
+
+### Keamanan (Anti-Bot)
+
+| Variable | Deskripsi | Default |
+|----------|-----------|---------|
+| `TURNSTILE_SECRET_KEY` | Secret key Cloudflare Turnstile | - |
+| `TURNSTILE_FAIL_OPEN` | Jika `true`, lewati verifikasi jika Turnstile error | `false` |
+
+### Payment Gateway (AutoGoPay QRIS)
+
+| Variable | Deskripsi |
+|----------|-----------|
+| `AUTOGOPAY_API_URL` | URL API AutoGoPay |
+| `AUTOGOPAY_SECRET_KEY` | Secret key untuk autentikasi |
+
+### WhatsApp OTP (Fonnte)
+
+| Variable | Deskripsi |
+|----------|-----------|
+| `FONNTE_API_TOKEN` | Token API dari Fonnte |
+| `FONNTE_DEVICE_TOKEN` | Token device (opsional) |
+
+### Telegram Bot
+
+| Variable | Deskripsi |
+|----------|-----------|
+| `BOT_API_KEY` | Token bot dari @BotFather |
+| `ADMIN_CHAT_ID` | Chat ID admin untuk notifikasi |
+| `TELEGRAM_WEBHOOK_URL` | URL webhook (jika pakai webhook mode) |
+
+### VPN Provider (NadiaVPN)
+
+| Variable | Deskripsi |
+|----------|-----------|
+| `NADIAVPN_API_BASE_URL` | Base URL API NadiaVPN |
+| `NADIAVPN_API_TOKEN` | Token autentikasi |
+
+### CORS & Proxy
+
+| Variable | Deskripsi | Contoh |
+|----------|-----------|--------|
+| `CORS_ORIGIN` | Domain frontend yang diizinkan | `https://vpn.ketanx.com` |
+| `TRUSTED_PROXIES` | IP proxy yang dipercaya | `127.0.0.1,::1` |
+
+### Contoh File `.env` Lengkap
+
+```env
+# Database
+DATABASE_URL=postgresql://ketantech:PASSWORD_KAMU@localhost:5432/ketantech_db
+
+# Session
+SESSION_SECRET=string_acak_panjang_minimal_32_karakter
+
+# Environment
+NODE_ENV=production
+PORT=5000
+
+# Security (Cloudflare Turnstile)
+TURNSTILE_SECRET_KEY=0x4AAAAAAA...
+TURNSTILE_FAIL_OPEN=false
+
+# Payment (AutoGoPay)
+AUTOGOPAY_API_URL=https://api.autogopay.com
+AUTOGOPAY_SECRET_KEY=sk_live_xxx
+
+# WhatsApp (Fonnte)
+FONNTE_API_TOKEN=token_dari_fonnte
+
+# Telegram
+BOT_API_KEY=123456:ABC-DEF...
+ADMIN_CHAT_ID=123456789
+
+# VPN Provider
+NADIAVPN_API_BASE_URL=https://api.nadiavpn.com
+NADIAVPN_API_TOKEN=token_dari_nadiavpn
+
+# CORS
+CORS_ORIGIN=https://vpn.ketanx.com
+TRUSTED_PROXIES=127.0.0.1,::1
+```
+
+> **Catatan:** Tidak semua variable harus diisi sejak awal. Beberapa bisa dikonfigurasi nanti via panel admin (seperti Fonnte token, Telegram bot, dll).
+
+---
+
 ## Scheduler Otomatis
 
 Aplikasi menjalankan beberapa task terjadwal secara otomatis:
@@ -982,6 +1101,58 @@ Aplikasi menjalankan beberapa task terjadwal secara otomatis:
 | Proactive alerts | 15 menit | Monitor RAM, CPU, disk, Fonnte, VPN panel |
 | Cek target reseller | 1 jam (tanggal 1) | Downgrade reseller di bawah target |
 | Auto-backup database | 1 jam | Backup otomatis ke Telegram |
+
+---
+
+## Contributing
+
+Kami terbuka untuk kontribusi! Berikut cara berkontribusi:
+
+### Development Setup
+
+1. **Fork & Clone repository**
+   ```bash
+   git clone https://github.com/USERNAME_KAMU/webvpn.git
+   cd webvpn
+   ```
+
+2. **Install dependencies**
+   ```bash
+   pnpm install
+   ```
+
+3. **Setup database lokal**
+   - Buat database PostgreSQL
+   - Copy `.env.example` ke `.env` dan isi konfigurasi
+   - Jalankan migrasi: `pnpm --filter @workspace/db run push`
+
+4. **Jalankan development server**
+   ```bash
+   # Backend API
+   pnpm --filter @workspace/api-server run dev
+   
+   # Frontend (di terminal terpisah)
+   pnpm --filter @workspace/vpn-web run dev
+   ```
+
+### Pull Request Guidelines
+
+- Buat branch baru untuk setiap fitur/fix: `git checkout -b feature/nama-fitur`
+- Ikuti conventional commit format: `feat:`, `fix:`, `docs:`, `refactor:`, dll
+- Pastikan tidak ada TypeScript error: `pnpm run typecheck`
+- Test perubahan secara lokal sebelum push
+
+### Code Style
+
+- Gunakan TypeScript strict mode
+- Ikuti format yang sudah ada (Tailwind classes, component structure)
+- Tambahkan komentar untuk logic yang kompleks
+
+---
+
+## License
+
+MIT License - lihat file [LICENSE](LICENSE) untuk detail lengkap.
 
 ---
 
