@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { ANNOUNCE_STYLE, getOrderStatusLabel, getOrderStatusVariant, type AnnouncementType } from "@/lib/constants";
 
 const API = import.meta.env.VITE_API_URL ?? "";
 const DASHBOARD_API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
@@ -39,11 +40,12 @@ type Announcement = { id: number; title: string; content: string; type: string }
 
 const ANNOUNCE_DISMISSED_KEY = "dismissed_announcements_v1";
 
-const ANNOUNCE_STYLE: Record<string, { icon: React.ElementType; bg: string; border: string; iconColor: string }> = {
-  info: { icon: Info, bg: "bg-blue-500/10", border: "border-blue-500/30", iconColor: "text-blue-400" },
-  warning: { icon: AlertTriangle, bg: "bg-yellow-500/10", border: "border-yellow-500/30", iconColor: "text-yellow-400" },
-  success: { icon: CheckCircle2, bg: "bg-green-500/10", border: "border-green-500/30", iconColor: "text-green-400" },
-  error: { icon: AlertCircle, bg: "bg-red-500/10", border: "border-red-500/30", iconColor: "text-red-400" },
+// Icon mapping untuk announcement types
+const ANNOUNCE_ICONS: Record<string, React.ElementType> = {
+  info: Info,
+  warning: AlertTriangle,
+  success: CheckCircle2,
+  error: AlertCircle,
 };
 
 function AnnouncementBanners() {
@@ -70,7 +72,7 @@ function AnnouncementBanners() {
     <div className="space-y-2">
       {visible.map((a) => {
         const style = ANNOUNCE_STYLE[a.type] ?? ANNOUNCE_STYLE.info;
-        const Icon = style.icon;
+        const Icon = ANNOUNCE_ICONS[a.type] ?? Info;
         return (
           <div key={a.id} className={`relative flex items-start gap-3 rounded-xl border p-4 ${style.bg} ${style.border}`}>
             <Icon size={18} className={`${style.iconColor} mt-0.5 shrink-0`} />
@@ -267,36 +269,42 @@ export default function Dashboard() {
     );
   }
 
-  const getStatusLabel = (status: string) => {
-    const s = (status || "").toLowerCase();
-    if (s === "paid") return "Lunas";
-    if (s === "pending") return "Menunggu";
-    if (s === "processing") return "Diproses";
-    if (s === "failed") return "Gagal";
-    if (s === "expired") return "Expired";
-    return status;
+  // Type untuk combined order
+  type CombinedOrder = {
+    id: number | string;
+    type: "dynamic" | "regular";
+    title: string;
+    amount: number;
+    status: string;
+    createdAt: string;
+    link: string;
   };
 
-  const getStatusVariant = (status: string) => {
-    const s = (status || "").toLowerCase();
-    if (s === "paid") return "default";
-    if (s === "pending" || s === "processing") return "secondary";
-    return "destructive";
-  };
-
-  const combinedRecentOrders = (summary.recentOrders || [])
-    .map((o: any) => {
-      const isDynamic = Boolean(o.isDynamic || o.serverDisplayName || o.dynamicProvider);
+  const combinedRecentOrders: CombinedOrder[] = (summary.recentOrders || [])
+    .map((o) => {
+      const order = o as {
+        id: number | string;
+        isDynamic?: boolean;
+        serverDisplayName?: string;
+        dynamicProvider?: string;
+        product?: { name?: string };
+        protocol?: string;
+        amount?: number;
+        payableAmount?: number;
+        status: string;
+        createdAt: string;
+      };
+      const isDynamic = Boolean(order.isDynamic || order.serverDisplayName || order.dynamicProvider);
       return {
-        id: o.id,
-        type: isDynamic ? "dynamic" : "regular",
+        id: order.id,
+        type: isDynamic ? "dynamic" as const : "regular" as const,
         title: isDynamic
-          ? `${o.serverDisplayName || o.product?.name?.replace("Order VPN Dynamic - ", "") || "Dynamic"}${o.protocol ? ` • ${o.protocol}` : ""}`
-          : `Order #${o.id}`,
-        amount: o.amount ?? o.payableAmount ?? 0,
-        status: o.status,
-        createdAt: o.createdAt,
-        link: isDynamic ? `/order-vpn/history` : `/orders/${o.id}`,
+          ? `${order.serverDisplayName || order.product?.name?.replace("Order VPN Dynamic - ", "") || "Dynamic"}${order.protocol ? ` • ${order.protocol}` : ""}`
+          : `Order #${order.id}`,
+        amount: order.amount ?? order.payableAmount ?? 0,
+        status: order.status,
+        createdAt: order.createdAt,
+        link: isDynamic ? `/order-vpn/history` : `/orders/${order.id}`,
       };
     })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -445,8 +453,8 @@ export default function Dashboard() {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="text-sm font-bold">{formatRupiah(order.amount)}</div>
-                      <Badge variant={getStatusVariant(order.status)} className="text-[10px] h-4 px-1.5">
-                        {getStatusLabel(order.status)}
+                      <Badge variant={getOrderStatusVariant(order.status)} className="text-[10px] h-4 px-1.5">
+                        {getOrderStatusLabel(order.status)}
                       </Badge>
                     </div>
                   </div>

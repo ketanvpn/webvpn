@@ -2,10 +2,12 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
-import { Shield, Zap, Globe, ChevronRight, Server, ArrowRight, Users, Activity, Clock, UserPlus, CreditCard, Wifi, ChevronDown, Sparkles, MapPin, MessageCircle, Send } from "lucide-react";
+import { Shield, Zap, Globe, ChevronRight, Server, ArrowRight, Users, Activity, Clock, UserPlus, CreditCard, Wifi, ChevronDown, Sparkles, MapPin, MessageCircle, Send, Info, CheckCircle2, AlertCircle, AlertTriangle } from "lucide-react";
 import { LogoBrand } from "@/components/logo";
 import { motion, Variants, useInView } from "framer-motion";
 import { useRef, useEffect, useState } from "react";
+import { formatRupiah } from "@/lib/format";
+import { protocolLabel, protocolColor, type ProtocolType } from "@/lib/constants";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "");
 
@@ -15,22 +17,6 @@ async function fetchPublicDynamicServers() {
   const data = await res.json();
   return data.servers ?? [];
 }
-
-const protocolLabel: Record<string, string> = {
-  ssh: "SSH",
-  vmess: "VMess",
-  vless: "VLess",
-  trojan: "Trojan",
-  shadowsocks: "SS",
-};
-
-const protocolColor: Record<string, string> = {
-  ssh: "bg-sky-500/15 text-sky-400 border-sky-500/30",
-  vmess: "bg-violet-500/15 text-violet-400 border-violet-500/30",
-  vless: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  trojan: "bg-orange-500/15 text-orange-400 border-orange-500/30",
-  shadowsocks: "bg-pink-500/15 text-pink-400 border-pink-500/30",
-};
 
 const infoItems = [
   {
@@ -117,9 +103,7 @@ const faqItems = [
   { q: "Bisa perpanjang masa aktif?", a: "Tentu. Masuk ke menu Akun VPN di dashboard, lalu klik Perpanjang pada akun yang ingin diperpanjang." },
 ];
 
-function formatRupiah(n: number) {
-  return "Rp " + n.toLocaleString("id-ID");
-}
+// formatRupiah diimpor dari @/lib/format
 
 export default function Home() {
   const { isAuthenticated } = useAuth();

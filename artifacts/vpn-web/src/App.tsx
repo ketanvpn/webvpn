@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/use-auth";
 import { Layout } from "@/components/layout";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 // Pages
 import NotFound from "@/pages/not-found";
@@ -214,17 +215,19 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-        <AuthProvider>
-          <TooltipProvider>
-            <Router />
-            <Toaster />
-            <PwaInstallBanner />
-          </TooltipProvider>
-        </AuthProvider>
-      </WouterRouter>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          <AuthProvider>
+            <TooltipProvider>
+              <Router />
+              <Toaster />
+              <PwaInstallBanner />
+            </TooltipProvider>
+          </AuthProvider>
+        </WouterRouter>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
