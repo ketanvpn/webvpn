@@ -330,24 +330,39 @@ export default function AdminDashboard() {
           <CardContent>
             {summary.recentOrders && summary.recentOrders.length > 0 ? (
               <div className="space-y-4">
-                {summary.recentOrders.map((order) => (
-                  <div key={order.id} className="flex justify-between items-center border-b border-white/5 pb-4 last:border-0 last:pb-0">
-                    <div>
-                      <div className="font-medium text-sm">
-                        {order.user?.username} <span className="text-muted-foreground font-normal">beli</span> {order.product?.name}
+                {summary.recentOrders.map((order: any) => {
+                  const isDynamic = order.isDynamic || order.serverDisplayName;
+                  return (
+                    <div key={`${isDynamic ? 'dynamic' : 'static'}-${order.id}`} className="flex justify-between items-center border-b border-white/5 pb-4 last:border-0 last:pb-0">
+                      <div>
+                        <div className="font-medium text-sm flex items-center gap-2">
+                          {order.user?.username || `User #${order.userId}`}
+                          <span className="text-muted-foreground font-normal">beli</span>
+                          {isDynamic ? (
+                            <span>
+                              {order.serverDisplayName || 'Dynamic VPN'}
+                              <span className="text-muted-foreground"> • {order.protocol?.toUpperCase()}</span>
+                            </span>
+                          ) : (
+                            order.product?.name
+                          )}
+                          {isDynamic && (
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">Dynamic</Badge>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {format(new Date(order.createdAt), "d MMM, HH:mm")}
+                        </div>
                       </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {format(new Date(order.createdAt), "d MMM, HH:mm")}
+                      <div className="text-right">
+                        <div className="font-bold text-sm">{formatRupiah(order.amount)}</div>
+                        <Badge variant="outline" className="mt-1 text-[10px]">
+                          {statusLabel[order.status] ?? order.status}
+                        </Badge>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-bold text-sm">{formatRupiah(order.amount)}</div>
-                      <Badge variant="outline" className="mt-1 text-[10px]">
-                        {statusLabel[order.status] ?? order.status}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-4">Belum ada order.</p>

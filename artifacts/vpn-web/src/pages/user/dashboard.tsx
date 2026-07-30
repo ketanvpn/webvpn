@@ -256,12 +256,6 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [promoRequested, setPromoRequested] = useState(false);
 
-  const { data: recentDynamicOrders, error: _recentError } = useQuery({
-    queryKey: ["user-recent-dynamic-orders"],
-    queryFn: () => apiFetch("/dynamic-vpn/orders?limit=3"),
-    enabled: user?.role === "user",
-  });
-
   if (isLoading || !summary) {
     return (
       <div className="space-y-4">
@@ -273,8 +267,6 @@ export default function Dashboard() {
     );
   }
 
-  // Gabungkan regular order + dynamic order jadi satu list "Order Terbaru"
-  // supaya dashboard tidak terlalu banyak section terpisah (seperti request user)
   const getStatusLabel = (status: string) => {
     const s = (status || "").toLowerCase();
     if (s === "paid") return "Lunas";
@@ -292,28 +284,21 @@ export default function Dashboard() {
     return "destructive";
   };
 
-  const regularRecent = (summary.recentOrders || []).map((o: any) => ({
-    id: o.id,
-    type: "regular" as const,
-    title: `Order #${o.id}`,
-    amount: o.amount,
-    status: o.status,
-    createdAt: o.createdAt,
-    link: `/orders/${o.id}`,
-  }));
-
-  const dynamicRecentRaw = (recentDynamicOrders?.orders || recentDynamicOrders || []);
-  const dynamicRecent = (Array.isArray(dynamicRecentRaw) ? dynamicRecentRaw : []).map((o: any) => ({
-    id: o.id,
-    type: "dynamic" as const,
-    title: `${o.serverDisplayName || "Dynamic"} • ${o.protocol || ""}`,
-    amount: o.amount,
-    status: o.status,
-    createdAt: o.createdAt,
-    link: `/order-vpn/history`,
-  }));
-
-  const combinedRecentOrders = [...regularRecent, ...dynamicRecent]
+  const combinedRecentOrders = (summary.recentOrders || [])
+    .map((o: any) => {
+      const isDynamic = Boolean(o.isDynamic || o.serverDisplayName || o.dynamicProvider);
+      return {
+        id: o.id,
+        type: isDynamic ? "dynamic" : "regular",
+        title: isDynamic
+          ? `${o.serverDisplayName || o.product?.name?.replace("Order VPN Dynamic - ", "") || "Dynamic"}${o.protocol ? ` • ${o.protocol}` : ""}`
+          : `Order #${o.id}`,
+        amount: o.amount ?? o.payableAmount ?? 0,
+        status: o.status,
+        createdAt: o.createdAt,
+        link: isDynamic ? `/order-vpn/history` : `/orders/${o.id}`,
+      };
+    })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 5);
 

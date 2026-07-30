@@ -361,34 +361,17 @@ router.get("/orders", requireAuth, async (req, res) => {
   const conditions = [eq(ordersTable.userId, userId)];
   if (status) conditions.push(eq(ordersTable.status, status));
 
-  const orders = await db
-    .select()
-    .from(ordersTable)
-    .where(and(...conditions))
-    .orderBy(desc(ordersTable.createdAt))
-    .limit(limit)
-    .offset(offset);
-
-  const staticTotalResult = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(ordersTable)
-    .where(and(...conditions));
-
   const dynamicConditions = [eq(dynamicVpnOrdersTable.userId, userId)];
   if (status) dynamicConditions.push(eq(dynamicVpnOrdersTable.status, status));
 
-  const dynamicOrders = await db
-    .select()
-    .from(dynamicVpnOrdersTable)
-    .where(and(...dynamicConditions))
-    .orderBy(desc(dynamicVpnOrdersTable.createdAt))
-    .limit(limit)
-    .offset(offset);
+  const fetchCount = limit + offset;
 
-  const dynamicTotalResult = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(dynamicVpnOrdersTable)
-    .where(and(...dynamicConditions));
+  const [orders, dynamicOrders, staticTotalResult, dynamicTotalResult] = await Promise.all([
+    db.select().from(ordersTable).where(and(...conditions)).orderBy(desc(ordersTable.createdAt)).limit(fetchCount),
+    db.select().from(dynamicVpnOrdersTable).where(and(...dynamicConditions)).orderBy(desc(dynamicVpnOrdersTable.createdAt)).limit(fetchCount),
+    db.select({ count: sql<number>`count(*)::int` }).from(ordersTable).where(and(...conditions)),
+    db.select({ count: sql<number>`count(*)::int` }).from(dynamicVpnOrdersTable).where(and(...dynamicConditions)),
+  ]);
 
   const formattedStatic = await Promise.all(orders.map(formatOrder));
   const formattedDynamic = dynamicOrders.map((order) => ({
@@ -414,7 +397,7 @@ router.get("/orders", requireAuth, async (req, res) => {
 
   const merged = [...formattedStatic, ...formattedDynamic]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, limit);
+    .slice(offset, offset + limit);
 
   res.json({
     orders: merged,

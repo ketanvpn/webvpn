@@ -789,7 +789,7 @@ router.get("/admin/dynamic-vpn/orders", requireAdmin, async (req, res) => {
     .leftJoin(usersTable, eq(dynamicVpnOrdersTable.userId, usersTable.id))
     .leftJoin(vouchersTable, eq(dynamicVpnOrdersTable.voucherId, vouchersTable.id))
     .where(conditions.length ? and(...conditions) : undefined)
-    .orderBy(desc(dynamicVpnOrdersTable.id))
+    .orderBy(desc(dynamicVpnOrdersTable.createdAt))
     .limit(limit);
 
   res.json({
@@ -1022,7 +1022,7 @@ router.get("/dynamic-vpn/orders", requireAuth, async (req, res) => {
   const userId = req.user!.userId;
   const limitRaw = req.query.limit;
   const limit = limitRaw ? Math.min(parseInt(String(limitRaw), 10) || 50, 100) : undefined;
-  let q = db.select().from(dynamicVpnOrdersTable).where(eq(dynamicVpnOrdersTable.userId, userId)).orderBy(desc(dynamicVpnOrdersTable.id));
+  let q = db.select().from(dynamicVpnOrdersTable).where(eq(dynamicVpnOrdersTable.userId, userId)).orderBy(desc(dynamicVpnOrdersTable.createdAt));
   if (limit) q = q.limit(limit) as any;
   const rows = await q;
   res.json({ orders: rows.map((row) => ({ ...row, amount: Number(row.amount), providerResponse: undefined })) });

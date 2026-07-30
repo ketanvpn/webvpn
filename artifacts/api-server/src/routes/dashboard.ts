@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { ordersTable, vpnAccountsTable, usersTable, topupsTable } from "@workspace/db";
-import { eq, and, gt, gte, desc, sql } from "drizzle-orm";
+import { ordersTable, vpnAccountsTable, usersTable, topupsTable, dynamicVpnOrdersTable } from "@workspace/db";
+import { eq, and, gt, desc, sql } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { formatOrder } from "./orders";
 import { formatAccount } from "./accounts";
@@ -31,17 +31,43 @@ router.get("/dashboard/summary", requireAuth, async (req, res) => {
     .from(vpnAccountsTable)
     .where(and(eq(vpnAccountsTable.userId, userId), eq(vpnAccountsTable.isActive, true), gt(vpnAccountsTable.expiresAt, now)));
 
-  const totalOrdersResult = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(ordersTable)
-    .where(eq(ordersTable.userId, userId));
+  const [totalStaticResult, totalDynamicResult] = await Promise.all([
+    db.select({ count: sql<number>`count(*)::int` }).from(ordersTable).where(eq(ordersTable.userId, userId)),
+    db.select({ count: sql<number>`count(*)::int` }).from(dynamicVpnOrdersTable).where(eq(dynamicVpnOrdersTable.userId, userId)),
+  ]);
 
-  const recentOrders = await db
-    .select()
-    .from(ordersTable)
-    .where(eq(ordersTable.userId, userId))
-    .orderBy(desc(ordersTable.createdAt))
-    .limit(5);
+  const [recentStatic, recentDynamic] = await Promise.all([
+    db.select().from(ordersTable).where(eq(ordersTable.userId, userId)).orderBy(desc(ordersTable.createdAt)).limit(5),
+    db.select().from(dynamicVpnOrdersTable).where(eq(dynamicVpnOrdersTable.userId, userId)).orderBy(desc(dynamicVpnOrdersTable.createdAt)).limit(5),
+  ]);
+
+  const formattedStatic = await Promise.all(recentStatic.map(formatOrder));
+  const formattedDynamic = recentDynamic.map((o: any) => ({
+    id: o.id,
+    userId: o.userId,
+    productId: null as any,
+    product: { name: `Order VPN Dynamic - ${o.serverDisplayName}` },
+    status: o.status,
+    amount: Number(o.amount),
+    payableAmount: Number(o.amount),
+    vpnAccountId: o.vpnAccountId,
+    paymentMethod: o.paymentMethod,
+    notes: o.username,
+    qrisUrl: null,
+    expiresAt: null,
+    createdAt: o.createdAt,
+    updatedAt: o.updatedAt,
+    isDynamic: true,
+    dynamicProvider: o.provider,
+    protocol: o.protocol,
+    duration: o.duration,
+    durationType: o.durationType,
+    serverDisplayName: o.serverDisplayName,
+  }));
+
+  const mergedRecent = [...formattedStatic, ...formattedDynamic]
+    .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 5);
 
   const expiringAccounts = await db
     .select()
@@ -57,15 +83,14 @@ router.get("/dashboard/summary", requireAuth, async (req, res) => {
     .orderBy(vpnAccountsTable.expiresAt)
     .limit(5);
 
-  const formattedOrders = await Promise.all(recentOrders.map(formatOrder));
   const formattedExpiring = await Promise.all(expiringAccounts.map(formatAccount));
 
   res.json({
     balance: Number(user?.balance ?? 0),
     activeAccounts: activeAccountsResult[0]?.count ?? 0,
-    totalOrders: totalOrdersResult[0]?.count ?? 0,
+    totalOrders: (totalStaticResult[0]?.count ?? 0) + (totalDynamicResult[0]?.count ?? 0),
     pendingTopup,
-    recentOrders: formattedOrders,
+    recentOrders: mergedRecent,
     expiringAccounts: formattedExpiring,
   });
 });
