@@ -609,6 +609,13 @@ router.get("/admin/settings/referral", requireAdmin, async (_req, res) => {
   res.json(buildReferralSettingsResponse(map));
 });
 
+// Endpoint publik untuk user cek status referral
+router.get("/referral/status", async (_req, res) => {
+  const rows = await db.select().from(settingsTable);
+  const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
+  res.json(buildReferralSettingsResponse(map));
+});
+
 router.put("/admin/settings/referral", requireAdmin, async (req, res) => {
   const body = req.body as Record<string, string | boolean | null | number>;
 

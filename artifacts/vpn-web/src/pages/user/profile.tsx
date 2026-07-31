@@ -90,6 +90,9 @@ export default function Profile() {
   const [promo, setPromo] = useState<PromoData | null>(null);
   const [promoRequesting, setPromoRequesting] = useState(false);
   const [promoRequested, setPromoRequested] = useState(false);
+  
+  type ReferralStatus = { enabled: boolean; bonusAmount: number };
+  const [referralStatus, setReferralStatus] = useState<ReferralStatus | null>(null);
 
   const fetchResellerStatus = () => {
     if (user?.role !== "reseller") return;
@@ -113,6 +116,12 @@ export default function Profile() {
       .then(setPromo)
       .catch(() => {});
   }, [user?.role]);
+
+  useEffect(() => {
+    apiClient.get<ReferralStatus>("/api/referral/status")
+      .then(setReferralStatus)
+      .catch(() => {});
+  }, []);
 
   const handlePromoRequest = async () => {
     setPromoRequesting(true);
@@ -546,23 +555,43 @@ export default function Profile() {
               <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                 <Gift className="h-4 w-4 text-primary" />
               </div>
-              <div>
+              <div className="flex-1">
                 <p className="font-semibold text-sm">Program Referral</p>
                 <p className="text-xs text-muted-foreground">Ajak teman, dapat bonus saldo otomatis</p>
               </div>
+              {referralStatus && (
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  referralStatus.enabled 
+                    ? "bg-green-100 text-green-700" 
+                    : "bg-yellow-100 text-yellow-700"
+                }`}>
+                  {referralStatus.enabled ? "Aktif" : "Nonaktif"}
+                </span>
+              )}
             </div>
-            <div className="flex items-center gap-3 bg-background rounded-xl border px-4 py-3 shadow-sm">
-              <div className="flex-1">
-                <p className="text-xs text-muted-foreground mb-0.5">Kode kamu</p>
-                <p className="text-lg font-mono font-bold tracking-[0.2em] text-primary">{user.referralCode}</p>
+            
+            {referralStatus && !referralStatus.enabled ? (
+              <div className="rounded-lg bg-yellow-50 border border-yellow-200 px-4 py-3">
+                <p className="text-xs text-yellow-700">
+                  Program referral sedang tidak aktif. Bonus belum bisa diklaim untuk saat ini.
+                </p>
               </div>
-              <Button size="sm" variant={copiedCode ? "default" : "outline"} className="gap-1.5 shrink-0" onClick={copyReferralCode}>
-                {copiedCode ? <><Check className="h-3.5 w-3.5" /> Tersalin!</> : <><Copy className="h-3.5 w-3.5" /> Salin</>}
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground mt-3">
-              Bonus masuk otomatis saat temanmu beli produk pertama.
-            </p>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 bg-background rounded-xl border px-4 py-3 shadow-sm">
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground mb-0.5">Kode kamu</p>
+                    <p className="text-lg font-mono font-bold tracking-[0.2em] text-primary">{user.referralCode}</p>
+                  </div>
+                  <Button size="sm" variant={copiedCode ? "default" : "outline"} className="gap-1.5 shrink-0" onClick={copyReferralCode}>
+                    {copiedCode ? <><Check className="h-3.5 w-3.5" /> Tersalin!</> : <><Copy className="h-3.5 w-3.5" /> Salin</>}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-3">
+                  Bonus masuk otomatis saat temanmu beli produk pertama.
+                </p>
+              </>
+            )}
           </div>
         </Card>
       )}
@@ -741,6 +770,23 @@ export default function Profile() {
           </Card>
         );
       })()}
+
+      {/* ── Info Reseller saat program dinonaktifkan ── */}
+      {user.role === "user" && promo && !promo.promoEnabled && (
+        <Card className="overflow-hidden border shadow-sm bg-muted/30">
+          <div className="px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center shrink-0">
+                <Sparkles className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm text-muted-foreground">Program Reseller</p>
+                <p className="text-xs text-muted-foreground">Saat ini program reseller sedang tidak aktif.</p>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* ── Keluar ── */}
       <div className="md:hidden">
