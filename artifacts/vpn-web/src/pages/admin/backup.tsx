@@ -30,6 +30,10 @@ import {
   XCircle,
   RefreshCw,
   ShieldAlert,
+  Lock,
+  Unlock,
+  Hash,
+  Archive,
 } from "lucide-react";
 
 interface BackupSettings {
@@ -40,6 +44,8 @@ interface BackupSettings {
   backupLastError: string | null;
   backupLastFilename: string | null;
   backupLastSizeBytes: number | null;
+  backupLastChecksum: string | null;
+  backupLastEncrypted: boolean;
 }
 
 function formatBytes(bytes: number | null): string {
@@ -96,18 +102,35 @@ export default function AdminBackup() {
   });
 
   const backupNowMut = useMutation({
-    mutationFn: () => apiClient.post<{ filename: string; sizeBytes: number; sentToTelegram: boolean }>("/api/admin/backup/now"),
+    mutationFn: () => apiClient.post<{ filename: string; sizeBytes: number; sentToTelegram: boolean; checksum: string; encrypted: boolean }>("/api/admin/backup/now"),
     onSuccess: (data) => {
       const sizeStr = formatBytes(data.sizeBytes);
       const tgInfo = data.sentToTelegram
         ? "File terkirim ke Telegram admin."
         : "Telegram tidak dikonfigurasi — unduh manual via tombol Download.";
-      toast({ title: "Backup berhasil!", description: `${data.filename} (${sizeStr}) — ${tgInfo}` });
+      const encInfo = data.encrypted ? " (terenkripsi)" : "";
+      toast({ title: "Backup berhasil!", description: `${data.filename}${encInfo} (${sizeStr}) — ${tgInfo}` });
       qc.invalidateQueries({ queryKey: ["admin-backup-settings"] });
     },
     onError: (err: unknown) => {
       const msg = err instanceof Error ? err.message : "Backup gagal";
       toast({ title: "Backup gagal", description: msg, variant: "destructive" });
+    },
+  });
+
+  const fullBackupMut = useMutation({
+    mutationFn: () => apiClient.post<{ filename: string; sizeBytes: number; sentToTelegram: boolean; filesIncluded: string[] }>("/api/admin/backup/full"),
+    onSuccess: (data) => {
+      const sizeStr = formatBytes(data.sizeBytes);
+      const tgInfo = data.sentToTelegram
+        ? "File terkirim ke Telegram admin."
+        : "Telegram tidak dikonfigurasi — unduh manual.";
+      toast({ title: "Full Backup berhasil!", description: `${data.filename} (${sizeStr}) — ${data.filesIncluded.length} file ter-bundle. ${tgInfo}` });
+      qc.invalidateQueries({ queryKey: ["admin-backup-settings"] });
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : "Full backup gagal";
+      toast({ title: "Full Backup gagal", description: msg, variant: "destructive" });
     },
   });
 
@@ -221,6 +244,25 @@ export default function AdminBackup() {
               <p className="text-muted-foreground">Ukuran File</p>
               <p className="font-medium">{formatBytes(settings?.backupLastSizeBytes ?? null)}</p>
             </div>
+            <div>
+              <p className="text-muted-foreground">Enkripsi</p>
+              <p className="font-medium flex items-center gap-1">
+                {settings?.backupLastEncrypted ? (
+                  <><Lock className="h-3.5 w-3.5 text-green-500" /> Terenkripsi</>
+                ) : (
+                  <><Unlock className="h-3.5 w-3.5 text-yellow-500" /> Tidak terenkripsi</>
+                )}
+              </p>
+            </div>
+            {settings?.backupLastChecksum && (
+              <div className="col-span-2">
+                <p className="text-muted-foreground">Checksum (SHA-256)</p>
+                <p className="font-mono text-xs flex items-center gap-1">
+                  <Hash className="h-3.5 w-3.5" />
+                  {settings.backupLastChecksum.substring(0, 16)}...{settings.backupLastChecksum.substring(settings.backupLastChecksum.length - 8)}
+                </p>
+              </div>
+            )}
           </div>
 
           {lastStatus === "failed" && settings?.backupLastError && (
@@ -235,7 +277,7 @@ export default function AdminBackup() {
           <div className="flex flex-wrap gap-2">
             <Button
               onClick={() => backupNowMut.mutate()}
-              disabled={backupNowMut.isPending}
+              disabled={backupNowMut.isPending || fullBackupMut.isPending}
               className="gap-2"
             >
               {backupNowMut.isPending ? (
@@ -244,6 +286,20 @@ export default function AdminBackup() {
                 <Send className="h-4 w-4" />
               )}
               {backupNowMut.isPending ? "Memproses..." : "Backup Sekarang"}
+            </Button>
+
+            <Button
+              variant="secondary"
+              onClick={() => fullBackupMut.mutate()}
+              disabled={fullBackupMut.isPending || backupNowMut.isPending}
+              className="gap-2"
+            >
+              {fullBackupMut.isPending ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <Archive className="h-4 w-4" />
+              )}
+              {fullBackupMut.isPending ? "Memproses..." : "Full Backup"}
             </Button>
 
             <Button
@@ -258,8 +314,8 @@ export default function AdminBackup() {
           </div>
 
           <p className="text-xs text-muted-foreground">
-            File backup dikirim ke Telegram admin secara otomatis. Tombol Unduh hanya berfungsi
-            selama server aktif (file disimpan sementara di /tmp).
+            File backup dikirim ke Telegram admin secara otomatis. File tersimpan di server (maks 10 file terbaru).
+            Full Backup mencakup database + file konfigurasi (.env, PM2, bot) untuk migrasi VPS.
           </p>
         </CardContent>
       </Card>
@@ -324,17 +380,18 @@ export default function AdminBackup() {
             Restore Database
           </CardTitle>
           <CardDescription>
-            Upload file backup (.sql.gz) untuk memulihkan database.{" "}
+            Upload file backup (.sql.gz atau .sql.gz.enc) untuk memulihkan database.{" "}
             <strong>Tindakan ini akan menimpa data saat ini</strong> dan tidak bisa dibatalkan.
+            File terenkripsi akan otomatis didekripsi.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>File Backup (.sql.gz)</Label>
+            <Label>File Backup (.sql.gz / .sql.gz.enc)</Label>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".gz,.sql.gz"
+              accept=".gz,.enc,.sql.gz"
               onChange={handleFileChange}
               className="block w-full text-sm text-muted-foreground
                 file:mr-4 file:py-2 file:px-4

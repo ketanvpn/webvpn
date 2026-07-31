@@ -527,12 +527,44 @@ export function startScheduler(): void {
 
   // Auto-backup: cek setiap jam apakah sudah waktunya backup
   import("./backup").then(({ isBackupDue, performBackup }) => {
+    const MAX_RETRIES = 3;
+    const RETRY_DELAYS = [30_000, 120_000, 300_000]; // 30s, 2min, 5min
+
+    const runBackupWithRetry = async (attempt = 1): Promise<void> => {
+      try {
+        logger.info(`Auto-backup terjadwal dimulai... (attempt ${attempt}/${MAX_RETRIES})`);
+        await performBackup();
+        logger.info("Auto-backup berhasil.");
+      } catch (err) {
+        logger.error({ err }, `Auto-backup gagal (attempt ${attempt}/${MAX_RETRIES})`);
+        if (attempt < MAX_RETRIES) {
+          const delay = RETRY_DELAYS[attempt - 1] ?? 300_000;
+          logger.info(`Retry auto-backup dalam ${delay / 1000}s...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          return runBackupWithRetry(attempt + 1);
+        }
+        // Semua retry gagal — kirim alert ke Telegram
+        logger.error("Auto-backup gagal setelah semua retry. Mengirim alert ke admin...");
+        try {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          await sendMessage(
+            `⚠️ *AUTO-BACKUP GAGAL*\n\n` +
+            `Backup otomatis gagal setelah ${MAX_RETRIES}x percobaan.\n` +
+            `Error terakhir: \`${errMsg.substring(0, 200)}\`\n\n` +
+            `Segera cek server dan jalankan backup manual.`,
+            { parse_mode: "Markdown" }
+          );
+        } catch (alertErr) {
+          logger.error({ alertErr }, "Gagal mengirim alert backup failure ke Telegram");
+        }
+      }
+    };
+
     const runBackupIfDue = async () => {
       runSafely("runBackupIfDue", async () => {
         const due = await isBackupDue();
         if (due) {
-          logger.info("Auto-backup terjadwal dimulai...");
-          await performBackup();
+          await runBackupWithRetry();
         }
       });
     };

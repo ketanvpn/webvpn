@@ -6,8 +6,10 @@ import {
   saveBackupSettings,
   performBackup,
   performRestore,
+  performFullBackup,
   getLastBackupFilePath,
   getBackupDir,
+  isOperationLocked,
 } from "../lib/backup";
 import fs from "fs";
 import path from "path";
@@ -41,6 +43,11 @@ router.put("/admin/backup/settings", requireAdmin, async (req, res) => {
 
 // POST /api/admin/backup/now — trigger manual backup
 router.post("/admin/backup/now", requireAdmin, async (_req, res) => {
+  const lock = isOperationLocked();
+  if (lock) {
+    res.status(409).json({ error: `Operasi ${lock} sedang berjalan. Tunggu hingga selesai.` });
+    return;
+  }
   const result = await performBackup();
   if (!result.success) {
     res.status(500).json({ error: result.error ?? "Backup gagal" });
@@ -51,6 +58,31 @@ router.post("/admin/backup/now", requireAdmin, async (_req, res) => {
     filename: result.filename,
     sizeBytes: result.sizeBytes,
     sentToTelegram: result.sentToTelegram,
+    checksum: result.checksum,
+    encrypted: result.encrypted,
+  });
+});
+
+// POST /api/admin/backup/full — full backup bundle (SQL + env + config files)
+router.post("/admin/backup/full", requireAdmin, async (_req, res) => {
+  const lock = isOperationLocked();
+  if (lock) {
+    res.status(409).json({ error: `Operasi ${lock} sedang berjalan. Tunggu hingga selesai.` });
+    return;
+  }
+  const result = await performFullBackup();
+  if (!result.success) {
+    res.status(500).json({ error: result.error ?? "Full backup gagal" });
+    return;
+  }
+  res.json({
+    success: true,
+    filename: result.filename,
+    sizeBytes: result.sizeBytes,
+    sentToTelegram: result.sentToTelegram,
+    checksum: result.checksum,
+    encrypted: result.encrypted,
+    includedFiles: result.includedFiles,
   });
 });
 
@@ -86,6 +118,11 @@ router.post(
   requireAdmin,
   express.raw({ type: ["application/gzip", "application/octet-stream", "application/x-gzip"], limit: "100mb" }),
   async (req, res) => {
+    const lock = isOperationLocked();
+    if (lock) {
+      res.status(409).json({ error: `Operasi ${lock} sedang berjalan. Tunggu hingga selesai.` });
+      return;
+    }
     const body = req.body as Buffer;
     if (!body || body.length === 0) {
       res.status(400).json({ error: "File backup tidak ditemukan dalam request" });
