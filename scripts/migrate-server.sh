@@ -176,8 +176,26 @@ EOF
 # ── Phase 5: data database ──────────────────────────────────
 log "Phase 5: data database"
 if [[ -n "$BACKUP_FILE" ]]; then
-  log "restore dari backup: $BACKUP_FILE"
-  bash "$APP_DIR/scripts/restore-db.sh" "$BACKUP_FILE" "$DATABASE_URL"
+  # Check if encrypted
+  if [[ "$BACKUP_FILE" == *.enc ]]; then
+    warn "File backup terenkripsi (.enc)"
+    warn "restore-db.sh belum mendukung file terenkripsi."
+    warn ""
+    warn "Opsi:"
+    warn "1. Dekripsi manual: gunakan decrypt tool dari backup.ts"
+    warn "2. Restore via panel admin setelah server berjalan"
+    warn ""
+    read -rp "Lewati restore database? Server akan jalan dengan DB kosong. [y/N] " ANS
+    if [[ "$ANS" =~ ^[Yy]$ ]]; then
+      log "melewati restore, jalankan drizzle push..."
+      DATABASE_URL="$DATABASE_URL" pnpm --filter @workspace/db run push
+    else
+      die "Restore dibatalkan. Dekripsi file atau gunakan panel admin."
+    fi
+  else
+    log "restore dari backup: $BACKUP_FILE"
+    bash "$APP_DIR/scripts/restore-db.sh" "$BACKUP_FILE" "$DATABASE_URL"
+  fi
 else
   log "skema baru (drizzle push), tanpa restore data lama"
   DATABASE_URL="$DATABASE_URL" pnpm --filter @workspace/db run push
