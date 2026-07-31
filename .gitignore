@@ -58,3 +58,6 @@ Thumbs.db
 artifacts/**/errors*.txt
 artifacts/**/tsc-errors.txt
 artifacts/**/fix-*.cjs
+
+# OpenCode/omo local files
+.omo/

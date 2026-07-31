@@ -182,7 +182,8 @@ router.post("/vouchers/validate", requireAuth, async (req, res) => {
     if (dbUser?.role === "reseller") {
       const resellerSettings = await getResellerSettings();
       if (resellerSettings.resellerEnabled && resellerSettings.resellerDiscountPercent > 0) {
-        basePrice = Math.floor(basePrice * (1 - resellerSettings.resellerDiscountPercent / 100));
+        const discountPercent = Math.max(1, Math.min(99, resellerSettings.resellerDiscountPercent));
+        basePrice = Math.floor(basePrice * (1 - discountPercent / 100));
       }
     }
   }

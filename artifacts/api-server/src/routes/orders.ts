@@ -498,7 +498,8 @@ router.post("/orders", requireAuth, createOrderLimiter, async (req, res) => {
   if (userRole === "reseller") {
     const resellerSettings = await getResellerSettings();
     if (resellerSettings.resellerEnabled && resellerSettings.resellerDiscountPercent > 0) {
-      amount = Math.floor(amount * (1 - resellerSettings.resellerDiscountPercent / 100));
+      const discountPercent = Math.max(1, Math.min(99, resellerSettings.resellerDiscountPercent));
+      amount = Math.floor(amount * (1 - discountPercent / 100));
     }
   }
 

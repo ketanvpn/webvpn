@@ -207,7 +207,8 @@ async function calculateDynamicRenewAmount(params: {
   if (user?.role === "reseller") {
     const settings = await getResellerSettings();
     if (settings.resellerEnabled && settings.resellerDiscountPercent > 0) {
-      resellerDiscountAmount = Math.floor(baseAmount * (settings.resellerDiscountPercent / 100));
+      const discountPercent = Math.max(1, Math.min(99, settings.resellerDiscountPercent));
+      resellerDiscountAmount = Math.floor(baseAmount * (discountPercent / 100));
       amount = Math.max(0, baseAmount - resellerDiscountAmount);
     }
   }
@@ -652,7 +653,8 @@ router.post("/accounts/:id/renew", requireAuth, accountActionLimiter, async (req
   if (user!.role === "reseller") {
     const resellerSettings = await getResellerSettings();
     if (resellerSettings.resellerEnabled && resellerSettings.resellerDiscountPercent > 0) {
-      price = Math.floor(price * (1 - resellerSettings.resellerDiscountPercent / 100));
+      const discountPercent = Math.max(1, Math.min(99, resellerSettings.resellerDiscountPercent));
+      price = Math.floor(price * (1 - discountPercent / 100));
     }
   }
 

@@ -1,31 +1,55 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { usersTable, pointLogsTable } from "@workspace/db";
+import { usersTable, pointLogsTable, balanceLogsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { requireAdmin, requireAuth } from "../lib/auth";
 import { getSettingValue, setSettingValue } from "./settings";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
+/**
+ * Add points to user with transaction-safe atomic update.
+ * Prevents race condition when multiple operations happen simultaneously.
+ */
 export async function addPoints(userId: number, amount: number, type: string, description: string, relatedId?: number) {
-  const [user] = await db.select({ points: usersTable.points }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-  if (!user) return;
-
-  const before = user.points;
-  const after = before + amount;
-
-  await db.update(usersTable).set({ points: after }).where(eq(usersTable.id, userId));
-  await db.insert(pointLogsTable).values({
-    userId,
-    type,
-    amount,
-    pointsBefore: before,
-    pointsAfter: after,
-    description,
-    relatedId: relatedId ?? null,
-  });
+  try {
+    await db.transaction(async (tx) => {
+      // Get current points within transaction
+      const [user] = await tx
+        .select({ points: usersTable.points })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .limit(1);
+      
+      if (!user) return;
+      
+      const before = user.points;
+      const after = before + amount;
+      
+      // Atomic update
+      await tx
+        .update(usersTable)
+        .set({ points: after, updatedAt: new Date() })
+        .where(eq(usersTable.id, userId));
+      
+      // Insert log
+      await tx.insert(pointLogsTable).values({
+        userId,
+        type,
+        amount,
+        pointsBefore: before,
+        pointsAfter: after,
+        description,
+        relatedId: relatedId ?? null,
+      });
+    });
+  } catch (err) {
+    logger.error({ err, userId, amount, type }, "[addPoints] Failed to add points");
+    throw err;
+  }
 }
 
 export async function getPointsSettings(): Promise<{ enabled: boolean; pointsRateOrder: number; pointsMinOrder: number; pointsRateTopup: number; pointsMinTopup: number; redeemRate: number; minRedeem: number }> {
@@ -70,7 +94,7 @@ router.get("/points/logs", requireAuth, async (req, res) => {
 });
 
 router.post("/points/redeem", requireAuth, async (req, res) => {
-  const userId = (req as any).user.id;
+  const userId = req.user!.userId;
   const amount = parseInt(req.body?.amount, 10);
   if (!amount || amount <= 0) {
     res.status(400).json({ error: "Jumlah poin tidak valid" });
@@ -87,40 +111,64 @@ router.post("/points/redeem", requireAuth, async (req, res) => {
     return;
   }
 
-  const [user] = await db.select({ points: usersTable.points, balance: usersTable.balance }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-  if (!user || user.points < amount) {
-    res.status(400).json({ error: "Poin tidak cukup" });
-    return;
+  try {
+    const result = await db.transaction(async (tx) => {
+      const [user] = await tx
+        .select({ points: usersTable.points, balance: usersTable.balance })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .for("update")
+        .limit(1);
+      
+      if (!user || user.points < amount) {
+        return { error: "Poin tidak cukup" };
+      }
+
+      const balanceCredit = amount * settings.redeemRate;
+      const pointsBefore = user.points;
+      const pointsAfter = pointsBefore - amount;
+      const balanceBefore = Number(user.balance);
+      const balanceAfter = balanceBefore + balanceCredit;
+
+      await tx
+        .update(usersTable)
+        .set({ points: pointsAfter, balance: String(balanceAfter), updatedAt: new Date() })
+        .where(eq(usersTable.id, userId));
+
+      await tx.insert(pointLogsTable).values({
+        userId,
+        type: "redeem",
+        amount: -amount,
+        pointsBefore,
+        pointsAfter,
+        description: `Tukar ${amount} poin → Rp ${balanceCredit.toLocaleString("id-ID")}`,
+      });
+
+      await tx.insert(balanceLogsTable).values({
+        userId,
+        type: "redeem",
+        amount: balanceCredit,
+        balanceBefore,
+        balanceAfter,
+        description: `Penukaran ${amount} poin`,
+      });
+
+      return { balanceCredit, pointsAfter, balanceAfter };
+    });
+
+    if (typeof result === "object" && "error" in result) {
+      res.status(400).json({ error: result.error });
+      return;
+    }
+
+    res.json({ 
+      message: `Berhasil menukar ${amount} poin menjadi saldo Rp ${result.balanceCredit!.toLocaleString("id-ID")}`, 
+      balanceAdded: result.balanceCredit 
+    });
+  } catch (err) {
+    logger.error({ err, userId, amount }, "[points redeem] Transaction failed");
+    res.status(500).json({ error: "Terjadi kesalahan saat memproses penukaran poin" });
   }
-
-  const balanceCredit = amount * settings.redeemRate;
-  const before = user.points;
-  const after = before - amount;
-  const balanceBefore = Number(user.balance);
-  const balanceAfter = balanceBefore + balanceCredit;
-
-  await db.update(usersTable).set({ points: after, balance: String(balanceAfter) }).where(eq(usersTable.id, userId));
-  await db.insert(pointLogsTable).values({
-    userId,
-    type: "redeem",
-    amount: -amount,
-    pointsBefore: before,
-    pointsAfter: after,
-    description: `Tukar ${amount} poin → Rp ${balanceCredit.toLocaleString("id-ID")}`,
-  });
-
-  import("../routes/balance-logs").then(({ addBalanceLog }) => {
-    addBalanceLog({
-      userId,
-      type: "redeem",
-      amount: balanceCredit,
-      balanceBefore,
-      balanceAfter,
-      description: `Penukaran ${amount} poin`,
-    }).catch(() => {});
-  }).catch(() => {});
-
-  res.json({ message: `Berhasil menukar ${amount} poin menjadi saldo Rp ${balanceCredit.toLocaleString("id-ID")}`, balanceAdded: balanceCredit });
 });
 
 // ─── Admin: Settings ──────────────────────────────────────────────────────────

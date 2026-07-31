@@ -133,7 +133,8 @@ async function calculateDynamicPrice(server: typeof dynamicProviderServersTable.
   if (dbUser?.role === "reseller") {
     const resellerSettings = await getResellerSettings();
     if (resellerSettings.resellerEnabled && resellerSettings.resellerDiscountPercent > 0) {
-      resellerDiscountAmount = Math.floor(base.baseAmount * (resellerSettings.resellerDiscountPercent / 100));
+      const discountPercent = Math.max(1, Math.min(99, resellerSettings.resellerDiscountPercent));
+      resellerDiscountAmount = Math.floor(base.baseAmount * (discountPercent / 100));
       amountAfterReseller = Math.max(0, base.baseAmount - resellerDiscountAmount);
     }
   }
