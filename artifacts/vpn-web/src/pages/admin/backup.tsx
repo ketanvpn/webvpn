@@ -119,13 +119,13 @@ export default function AdminBackup() {
   });
 
   const fullBackupMut = useMutation({
-    mutationFn: () => apiClient.post<{ filename: string; sizeBytes: number; sentToTelegram: boolean; filesIncluded: string[] }>("/api/admin/backup/full"),
+    mutationFn: () => apiClient.post<{ filename: string; sizeBytes: number; sentToTelegram: boolean; includedFiles: string[] }>("/api/admin/backup/full"),
     onSuccess: (data) => {
       const sizeStr = formatBytes(data.sizeBytes);
       const tgInfo = data.sentToTelegram
         ? "File terkirim ke Telegram admin."
         : "Telegram tidak dikonfigurasi — unduh manual.";
-      toast({ title: "Full Backup berhasil!", description: `${data.filename} (${sizeStr}) — ${data.filesIncluded.length} file ter-bundle. ${tgInfo}` });
+      toast({ title: "Full Backup berhasil!", description: `${data.filename} (${sizeStr}) — ${data.includedFiles?.length ?? 0} file ter-bundle. ${tgInfo}` });
       qc.invalidateQueries({ queryKey: ["admin-backup-settings"] });
     },
     onError: (err: unknown) => {
