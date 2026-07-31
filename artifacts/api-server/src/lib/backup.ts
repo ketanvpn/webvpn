@@ -394,7 +394,32 @@ export async function performBackup(): Promise<{
 }
 
 /**
- * Restore database from gzipped SQL buffer via psql.
+ * Extract SQL dump from a full backup bundle.
+ * Returns the gzipped SQL dump buffer (first file in bundle).
+ */
+function extractSqlFromBundle(rawBundle: Buffer): Buffer | null {
+  try {
+    const magic = rawBundle.subarray(0, 9);
+    if (!magic.equals(BUNDLE_MAGIC)) return null;
+
+    const manifestLen = rawBundle.readUInt32LE(9);
+    const manifestJson = rawBundle.subarray(13, 13 + manifestLen).toString("utf8");
+    const manifest: BundleFile[] = JSON.parse(manifestJson);
+
+    if (manifest.length === 0) return null;
+
+    const sqlEntry = manifest[0];
+    if (!sqlEntry.name.endsWith(".sql.gz")) return null;
+
+    const dataStart = 13 + manifestLen;
+    return rawBundle.subarray(dataStart + sqlEntry.offset, dataStart + sqlEntry.offset + sqlEntry.length);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Restore database from gzipped SQL buffer or full backup bundle via psql.
  * Automatically creates a safety backup of the current database before restoring.
  */
 export async function performRestore(rawBuffer: Buffer): Promise<void> {
@@ -404,24 +429,45 @@ export async function performRestore(rawBuffer: Buffer): Promise<void> {
   acquireLock("restore");
 
   try {
-    const gzippedBuffer = decryptBackup(rawBuffer);
+    const decryptedBuffer = decryptBackup(rawBuffer);
+
+    let gzippedBuffer: Buffer;
+    let isBundle = false;
+
+    try {
+      const unzipped = gunzipSync(decryptedBuffer);
+      if (unzipped.subarray(0, 9).equals(BUNDLE_MAGIC)) {
+        isBundle = true;
+        const extracted = extractSqlFromBundle(unzipped);
+        if (!extracted) {
+          throw new Error("Bundle tidak valid atau tidak mengandung SQL dump");
+        }
+        gzippedBuffer = extracted;
+        logger.info("Detected full backup bundle, extracting SQL dump");
+      } else {
+        gzippedBuffer = decryptedBuffer;
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("Bundle")) throw err;
+      throw new Error("File bukan format .sql.gz atau .bundle.gz yang valid");
+    }
 
     let sqlBuffer: Buffer;
     try {
       sqlBuffer = gunzipSync(gzippedBuffer);
     } catch {
-      throw new Error("File bukan format .sql.gz yang valid atau rusak");
+      throw new Error("Gagal mengekstrak SQL dump dari file backup");
     }
 
     const header = sqlBuffer.subarray(0, 512).toString("utf8");
     if (!header.includes("PostgreSQL database dump") && !header.includes("pg_dump") && !header.includes("SET ")) {
       throw new Error(
-        "File tidak terdeteksi sebagai dump PostgreSQL yang valid. " +
-        "Pastikan file berasal dari pg_dump."
+        "File tidak dikenali sebagai dump PostgreSQL yang valid. " +
+        "Pastikan file backup dibuat menggunakan pg_dump."
       );
     }
 
-    logger.info("Membuat safety backup sebelum restore...");
+    logger.info(`Membuat safety backup sebelum restore${isBundle ? " (dari bundle)" : ""}...`);
     try {
       const { buffer: safetyBuffer, filename: safetyFilename } = await runPgDump();
       const safetyName = safetyFilename.replace("ketantech-backup-", "pre-restore-");
@@ -482,10 +528,18 @@ export async function performRestore(rawBuffer: Buffer): Promise<void> {
 
 interface BundleFile {
   name: string;
+  offset: number;
+  length: number;
+}
+
+const BUNDLE_MAGIC = Buffer.from("KTBUNDLE1");
+
+interface BundleSourceFile {
+  name: string;
   sourcePath: string;
 }
 
-const BUNDLE_FILES: BundleFile[] = [
+const BUNDLE_FILES: BundleSourceFile[] = [
   { name: ".env", sourcePath: ".env" },
   { name: "ecosystem.config.cjs", sourcePath: "ecosystem.config.cjs" },
   { name: "botvpn-fixed/sellvpn.db", sourcePath: "botvpn-fixed/sellvpn.db" },

@@ -603,6 +603,143 @@ pm2 restart ketantech-api
 
 ---
 
+### Build gagal dengan "Killed" atau Exit 137 (VPS Kecil)
+
+**Penyebab**: VPS kehabisan RAM saat build frontend. Exit 137 = process di-kill oleh OOM (Out of Memory).
+
+**Solusi untuk VPS dengan RAM kecil (1GB / 2GB)**:
+
+#### Option 1: Tambah Swap (Rekomendasi)
+
+Swap adalah ruang di harddisk yang dipakai sebagai "RAM cadangan".
+
+```bash
+# Cek RAM tersedia
+free -h
+
+# Buat swap file 2GB
+sudo fallocate -l 2G /swapfile
+
+# Jika fallocate gagal, gunakan dd (lebih lambat)
+sudo dd if=/dev/zero of=/swapfile bs=1M count=2048 status=progress
+
+# Set permission (hanya root bisa baca)
+sudo chmod 600 /swapfile
+
+# Format sebagai swap
+sudo mkswap /swapfile
+
+# Aktifkan swap
+sudo swapon /swapfile
+
+# Verifikasi
+free -h
+# Output harus menunjukkan Swap: 2Gi
+
+# Permanent (aktif setelah reboot)
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+Setelah swap aktif, jalankan build lagi:
+
+```bash
+cd /var/www/ketantech-vpn
+pnpm --filter @workspace/vpn-web run build
+```
+
+#### Option 2: Build dengan Node Memory Limit
+
+Jika tetap gagal, coba naikkan memory limit Node:
+
+```bash
+# Set memory limit 4GB (harus ada swap)
+export NODE_OPTIONS="--max-old-space-size=4096"
+
+cd /var/www/ketantech-vpn
+pnpm --filter @workspace/vpn-web run build
+```
+
+#### Option 3: Build di Komputer Lokal, Upload ke VPS
+
+Jika VPS tidak bisa build sama sekali:
+
+**Di komputer lokal (Windows/Mac/Linux):**
+
+```bash
+# Clone repo
+git clone https://github.com/ketanvpn/webvpn.git
+cd webvpn
+
+# Install dependencies
+pnpm install
+
+# Build
+pnpm build
+
+# Compress folder dist
+# Linux/Mac:
+tar -czf dist-frontend.tar.gz -C artifacts/vpn-web dist
+
+# Windows (PowerShell):
+Compress-Archive -Path artifacts\vpn-web\dist -DestinationPath dist-frontend.zip
+```
+
+**Upload ke VPS:**
+
+```bash
+# Dari komputer lokal
+scp dist-frontend.tar.gz root@vps-ip:/tmp/
+
+# Atau jika zip
+scp dist-frontend.zip root@vps-ip:/tmp/
+```
+
+**Di VPS:**
+
+```bash
+cd /var/www/ketantech-vpn/artifacts/vpn-web
+
+# Extract
+tar -xzf /tmp/dist-frontend.tar.gz
+
+# Atau jika zip
+apt install -y unzip
+unzip /tmp/dist-frontend.zip
+```
+
+#### Rekomendasi Spesifikasi VPS
+
+| Komponen | Minimum | Rekomendasi |
+|----------|---------|-------------|
+| RAM | 2GB | 4GB+ |
+| Swap | 2GB | 4GB |
+| Disk | 20GB | 40GB+ |
+| CPU | 1 vCPU | 2+ vCPU |
+
+**Untuk VPS 1GB RAM**, wajib:
+- Swap minimal 2GB
+- Build di lokal atau gunakan CI/CD
+
+---
+
+### Build frontend sangat lambat
+
+**Penyebab**: VPS dengan CPU kecil atau disk I/O lambat.
+
+**Solusi**:
+
+1. **Gunakan swap** (lihat panduan di atas)
+2. **Build dengan parallel limit**:
+
+```bash
+cd /var/www/ketantech-vpn
+pnpm --filter @workspace/vpn-web run build -- --max-parallel=1
+```
+
+3. **Upgrade VPS** ke yang lebih besar
+
+---
+
 ### Setelah restore, data tidak muncul
 
 **Penyebab**: Database tidak ter-restore dengan benar.
