@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiClient } from "@/lib/api-client";
 import {
@@ -34,6 +35,7 @@ import {
   Unlock,
   Hash,
   Archive,
+  FileCode,
 } from "lucide-react";
 
 interface BackupSettings {
@@ -76,6 +78,10 @@ export default function AdminBackup() {
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
   const [localEnabled, setLocalEnabled] = useState<boolean | null>(null);
   const [localInterval, setLocalInterval] = useState<number | null>(null);
+  const [bundleFiles, setBundleFiles] = useState<string[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
+  const [showExtractDialog, setShowExtractDialog] = useState(false);
+  const [lastRestoreFile, setLastRestoreFile] = useState<File | null>(null);
 
   const { data: settings, isLoading } = useQuery<BackupSettings>({
     queryKey: ["admin-backup-settings"],
@@ -170,9 +176,21 @@ export default function AdminBackup() {
         const body = await res.json().catch(() => ({ error: "Terjadi kesalahan" }));
         throw new Error(body?.error ?? `HTTP ${res.status}`);
       }
+      return res.json();
     },
-    onSuccess: () => {
-      toast({ title: "Restore berhasil!", description: "Database berhasil dipulihkan dari file backup." });
+    onSuccess: (data) => {
+      if (data.isBundle && data.bundleFiles && data.bundleFiles.length > 0) {
+        setBundleFiles(data.bundleFiles);
+        setSelectedFiles(data.bundleFiles.filter((f: string) => !f.endsWith(".sql.gz")));
+        setLastRestoreFile(restoreFile);
+        setShowExtractDialog(true);
+        toast({ 
+          title: "Database berhasil di-restore!", 
+          description: "Bundle terdeteksi. Pilih file config yang ingin di-extract." 
+        });
+      } else {
+        toast({ title: "Restore berhasil!", description: "Database berhasil dipulihkan dari file backup." });
+      }
       setRestoreFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     },
@@ -181,6 +199,44 @@ export default function AdminBackup() {
       toast({ title: "Restore gagal", description: msg, variant: "destructive" });
     },
   });
+
+  const extractFilesMut = useMutation({
+    mutationFn: async (files: string[]) => {
+      if (!lastRestoreFile) throw new Error("File tidak tersedia");
+      const arrayBuf = await lastRestoreFile.arrayBuffer();
+      const res = await fetch(`/api/admin/backup/extract?files=${encodeURIComponent(files.join(","))}`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/gzip" },
+        body: arrayBuf,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: "Terjadi kesalahan" }));
+        throw new Error(body?.error ?? `HTTP ${res.status}`);
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ 
+        title: "File berhasil di-extract!", 
+        description: `${data.extracted.length} file: ${data.extracted.join(", ")}` 
+      });
+      setShowExtractDialog(false);
+      setBundleFiles([]);
+      setSelectedFiles([]);
+      setLastRestoreFile(null);
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : "Extract gagal";
+      toast({ title: "Extract gagal", description: msg, variant: "destructive" });
+    },
+  });
+
+  const toggleFileSelection = (fileName: string) => {
+    setSelectedFiles((prev) =>
+      prev.includes(fileName) ? prev.filter((f) => f !== fileName) : [...prev, fileName]
+    );
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setRestoreFile(e.target.files?.[0] ?? null);
@@ -449,6 +505,79 @@ export default function AdminBackup() {
           </AlertDialog>
         </CardContent>
       </Card>
+
+      {/* Extract Bundle Files Dialog */}
+      {showExtractDialog && bundleFiles.length > 0 && (
+        <Card className="glass-panel border-blue-500/30">
+          <CardHeader className="border-b border-blue-500/30">
+            <CardTitle className="flex items-center gap-2 text-blue-500">
+              <FileCode className="h-5 w-5" />
+              Extract File dari Bundle
+            </CardTitle>
+            <CardDescription>
+              Pilih file konfigurasi yang ingin di-extract dari bundle backup.
+              File yang dipilih akan menimpa file yang ada di server.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-3">
+              {bundleFiles
+                .filter((f) => !f.endsWith(".sql.gz"))
+                .map((fileName) => (
+                  <div key={fileName} className="flex items-center space-x-3">
+                    <Checkbox
+                      id={`file-${fileName}`}
+                      checked={selectedFiles.includes(fileName)}
+                      onCheckedChange={() => toggleFileSelection(fileName)}
+                    />
+                    <Label
+                      htmlFor={`file-${fileName}`}
+                      className="text-sm font-mono cursor-pointer"
+                    >
+                      {fileName}
+                    </Label>
+                  </div>
+                ))}
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              <strong>Catatan:</strong> File .env dan ecosystem.config.cjs berisi secret (password, API key).
+              Pastikan Anda memahami risiko menimpa file konfigurasi yang sudah ada.
+            </p>
+
+            <div className="flex gap-2">
+              <Button
+                onClick={() => {
+                  if (selectedFiles.length > 0) {
+                    extractFilesMut.mutate(selectedFiles);
+                  }
+                }}
+                disabled={selectedFiles.length === 0 || extractFilesMut.isPending}
+                className="gap-2"
+              >
+                {extractFilesMut.isPending ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileCode className="h-4 w-4" />
+                )}
+                {extractFilesMut.isPending ? "Mengekstrak..." : `Extract ${selectedFiles.length} File`}
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowExtractDialog(false);
+                  setBundleFiles([]);
+                  setSelectedFiles([]);
+                  setLastRestoreFile(null);
+                }}
+              >
+                Lewati
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

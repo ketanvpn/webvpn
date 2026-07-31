@@ -419,31 +419,75 @@ function extractSqlFromBundle(rawBundle: Buffer): Buffer | null {
 }
 
 /**
+ * Extract all files from a bundle (for restore config files).
+ * Returns manifest + file data, or null if not a bundle.
+ */
+function extractBundleFiles(rawBundle: Buffer): { manifest: BundleFile[]; files: Map<string, Buffer> } | null {
+  try {
+    const magic = rawBundle.subarray(0, 9);
+    if (!magic.equals(BUNDLE_MAGIC)) return null;
+
+    const manifestLen = rawBundle.readUInt32LE(9);
+    const manifestJson = rawBundle.subarray(13, 13 + manifestLen).toString("utf8");
+    const manifest: BundleFile[] = JSON.parse(manifestJson);
+
+    const dataStart = 13 + manifestLen;
+    const files = new Map<string, Buffer>();
+
+    for (const entry of manifest) {
+      const fileData = rawBundle.subarray(dataStart + entry.offset, dataStart + entry.offset + entry.length);
+      files.set(entry.name, fileData);
+    }
+
+    return { manifest, files };
+  } catch {
+    return null;
+  }
+}
+
+export interface RestoreResult {
+  success: boolean;
+  isBundle: boolean;
+  bundleFiles?: string[];
+  error?: string;
+}
+
+/**
  * Restore database from gzipped SQL buffer or full backup bundle via psql.
  * Automatically creates a safety backup of the current database before restoring.
+ * Returns info about whether this was a bundle and what files it contains.
  */
-export async function performRestore(rawBuffer: Buffer): Promise<void> {
+export async function performRestore(rawBuffer: Buffer): Promise<RestoreResult> {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL tidak dikonfigurasi");
 
   acquireLock("restore");
 
+  let isBundle = false;
+  let bundleFiles: string[] = [];
+
   try {
     const decryptedBuffer = decryptBackup(rawBuffer);
 
     let gzippedBuffer: Buffer;
-    let isBundle = false;
+    let bundleData: Buffer | null = null;
 
     try {
       const unzipped = gunzipSync(decryptedBuffer);
       if (unzipped.subarray(0, 9).equals(BUNDLE_MAGIC)) {
         isBundle = true;
+        bundleData = unzipped;
         const extracted = extractSqlFromBundle(unzipped);
         if (!extracted) {
           throw new Error("Bundle tidak valid atau tidak mengandung SQL dump");
         }
         gzippedBuffer = extracted;
-        logger.info("Detected full backup bundle, extracting SQL dump");
+        
+        const bundleInfo = extractBundleFiles(unzipped);
+        if (bundleInfo) {
+          bundleFiles = bundleInfo.manifest.map((f) => f.name);
+        }
+        logger.info({ bundleFiles }, "Detected full backup bundle, extracting SQL dump");
       } else {
         gzippedBuffer = decryptedBuffer;
       }
@@ -519,8 +563,63 @@ export async function performRestore(rawBuffer: Buffer): Promise<void> {
       proc.stdin.write(sqlBuffer);
       proc.stdin.end();
     });
+
+    return { success: true, isBundle, bundleFiles };
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, isBundle, error: errMsg };
   } finally {
     releaseLock();
+  }
+}
+
+/**
+ * Extract selected files from a bundle backup.
+ * Returns list of extracted files with their paths.
+ */
+export async function extractBundleFilesFromBackup(
+  rawBuffer: Buffer,
+  filesToExtract: string[]
+): Promise<{ success: boolean; extracted: string[]; error?: string }> {
+  const projectRoot = getProjectRoot();
+  const extracted: string[] = [];
+
+  try {
+    const decryptedBuffer = decryptBackup(rawBuffer);
+    const unzipped = gunzipSync(decryptedBuffer);
+
+    if (!unzipped.subarray(0, 9).equals(BUNDLE_MAGIC)) {
+      return { success: false, extracted: [], error: "File bukan bundle backup" };
+    }
+
+    const bundleInfo = extractBundleFiles(unzipped);
+    if (!bundleInfo) {
+      return { success: false, extracted: [], error: "Gagal membaca bundle" };
+    }
+
+    for (const fileName of filesToExtract) {
+      const fileData = bundleInfo.files.get(fileName);
+      if (!fileData) {
+        logger.warn({ fileName }, "File tidak ditemukan di bundle");
+        continue;
+      }
+
+      const targetPath = path.resolve(projectRoot, fileName);
+      const targetDir = path.dirname(targetPath);
+
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+      }
+
+      fs.writeFileSync(targetPath, fileData);
+      extracted.push(fileName);
+      logger.info({ fileName, targetPath }, "File extracted from bundle");
+    }
+
+    return { success: true, extracted };
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, extracted, error: errMsg };
   }
 }
 
