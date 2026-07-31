@@ -18,6 +18,18 @@ const BACKUP_RETENTION = 10;
 let lastBackupFilePath: string | null = null;
 let operationInProgress: "backup" | "restore" | null = null;
 
+function getProjectRoot(): string {
+  const cwd = process.cwd();
+  if (fs.existsSync(path.join(cwd, ".env")) || fs.existsSync(path.join(cwd, "package.json"))) {
+    return cwd;
+  }
+  const fromDist = path.resolve(__dirname, "..", "..", "..", "..");
+  if (fs.existsSync(path.join(fromDist, ".env")) || fs.existsSync(path.join(fromDist, "package.json"))) {
+    return fromDist;
+  }
+  return cwd;
+}
+
 // ─── Checksum ────────────────────────────────────────────────────────────────
 
 /** Compute SHA-256 hex digest of a buffer. */
@@ -509,7 +521,7 @@ export async function performFullBackup(): Promise<{
     const { buffer: sqlGz, filename: sqlFilename } = await runPgDump();
     includedFiles.push(sqlFilename);
 
-    const projectRoot = process.cwd();
+    const projectRoot = getProjectRoot();
     const fileParts: { name: string; data: Buffer }[] = [
       { name: sqlFilename, data: sqlGz },
     ];
