@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useQueryClient } from "@tanstack/react-query";
+import { apiClient } from "@/lib/api-client";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,9 +25,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-const BASE_URL = import.meta.env.BASE_URL ?? "/";
-const API_BASE = `${BASE_URL}api`.replace(/\/+/g, "/");
 
 interface VoucherResult {
   discountAmount: number;
@@ -78,23 +76,17 @@ export default function ProductDetail() {
     setVoucherError("");
     setVoucherLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/vouchers/validate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ code, productId }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.valid) {
+      const data = await apiClient.post<{ valid?: boolean; discountAmount?: number; finalPrice?: number; error?: string; message?: string }>("/api/vouchers/validate", { code, productId });
+      if (!data.valid) {
         setVoucherError(data.error || data.message || "Kode voucher tidak valid atau sudah kedaluwarsa");
         setVoucherResult(null);
         setAppliedCode("");
       } else {
-        setVoucherResult({ discountAmount: data.discountAmount, finalPrice: data.finalPrice });
+        setVoucherResult({ discountAmount: data.discountAmount!, finalPrice: data.finalPrice! });
         setAppliedCode(code);
         setVoucherError("");
       }
-    } catch {
+    } catch (err) {
       setVoucherError("Gagal memvalidasi voucher, coba lagi");
     } finally {
       setVoucherLoading(false);

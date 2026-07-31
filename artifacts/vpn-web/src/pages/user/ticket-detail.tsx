@@ -7,19 +7,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { apiClient } from "@/lib/api-client";
 import { ArrowLeft, Send, XCircle, User, ShieldCheck, BellRing } from "lucide-react";
 import { format } from "date-fns";
-
-const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
-
-async function apiFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`${API}${path}`, { credentials: "include", ...options });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: "Terjadi kesalahan" }));
-    throw new Error(body?.error ?? `HTTP ${res.status}`);
-  }
-  return res.json();
-}
 
 type Message = { id: number; isAdmin: boolean; message: string; createdAt: string };
 type TicketDetail = { id: number; subject: string; status: string; priority: string; createdAt: string; messages: Message[] };
@@ -45,7 +35,7 @@ export default function TicketDetail() {
 
   const { data: ticket, isLoading } = useQuery<TicketDetail>({
     queryKey: ["ticket-detail", id],
-    queryFn: () => apiFetch(`/tickets/${id}`),
+    queryFn: () => apiClient.get<TicketDetail>(`/api/tickets/${id}`),
     refetchInterval: 5000,
   });
 
@@ -83,11 +73,7 @@ export default function TicketDetail() {
   }, [ticket?.messages.length]);
 
   const sendReply = useMutation({
-    mutationFn: () => apiFetch(`/tickets/${id}/reply`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: reply }),
-    }),
+    mutationFn: () => apiClient.post(`/api/tickets/${id}/reply`, { message: reply }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["ticket-detail", id] });
       setReply("");
@@ -97,7 +83,7 @@ export default function TicketDetail() {
   });
 
   const closeTicket = useMutation({
-    mutationFn: () => apiFetch(`/tickets/${id}/close`, { method: "POST" }),
+    mutationFn: () => apiClient.post(`/api/tickets/${id}/close`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["ticket-detail", id] });
       qc.invalidateQueries({ queryKey: ["user-tickets"] });

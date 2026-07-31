@@ -2,13 +2,15 @@ import { useGetAdminDashboard, getGetAdminDashboardQueryKey } from "@workspace/a
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatRupiah } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, ShoppingCart, Wallet, Server, Activity, ArrowUpRight, TrendingUp, BarChart2 } from "lucide-react";
+import { Users, ShoppingCart, Wallet, Server, Activity, ArrowUpRight, TrendingUp, BarChart2, Inbox } from "lucide-react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
+import { apiClient } from "@/lib/api-client";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { PageHeader, Stat, EmptyState } from "@/components/common";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -40,25 +42,29 @@ function formatShortDate(dateStr: string) {
   return format(d, "d MMM", { locale: idLocale });
 }
 
-function RevenueTooltip({ active, payload, label }: any) {
+function ChartTooltip({
+  active,
+  payload,
+  label,
+  formatValue,
+}: {
+  active?: boolean;
+  payload?: Array<{ value?: number }>;
+  label?: string;
+  formatValue?: (v: number) => string;
+}) {
   if (!active || !payload?.length) return null;
+  const primary = payload[0]?.value ?? 0;
+  const secondary = payload[1]?.value;
   return (
-    <div className="glass-panel border border-white/10 rounded-lg shadow-[0_0_15px_rgba(0,0,0,0.5)] p-3 text-sm space-y-1">
-      <p className="font-medium text-xs text-muted-foreground">{label}</p>
-      <p className="font-bold text-primary">{formatRupiah(payload[0]?.value ?? 0)}</p>
-      {payload[1] && (
-        <p className="text-muted-foreground">{payload[1].value} order</p>
-      )}
-    </div>
-  );
-}
-
-function OrdersTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="glass-panel border border-white/10 rounded-lg shadow-[0_0_15px_rgba(0,0,0,0.5)] p-3 text-sm space-y-1">
-      <p className="font-medium text-xs text-muted-foreground">{label}</p>
-      <p className="font-bold">{payload[0]?.value ?? 0} order</p>
+    <div className="glass-panel rounded-lg border border-white/10 p-3 text-sm space-y-1 shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="font-bold text-primary">
+        {formatValue ? formatValue(primary) : primary}
+      </p>
+      {secondary !== undefined ? (
+        <p className="text-muted-foreground">{secondary} order</p>
+      ) : null}
     </div>
   );
 }
@@ -72,23 +78,17 @@ export default function AdminDashboard() {
 
   const { data: chartData, isLoading: chartLoading } = useQuery<ChartDay[]>({
     queryKey: ["admin-revenue-chart", chartDays],
-    queryFn: async () => {
-      const res = await fetch(`/api/admin/stats/revenue-chart?days=${chartDays}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Gagal memuat data chart");
-      return res.json();
-    },
+    queryFn: () => apiClient.get<ChartDay[]>(`/api/admin/stats/revenue-chart?days=${chartDays}`),
     refetchInterval: 60_000,
   });
 
   if (isLoading || !summary) {
     return (
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold tracking-tight">Ringkasan Admin</h1>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Skeleton key={i} className="h-32 w-full" />
+        <PageHeader title="Ringkasan Admin" description="Statistik platform dan aktivitas terbaru." />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Stat key={i} label="" value="" isLoading />
           ))}
         </div>
       </div>
@@ -103,93 +103,54 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-primary">Ringkasan Admin</h1>
-        <p className="text-muted-foreground mt-1">Statistik platform dan aktivitas terbaru.</p>
-      </div>
+      <PageHeader title="Ringkasan Admin" description="Statistik platform dan aktivitas terbaru." />
 
-      {/* Stat cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="glass-panel border-primary/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-primary-foreground/80">Total Pendapatan</CardTitle>
-            <Wallet className="h-4 w-4 opacity-80" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary">{formatRupiah(summary.totalRevenue)}</div>
-            <p className="text-xs mt-1 text-primary/80">
-              +{formatRupiah(summary.revenueThisMonth || 0)} bulan ini
-            </p>
-          </CardContent>
-        </Card>
-
-        <Link href="/admin/users">
-          <Card className="glass-card cursor-pointer border-white/5 hover:border-primary/50 hover:glow-border-primary transition-all">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Pengguna</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{summary.totalUsers}</div>
-              <p className="text-xs mt-1 text-muted-foreground">Klik untuk kelola pengguna</p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/admin/accounts">
-          <Card className="glass-card cursor-pointer border-white/5 hover:border-primary/50 hover:glow-border-primary transition-all">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">VPN Aktif</CardTitle>
-              <Server className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{summary.activeAccounts}</div>
-              <p className="text-xs mt-1 text-muted-foreground flex gap-2 flex-wrap">
-                {summary.ordersByProtocol?.map(p => (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <Stat
+          label="Total Pendapatan"
+          value={formatRupiah(summary.totalRevenue)}
+          icon={Wallet}
+          tone="primary"
+          delta={`+${formatRupiah(summary.revenueThisMonth || 0)} bulan ini`}
+        />
+        <Stat
+          label="Total Pengguna"
+          value={summary.totalUsers}
+          icon={Users}
+          href="/admin/users"
+          delta="Klik untuk kelola pengguna"
+        />
+        <Stat
+          label="VPN Aktif"
+          value={summary.activeAccounts}
+          icon={Server}
+          href="/admin/accounts"
+          delta={
+            summary.ordersByProtocol?.length ? (
+              <span className="flex flex-wrap gap-2">
+                {summary.ordersByProtocol.map((p) => (
                   <span key={p.protocol} className="uppercase">{p.protocol}:{p.count}</span>
                 ))}
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/admin/topups">
-          <Card className={`glass-card cursor-pointer transition-all ${summary.pendingTopups > 0 ? "border-yellow-500/50 shadow-[0_0_15px_rgba(234,179,8,0.2)] hover:border-yellow-500" : "border-white/5 hover:border-primary/50 hover:glow-border-primary"}`}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Topup Tertunda</CardTitle>
-              <Activity className={`h-4 w-4 ${summary.pendingTopups > 0 ? "text-yellow-600" : "text-muted-foreground"}`} />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${summary.pendingTopups > 0 ? "text-yellow-600" : ""}`}>
-                {summary.pendingTopups}
-              </div>
-              {summary.pendingTopups > 0 ? (
-                <p className="text-xs mt-1 text-yellow-600/80 font-medium">Klik untuk proses →</p>
-              ) : (
-                <p className="text-xs mt-1 text-muted-foreground">Semua sudah diproses</p>
-              )}
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/admin/orders?status=pending">
-          <Card className={`glass-card cursor-pointer transition-all ${summary.pendingOrders > 0 ? "border-orange-500/50 shadow-[0_0_15px_rgba(249,115,22,0.2)] hover:border-orange-500" : "border-white/5 hover:border-primary/50 hover:glow-border-primary"}`}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Order Tertunda</CardTitle>
-              <ShoppingCart className={`h-4 w-4 ${summary.pendingOrders > 0 ? "text-orange-600" : "text-muted-foreground"}`} />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${summary.pendingOrders > 0 ? "text-orange-600" : ""}`}>
-                {summary.pendingOrders}
-              </div>
-              {summary.pendingOrders > 0 ? (
-                <p className="text-xs mt-1 text-orange-600/80 font-medium">Klik untuk konfirmasi →</p>
-              ) : (
-                <p className="text-xs mt-1 text-muted-foreground">Semua sudah diproses</p>
-              )}
-            </CardContent>
-          </Card>
-        </Link>
+              </span>
+            ) : null
+          }
+        />
+        <Stat
+          label="Topup Tertunda"
+          value={summary.pendingTopups}
+          icon={Activity}
+          href="/admin/topups"
+          tone={summary.pendingTopups > 0 ? "warning" : "default"}
+          delta={summary.pendingTopups > 0 ? "Klik untuk proses →" : "Semua sudah diproses"}
+        />
+        <Stat
+          label="Order Tertunda"
+          value={summary.pendingOrders}
+          icon={ShoppingCart}
+          href="/admin/orders?status=pending"
+          tone={summary.pendingOrders > 0 ? "warning" : "default"}
+          delta={summary.pendingOrders > 0 ? "Klik untuk konfirmasi →" : "Semua sudah diproses"}
+        />
       </div>
 
       {/* Charts */}
@@ -261,7 +222,7 @@ export default function AdminDashboard() {
                       }}
                       width={36}
                     />
-                    <Tooltip content={<RevenueTooltip />} />
+                    <Tooltip content={<ChartTooltip formatValue={formatRupiah} />} />
                     <Area
                       type="monotone"
                       dataKey="revenue"
@@ -305,7 +266,7 @@ export default function AdminDashboard() {
                       allowDecimals={false}
                       width={24}
                     />
-                    <Tooltip content={<OrdersTooltip />} />
+                    <Tooltip content={<ChartTooltip formatValue={(v) => `${v} order`} />} />
                     <Bar
                       dataKey="orders"
                       fill="hsl(var(--primary))"
@@ -365,7 +326,7 @@ export default function AdminDashboard() {
                 })}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">Belum ada order.</p>
+              <EmptyState icon={Inbox} title="Belum ada order." compact />
             )}
           </CardContent>
         </Card>
@@ -404,7 +365,7 @@ export default function AdminDashboard() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">Belum ada topup.</p>
+              <EmptyState icon={Inbox} title="Belum ada topup." compact />
             )}
           </CardContent>
         </Card>
@@ -434,7 +395,7 @@ export default function AdminDashboard() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">Belum ada aksi admin.</p>
+              <EmptyState icon={Inbox} title="Belum ada aksi admin." compact />
             )}
           </CardContent>
         </Card>

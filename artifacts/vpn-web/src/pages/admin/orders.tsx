@@ -13,6 +13,7 @@ import { formatRupiah } from "@/lib/format";
 import { format } from "date-fns";
 import { ShoppingCart, CheckCircle, Trash2, FileText, Search, Server, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/common";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -98,33 +99,33 @@ export default function AdminOrders() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
-          <p className="text-muted-foreground mt-1">Kelola dan konfirmasi pembelian user.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.open("/api/admin/export/orders", "_blank")}
-            className="gap-1.5 shrink-0"
-          >
-            <Download className="h-4 w-4" /> Export CSV
-          </Button>
-          <div className="relative w-full sm:w-64">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Cari username..."
-            className="pl-9"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            data-testid="input-order-search"
-          />
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Orders"
+        description="Kelola dan konfirmasi pembelian user."
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open("/api/admin/export/orders", "_blank")}
+              className="gap-1.5 shrink-0"
+            >
+              <Download className="h-4 w-4" /> Export CSV
+            </Button>
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Cari username..."
+                className="pl-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                data-testid="input-order-search"
+              />
+            </div>
+          </>
+        }
+      />
 
       <Tabs defaultValue="all" value={status} onValueChange={setStatus}>
         <TabsList>

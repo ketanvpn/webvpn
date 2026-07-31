@@ -11,19 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { apiClient } from "@/lib/api-client";
 import { Plus, Pencil, Trash2, Megaphone, Info, AlertTriangle, CheckCircle, XCircle, Calendar } from "lucide-react";
 import { format } from "date-fns";
-
-const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
-
-async function apiFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`${API}${path}`, { credentials: "include", ...options });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: "Terjadi kesalahan" }));
-    throw new Error(body?.error ?? `HTTP ${res.status}`);
-  }
-  return res.json();
-}
 
 type Announcement = {
   id: number;
@@ -54,7 +44,7 @@ export default function AdminAnnouncements() {
 
   const { data: list = [], isLoading } = useQuery<Announcement[]>({
     queryKey: ["admin-announcements"],
-    queryFn: () => apiFetch("/admin/announcements"),
+    queryFn: () => apiClient.get<Announcement[]>("/api/admin/announcements"),
   });
 
   const save = useMutation({
@@ -68,9 +58,9 @@ export default function AdminAnnouncements() {
         endAt: form.endAt ? new Date(form.endAt).toISOString() : null,
       };
       if (editing) {
-        return apiFetch(`/admin/announcements/${editing.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        return apiClient.put(`/api/admin/announcements/${editing.id}`, body);
       }
-      return apiFetch("/admin/announcements", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      return apiClient.post("/api/admin/announcements", body);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-announcements"] });
@@ -81,7 +71,7 @@ export default function AdminAnnouncements() {
   });
 
   const del = useMutation({
-    mutationFn: (id: number) => apiFetch(`/admin/announcements/${id}`, { method: "DELETE" }),
+    mutationFn: (id: number) => apiClient.del(`/api/admin/announcements/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-announcements"] });
       toast({ title: "Pengumuman dihapus" });

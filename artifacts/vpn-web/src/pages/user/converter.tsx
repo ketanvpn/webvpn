@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { apiClient } from "@/lib/api-client";
 import {
   AlertCircle,
   ArrowRightLeft,
@@ -55,18 +56,6 @@ import {
   type EasyInjectPreset,
   type HttpCustomGuide,
 } from "@/lib/darktunnel";
-
-const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
-
-async function apiFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`${API}${path}`, {
-    credentials: "include",
-    ...options,
-  });
-  const body = await res.json().catch(() => ({ error: "Response tidak valid" }));
-  if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
-  return body;
-}
 
 type BugPreset = {
   id: number;
@@ -546,7 +535,7 @@ export default function ConfigConverter() {
 
   const { data: bugs = [], isLoading: bugsLoading } = useQuery<BugPreset[]>({
     queryKey: ["bug-presets"],
-    queryFn: () => apiFetch("/bug-presets"),
+    queryFn: () => apiClient.get<BugPreset[]>("/api/bug-presets"),
   });
 
   const {
@@ -558,7 +547,7 @@ export default function ConfigConverter() {
     isFetching: presetsFetching,
   } = useQuery<EasyInjectPreset[]>({
     queryKey: ["easy-inject-presets"],
-    queryFn: () => apiFetch("/easy-inject-presets"),
+    queryFn: () => apiClient.get<EasyInjectPreset[]>("/api/easy-inject-presets"),
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,
   });
@@ -572,7 +561,7 @@ export default function ConfigConverter() {
     isFetching: accountsFetching,
   } = useQuery<DarkTunnelAccount[]>({
     queryKey: ["my-ssh-accounts"],
-    queryFn: () => apiFetch("/accounts"),
+    queryFn: () => apiClient.get<DarkTunnelAccount[]>("/api/accounts"),
   });
 
   const requestedAccountId = Number(
@@ -680,7 +669,7 @@ export default function ConfigConverter() {
 
   const syncAccountMutation = useMutation({
     mutationFn: (accountId: number) =>
-      apiFetch(`/accounts/${accountId}/sync-provider`, { method: "POST" }),
+      apiClient.post(`/api/accounts/${accountId}/sync-provider`),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["my-ssh-accounts"] });
       toast({

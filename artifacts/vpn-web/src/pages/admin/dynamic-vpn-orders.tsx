@@ -6,9 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { apiClient } from "@/lib/api-client";
 import { dynamicDurationUnit } from "@/lib/dynamic-duration";
-
-const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
 
 type DynamicOrder = {
   id: number;
@@ -31,13 +30,6 @@ type DynamicOrder = {
   createdAt: string;
   updatedAt: string;
 };
-
-async function apiFetch<T>(path: string): Promise<T> {
-  const res = await fetch(`${API}${path}`, { credentials: "include" });
-  const body = await res.json().catch(() => ({ error: "Response tidak valid" }));
-  if (!res.ok) throw new Error(body?.error ?? body?.message ?? `HTTP ${res.status}`);
-  return body as T;
-}
 
 function rupiah(value: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value || 0);
@@ -78,7 +70,7 @@ export default function AdminDynamicVpnOrders() {
 
   const ordersQuery = useQuery<{ orders: DynamicOrder[] }>({
     queryKey: ["admin-dynamic-vpn-orders", status, provider],
-    queryFn: () => apiFetch(`/admin/dynamic-vpn/orders?status=${encodeURIComponent(status)}&provider=${encodeURIComponent(provider)}&limit=100`),
+    queryFn: () => apiClient.get<{ orders: DynamicOrder[] }>(`/api/admin/dynamic-vpn/orders?status=${encodeURIComponent(status)}&provider=${encodeURIComponent(provider)}&limit=100`),
   });
 
   const orders = ordersQuery.data?.orders ?? [];

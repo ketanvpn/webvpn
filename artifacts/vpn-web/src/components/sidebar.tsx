@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useAdminBadges } from "@/hooks/use-admin-badges";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,28 +44,18 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { SheetTrigger } from "@/components/ui/sheet";
-import { useGetAdminDashboard, getGetAdminDashboardQueryKey } from "@workspace/api-client-react";
-import { useQuery } from "@tanstack/react-query";
 import { LogoIcon } from "@/components/logo";
-
-const BASE_URL = import.meta.env.BASE_URL ?? "/";
-const API_BASE = `${BASE_URL}api`.replace(/\/+/g, "/");
-
-function usePendingTicketCount(enabled: boolean) {
-  return useQuery<{ count: number }>({
-    queryKey: ["admin-pending-tickets"],
-    queryFn: () => fetch(`${API_BASE}/admin/tickets/pending-count`, { credentials: "include" }).then((r) => r.json()),
-    enabled,
-    staleTime: 30000,
-    refetchInterval: 60000,
-  });
-}
 
 type NavItem = {
   title: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   badgeKey?: "pendingTopups" | "pendingTickets";
+};
+
+type AdminNavGroup = {
+  title: string;
+  items: NavItem[];
 };
 
 const userNav: NavItem[] = [
@@ -80,61 +71,68 @@ const userNav: NavItem[] = [
   { title: "Profil", href: "/profile", icon: Settings },
 ];
 
-const adminNav: NavItem[] = [
-  { title: "Overview", href: "/admin", icon: LayoutDashboard },
-  { title: "Pengguna", href: "/admin/users", icon: Users },
-  { title: "Produk", href: "/admin/products", icon: Package },
-  { title: "Server", href: "/admin/servers", icon: Server },
-  { title: "Order", href: "/admin/orders", icon: ShoppingCart },
-  { title: "Topup", href: "/admin/topups", icon: CreditCard, badgeKey: "pendingTopups" },
-  { title: "Akun VPN", href: "/admin/accounts", icon: Shield },
-  { title: "Payment Gateway", href: "/admin/settings/payment", icon: QrCode },
-  { title: "Notifikasi Telegram", href: "/admin/settings/telegram", icon: Bell },
-  { title: "WhatsApp OTP", href: "/admin/settings/whatsapp", icon: Smartphone },
-  { title: "Program Referral", href: "/admin/settings/referral", icon: Gift },
-  { title: "Program Reseller", href: "/admin/settings/reseller", icon: Users },
-  { title: "Notifikasi Kedaluwarsa", href: "/admin/settings/expiry-notif", icon: Bell },
-  { title: "Monitor Server", href: "/admin/server-monitor", icon: Activity },
-  { title: "Order Dynamic", href: "/admin/dynamic-vpn", icon: ShieldPlus },
-  { title: "NadiaVPN", href: "/admin/nadiavpn", icon: Cloud },
-  { title: "Voucher / Kode Promo", href: "/admin/vouchers", icon: Tag },
-  { title: "Tiket Bantuan", href: "/admin/tickets", icon: TicketCheck, badgeKey: "pendingTickets" },
-  { title: "Pengumuman", href: "/admin/announcements", icon: Megaphone },
-  { title: "Sistem Poin", href: "/admin/settings/points", icon: Star },
-  { title: "Preset Inject Paket", href: "/admin/inject-presets", icon: Network },
-  { title: "Manajemen Bug", href: "/admin/bug-presets", icon: Bug },
-  { title: "Broadcast", href: "/admin/broadcast", icon: Send },
-  { title: "Backup & Restore DB", href: "/admin/backup", icon: HardDrive },
-  { title: "Riwayat Aksi Admin", href: "/admin/audit-logs", icon: History },
+const adminOverview: NavItem = {
+  title: "Overview",
+  href: "/admin",
+  icon: LayoutDashboard,
+};
+
+const adminNavGroups: AdminNavGroup[] = [
+  {
+    title: "Katalog",
+    items: [
+      { title: "Produk", href: "/admin/products", icon: Package },
+      { title: "Server", href: "/admin/servers", icon: Server },
+      { title: "Akun VPN", href: "/admin/accounts", icon: Shield },
+      { title: "Voucher / Kode Promo", href: "/admin/vouchers", icon: Tag },
+    ],
+  },
+  {
+    title: "Operasi",
+    items: [
+      { title: "Order", href: "/admin/orders", icon: ShoppingCart },
+      { title: "Topup", href: "/admin/topups", icon: CreditCard, badgeKey: "pendingTopups" },
+      { title: "Tiket Bantuan", href: "/admin/tickets", icon: TicketCheck, badgeKey: "pendingTickets" },
+      { title: "Order Dynamic", href: "/admin/dynamic-vpn", icon: ShieldPlus },
+    ],
+  },
+  {
+    title: "Pengguna",
+    items: [
+      { title: "Pengguna", href: "/admin/users", icon: Users },
+      { title: "Program Poin", href: "/admin/settings/points", icon: Star },
+      { title: "Program Referral", href: "/admin/settings/referral", icon: Gift },
+      { title: "Program Reseller", href: "/admin/settings/reseller", icon: Users },
+    ],
+  },
+  {
+    title: "Marketing",
+    items: [
+      { title: "Pengumuman", href: "/admin/announcements", icon: Megaphone },
+      { title: "Broadcast", href: "/admin/broadcast", icon: Send },
+    ],
+  },
+  {
+    title: "Sistem",
+    items: [
+      { title: "Monitor Server", href: "/admin/server-monitor", icon: Activity },
+      { title: "NadiaVPN", href: "/admin/nadiavpn", icon: Cloud },
+      { title: "Preset Inject Paket", href: "/admin/inject-presets", icon: Network },
+      { title: "Manajemen Bug", href: "/admin/bug-presets", icon: Bug },
+      { title: "Payment Gateway", href: "/admin/settings/payment", icon: QrCode },
+      { title: "Notifikasi Telegram", href: "/admin/settings/telegram", icon: Bell },
+      { title: "WhatsApp OTP", href: "/admin/settings/whatsapp", icon: Smartphone },
+      { title: "Notifikasi Kedaluwarsa", href: "/admin/settings/expiry-notif", icon: Bell },
+      { title: "Backup & Restore DB", href: "/admin/backup", icon: HardDrive },
+      { title: "Riwayat Aksi Admin", href: "/admin/audit-logs", icon: History },
+    ],
+  },
 ];
 
-const adminPageTitles: Record<string, string> = {
-  "/admin": "Overview",
-  "/admin/users": "Pengguna",
-  "/admin/products": "Produk",
-  "/admin/servers": "Server",
-  "/admin/orders": "Order",
-  "/admin/topups": "Topup",
-  "/admin/accounts": "Akun VPN",
-  "/admin/settings/payment": "Payment Gateway",
-  "/admin/settings/telegram": "Notifikasi Telegram",
-  "/admin/settings/whatsapp": "WhatsApp OTP",
-  "/admin/settings/referral": "Program Referral",
-  "/admin/settings/reseller": "Program Reseller",
-  "/admin/settings/expiry-notif": "Notifikasi Kedaluwarsa",
-  "/admin/server-monitor": "Monitor Server",
-  "/admin/dynamic-vpn": "Order Dynamic",
-  "/admin/nadiavpn": "NadiaVPN",
-  "/admin/vouchers": "Voucher / Kode Promo",
-  "/admin/tickets": "Tiket Bantuan",
-  "/admin/announcements": "Pengumuman",
-  "/admin/settings/points": "Sistem Poin",
-  "/admin/inject-presets": "Preset Inject Paket",
-  "/admin/bug-presets": "Manajemen Bug",
-  "/admin/broadcast": "Broadcast",
-  "/admin/backup": "Backup & Restore DB",
-  "/admin/audit-logs": "Riwayat Aksi Admin",
-};
+const adminNavFlat: NavItem[] = [
+  adminOverview,
+  ...adminNavGroups.flatMap((g) => g.items),
+];
 
 const mobileBottomNav: NavItem[] = [
   { title: "Beranda", href: "/dashboard", icon: LayoutDashboard },
@@ -163,6 +161,11 @@ function isNavActive(location: string, href: string): boolean {
     return location.startsWith(href + "/");
   }
   return false;
+}
+
+function resolveAdminPageTitle(location: string): string {
+  const match = adminNavFlat.find((item) => isNavActive(location, item.href));
+  return match?.title ?? "Admin Portal";
 }
 
 export function MobileBottomNav() {
@@ -255,8 +258,108 @@ export function MobileBottomNav() {
   );
 }
 
+type NavItemLinkProps = {
+  item: NavItem;
+  active: boolean;
+  badge: number;
+};
+
+function NavItemLink({ item, active, badge }: NavItemLinkProps) {
+  const badgeColor =
+    item.badgeKey === "pendingTickets"
+      ? active
+        ? "bg-primary-foreground/20 text-primary-foreground"
+        : "bg-red-500 text-white"
+      : active
+        ? "bg-primary-foreground/20 text-primary-foreground"
+        : "bg-yellow-500 text-white";
+
+  return (
+    <Link
+      href={item.href}
+      className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
+        active
+          ? "bg-primary text-primary-foreground"
+          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+      }`}
+    >
+      <item.icon className="h-4 w-4 shrink-0" />
+      <span className="flex-1">{item.title}</span>
+      {badge > 0 && (
+        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${badgeColor}`}>
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
+    </Link>
+  );
+}
+
+function SectionHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="px-3 mt-4 mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 first:mt-2">
+      {children}
+    </div>
+  );
+}
+
+function AdminNavList({
+  location,
+  pendingTopups,
+  pendingTickets,
+}: {
+  location: string;
+  pendingTopups: number;
+  pendingTickets: number;
+}) {
+  const badgeFor = (item: NavItem) =>
+    item.badgeKey === "pendingTopups"
+      ? pendingTopups
+      : item.badgeKey === "pendingTickets"
+        ? pendingTickets
+        : 0;
+
+  return (
+    <>
+      <NavItemLink
+        item={adminOverview}
+        active={isNavActive(location, adminOverview.href)}
+        badge={badgeFor(adminOverview)}
+      />
+      {adminNavGroups.map((group) => (
+        <div key={group.title}>
+          <SectionHeader>{group.title}</SectionHeader>
+          <div className="flex flex-col gap-1">
+            {group.items.map((item) => (
+              <NavItemLink
+                key={item.href}
+                item={item}
+                active={isNavActive(location, item.href)}
+                badge={badgeFor(item)}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function UserNavList({ location }: { location: string }) {
+  return (
+    <>
+      {userNav.map((item) => (
+        <NavItemLink
+          key={item.href}
+          item={item}
+          active={isNavActive(location, item.href)}
+          badge={0}
+        />
+      ))}
+    </>
+  );
+}
+
 function NavLinks({
-  nav,
   isAdmin,
   pendingTopups,
   pendingTickets,
@@ -264,7 +367,6 @@ function NavLinks({
   logout,
   location,
 }: {
-  nav: NavItem[];
   isAdmin: boolean;
   pendingTopups: number;
   pendingTickets: number;
@@ -284,35 +386,15 @@ function NavLinks({
         </div>
       </div>
 
-      {nav.map((item) => {
-        const active = isNavActive(location, item.href);
-        const badge =
-          item.badgeKey === "pendingTopups" ? pendingTopups :
-          item.badgeKey === "pendingTickets" ? pendingTickets : 0;
-        const badgeColor =
-          item.badgeKey === "pendingTickets"
-            ? (active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-red-500 text-white")
-            : (active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-yellow-500 text-white");
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
-              active
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            }`}
-          >
-            <item.icon className="h-4 w-4 shrink-0" />
-            <span className="flex-1">{item.title}</span>
-            {badge > 0 && (
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${badgeColor}`}>
-                {badge > 99 ? "99+" : badge}
-              </span>
-            )}
-          </Link>
-        );
-      })}
+      {isAdmin ? (
+        <AdminNavList
+          location={location}
+          pendingTopups={pendingTopups}
+          pendingTickets={pendingTickets}
+        />
+      ) : (
+        <UserNavList location={location} />
+      )}
 
       {!isAdmin && userIsAdmin && (
         <div className="mt-8">
@@ -343,21 +425,9 @@ function NavLinks({
 export function MobileAdminHeader() {
   const [location] = useLocation();
   const { logout, isAdmin: userIsAdmin } = useAuth();
+  const { pendingTopups, pendingTickets } = useAdminBadges(true);
 
-  const { data: dashboardData } = useGetAdminDashboard({
-    query: { queryKey: getGetAdminDashboardQueryKey(), enabled: true, staleTime: 30000 },
-  });
-  const pendingTopups = dashboardData?.pendingTopups ?? 0;
-  const { data: ticketData } = usePendingTicketCount(true);
-  const pendingTickets = ticketData?.count ?? 0;
-
-  const pageTitle =
-    Object.entries(adminPageTitles)
-      .find(([path]) => {
-        if (location === path) return true;
-        if (path !== "/admin") return location.startsWith(path + "/");
-        return false;
-      })?.[1] ?? "Admin Portal";
+  const pageTitle = resolveAdminPageTitle(location);
 
   return (
     <header className="md:hidden sticky top-0 z-40 flex items-center h-14 glass-panel border-b-0 shadow-md px-2 gap-2 shrink-0">
@@ -382,7 +452,6 @@ export function MobileAdminHeader() {
           </SheetHeader>
           <div className="flex h-full flex-col">
             <NavLinks
-              nav={adminNav}
               isAdmin={true}
               pendingTopups={pendingTopups}
               pendingTickets={pendingTickets}
@@ -415,20 +484,11 @@ export function MobileAdminHeader() {
 export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const [location] = useLocation();
   const { logout, isAdmin: userIsAdmin } = useAuth();
-  const nav = isAdmin ? adminNav : userNav;
-
-  const { data: dashboardData } = useGetAdminDashboard({
-    query: { queryKey: getGetAdminDashboardQueryKey(), enabled: isAdmin, staleTime: 30000 },
-  });
-  const { data: ticketData } = usePendingTicketCount(isAdmin);
-
-  const pendingTopups = dashboardData?.pendingTopups ?? 0;
-  const pendingTickets = ticketData?.count ?? 0;
+  const { pendingTopups, pendingTickets } = useAdminBadges(isAdmin);
 
   return (
     <div className="hidden md:flex h-screen w-64 flex-col border-r bg-card/50 backdrop-blur-xl sticky top-0">
       <NavLinks
-        nav={nav}
         isAdmin={isAdmin}
         pendingTopups={pendingTopups}
         pendingTickets={pendingTickets}

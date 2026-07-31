@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLocation, Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { apiClient } from "@/lib/api-client";
 import {
   dynamicDurationLabel,
   dynamicDurationOptionLabel,
@@ -20,8 +21,6 @@ import {
   isDynamicDurationType,
   type DynamicDurationType,
 } from "@/lib/dynamic-duration";
-
-const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
 
 type DynamicServer = {
   id: number;
@@ -53,13 +52,6 @@ type Quote = {
   discountAmount: number;
   voucherCode: string | null;
 };
-
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API}${path}`, { credentials: "include", ...options });
-  const body = await res.json().catch(() => ({ error: "Response tidak valid" }));
-  if (!res.ok) throw new Error(body?.error ?? body?.message ?? `HTTP ${res.status}`);
-  return body as T;
-}
 
 function rupiah(value: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value || 0);
@@ -149,7 +141,7 @@ export default function DynamicOrderPage() {
   const { data: balanceData } = useGetBalance();
   const balance = balanceData?.balance || 0;
 
-  const serversQuery = useQuery<{ servers: DynamicServer[] }>({ queryKey: ["dynamic-vpn-servers"], queryFn: () => apiFetch("/dynamic-vpn/servers") });
+  const serversQuery = useQuery<{ servers: DynamicServer[] }>({ queryKey: ["dynamic-vpn-servers"], queryFn: () => apiClient.get("/api/dynamic-vpn/servers") });
   const servers = serversQuery.data?.servers ?? [];
   const durationNum = parseInt(duration || "0", 10);
 
@@ -172,17 +164,13 @@ export default function DynamicOrderPage() {
   const quoteQuery = useQuery<Quote>({
     queryKey: ["dynamic-vpn-quote", selectedServer?.id, protocol, durationType, durationNum, appliedVoucher],
     enabled: !!selectedServer && !!protocol && !!durationNum && durationNum > 0,
-    queryFn: () => apiFetch("/dynamic-vpn/quote", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    queryFn: () => apiClient.post("/api/dynamic-vpn/quote", {
         serverId: selectedServer!.id,
         protocol,
         durationType,
         duration: durationNum,
         voucherCode: appliedVoucher || undefined,
       }),
-    }),
     retry: false,
   });
   const quote = quoteQuery.data ?? localQuote;
@@ -204,10 +192,7 @@ export default function DynamicOrderPage() {
   const orderMut = useMutation({
     mutationFn: async () => {
       if (!selectedServer) throw new Error("Pilih server terlebih dahulu");
-      const created = await apiFetch<{ order: { id: number } }>("/dynamic-vpn/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const created = await apiClient.post<{ order: { id: number } }>("/api/dynamic-vpn/orders", {
           serverId: selectedServer.id,
           protocol,
           durationType,
@@ -216,9 +201,8 @@ export default function DynamicOrderPage() {
           password: protocol === "ssh" ? password : undefined,
           voucherCode: appliedVoucher || undefined,
           paymentMethod: "balance",
-        }),
-      });
-      return apiFetch<{ order: { id: number; vpnAccountId: number | null } }>(`/dynamic-vpn/orders/${created.order.id}/pay`, { method: "POST" });
+        });
+      return apiClient.post<{ order: { id: number; vpnAccountId: number | null } }>(`/api/dynamic-vpn/orders/${created.order.id}/pay`);
     },
     onSuccess: (data) => {
       setPaidOrderId(data.order.id);

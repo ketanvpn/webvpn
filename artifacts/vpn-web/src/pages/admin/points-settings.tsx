@@ -6,19 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { apiClient } from "@/lib/api-client";
 import { Star, Save, Info } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-
-const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
-
-async function apiFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`${API}${path}`, { credentials: "include", ...options });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: "Terjadi kesalahan" }));
-    throw new Error(body?.error ?? `HTTP ${res.status}`);
-  }
-  return res.json();
-}
 
 type Settings = { enabled: boolean; pointsRateOrder: number; pointsMinOrder: number; pointsRateTopup: number; pointsMinTopup: number; redeemRate: number; minRedeem: number };
 
@@ -28,13 +18,13 @@ export default function AdminPointsSettings() {
 
   const { data, isLoading } = useQuery<Settings>({
     queryKey: ["points-settings-admin"],
-    queryFn: () => apiFetch("/admin/settings/points"),
+    queryFn: () => apiClient.get<Settings>("/api/admin/settings/points"),
   });
 
   useEffect(() => { if (data) setForm(data); }, [data]);
 
   const save = useMutation({
-    mutationFn: () => apiFetch("/admin/settings/points", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) }),
+    mutationFn: () => apiClient.put("/api/admin/settings/points", form),
     onSuccess: () => toast({ title: "Pengaturan poin disimpan" }),
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
   });

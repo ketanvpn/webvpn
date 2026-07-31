@@ -9,9 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { apiClient } from "@/lib/api-client";
 import { dynamicDurationOptionLabel, isDynamicDurationType, type DynamicDurationType } from "@/lib/dynamic-duration";
 
-const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
 const PROTOCOLS = ["ssh", "vmess", "vless", "trojan"];
 
 type DynamicServer = {
@@ -47,13 +47,6 @@ type DynamicVpnSettings = {
   dynamicDefaultMarkupPercent: number;
 };
 
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API}${path}`, { credentials: "include", ...options });
-  const body = await res.json().catch(() => ({ error: "Response tidak valid" }));
-  if (!res.ok) throw new Error(body?.error ?? body?.message ?? `HTTP ${res.status}`);
-  return body as T;
-}
-
 function rupiah(value: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value || 0);
 }
@@ -73,20 +66,16 @@ export default function AdminDynamicVpn() {
 
   const serversQuery = useQuery<{ servers: DynamicServer[] }>({
     queryKey: ["admin-dynamic-vpn-servers"],
-    queryFn: () => apiFetch("/admin/dynamic-vpn/servers"),
+    queryFn: () => apiClient.get<{ servers: DynamicServer[] }>("/api/admin/dynamic-vpn/servers"),
   });
 
   const settingsQuery = useQuery<DynamicVpnSettings>({
     queryKey: ["admin-dynamic-vpn-settings"],
-    queryFn: () => apiFetch("/admin/settings/dynamic-vpn"),
+    queryFn: () => apiClient.get<DynamicVpnSettings>("/api/admin/settings/dynamic-vpn"),
   });
 
   const saveSettingsMut = useMutation({
-    mutationFn: (data: Partial<DynamicVpnSettings>) => apiFetch("/admin/settings/dynamic-vpn", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    }),
+    mutationFn: (data: Partial<DynamicVpnSettings>) => apiClient.put("/api/admin/settings/dynamic-vpn", data),
     onSuccess: () => {
       toast({ title: "Default markup disimpan" });
       qc.invalidateQueries({ queryKey: ["admin-dynamic-vpn-settings"] });
@@ -95,7 +84,7 @@ export default function AdminDynamicVpn() {
   });
 
   const syncMut = useMutation({
-    mutationFn: () => apiFetch<{ total: number }>("/admin/dynamic-vpn/servers/sync/nadiavpn", { method: "POST" }),
+    mutationFn: () => apiClient.post<{ total: number }>("/api/admin/dynamic-vpn/servers/sync/nadiavpn"),
     onSuccess: (data) => {
       toast({ title: "Sync selesai", description: `${data.total} server NadiaVPN disinkronkan.` });
       qc.invalidateQueries({ queryKey: ["admin-dynamic-vpn-servers"] });
@@ -104,7 +93,7 @@ export default function AdminDynamicVpn() {
   });
 
   const syncLocalMut = useMutation({
-    mutationFn: () => apiFetch<{ total: number }>("/admin/dynamic-vpn/servers/sync/local-panel", { method: "POST" }),
+    mutationFn: () => apiClient.post<{ total: number }>("/api/admin/dynamic-vpn/servers/sync/local-panel"),
     onSuccess: (data) => {
       toast({ title: "Sync server saya selesai", description: `${data.total} server lokal disinkronkan.` });
       qc.invalidateQueries({ queryKey: ["admin-dynamic-vpn-servers"] });
@@ -113,11 +102,7 @@ export default function AdminDynamicVpn() {
   });
 
   const saveMut = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<DynamicServer> }) => apiFetch(`/admin/dynamic-vpn/servers/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    }),
+    mutationFn: ({ id, data }: { id: number; data: Partial<DynamicServer> }) => apiClient.patch(`/api/admin/dynamic-vpn/servers/${id}`, data),
     onSuccess: (_data, vars) => {
       toast({ title: "Server disimpan" });
       setDrafts((prev) => ({ ...prev, [vars.id]: {} }));

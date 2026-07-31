@@ -8,17 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Send, XCircle, User, ShieldCheck } from "lucide-react";
 import { format } from "date-fns";
-
-const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
-
-async function apiFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`${API}${path}`, { credentials: "include", ...options });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: "Terjadi kesalahan" }));
-    throw new Error(body?.error ?? `HTTP ${res.status}`);
-  }
-  return res.json();
-}
+import { apiClient } from "@/lib/api-client";
 
 type Message = { id: number; isAdmin: boolean; message: string; username: string; createdAt: string };
 type TicketDetail = { id: number; username: string; subject: string; status: string; priority: string; createdAt: string; messages: Message[] };
@@ -37,16 +27,12 @@ export default function AdminTicketDetail() {
 
   const { data: ticket, isLoading } = useQuery<TicketDetail>({
     queryKey: ["admin-ticket-detail", id],
-    queryFn: () => apiFetch(`/admin/tickets/${id}`),
+    queryFn: () => apiClient.get<TicketDetail>(`/api/admin/tickets/${id}`),
     refetchInterval: 10000,
   });
 
   const sendReply = useMutation({
-    mutationFn: () => apiFetch(`/admin/tickets/${id}/reply`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: reply }),
-    }),
+    mutationFn: () => apiClient.post(`/api/admin/tickets/${id}/reply`, { message: reply }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-ticket-detail", id] });
       qc.invalidateQueries({ queryKey: ["admin-tickets"] });
@@ -56,7 +42,7 @@ export default function AdminTicketDetail() {
   });
 
   const closeTicket = useMutation({
-    mutationFn: () => apiFetch(`/admin/tickets/${id}/close`, { method: "POST" }),
+    mutationFn: () => apiClient.post(`/api/admin/tickets/${id}/close`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-ticket-detail", id] });
       qc.invalidateQueries({ queryKey: ["admin-tickets"] });

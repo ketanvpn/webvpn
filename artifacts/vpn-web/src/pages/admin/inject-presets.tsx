@@ -1,5 +1,6 @@
 import { useRef, useState, type FormEvent, type MouseEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -67,49 +68,8 @@ import {
   Trash2,
 } from "lucide-react";
 
-const BASE_URL = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
-const API_BASE = `${BASE_URL}/api`.replace(/\/+/g, "/");
 const ADMIN_PRESETS_QUERY_KEY = ["admin-easy-inject-presets"] as const;
 const USER_PRESETS_QUERY_KEY = ["easy-inject-presets"] as const;
-
-async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const headers = new Headers(options.headers);
-  headers.set("Accept", "application/json");
-  if (options.body && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    credentials: "include",
-    headers,
-  });
-  const text = await response.text();
-  let body: unknown;
-
-  if (text) {
-    try {
-      body = JSON.parse(text);
-    } catch {
-      body = text;
-    }
-  }
-
-  if (!response.ok) {
-    const errorBody = body as
-      | { error?: string | { message?: string }; message?: string }
-      | undefined;
-    const message =
-      typeof errorBody?.error === "string"
-        ? errorBody.error
-        : errorBody?.error?.message ??
-          errorBody?.message ??
-          (typeof body === "string" ? body : `HTTP ${response.status}`);
-    throw new Error(message || "Terjadi kesalahan saat menghubungi server.");
-  }
-
-  return body as T;
-}
 
 type RequiredAccountKind = "normal" | "cloudfront";
 type InjectMode = "PROXY" | "PROXY_SNI";
@@ -463,7 +423,7 @@ export default function AdminInjectPresets() {
     queryKey: ADMIN_PRESETS_QUERY_KEY,
     queryFn: async () =>
       unwrapList(
-        await apiFetch<ApiListResponse<EasyInjectPreset>>("/admin/easy-inject-presets"),
+        await apiClient.get<ApiListResponse<EasyInjectPreset>>("/api/admin/easy-inject-presets"),
       ),
   });
 
@@ -471,8 +431,8 @@ export default function AdminInjectPresets() {
     queryKey: ["admin-easy-inject-preset-revisions", revisionPreset?.id],
     queryFn: async () =>
       unwrapList(
-        await apiFetch<ApiListResponse<EasyInjectPresetRevision>>(
-          `/admin/easy-inject-presets/${revisionPreset!.id}/revisions`,
+        await apiClient.get<ApiListResponse<EasyInjectPresetRevision>>(
+          `/api/admin/easy-inject-presets/${revisionPreset!.id}/revisions`,
         ),
       ),
     enabled: revisionPreset !== null,
@@ -545,15 +505,9 @@ export default function AdminInjectPresets() {
       const body = toRequestBody(form);
       if (editingPreset) {
         const { slug: _immutableSlug, ...updateBody } = body;
-        await apiFetch(`/admin/easy-inject-presets/${editingPreset.id}`, {
-          method: "PATCH",
-          body: JSON.stringify(updateBody),
-        });
+        await apiClient.patch(`/api/admin/easy-inject-presets/${editingPreset.id}`, updateBody);
       } else {
-        await apiFetch("/admin/easy-inject-presets", {
-          method: "POST",
-          body: JSON.stringify(body),
-        });
+        await apiClient.post("/api/admin/easy-inject-presets", body);
       }
       await invalidatePresetQueries();
       toast({
@@ -584,10 +538,7 @@ export default function AdminInjectPresets() {
     });
 
     try {
-      await apiFetch(`/admin/easy-inject-presets/${preset.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ isActive }),
-      });
+      await apiClient.patch(`/api/admin/easy-inject-presets/${preset.id}`, { isActive });
       await invalidatePresetQueries();
       toast({
         title: isActive ? "Preset diaktifkan" : "Preset dinonaktifkan",
@@ -619,7 +570,7 @@ export default function AdminInjectPresets() {
     setIsDeleting(true);
     setDeleteError(null);
     try {
-      await apiFetch(`/admin/easy-inject-presets/${deleteTarget.id}`, { method: "DELETE" });
+      await apiClient.del(`/api/admin/easy-inject-presets/${deleteTarget.id}`);
       await invalidatePresetQueries();
       toast({ title: "Preset dihapus", description: `${deleteTarget.name} telah dihapus.` });
       setDeleteTarget(null);
@@ -647,9 +598,8 @@ export default function AdminInjectPresets() {
     setIsRestoring(true);
     setRestoreError(null);
     try {
-      await apiFetch(
-        `/admin/easy-inject-presets/${revisionPreset.id}/revisions/${restoreTarget.id}/restore`,
-        { method: "POST" },
+      await apiClient.post(
+        `/api/admin/easy-inject-presets/${revisionPreset.id}/revisions/${restoreTarget.id}/restore`,
       );
       await Promise.all([
         invalidatePresetQueries(),

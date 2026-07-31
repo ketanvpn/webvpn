@@ -10,19 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { apiClient } from "@/lib/api-client";
 import { TicketCheck, Plus, ChevronRight, Clock } from "lucide-react";
 import { format } from "date-fns";
-
-const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
-
-async function apiFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`${API}${path}`, { credentials: "include", ...options });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: "Terjadi kesalahan" }));
-    throw new Error(body?.error ?? `HTTP ${res.status}`);
-  }
-  return res.json();
-}
 
 type Ticket = { id: number; subject: string; status: string; priority: string; createdAt: string; updatedAt: string };
 
@@ -53,16 +43,12 @@ export default function UserTickets() {
 
   const { data: tickets = [], isLoading } = useQuery<Ticket[]>({
     queryKey: ["user-tickets"],
-    queryFn: () => apiFetch("/tickets"),
+    queryFn: () => apiClient.get<Ticket[]>("/api/tickets"),
     refetchInterval: 10000,
   });
 
   const create = useMutation({
-    mutationFn: () => apiFetch("/tickets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    }),
+    mutationFn: () => apiClient.post("/api/tickets", form),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["user-tickets"] });
       toast({ title: "Tiket berhasil dibuat! Admin akan segera merespons." });

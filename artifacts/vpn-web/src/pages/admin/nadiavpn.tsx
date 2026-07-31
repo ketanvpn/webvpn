@@ -11,8 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-
-const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
+import { apiClient } from "@/lib/api-client";
 
 type NadiaBalanceResponse = {
   status: boolean;
@@ -57,18 +56,6 @@ type NadiaAccountsResponse = {
   data?: unknown;
 };
 
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API}${path}`, {
-    credentials: "include",
-    ...options,
-  });
-  const body = await res.json().catch(() => ({ error: "Response tidak valid" }));
-  if (!res.ok) {
-    throw new Error(body?.error ?? body?.message ?? `HTTP ${res.status}`);
-  }
-  return body as T;
-}
-
 function formatCurrency(value?: number) {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -100,19 +87,19 @@ export default function AdminNadiaVpn() {
 
   const balanceQuery = useQuery<NadiaBalanceResponse>({
     queryKey: ["admin-nadiavpn-balance"],
-    queryFn: () => apiFetch("/admin/nadiavpn/balance"),
+    queryFn: () => apiClient.get<NadiaBalanceResponse>("/api/admin/nadiavpn/balance"),
     staleTime: 30_000,
   });
 
   const serversQuery = useQuery<NadiaServersResponse>({
     queryKey: ["admin-nadiavpn-servers"],
-    queryFn: () => apiFetch("/admin/nadiavpn/servers"),
+    queryFn: () => apiClient.get<NadiaServersResponse>("/api/admin/nadiavpn/servers"),
     staleTime: 60_000,
   });
 
   const accountsQuery = useQuery<NadiaAccountsResponse>({
     queryKey: ["admin-nadiavpn-accounts"],
-    queryFn: () => apiFetch("/admin/nadiavpn/accounts"),
+    queryFn: () => apiClient.get<NadiaAccountsResponse>("/api/admin/nadiavpn/accounts"),
     staleTime: 30_000,
   });
 
@@ -128,11 +115,7 @@ export default function AdminNadiaVpn() {
   );
 
   const createTrialMut = useMutation({
-    mutationFn: () => apiFetch("/admin/nadiavpn/trial", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ server_id: trialServerId, protocol: trialProtocol }),
-    }),
+    mutationFn: () => apiClient.post("/api/admin/nadiavpn/trial", { server_id: trialServerId, protocol: trialProtocol }),
     onSuccess: (data) => {
       setTrialResult(data);
       toast({ title: "Trial berhasil dibuat", description: "Response NadiaVPN sudah ditampilkan di halaman." });

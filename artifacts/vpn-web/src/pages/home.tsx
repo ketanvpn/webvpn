@@ -8,14 +8,15 @@ import { motion, Variants, useInView } from "framer-motion";
 import { useRef, useEffect, useState } from "react";
 import { formatRupiah } from "@/lib/format";
 import { protocolLabel, protocolColor, type ProtocolType } from "@/lib/constants";
-
-const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "");
+import { apiClient } from "@/lib/api-client";
 
 async function fetchPublicDynamicServers() {
-  const res = await fetch(`${BASE}/api/dynamic-vpn/public-servers`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.servers ?? [];
+  try {
+    const data = await apiClient.get<{ servers: any[] }>("/api/dynamic-vpn/public-servers");
+    return data.servers ?? [];
+  } catch {
+    return [];
+  }
 }
 
 const infoItems = [

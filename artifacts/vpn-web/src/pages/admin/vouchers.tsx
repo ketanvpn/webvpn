@@ -12,17 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Tag, Percent, BadgeDollarSign, Infinity } from "lucide-react";
 import { format } from "date-fns";
-
-const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
-
-async function apiFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`${API}${path}`, { credentials: "include", ...options });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: "Terjadi kesalahan" }));
-    throw new Error(body?.error ?? `HTTP ${res.status}`);
-  }
-  return res.json();
-}
+import { apiClient } from "@/lib/api-client";
 
 type Voucher = {
   id: number;
@@ -58,7 +48,7 @@ export default function AdminVouchers() {
 
   const { data: list = [], isLoading } = useQuery<Voucher[]>({
     queryKey: ["admin-vouchers"],
-    queryFn: () => apiFetch("/admin/vouchers"),
+    queryFn: () => apiClient.get<Voucher[]>("/api/admin/vouchers"),
   });
 
   const save = useMutation({
@@ -72,8 +62,8 @@ export default function AdminVouchers() {
         expiresAt: data.expiresAt || null,
       };
       return editing
-        ? apiFetch(`/admin/vouchers/${editing.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-        : apiFetch("/admin/vouchers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        ? apiClient.put(`/api/admin/vouchers/${editing.id}`, body)
+        : apiClient.post("/api/admin/vouchers", body);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-vouchers"] });
@@ -84,7 +74,7 @@ export default function AdminVouchers() {
   });
 
   const remove = useMutation({
-    mutationFn: (id: number) => apiFetch(`/admin/vouchers/${id}`, { method: "DELETE" }),
+    mutationFn: (id: number) => apiClient.del(`/api/admin/vouchers/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-vouchers"] });
       toast({ title: "Voucher dihapus" });
@@ -94,7 +84,7 @@ export default function AdminVouchers() {
 
   const toggleActive = useMutation({
     mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
-      apiFetch(`/admin/vouchers/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive }) }),
+      apiClient.put(`/api/admin/vouchers/${id}`, { isActive }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-vouchers"] }),
     onError: (e: Error) => toast({ title: "Gagal", description: e.message, variant: "destructive" }),
   });

@@ -5,18 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { apiClient } from "@/lib/api-client";
 import { format } from "date-fns";
-
-const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
-
-async function apiFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`${API}${path}`, { credentials: "include", ...options });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: "Terjadi kesalahan" }));
-    throw new Error(body?.error ?? `HTTP ${res.status}`);
-  }
-  return res.json();
-}
 
 type AuditLog = {
   id: number;
@@ -48,7 +38,12 @@ export default function AdminAuditLogs() {
     offset: number;
   }>({
     queryKey: ["admin-audit-logs", page, filters],
-    queryFn: () => apiFetch(`/admin/audit-logs?${queryParams.toString()}`),
+    queryFn: () => apiClient.get<{
+      data: AuditLog[];
+      total: number;
+      limit: number;
+      offset: number;
+    }>(`/api/admin/audit-logs?${queryParams.toString()}`),
   });
 
   const logs = data?.data || [];

@@ -1,4 +1,5 @@
 import { useToast } from "@/hooks/use-toast";
+import { apiClient } from "@/lib/api-client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,8 +42,7 @@ export default function AdminResellerSettings() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch("/api/admin/settings/reseller", { credentials: "include" })
-      .then((r) => r.json())
+    apiClient.get<ResellerSettings>("/api/admin/settings/reseller")
       .then((data) => {
         setSettings({
           resellerEnabled: data.resellerEnabled ?? false,
@@ -64,13 +64,7 @@ export default function AdminResellerSettings() {
   async function handleSave() {
     setSaving(true);
     try {
-      const resp = await fetch("/api/admin/settings/reseller", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(settings),
-      });
-      if (!resp.ok) throw new Error("Gagal menyimpan");
+      await apiClient.put("/api/admin/settings/reseller", settings);
       toast({ title: "Pengaturan reseller disimpan" });
     } catch {
       toast({ title: "Gagal menyimpan pengaturan", variant: "destructive" });

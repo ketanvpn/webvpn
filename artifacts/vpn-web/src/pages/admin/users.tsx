@@ -29,6 +29,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { getApiError } from "@/lib/utils";
+import { apiClient } from "@/lib/api-client";
 
 const roleColors: Record<string, string> = {
   admin: "bg-red-500/10 text-red-600 border-red-200",
@@ -111,31 +112,21 @@ export default function AdminUsers() {
     if (!validateForm()) return;
     setIsCreating(true);
     try {
-      const resp = await fetch("/api/admin/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          username: form.username.trim(),
-          password: form.password,
-          fullName: form.fullName || undefined,
-          email: form.email || undefined,
-          whatsapp: form.whatsapp || undefined,
-          role: form.role,
-        }),
+      const data = await apiClient.post<{ username: string; role: string }>("/api/admin/users", {
+        username: form.username.trim(),
+        password: form.password,
+        fullName: form.fullName || undefined,
+        email: form.email || undefined,
+        whatsapp: form.whatsapp || undefined,
+        role: form.role,
       });
-      const data = await resp.json();
-      if (!resp.ok) {
-        toast({ title: "Gagal membuat pengguna", description: data.error ?? "Coba lagi", variant: "destructive" });
-        return;
-      }
       toast({ title: "Pengguna berhasil dibuat!", description: `@${data.username} (${data.role}) sudah ditambahkan.` });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
       setDialogOpen(false);
       setForm(defaultForm);
       setFormErrors({});
-    } catch {
-      toast({ title: "Gagal", description: "Tidak dapat terhubung ke server", variant: "destructive" });
+    } catch (err) {
+      toast({ title: "Gagal membuat pengguna", description: getApiError(err, "Tidak dapat terhubung ke server"), variant: "destructive" });
     } finally {
       setIsCreating(false);
     }

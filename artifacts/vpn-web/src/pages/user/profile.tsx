@@ -1,4 +1,5 @@
 import { getApiError } from "@/lib/utils";
+import { apiClient } from "@/lib/api-client";
 import { useAuth } from "@/hooks/use-auth";
 import {
   useUpdateProfile,
@@ -28,8 +29,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { Progress } from "@/components/ui/progress";
 import { formatRupiah } from "@/lib/format";
-
-const API = import.meta.env.VITE_API_URL ?? "";
 
 type ResellerStatus = {
   resellerEnabled: boolean;
@@ -95,8 +94,7 @@ export default function Profile() {
   const fetchResellerStatus = () => {
     if (user?.role !== "reseller") return;
     setResellerLoading(true);
-    fetch(`${API}/api/reseller/status`, { credentials: "include" })
-      .then((r) => r.json())
+    apiClient.get<ResellerStatus>("/api/reseller/status")
       .then(setResellerStatus)
       .catch(() => {})
       .finally(() => setResellerLoading(false));
@@ -111,8 +109,7 @@ export default function Profile() {
 
   useEffect(() => {
     if (user?.role !== "user") return;
-    fetch(`${API}/api/reseller/promo`, { credentials: "include" })
-      .then((r) => r.json())
+    apiClient.get<PromoData>("/api/reseller/promo")
       .then(setPromo)
       .catch(() => {});
   }, [user?.role]);
@@ -120,16 +117,11 @@ export default function Profile() {
   const handlePromoRequest = async () => {
     setPromoRequesting(true);
     try {
-      const r = await fetch(`${API}/api/reseller/request`, { method: "POST", credentials: "include" });
-      const data = await r.json();
-      if (r.ok) {
-        setPromoRequested(true);
-        toast({ title: "Permintaan terkirim!", description: data.message });
-      } else {
-        toast({ title: "Gagal", description: data.error, variant: "destructive" });
-      }
-    } catch {
-      toast({ title: "Gagal mengirim permintaan.", variant: "destructive" });
+      const data = await apiClient.post<{ message?: string; error?: string }>("/api/reseller/request");
+      setPromoRequested(true);
+      toast({ title: "Permintaan terkirim!", description: data.message });
+    } catch (err) {
+      toast({ title: "Gagal", description: getApiError(err, "Gagal mengirim permintaan."), variant: "destructive" });
     } finally {
       setPromoRequesting(false);
     }
@@ -178,8 +170,7 @@ export default function Profile() {
   // Cuma fetch sekali saat mount; setelah user klik link bot, mereka kembali ke
   // halaman ini dan vpnTelegramId akan ke-update via /auth/me lagi.
   const refreshVpnLinkStatus = () => {
-    fetch(`${API}/api/auth/me`, { credentials: "include" })
-      .then((r) => r.json())
+    apiClient.get<{ vpnTelegramId?: number | null }>("/api/auth/me")
       .then((data) => {
         if (data && typeof data.vpnTelegramId !== "undefined") {
           setVpnTgInfo({ vpnTelegramId: data.vpnTelegramId ?? null });
@@ -195,12 +186,8 @@ export default function Profile() {
   const handleGetVpnLink = async () => {
     setVpnLinkLoading(true);
     try {
-      const r = await fetch(`${API}/api/telegram/vpn-link`, {
-        method: "POST",
-        credentials: "include",
-      });
-      const data = await r.json();
-      if (r.ok && data?.url) {
+      const data = await apiClient.post<{ url?: string; error?: string }>("/api/telegram/vpn-link");
+      if (data?.url) {
         setVpnLink(data.url);
       } else {
         toast({
@@ -219,24 +206,16 @@ export default function Profile() {
   const handleUnlinkVpn = async () => {
     setVpnUnlinkLoading(true);
     try {
-      const r = await fetch(`${API}/api/telegram/vpn-link`, {
-        method: "DELETE",
-        credentials: "include",
+      await apiClient.del("/api/telegram/vpn-link");
+      toast({ title: "Akun Bot VPN berhasil diputus" });
+      setVpnTgInfo({ vpnTelegramId: null });
+      setVpnLink(null);
+    } catch (err) {
+      toast({
+        title: "Gagal memutus Bot VPN",
+        description: getApiError(err, "Coba lagi nanti."),
+        variant: "destructive",
       });
-      if (r.ok) {
-        toast({ title: "Akun Bot VPN berhasil diputus" });
-        setVpnTgInfo({ vpnTelegramId: null });
-        setVpnLink(null);
-      } else {
-        const data = await r.json().catch(() => ({}));
-        toast({
-          title: "Gagal memutus Bot VPN",
-          description: data?.error || "Coba lagi nanti.",
-          variant: "destructive",
-        });
-      }
-    } catch {
-      toast({ title: "Gagal memutus Bot VPN", variant: "destructive" });
     } finally {
       setVpnUnlinkLoading(false);
     }

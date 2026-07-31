@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/common";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -251,15 +252,15 @@ export default function AdminProducts() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Produk</h1>
-          <p className="text-muted-foreground mt-1">Kelola paket VPN yang tersedia di toko.</p>
-        </div>
-        <Button className="gap-2" onClick={openCreate} data-testid="button-add-product">
-          <Plus className="h-4 w-4" /> Tambah Produk
-        </Button>
-      </div>
+      <PageHeader
+        title="Produk"
+        description="Kelola paket VPN yang tersedia di toko."
+        actions={
+          <Button className="gap-2" onClick={openCreate} data-testid="button-add-product">
+            <Plus className="h-4 w-4" /> Tambah Produk
+          </Button>
+        }
+      />
 
       <Card className="glass-panel border-white/5">
         <CardHeader className="border-b border-white/5">

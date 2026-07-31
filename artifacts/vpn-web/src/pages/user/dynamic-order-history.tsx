@@ -1,12 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "@/lib/api-client";
 import { Activity, CheckCircle2, Clock, RefreshCw, Server, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "wouter";
 import { dynamicDurationUnit } from "@/lib/dynamic-duration";
-
-const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
 
 type DynamicOrder = {
   id: number;
@@ -22,13 +21,6 @@ type DynamicOrder = {
   vpnAccountId: number | null;
   createdAt: string;
 };
-
-async function apiFetch<T>(path: string): Promise<T> {
-  const res = await fetch(`${API}${path}`, { credentials: "include" });
-  const body = await res.json().catch(() => ({ error: "Response tidak valid" }));
-  if (!res.ok) throw new Error(body?.error ?? body?.message ?? `HTTP ${res.status}`);
-  return body as T;
-}
 
 function rupiah(value: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value || 0);
@@ -59,7 +51,7 @@ function providerLabel(provider: string) {
 export default function DynamicOrderHistory() {
   const ordersQuery = useQuery<{ orders: DynamicOrder[] }>({
     queryKey: ["user-dynamic-vpn-orders"],
-    queryFn: () => apiFetch("/dynamic-vpn/orders"),
+    queryFn: () => apiClient.get<{ orders: DynamicOrder[] }>("/api/dynamic-vpn/orders"),
   });
 
   const orders = ordersQuery.data?.orders ?? [];

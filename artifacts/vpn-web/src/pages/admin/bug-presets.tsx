@@ -11,18 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { apiClient } from "@/lib/api-client";
 import { Plus, Pencil, Trash2, Bug } from "lucide-react";
-
-const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
-
-async function apiFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`${API}${path}`, { credentials: "include", ...options });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: "Terjadi kesalahan" }));
-    throw new Error(body?.error ?? `HTTP ${res.status}`);
-  }
-  return res.json();
-}
 
 type BugPreset = {
   id: number;
@@ -51,7 +41,7 @@ export default function AdminBugPresets() {
 
   const { data: list = [], isLoading } = useQuery<BugPreset[]>({
     queryKey: ["admin-bug-presets"],
-    queryFn: () => apiFetch("/admin/bug-presets"),
+    queryFn: () => apiClient.get<BugPreset[]>("/api/admin/bug-presets"),
   });
 
   const save = useMutation({
@@ -64,8 +54,8 @@ export default function AdminBugPresets() {
         sshInjectConfig: data.sshInjectConfig || {},
       };
       return editing
-        ? apiFetch(`/admin/bug-presets/${editing.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-        : apiFetch("/admin/bug-presets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        ? apiClient.put(`/api/admin/bug-presets/${editing.id}`, body)
+        : apiClient.post("/api/admin/bug-presets", body);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-bug-presets"] });
@@ -76,7 +66,7 @@ export default function AdminBugPresets() {
   });
 
   const remove = useMutation({
-    mutationFn: (id: number) => apiFetch(`/admin/bug-presets/${id}`, { method: "DELETE" }),
+    mutationFn: (id: number) => apiClient.del(`/api/admin/bug-presets/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-bug-presets"] });
       toast({ title: "Bug dihapus" });
@@ -86,7 +76,7 @@ export default function AdminBugPresets() {
 
   const toggleActive = useMutation({
     mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
-      apiFetch(`/admin/bug-presets/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive }) }),
+      apiClient.put(`/api/admin/bug-presets/${id}`, { isActive }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-bug-presets"] }),
     onError: (e: Error) => toast({ title: "Gagal", description: e.message, variant: "destructive" }),
   });

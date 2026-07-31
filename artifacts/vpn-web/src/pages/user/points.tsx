@@ -6,20 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { apiClient } from "@/lib/api-client";
 import { Star, TrendingUp, TrendingDown, Gift, ShoppingBag, Wallet, Info } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
-
-const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
-
-async function apiFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`${API}${path}`, { credentials: "include", ...options });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: "Terjadi kesalahan" }));
-    throw new Error(body?.error ?? `HTTP ${res.status}`);
-  }
-  return res.json();
-}
 
 type PointSettings = { enabled: boolean; pointsRateOrder: number; pointsMinOrder: number; pointsRateTopup: number; pointsMinTopup: number; redeemRate: number; minRedeem: number };
 type PointLog = { id: number; type: string; amount: number; pointsBefore: number; pointsAfter: number; description: string; createdAt: string };
@@ -37,20 +27,16 @@ export default function UserPoints() {
 
   const { data: pointData, isLoading } = useQuery<{ points: number; settings: PointSettings }>({
     queryKey: ["user-points"],
-    queryFn: () => apiFetch("/points"),
+    queryFn: () => apiClient.get<{ points: number; settings: PointSettings }>("/api/points"),
   });
 
   const { data: logs = [] } = useQuery<PointLog[]>({
     queryKey: ["point-logs"],
-    queryFn: () => apiFetch("/points/logs"),
+    queryFn: () => apiClient.get<PointLog[]>("/api/points/logs"),
   });
 
   const redeem = useMutation({
-    mutationFn: () => apiFetch("/points/redeem", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount: parseInt(redeemAmount) }),
-    }),
+    mutationFn: () => apiClient.post<{ message: string }>("/api/points/redeem", { amount: parseInt(redeemAmount) }),
     onSuccess: (data) => {
       toast({ title: data.message });
       setRedeemAmount("");

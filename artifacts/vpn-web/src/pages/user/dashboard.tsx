@@ -9,18 +9,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ANNOUNCE_STYLE, getOrderStatusLabel, getOrderStatusVariant, type AnnouncementType } from "@/lib/constants";
-
-const API = import.meta.env.VITE_API_URL ?? "";
-const DASHBOARD_API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
-
-async function apiFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`${DASHBOARD_API}${path}`, { credentials: "include", ...options });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: "Terjadi kesalahan" }));
-    throw new Error(body?.error ?? `HTTP ${res.status}`);
-  }
-  return res.json();
-}
+import { PageHeader } from "@/components/common";
+import { apiClient } from "@/lib/api-client";
+import { toast } from "@/hooks/use-toast";
+import { getApiError } from "@/lib/utils";
 
 const PROMO_DISMISSED_KEY = "reseller_promo_dismissed";
 
@@ -55,7 +47,7 @@ function AnnouncementBanners() {
 
   const { data: announcements = [] } = useQuery<Announcement[]>({
     queryKey: ["active-announcements"],
-    queryFn: () => fetch(`${DASHBOARD_API}/announcements/active`, { credentials: "include" }).then((r) => r.json()),
+    queryFn: () => apiClient.get<Announcement[]>("/api/announcements/active"),
     staleTime: 60_000,
   });
 
@@ -95,8 +87,7 @@ function ReselerPromoBanner({ onRequest }: { onRequest: () => void }) {
   const [requested, setRequested] = useState(false);
 
   useEffect(() => {
-    fetch(`${API}/api/reseller/promo`, { credentials: "include" })
-      .then((r) => r.json())
+    apiClient.get<PromoData>("/api/reseller/promo")
       .then(setPromo)
       .catch(() => {});
   }, []);
@@ -111,16 +102,15 @@ function ReselerPromoBanner({ onRequest }: { onRequest: () => void }) {
   const handleRequest = async () => {
     setRequesting(true);
     try {
-      const r = await fetch(`${API}/api/reseller/request`, { method: "POST", credentials: "include" });
-      const data = await r.json();
-      if (r.ok) {
-        setRequested(true);
-        onRequest();
-      } else {
-        alert(data.error ?? "Gagal mengirim permintaan.");
-      }
-    } catch {
-      alert("Gagal mengirim permintaan. Coba lagi nanti.");
+      await apiClient.post("/api/reseller/request");
+      setRequested(true);
+      onRequest();
+    } catch (err) {
+      toast({
+        title: "Gagal mengirim permintaan",
+        description: getApiError(err, "Coba lagi nanti."),
+        variant: "destructive",
+      });
     } finally {
       setRequesting(false);
     }
@@ -314,10 +304,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Ringkasan akun dan aktivitas kamu.</p>
-      </div>
+      <PageHeader title="Dashboard" description="Ringkasan akun dan aktivitas kamu." />
 
       {/* Pengumuman dari admin */}
       <AnnouncementBanners />

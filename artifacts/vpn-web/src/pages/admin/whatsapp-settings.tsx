@@ -11,6 +11,7 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription, For
 import { Smartphone, MessageCircle, Info, ExternalLink, TestTube } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { apiClient } from "@/lib/api-client";
 
 type WaForm = {
   fonnteToken: string;
@@ -34,8 +35,7 @@ export default function AdminWhatsappSettings() {
   });
 
   useEffect(() => {
-    fetch("/api/admin/settings/whatsapp", { credentials: "include" })
-      .then((r) => r.json())
+    apiClient.get<WaForm>("/api/admin/settings/whatsapp")
       .then((data) => {
         form.reset({
           fonnteToken: data.fonnteToken ?? "",
@@ -50,17 +50,11 @@ export default function AdminWhatsappSettings() {
   const onSave = async (values: WaForm) => {
     setIsSaving(true);
     try {
-      const resp = await fetch("/api/admin/settings/whatsapp", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          fonnteToken: values.fonnteToken || null,
-          fonnteWhatsappNumber: values.fonnteWhatsappNumber || null,
-          whatsappOtpEnabled: values.whatsappOtpEnabled,
-        }),
+      await apiClient.put("/api/admin/settings/whatsapp", {
+        fonnteToken: values.fonnteToken || null,
+        fonnteWhatsappNumber: values.fonnteWhatsappNumber || null,
+        whatsappOtpEnabled: values.whatsappOtpEnabled,
       });
-      if (!resp.ok) throw new Error("Gagal");
       toast({ title: "Pengaturan WhatsApp disimpan" });
     } catch {
       toast({ title: "Gagal menyimpan", variant: "destructive" });
@@ -76,16 +70,8 @@ export default function AdminWhatsappSettings() {
     }
     setIsTesting(true);
     try {
-      const resp = await fetch("/api/admin/settings/whatsapp/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ whatsapp: testPhone }),
-        credentials: "include",
-      });
-      const data = await resp.json();
-      if (!resp.ok) {
-        toast({ title: "Test gagal", description: data.error ?? "Gagal mengirim OTP", variant: "destructive" });
-      } else if (data.simulateMode) {
+      const data = await apiClient.post<{ simulateMode?: boolean; otp?: string }>("/api/admin/settings/whatsapp/test", { whatsapp: testPhone });
+      if (data.simulateMode) {
         toast({
           title: "Mode Simulasi",
           description: `OTP: ${data.otp} (Fonnte belum dikonfigurasi, OTP ditampilkan di sini)`,
@@ -93,8 +79,8 @@ export default function AdminWhatsappSettings() {
       } else {
         toast({ title: "OTP berhasil dikirim!", description: `Cek WhatsApp ${testPhone}` });
       }
-    } catch {
-      toast({ title: "Test gagal", description: "Tidak dapat terhubung ke server", variant: "destructive" });
+    } catch (err) {
+      toast({ title: "Test gagal", description: getApiError(err, "Tidak dapat terhubung ke server"), variant: "destructive" });
     } finally {
       setIsTesting(false);
     }

@@ -4,8 +4,9 @@ import { Link } from "wouter";
 import { formatRupiah } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Clock, HardDrive, Network, ShoppingCart, PackageX, Zap, ChevronDown, Package, AlertCircle, Key } from "lucide-react";
+import { Clock, HardDrive, ShoppingCart, PackageX, Zap, ChevronDown, Package, AlertCircle, Key } from "lucide-react";
 import type { ListProductsProtocol } from "@workspace/api-client-react";
+import { PageHeader, EmptyState } from "@/components/common";
 
 const protocols: { value: string; label: string }[] = [
   { value: "all", label: "Semua" },
@@ -156,10 +157,7 @@ export default function Products() {
 
   return (
     <div className="space-y-4 pb-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Produk VPN</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Pilih paket VPN sesuai kebutuhanmu.</p>
-      </div>
+      <PageHeader title="Produk VPN" description="Pilih paket VPN sesuai kebutuhanmu." />
 
       {/* Filter Tab — scroll horizontal */}
       <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-none">
@@ -192,10 +190,7 @@ export default function Products() {
           ))}
         </div>
       ) : (
-        <div className="text-center py-16 rounded-xl glass-panel border-white/5 flex flex-col items-center justify-center gap-3">
-          <PackageX className="h-10 w-10 text-muted-foreground/50" />
-          <p className="text-sm text-muted-foreground">Belum ada produk untuk kategori ini.</p>
-        </div>
+        <EmptyState icon={PackageX} title="Belum ada produk untuk kategori ini." />
       )}
     </div>
   );

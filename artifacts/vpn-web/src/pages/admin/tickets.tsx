@@ -1,24 +1,13 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
 import { TicketCheck, ChevronRight, User, Clock } from "lucide-react";
 import { format } from "date-fns";
-
-const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
-
-async function apiFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`${API}${path}`, { credentials: "include", ...options });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: "Terjadi kesalahan" }));
-    throw new Error(body?.error ?? `HTTP ${res.status}`);
-  }
-  return res.json();
-}
+import { apiClient } from "@/lib/api-client";
 
 type Ticket = { id: number; userId: number; username: string; subject: string; status: string; priority: string; createdAt: string; updatedAt: string };
 
@@ -39,7 +28,7 @@ export default function AdminTickets() {
 
   const { data: tickets = [], isLoading } = useQuery<Ticket[]>({
     queryKey: ["admin-tickets", statusFilter],
-    queryFn: () => apiFetch(`/admin/tickets?status=${statusFilter}`),
+    queryFn: () => apiClient.get<Ticket[]>(`/api/admin/tickets?status=${statusFilter}`),
     refetchInterval: 30000,
   });
 

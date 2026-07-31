@@ -1,3 +1,4 @@
+import { apiClient } from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,8 +33,7 @@ export default function AdminExpiryNotifSettings() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch("/api/admin/settings/expiry-notif", { credentials: "include" })
-      .then((r) => r.json())
+    apiClient.get<ExpiryNotifSettings>("/api/admin/settings/expiry-notif")
       .then((data) => {
         setSettings({
           expiryNotifEnabled: data.expiryNotifEnabled ?? true,
@@ -49,13 +49,7 @@ export default function AdminExpiryNotifSettings() {
   async function handleSave() {
     setSaving(true);
     try {
-      const resp = await fetch("/api/admin/settings/expiry-notif", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(settings),
-      });
-      if (!resp.ok) throw new Error("Gagal menyimpan");
+      await apiClient.put("/api/admin/settings/expiry-notif", settings);
       toast({ title: "Pengaturan notifikasi disimpan" });
     } catch {
       toast({ title: "Gagal menyimpan pengaturan", variant: "destructive" });

@@ -1,4 +1,5 @@
 import { useToast } from "@/hooks/use-toast";
+import { apiClient } from "@/lib/api-client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,8 +25,7 @@ export default function AdminReferralSettings() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch("/api/admin/settings/referral", { credentials: "include" })
-      .then((r) => r.json())
+    apiClient.get<ReferralSettings>("/api/admin/settings/referral")
       .then((data) => {
         setSettings({
           referralEnabled: data.referralEnabled ?? true,
@@ -39,16 +39,10 @@ export default function AdminReferralSettings() {
   async function handleSave() {
     setSaving(true);
     try {
-      const resp = await fetch("/api/admin/settings/referral", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          referralEnabled: settings.referralEnabled,
-          referralBonusAmount: settings.referralBonusAmount,
-        }),
+      await apiClient.put("/api/admin/settings/referral", {
+        referralEnabled: settings.referralEnabled,
+        referralBonusAmount: settings.referralBonusAmount,
       });
-      if (!resp.ok) throw new Error("Gagal menyimpan");
       toast({ title: "Pengaturan referral disimpan" });
     } catch {
       toast({ title: "Gagal menyimpan pengaturan", variant: "destructive" });

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { apiClient } from "@/lib/api-client";
 import { formatRupiah } from "@/lib/format";
 import { useState } from "react";
 import { getApiError } from "@/lib/utils";
@@ -20,8 +21,6 @@ import {
   isDynamicDurationType,
   type DynamicDurationType,
 } from "@/lib/dynamic-duration";
-
-const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
 
 const LINK_ORDER = ["tls", "none", "grpc", "uptls", "upntls"];
 
@@ -338,15 +337,7 @@ function DynamicRenewDialog({ accountId, protocol, serverName, serverFlag, serve
   const renewMutation = useMutation({
     mutationFn: async () => {
       const parsedDuration = parseInt(duration, 10);
-      const res = await fetch(`${API}/accounts/${accountId}/renew-dynamic`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ durationType, duration: parsedDuration }),
-      });
-      const body = await res.json().catch(() => ({ error: "Response tidak valid" }));
-      if (!res.ok) throw new Error(body?.error ?? "Gagal renew dynamic");
-      return body as { amount?: number; discountAmount?: number };
+      return apiClient.post<{ amount?: number; discountAmount?: number }>(`/api/accounts/${accountId}/renew-dynamic`, { durationType, duration: parsedDuration });
     },
     onSuccess: (body) => {
       setRenewedAmount(body.amount ?? null);
@@ -369,15 +360,7 @@ function DynamicRenewDialog({ accountId, protocol, serverName, serverFlag, serve
   const quoteMutation = useMutation({
     mutationFn: async () => {
       const parsedDuration = parseInt(duration, 10);
-      const res = await fetch(`${API}/accounts/${accountId}/renew-dynamic/quote`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ durationType, duration: parsedDuration }),
-      });
-      const body = await res.json().catch(() => ({ error: "Response tidak valid" }));
-      if (!res.ok) throw new Error(body?.error ?? "Gagal menghitung harga renew");
-      return body as { amount: number; baseAmount: number; resellerDiscountAmount: number; unitPrice: number; durationLabel: string };
+      return apiClient.post<{ amount: number; baseAmount: number; resellerDiscountAmount: number; unitPrice: number; durationLabel: string }>(`/api/accounts/${accountId}/renew-dynamic/quote`, { durationType, duration: parsedDuration });
     },
   });
 
@@ -572,13 +555,7 @@ export default function AccountDetail() {
   const queryClient = useQueryClient();
   const syncProviderMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${API}/accounts/${accountId}/sync-provider`, {
-        method: "POST",
-        credentials: "include",
-      });
-      const body = await res.json().catch(() => ({ error: "Response tidak valid" }));
-      if (!res.ok) throw new Error(body?.error ?? "Gagal sync detail provider");
-      return body;
+      return apiClient.post(`/api/accounts/${accountId}/sync-provider`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey(accountId) });

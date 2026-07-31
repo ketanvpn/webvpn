@@ -4,14 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Activity, Server, Cpu, HardDrive, Wifi, WifiOff, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
-
-async function apiFetch(path: string) {
-  const res = await fetch(`${API}${path}`, { credentials: "include" });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
-}
+import { apiClient } from "@/lib/api-client";
 
 type ServerHealth = {
   id: number;
@@ -46,7 +39,7 @@ function UsageBar({ value, label, color }: { value: number; label: string; color
 export default function AdminServerMonitor() {
   const { data: servers = [], isLoading, refetch, isFetching } = useQuery<ServerHealth[]>({
     queryKey: ["server-health"],
-    queryFn: () => apiFetch("/admin/servers/health"),
+    queryFn: () => apiClient.get<ServerHealth[]>("/api/admin/servers/health"),
     refetchInterval: 30_000,
     staleTime: 25_000,
   });

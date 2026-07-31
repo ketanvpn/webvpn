@@ -1,4 +1,5 @@
 import { getApiError } from "@/lib/utils";
+import { apiClient } from "@/lib/api-client";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -97,10 +98,7 @@ export default function Register() {
 
     pollRef.current = setInterval(async () => {
       try {
-        const resp = await fetch(`/api/auth/wa-register-status/${token}`, {
-          credentials: "include",
-        });
-        const data = await resp.json();
+        const data = await apiClient.get<{ status: string; whatsapp?: string }>(`/api/auth/wa-register-status/${token}`);
 
         if (data.status === "otp_sent") {
           setWaStatus("otp_sent");
@@ -113,13 +111,19 @@ export default function Register() {
           toast({ title: "OTP sudah dikirim!", description: "Cek WhatsApp kamu untuk kode OTP" });
         } else if (data.status === "received") {
           setWaStatus("received");
-        } else if (data.status === "expired" || resp.status === 404) {
+        } else if (data.status === "expired") {
           if (pollRef.current) clearInterval(pollRef.current);
           toast({ title: "Sesi kedaluwarsa", description: "Silakan mulai ulang", variant: "destructive" });
           setStep("whatsapp");
         }
-      } catch {
-        // Ignore network errors, will retry on next interval
+      } catch (err: any) {
+        // 404 means expired token
+        if (err?.status === 404) {
+          if (pollRef.current) clearInterval(pollRef.current);
+          toast({ title: "Sesi kedaluwarsa", description: "Silakan mulai ulang", variant: "destructive" });
+          setStep("whatsapp");
+        }
+        // Other network errors: ignore, will retry on next interval
       }
     }, 3000);
   }, [toast]);
@@ -129,24 +133,7 @@ export default function Register() {
   async function onSubmitWa(values: z.infer<typeof waSchema>) {
     setIsInitiating(true);
     try {
-      const resp = await fetch("/api/auth/initiate-wa-register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ whatsapp: values.whatsapp }),
-        credentials: "include",
-      });
-      const data = await resp.json();
-
-      if (!resp.ok) {
-        // Jika nomor WA admin belum diset → fallback ke flow lama
-        if (data.fallback) {
-          setUseFallback(true);
-          await sendOtpLegacy(values.whatsapp);
-          return;
-        }
-        toast({ title: "Gagal", description: data.error ?? "Coba lagi", variant: "destructive" });
-        return;
-      }
+      const data = await apiClient.post<{ token: string; waNumber: string }>("/api/auth/initiate-wa-register", { whatsapp: values.whatsapp });
 
       setWhatsapp(values.whatsapp);
       setWaToken(data.token);
@@ -154,8 +141,13 @@ export default function Register() {
       setWaStatus("waiting");
       setStep("send-wa");
       startPolling(data.token);
-    } catch {
-      toast({ title: "Gagal", description: "Tidak dapat terhubung ke server", variant: "destructive" });
+    } catch (err: any) {
+      if (err?.data?.fallback) {
+        setUseFallback(true);
+        await sendOtpLegacy(values.whatsapp);
+        return;
+      }
+      toast({ title: "Gagal", description: getApiError(err, "Coba lagi"), variant: "destructive" });
     } finally {
       setIsInitiating(false);
     }
@@ -167,20 +159,7 @@ export default function Register() {
     setIsSendingOtp(true);
     setSimulateOtp(null);
     try {
-      const resp = await fetch("/api/auth/send-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ whatsapp: phone }),
-        credentials: "include",
-      });
-      const data = await resp.json();
-      if (!resp.ok) {
-        if (data.cooldown && typeof data.cooldown === "number") {
-          setResendCooldown(data.cooldown);
-        }
-        toast({ title: "Gagal mengirim OTP", description: data.error ?? "Coba lagi", variant: "destructive" });
-        return false;
-      }
+      const data = await apiClient.post<{ simulateMode?: boolean; otp?: string }>("/api/auth/send-otp", { whatsapp: phone });
       if (data.simulateMode && data.otp) {
         setSimulateOtp(data.otp);
       }
@@ -190,8 +169,11 @@ export default function Register() {
       setStep("otp");
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
       return true;
-    } catch {
-      toast({ title: "Gagal", description: "Tidak dapat terhubung ke server", variant: "destructive" });
+    } catch (err: any) {
+      if (err?.data?.cooldown && typeof err.data.cooldown === "number") {
+        setResendCooldown(err.data.cooldown);
+      }
+      toast({ title: "Gagal mengirim OTP", description: getApiError(err, "Coba lagi"), variant: "destructive" });
       return false;
     } finally {
       setIsSendingOtp(false);
@@ -251,22 +233,12 @@ export default function Register() {
     }
     setIsVerifyingOtp(true);
     try {
-      const resp = await fetch("/api/auth/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ whatsapp, otpCode: otp }),
-        credentials: "include",
-      });
-      const data = await resp.json();
-      if (!resp.ok) {
-        toast({ title: "Verifikasi gagal", description: data.error ?? "Kode OTP salah", variant: "destructive" });
-        setOtpInputs(["", "", "", "", "", ""]);
-        setTimeout(() => otpRefs.current[0]?.focus(), 100);
-        return;
-      }
+      await apiClient.post("/api/auth/verify-otp", { whatsapp, otpCode: otp });
       setStep("account");
-    } catch {
-      toast({ title: "Gagal", description: "Tidak dapat terhubung ke server", variant: "destructive" });
+    } catch (err) {
+      toast({ title: "Verifikasi gagal", description: getApiError(err, "Kode OTP salah"), variant: "destructive" });
+      setOtpInputs(["", "", "", "", "", ""]);
+      setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } finally {
       setIsVerifyingOtp(false);
     }
@@ -283,24 +255,14 @@ export default function Register() {
       ...(values.referralCode ? { referralCode: values.referralCode.trim().toUpperCase() } : {}),
     };
 
-    fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      credentials: "include",
-    })
-      .then(async (resp) => {
-        const data = await resp.json();
-        if (!resp.ok) {
-          toast({ title: "Registrasi gagal", description: data.error ?? "Coba lagi", variant: "destructive" });
-          return;
-        }
+    apiClient.post("/api/auth/register", payload)
+      .then(() => {
         toast({ title: "Registrasi berhasil!", description: "Selamat datang di KETANTECH VPN" });
         setLocation("/dashboard");
         window.location.reload();
       })
-      .catch(() => {
-        toast({ title: "Registrasi gagal", description: "Tidak dapat terhubung ke server", variant: "destructive" });
+      .catch((err) => {
+        toast({ title: "Registrasi gagal", description: getApiError(err, "Coba lagi"), variant: "destructive" });
       });
   }
 

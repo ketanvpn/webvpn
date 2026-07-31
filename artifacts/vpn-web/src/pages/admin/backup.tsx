@@ -19,6 +19,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { apiClient } from "@/lib/api-client";
 import {
   Database,
   Download,
@@ -30,20 +31,6 @@ import {
   RefreshCw,
   ShieldAlert,
 } from "lucide-react";
-
-const API = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
-
-async function apiFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`${API}${path}`, {
-    credentials: "include",
-    ...options,
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: "Terjadi kesalahan" }));
-    throw new Error(body?.error ?? `HTTP ${res.status}`);
-  }
-  return res;
-}
 
 interface BackupSettings {
   backupEnabled: boolean;
@@ -86,10 +73,7 @@ export default function AdminBackup() {
 
   const { data: settings, isLoading } = useQuery<BackupSettings>({
     queryKey: ["admin-backup-settings"],
-    queryFn: async () => {
-      const res = await apiFetch("/admin/backup/settings");
-      return res.json();
-    },
+    queryFn: () => apiClient.get<BackupSettings>("/api/admin/backup/settings"),
   });
 
   const enabled = localEnabled !== null ? localEnabled : (settings?.backupEnabled ?? false);
@@ -97,11 +81,7 @@ export default function AdminBackup() {
 
   const saveSettingsMut = useMutation({
     mutationFn: async () => {
-      await apiFetch("/admin/backup/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ backupEnabled: enabled, backupIntervalHours: interval }),
-      });
+      await apiClient.put("/api/admin/backup/settings", { backupEnabled: enabled, backupIntervalHours: interval });
     },
     onSuccess: () => {
       toast({ title: "Pengaturan disimpan", description: "Konfigurasi backup berhasil diperbarui." });
@@ -116,10 +96,7 @@ export default function AdminBackup() {
   });
 
   const backupNowMut = useMutation({
-    mutationFn: async () => {
-      const res = await apiFetch("/admin/backup/now", { method: "POST" });
-      return res.json() as Promise<{ filename: string; sizeBytes: number; sentToTelegram: boolean }>;
-    },
+    mutationFn: () => apiClient.post<{ filename: string; sizeBytes: number; sentToTelegram: boolean }>("/api/admin/backup/now"),
     onSuccess: (data) => {
       const sizeStr = formatBytes(data.sizeBytes);
       const tgInfo = data.sentToTelegram
@@ -136,7 +113,7 @@ export default function AdminBackup() {
 
   const downloadMut = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${API}/admin/backup/download`, { credentials: "include" });
+      const res = await fetch("/api/admin/backup/download", { credentials: "include" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({ error: "Tidak ada backup tersedia" }));
         throw new Error(body?.error ?? "Download gagal");
@@ -160,11 +137,16 @@ export default function AdminBackup() {
     mutationFn: async () => {
       if (!restoreFile) throw new Error("Pilih file terlebih dahulu");
       const arrayBuf = await restoreFile.arrayBuffer();
-      await apiFetch("/admin/backup/restore", {
+      const res = await fetch("/api/admin/backup/restore", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/gzip" },
         body: arrayBuf,
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: "Terjadi kesalahan" }));
+        throw new Error(body?.error ?? `HTTP ${res.status}`);
+      }
     },
     onSuccess: () => {
       toast({ title: "Restore berhasil!", description: "Database berhasil dipulihkan dari file backup." });
