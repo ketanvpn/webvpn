@@ -12,7 +12,7 @@ import { getPaymentSettingsMap, getResellerSettings } from "./settings";
 import { logger } from "../lib/logger";
 import { notifyUserVpnAccountCreated, notifyAdminOrderFulfilled } from "../lib/telegram";
 import { addPoints, getPointsSettings } from "./points";
-import { getReferralBonusAmount } from "../lib/scheduler";
+import { getReferralSettings } from "../lib/scheduler";
 import { createOrderLimiter } from "../lib/rate-limit";
 import {
   createEntityQrPayment,
@@ -304,6 +304,9 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
   // Cek bonus referral jika ini order pertama
   (async () => {
     try {
+      const referralSettings = await getReferralSettings();
+      if (!referralSettings.enabled) return;
+
       const [buyer] = await db
         .select({
           referredBy: usersTable.referredBy,
@@ -323,19 +326,21 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
 
       if (!referrer) return;
 
-      const bonusAmount = await getReferralBonusAmount();
+      const bonusAmount = referralSettings.bonusAmount;
       const refBalanceBefore = Number(referrer.balance);
       const refBalanceAfter = refBalanceBefore + bonusAmount;
 
-      await db
-        .update(usersTable)
-        .set({ balance: sql`balance + ${bonusAmount}` })
-        .where(eq(usersTable.id, referrer.id));
+      await db.transaction(async (tx) => {
+        await tx
+          .update(usersTable)
+          .set({ balance: String(refBalanceAfter), updatedAt: new Date() })
+          .where(eq(usersTable.id, referrer.id));
 
-      await db
-        .update(usersTable)
-        .set({ referralBonusClaimed: true })
-        .where(eq(usersTable.id, order.userId));
+        await tx
+          .update(usersTable)
+          .set({ referralBonusClaimed: true, updatedAt: new Date() })
+          .where(eq(usersTable.id, order.userId));
+      });
 
       addBalanceLog({
         userId: referrer.id,

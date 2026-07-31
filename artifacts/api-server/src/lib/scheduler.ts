@@ -23,6 +23,29 @@ async function getReferralBonusAmount(): Promise<number> {
   return isNaN(v) ? 5000 : v;
 }
 
+export async function getReferralSettings(): Promise<{ enabled: boolean; bonusAmount: number }> {
+  const [enabledRow, bonusRow] = await Promise.all([
+    db
+      .select({ value: settingsTable.value })
+      .from(settingsTable)
+      .where(eq(settingsTable.key, "referralEnabled"))
+      .limit(1),
+    db
+      .select({ value: settingsTable.value })
+      .from(settingsTable)
+      .where(eq(settingsTable.key, "referralBonusAmount"))
+      .limit(1),
+  ]);
+  
+  const enabled = enabledRow[0]?.value !== "false";
+  const bonusAmount = bonusRow[0]?.value ? parseInt(bonusRow[0].value, 10) : 5000;
+  
+  return {
+    enabled,
+    bonusAmount: isNaN(bonusAmount) ? 5000 : bonusAmount,
+  };
+}
+
 function formatTanggal(d: Date): string {
   return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
 }
