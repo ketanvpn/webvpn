@@ -91,7 +91,7 @@ export default function Profile() {
   const [promoRequesting, setPromoRequesting] = useState(false);
   const [promoRequested, setPromoRequested] = useState(false);
   
-  type ReferralStatus = { enabled: boolean; bonusAmount: number };
+  type ReferralStatus = { referralEnabled: boolean; referralBonusAmount: number };
   const [referralStatus, setReferralStatus] = useState<ReferralStatus | null>(null);
 
   const fetchResellerStatus = () => {
@@ -561,16 +561,16 @@ export default function Profile() {
               </div>
               {referralStatus && (
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                  referralStatus.enabled 
+                  referralStatus.referralEnabled 
                     ? "bg-green-100 text-green-700" 
                     : "bg-yellow-100 text-yellow-700"
                 }`}>
-                  {referralStatus.enabled ? "Aktif" : "Nonaktif"}
+                  {referralStatus.referralEnabled ? "Aktif" : "Nonaktif"}
                 </span>
               )}
             </div>
             
-            {referralStatus && !referralStatus.enabled ? (
+            {referralStatus && !referralStatus.referralEnabled ? (
               <div className="rounded-lg bg-yellow-50 border border-yellow-200 px-4 py-3">
                 <p className="text-xs text-yellow-700">
                   Program referral sedang tidak aktif. Bonus belum bisa diklaim untuk saat ini.
