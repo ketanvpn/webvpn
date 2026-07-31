@@ -250,12 +250,27 @@ export function saveBackupFile(buffer: Buffer, filename: string): string {
   const filePath = path.join(getBackupDir(), filename);
   fs.writeFileSync(filePath, buffer);
   lastBackupFilePath = filePath;
+  // Persist to DB so download survives server restart
+  upsertSetting("backupLastFilePath", filePath).catch(() => {});
   pruneOldBackups(getBackupDir());
   return filePath;
 }
 
-export function getLastBackupFilePath(): string | null {
-  return lastBackupFilePath;
+/**
+ * Get last backup file path. Tries in-memory first (fast path),
+ * falls back to DB-persisted value (survives restart).
+ */
+export async function getLastBackupFilePath(): Promise<string | null> {
+  if (lastBackupFilePath && fs.existsSync(lastBackupFilePath)) {
+    return lastBackupFilePath;
+  }
+  const rows = await db.select().from(settingsTable).where(eq(settingsTable.key, "backupLastFilePath"));
+  const dbPath = rows[0]?.value ?? null;
+  if (dbPath && fs.existsSync(dbPath)) {
+    lastBackupFilePath = dbPath;
+    return dbPath;
+  }
+  return null;
 }
 
 /**

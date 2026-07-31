@@ -88,11 +88,10 @@ router.post("/admin/backup/full", requireAdmin, async (_req, res) => {
 
 // GET /api/admin/backup/download — download last backup file
 router.get("/admin/backup/download", requireAdmin, async (_req, res) => {
-  // Coba ambil dari in-memory path dulu (tersedia selama server tidak restart)
-  let filePath = getLastBackupFilePath();
+  let filePath = await getLastBackupFilePath();
 
   // Fallback: coba rekonstruksi dari nama file yang tersimpan di database
-  if (!filePath || !fs.existsSync(filePath)) {
+  if (!filePath) {
     const settings = await getBackupSettings();
     if (settings.backupLastFilename) {
       const fallbackPath = path.join(getBackupDir(), settings.backupLastFilename);
@@ -106,7 +105,7 @@ router.get("/admin/backup/download", requireAdmin, async (_req, res) => {
     res.status(404).json({ error: "File backup tidak ditemukan di server. Lakukan backup baru terlebih dahulu." });
     return;
   }
-  const filename = filePath.split("/").pop() ?? "backup.sql.gz";
+  const filename = path.basename(filePath);
   res.setHeader("Content-Type", "application/gzip");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
   fs.createReadStream(filePath).pipe(res);
