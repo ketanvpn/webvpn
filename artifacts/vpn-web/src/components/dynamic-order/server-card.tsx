@@ -1,4 +1,4 @@
-import { CreditCard, Server, Zap } from "lucide-react";
+import { Server, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { DynamicServer } from "./types";
 import {
@@ -50,28 +50,15 @@ export function ServerCard({ server, onSelect }: ServerCardProps) {
           </div>
 
           <div className="flex-1 min-w-0">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-              <h3 className="font-semibold text-sm sm:text-base leading-snug text-foreground break-words">
-                {server.displayName}
-              </h3>
-              <div className="flex flex-col items-start sm:items-end gap-1 shrink-0">
-                {server.provider === "local_panel" ? (
-                  <Badge variant="outline" className="text-[9px] border-white/10 bg-white/5">
-                    {server.maxConnections > 0 ? `MAX ${server.maxConnections} IP` : "UNLIMITED IP"}
-                  </Badge>
-                ) : null}
-                <span
-                  className={`h-8 px-3 rounded-md text-xs font-semibold inline-flex items-center justify-center ${
-                    selectability.isSelectable
-                      ? "bg-primary/90 text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  <CreditCard className="h-3.5 w-3.5 mr-1" /> Order
-                </span>
-              </div>
-            </div>
+            <h3 className="break-words text-sm font-semibold leading-snug text-foreground sm:text-base">
+              {server.displayName}
+            </h3>
             <div className="flex flex-wrap gap-1.5 mt-1.5">
+              {server.provider === "local_panel" ? (
+                <Badge variant="outline" className="border-white/10 bg-white/5 text-[9px]">
+                  {server.maxConnections > 0 ? `MAX ${server.maxConnections} IP` : "UNLIMITED IP"}
+                </Badge>
+              ) : null}
               {server.enabledProtocols.slice(0, 4).map((protocol) => (
                 <span
                   key={protocol}
@@ -85,6 +72,16 @@ export function ServerCard({ server, onSelect }: ServerCardProps) {
               </span>
             </div>
           </div>
+        </div>
+
+        <div
+          className={`mt-3 min-h-10 px-4 py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 ${
+            selectability.isSelectable
+              ? "bg-primary/90 text-primary-foreground"
+              : "bg-muted text-muted-foreground"
+          }`}
+        >
+          {selectability.isSelectable ? "Pilih Server" : "Tidak tersedia"}
         </div>
       </button>
 
