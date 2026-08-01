@@ -1,5 +1,6 @@
 import { db } from "@workspace/db";
 import { vpnAccountsTable, usersTable, settingsTable, ordersTable, serversTable, topupsTable, paymentAttemptsTable, waVerificationsTable, dynamicVpnOrdersTable, dynamicProviderServersTable } from "@workspace/db";
+import { dynamicVpnOrdersTable as dynamicOrders } from "@workspace/db/schema";
 import { eq, and, lte, gte, lt, sql, sum, ne, inArray } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendWhatsapp } from "./fonnte";
@@ -316,14 +317,19 @@ async function checkResellerTargets(): Promise<void> {
     const [targetRow] = await db.select({ value: settingsTable.value }).from(settingsTable).where(eq(settingsTable.key, "resellerMonthlyTarget")).limit(1);
     const target = targetRow?.value ? parseInt(targetRow.value, 10) : 500000;
 
-    const now = new Date();
-    const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 1);
+    // Note: target is compared against NET sales (amount after reseller discount).
+    // This is intentional — we measure actual revenue generated, not gross price.
+    
+    // Use WIB-consistent date for month boundary calculation
+    const nowWibForMonth = new Date(Date.now() + 7 * 60 * 60 * 1000);
+    const prevMonthStart = new Date(nowWibForMonth.getUTCFullYear(), nowWibForMonth.getUTCMonth() - 1, 1);
+    const prevMonthEnd = new Date(nowWibForMonth.getUTCFullYear(), nowWibForMonth.getUTCMonth(), 1);
 
     const resellers = await db.select({ id: usersTable.id, username: usersTable.username, whatsapp: usersTable.whatsapp, telegramId: usersTable.telegramId }).from(usersTable).where(eq(usersTable.role, "reseller"));
 
     for (const reseller of resellers) {
-      const [result] = await db
+      // Hitung penjualan dari orders reguler
+      const [regularResult] = await db
         .select({ total: sum(ordersTable.amount) })
         .from(ordersTable)
         .where(and(
@@ -333,16 +339,41 @@ async function checkResellerTargets(): Promise<void> {
           lt(ordersTable.createdAt, prevMonthEnd),
         ));
 
-      const totalSales = Number(result?.total ?? 0);
+      // Hitung penjualan dari dynamic VPN orders
+      const [dynamicResult] = await db
+        .select({ total: sum(dynamicOrders.amount) })
+        .from(dynamicOrders)
+        .where(and(
+          eq(dynamicOrders.userId, reseller.id),
+          eq(dynamicOrders.status, "paid"),
+          gte(dynamicOrders.createdAt, prevMonthStart),
+          lt(dynamicOrders.createdAt, prevMonthEnd),
+        ));
+
+      const regularSales = Number(regularResult?.total ?? 0);
+      const dynamicSales = Number(dynamicResult?.total ?? 0);
+      const totalSales = regularSales + dynamicSales;
 
       if (totalSales < target) {
         await db.update(usersTable).set({ role: "user" }).where(eq(usersTable.id, reseller.id));
-        logger.info({ resellerId: reseller.id, totalSales, target }, "Reseller didowngrade karena tidak capai target bulanan");
+        logger.info({ resellerId: reseller.id, regularSales, dynamicSales, totalSales, target }, "Reseller didowngrade karena tidak capai target bulanan");
 
-        const msg = `⚠️ *Status Reseller Dinonaktifkan*\n\nHai *${reseller.username}*, status reseller kamu bulan ini telah dinonaktifkan karena total penjualan (Rp ${totalSales.toLocaleString("id-ID")}) belum mencapai target minimum (Rp ${target.toLocaleString("id-ID")}).\n\nHubungi admin untuk mengaktifkan kembali.`;
+        const msg = `⚠️ *Status Reseller Dinonaktifkan*\\n\\nHai *${reseller.username}*, status reseller kamu bulan ini telah dinonaktifkan karena total penjualan (Rp ${totalSales.toLocaleString("id-ID")}) belum mencapai target minimum (Rp ${target.toLocaleString("id-ID")}).\\n\\nHubungi admin untuk mengaktifkan kembali.`;
 
         if (reseller.whatsapp) sendWhatsapp(reseller.whatsapp, msg).catch(() => {});
         if (reseller.telegramId) sendMessage(String(reseller.telegramId), msg).catch(() => {});
+
+        // Notify admin about downgrade
+        const [adminChatRow] = await db
+          .select({ value: settingsTable.value })
+          .from(settingsTable)
+          .where(eq(settingsTable.key, "telegramAdminChatId"))
+          .limit(1);
+        
+        if (adminChatRow?.value) {
+          const adminMsg = `⬇️ *Reseller Downgrade*\n\nUser *${reseller.username}* (ID: ${reseller.id}) otomatis di-downgrade dari reseller ke user biasa.\n\nPenjualan: Rp ${totalSales.toLocaleString("id-ID")}\nTarget: Rp ${target.toLocaleString("id-ID")}\nKurang: Rp ${(target - totalSales).toLocaleString("id-ID")}`;
+          sendMessage(adminChatRow.value, adminMsg, { parse_mode: "Markdown" }).catch(() => {});
+        }
       }
     }
   } catch (err) {

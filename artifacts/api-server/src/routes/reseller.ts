@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { ordersTable, usersTable } from "@workspace/db/schema";
+import { ordersTable, usersTable, dynamicVpnOrdersTable } from "@workspace/db/schema";
 import { and, eq, gte, lt, sum } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { getResellerSettings } from "./settings";
@@ -22,7 +22,7 @@ router.get("/reseller/status", requireAuth, async (req, res) => {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-  const [result] = await db
+  const [regularResult] = await db
     .select({ total: sum(ordersTable.amount) })
     .from(ordersTable)
     .where(
@@ -34,7 +34,21 @@ router.get("/reseller/status", requireAuth, async (req, res) => {
       )
     );
 
-  const currentMonthSales = Number(result?.total ?? 0);
+  const [dynamicResult] = await db
+    .select({ total: sum(dynamicVpnOrdersTable.amount) })
+    .from(dynamicVpnOrdersTable)
+    .where(
+      and(
+        eq(dynamicVpnOrdersTable.userId, req.user!.userId),
+        eq(dynamicVpnOrdersTable.status, "paid"),
+        gte(dynamicVpnOrdersTable.createdAt, monthStart),
+        lt(dynamicVpnOrdersTable.createdAt, monthEnd),
+      )
+    );
+
+  const regularSales = Number(regularResult?.total ?? 0);
+  const dynamicSales = Number(dynamicResult?.total ?? 0);
+  const currentMonthSales = regularSales + dynamicSales;
   const progressPercent = settings.resellerTargetEnabled && settings.resellerMonthlyTarget > 0
     ? Math.min(100, Math.round((currentMonthSales / settings.resellerMonthlyTarget) * 100))
     : null;
