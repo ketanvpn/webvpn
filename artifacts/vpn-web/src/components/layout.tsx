@@ -14,6 +14,8 @@ export function Layout({
   const { user, isLoading, isAdmin, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
 
+  const shouldRedirect = !isLoading && (!isAuthenticated || (requireAdmin && !isAdmin));
+
   React.useEffect(() => {
     if (!isLoading) {
       if (!isAuthenticated) {
@@ -24,7 +26,7 @@ export function Layout({
     }
   }, [isLoading, isAuthenticated, isAdmin, requireAdmin, setLocation]);
 
-  if (isLoading) {
+  if (isLoading || shouldRedirect) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -33,10 +35,6 @@ export function Layout({
         </div>
       </div>
     );
-  }
-
-  if (!isAuthenticated || (requireAdmin && !isAdmin)) {
-    return null;
   }
 
   return (

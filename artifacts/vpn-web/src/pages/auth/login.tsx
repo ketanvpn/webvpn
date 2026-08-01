@@ -3,7 +3,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link, useLocation } from "wouter";
-import { useLogin } from "@workspace/api-client-react";
+import { useLogin, getGetMeQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -37,6 +38,7 @@ export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const login = useLogin();
+  const queryClient = useQueryClient();
   const [showPassword, setShowPassword] = useState(false);
   const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
 
@@ -150,13 +152,13 @@ export default function Login() {
       {
         onSuccess: (data) => {
           if (siteKey) resetTurnstile();
+          queryClient.setQueryData(getGetMeQueryKey(), data.user);
           toast({
             title: "Berhasil masuk",
             description: "Selamat datang kembali!",
           });
           const destination = data.user.role === "admin" ? "/admin" : "/dashboard";
           setLocation(destination);
-          window.location.reload();
         },
         onError: (error) => {
           if (siteKey) resetTurnstile();

@@ -4,7 +4,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link, useLocation } from "wouter";
-import { checkUsername } from "@workspace/api-client-react";
+import { checkUsername, getGetMeQueryKey } from "@workspace/api-client-react";
+import type { AuthResponse } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -45,6 +47,7 @@ type Step = "whatsapp" | "send-wa" | "otp" | "account";
 export default function Register() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const [step, setStep] = useState<Step>("whatsapp");
   const [whatsapp, setWhatsapp] = useState("");
@@ -255,11 +258,11 @@ export default function Register() {
       ...(values.referralCode ? { referralCode: values.referralCode.trim().toUpperCase() } : {}),
     };
 
-    apiClient.post("/api/auth/register", payload)
-      .then(() => {
+    apiClient.post<AuthResponse>("/api/auth/register", payload)
+      .then((data) => {
+        queryClient.setQueryData(getGetMeQueryKey(), data.user);
         toast({ title: "Registrasi berhasil!", description: "Selamat datang di KETANTECH VPN" });
         setLocation("/dashboard");
-        window.location.reload();
       })
       .catch((err) => {
         toast({ title: "Registrasi gagal", description: getApiError(err, "Coba lagi"), variant: "destructive" });
