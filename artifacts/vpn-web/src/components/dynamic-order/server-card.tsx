@@ -7,6 +7,7 @@ import {
   isDynamicDurationType,
 } from "@/lib/dynamic-duration";
 import { getServerSelectability } from "@/lib/dynamic-order-policy";
+import { ServerCountryMark } from "./server-country-mark";
 
 function formatRupiah(value: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -14,13 +15,6 @@ function formatRupiah(value: number) {
     currency: "IDR",
     maximumFractionDigits: 0,
   }).format(value || 0);
-}
-
-function getLocationDisplay(location?: string | null): string {
-  const loc = (location ?? "").toUpperCase();
-  if (loc === "SG" || loc.includes("SINGAPORE") || loc.includes("SG-")) return "SG";
-  if (loc === "ID" || loc.includes("INDONESIA") || loc.includes("ID-")) return "ID";
-  return loc || "UNK";
 }
 
 type ServerCardProps = {
@@ -38,60 +32,59 @@ export function ServerCard({ server, onSelect }: ServerCardProps) {
         type="button"
         onClick={onSelect}
         disabled={!selectability.isSelectable}
-        className="p-4 flex gap-3 text-left w-full disabled:opacity-50 disabled:cursor-not-allowed"
+        className="p-4 text-left w-full disabled:opacity-50 disabled:cursor-not-allowed"
         aria-label={`Pilih server ${server.displayName}${!selectability.isSelectable ? " (Tidak tersedia)" : ""}`}
       >
-        <div className="flex flex-col items-center gap-1.5 w-16 shrink-0">
-          <div className="w-12 h-12 rounded-xl bg-white/90 flex items-center justify-center text-sm font-bold shadow-lg border border-white/20 text-foreground">
-            {getLocationDisplay(server.location)}
-          </div>
-          {selectability.isSelectable ? (
-            <span className="text-[8px] sm:text-[9px] font-bold bg-primary/10 text-primary px-1 py-0.5 rounded w-full text-center border border-primary/20 flex items-center justify-center gap-0.5">
-              <Zap className="w-2 h-2" /> READY
-            </span>
-          ) : (
-            <span className="text-[8px] sm:text-[9px] font-bold bg-destructive/10 text-destructive px-1 py-0.5 rounded w-full text-center border border-destructive/20">
-              Penuh
-            </span>
-          )}
-        </div>
-
-        <div className="flex-1 min-w-0 py-0.5">
-          <h3 className="font-semibold text-sm sm:text-base leading-snug text-foreground truncate mb-1.5">
-            {server.displayName}
-          </h3>
-          <div className="flex flex-wrap gap-1.5">
-            {server.enabledProtocols.slice(0, 4).map((protocol) => (
-              <span
-                key={protocol}
-                className="text-[9px] sm:text-[10px] bg-white/5 text-muted-foreground px-1.5 py-0.5 rounded border border-white/5 uppercase"
-              >
-                {protocol}
+        <div className="flex gap-3">
+          <div className="flex flex-col items-center gap-1.5 w-16 shrink-0">
+            <ServerCountryMark location={server.location} showLabel />
+            {selectability.isSelectable ? (
+              <span className="text-[8px] sm:text-[9px] font-bold bg-primary/10 text-primary px-1 py-0.5 rounded w-full text-center border border-primary/20 flex items-center justify-center gap-0.5">
+                <Zap className="w-2 h-2" /> READY
               </span>
-            ))}
-            <span className="text-[9px] sm:text-[10px] bg-emerald-500/10 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
-              <Server className="w-2.5 h-2.5" /> {server.capacityUsed}/{server.capacityLimit ?? "∞"}
-            </span>
+            ) : (
+              <span className="text-[8px] sm:text-[9px] font-bold bg-destructive/10 text-destructive px-1 py-0.5 rounded w-full text-center border border-destructive/20">
+                Penuh
+              </span>
+            )}
           </div>
-        </div>
 
-        <div className="flex flex-col items-end justify-between shrink-0 py-0.5">
-          {server.provider === "local_panel" ? (
-            <Badge variant="outline" className="text-[9px] border-white/10 bg-white/5">
-              {server.maxConnections > 0 ? `MAX ${server.maxConnections} IP` : "UNLIMITED IP"}
-            </Badge>
-          ) : (
-            <span />
-          )}
-          <span
-            className={`mt-4 h-8 px-3 rounded-md text-xs font-semibold inline-flex items-center justify-center ${
-              selectability.isSelectable
-                ? "bg-primary/90 text-primary-foreground"
-                : "bg-muted text-muted-foreground"
-            }`}
-          >
-            <CreditCard className="h-3.5 w-3.5 mr-1" /> Order
-          </span>
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+              <h3 className="font-semibold text-sm sm:text-base leading-snug text-foreground break-words">
+                {server.displayName}
+              </h3>
+              <div className="flex flex-col items-start sm:items-end gap-1 shrink-0">
+                {server.provider === "local_panel" ? (
+                  <Badge variant="outline" className="text-[9px] border-white/10 bg-white/5">
+                    {server.maxConnections > 0 ? `MAX ${server.maxConnections} IP` : "UNLIMITED IP"}
+                  </Badge>
+                ) : null}
+                <span
+                  className={`h-8 px-3 rounded-md text-xs font-semibold inline-flex items-center justify-center ${
+                    selectability.isSelectable
+                      ? "bg-primary/90 text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  <CreditCard className="h-3.5 w-3.5 mr-1" /> Order
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-1.5 mt-1.5">
+              {server.enabledProtocols.slice(0, 4).map((protocol) => (
+                <span
+                  key={protocol}
+                  className="text-[9px] sm:text-[10px] bg-white/5 text-muted-foreground px-1.5 py-0.5 rounded border border-white/5 uppercase"
+                >
+                  {protocol}
+                </span>
+              ))}
+              <span className="text-[9px] sm:text-[10px] bg-emerald-500/10 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
+                <Server className="w-2.5 h-2.5" /> {server.capacityUsed}/{server.capacityLimit ?? "∞"}
+              </span>
+            </div>
+          </div>
         </div>
       </button>
 

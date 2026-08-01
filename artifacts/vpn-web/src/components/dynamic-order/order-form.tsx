@@ -10,6 +10,7 @@ import { VoucherField } from "./voucher-field";
 import { QuoteSummary } from "./quote-summary";
 import type { DynamicDurationType } from "@/lib/dynamic-duration";
 import { validateUsername } from "@/lib/dynamic-order-policy";
+import { ServerCountryMark } from "./server-country-mark";
 
 function formatRupiah(value: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -17,13 +18,6 @@ function formatRupiah(value: number) {
     currency: "IDR",
     maximumFractionDigits: 0,
   }).format(value || 0);
-}
-
-function getLocationDisplay(location?: string | null): string {
-  const loc = (location ?? "").toUpperCase();
-  if (loc === "SG" || loc.includes("SINGAPORE") || loc.includes("SG-")) return "SG";
-  if (loc === "ID" || loc.includes("INDONESIA") || loc.includes("ID-")) return "ID";
-  return loc || "UNK";
 }
 
 type OrderFormProps = {
@@ -94,11 +88,9 @@ export function OrderForm(props: OrderFormProps) {
         <div className="absolute -right-12 -top-16 h-40 w-40 rounded-full bg-cyan-500/20 blur-3xl" />
         <div className="relative text-left">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-white/90 flex items-center justify-center text-sm font-bold shadow-lg">
-              {getLocationDisplay(server.location)}
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-white">{server.displayName}</h2>
+            <ServerCountryMark location={server.location} size="md" />
+            <div className="min-w-0 flex-1">
+              <h2 className="text-xl font-bold text-white break-words">{server.displayName}</h2>
               <p className="text-sm text-muted-foreground">Atur detail akun VPN kamu.</p>
             </div>
           </div>
