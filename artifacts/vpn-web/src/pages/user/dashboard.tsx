@@ -2,7 +2,7 @@ import { useGetDashboardSummary } from "@workspace/api-client-react";
 import { formatRupiah } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { Wallet, Server, ShoppingCart, AlertCircle, ChevronRight, Sparkles, X, Zap, CheckCircle2, Info, Megaphone, AlertTriangle, ShieldPlus } from "lucide-react";
+import { Wallet, Server, ShoppingCart, AlertCircle, ChevronRight, Sparkles, X, Zap, CheckCircle2, Info, Megaphone, AlertTriangle, ShieldPlus, Crown, TrendingUp, Target, Calendar, RefreshCw, Trophy, Flame } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/common";
 import { apiClient } from "@/lib/api-client";
 import { toast } from "@/hooks/use-toast";
 import { getApiError } from "@/lib/utils";
+import { Progress } from "@/components/ui/progress";
 
 const PROMO_DISMISSED_KEY = "reseller_promo_dismissed";
 
@@ -29,6 +30,15 @@ type PromoData = {
 };
 
 type Announcement = { id: number; title: string; content: string; type: string };
+
+type ResellerStatusData = {
+  discountPercent: number;
+  currentMonthSales: number;
+  monthlyTarget: number;
+  progressPercent: number;
+  targetEnabled: boolean;
+  currentMonth: string;
+};
 
 const ANNOUNCE_DISMISSED_KEY = "dismissed_announcements_v1";
 
@@ -80,7 +90,7 @@ function AnnouncementBanners() {
   );
 }
 
-function ReselerPromoBanner({ onRequest }: { onRequest: () => void }) {
+function ResellerPromoBanner({ onRequest }: { onRequest: () => void }) {
   const [promo, setPromo] = useState<PromoData | null>(null);
   const [dismissed, setDismissed] = useState(() => !!localStorage.getItem(PROMO_DISMISSED_KEY));
   const [requesting, setRequesting] = useState(false);
@@ -243,6 +253,127 @@ function ReselerPromoBanner({ onRequest }: { onRequest: () => void }) {
   );
 }
 
+function ResellerWidget() {
+  const [status, setStatus] = useState<ResellerStatusData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiClient.get<ResellerStatusData>("/api/reseller/status")
+      .then(setStatus)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="glass-panel rounded-xl p-4 animate-pulse">
+        <div className="h-20 bg-white/5 rounded-lg" />
+      </div>
+    );
+  }
+
+  if (!status) return null;
+
+  const progress = status.progressPercent ?? 0;
+  const daysRemaining = (() => {
+    const now = new Date();
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return lastDay.getDate() - now.getDate();
+  })();
+  const targetMet = progress >= 100;
+
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-950 p-4 shadow-lg">
+      <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-emerald-500/20 blur-3xl" />
+      <div className="absolute -bottom-8 left-1/4 h-24 w-24 rounded-full bg-cyan-500/10 blur-2xl" />
+      
+      <div className="relative">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="h-9 w-9 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+              <Crown className="h-4 w-4 text-emerald-400" />
+            </div>
+            <div>
+              <p className="font-bold text-sm text-white flex items-center gap-2">
+                Status Reseller
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  AKTIF
+                </span>
+              </p>
+              <p className="text-[11px] text-muted-foreground">Bulan {status.currentMonth}</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Diskon</p>
+            <p className="text-xl font-black text-emerald-400">{status.discountPercent}%</p>
+          </div>
+        </div>
+
+        {status.targetEnabled ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Penjualan Bulan Ini</span>
+              <span className="font-bold text-white">{formatRupiah(status.currentMonthSales)}</span>
+            </div>
+
+            <div className="relative h-2.5 rounded-full bg-white/10 overflow-hidden">
+              <div 
+                className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 bg-gradient-to-r from-emerald-500 to-cyan-400"
+                style={{ width: `${Math.min(progress, 100)}%` }}
+              />
+              {targetMet && (
+                <div className="absolute inset-0 rounded-full bg-emerald-500/50 animate-pulse" />
+              )}
+            </div>
+
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1.5">
+                <Target className="h-3 w-3 text-emerald-400" />
+                <span className="text-muted-foreground">Target: {formatRupiah(status.monthlyTarget)}</span>
+              </div>
+              {targetMet ? (
+                <span className="flex items-center gap-1 text-emerald-400 font-semibold">
+                  <Trophy className="h-3 w-3" />
+                  Tercapai!
+                </span>
+              ) : (
+                <span className="text-muted-foreground">{progress.toFixed(0)}%</span>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-white/10">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Calendar className="h-3 w-3" />
+                <span>Evaluasi: tanggal 1</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs">
+                <Flame className={`h-3 w-3 ${daysRemaining <= 7 ? "text-orange-400" : "text-muted-foreground"}`} />
+                <span className={daysRemaining <= 7 ? "text-orange-400 font-medium" : "text-muted-foreground"}>
+                  {daysRemaining} hari tersisa
+                </span>
+              </div>
+            </div>
+
+            {!targetMet && status.monthlyTarget - status.currentMonthSales > 0 && (
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                <AlertCircle className="h-3.5 w-3.5 text-orange-400 shrink-0" />
+                <p className="text-[11px] text-orange-300">
+                  Kurang <span className="font-bold">{formatRupiah(status.monthlyTarget - status.currentMonthSales)}</span> untuk mencapai target
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+            <p className="text-xs text-emerald-300">Status reseller permanen — tanpa target bulanan</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { data: summary, isLoading } = useGetDashboardSummary();
   const { user } = useAuth();
@@ -311,8 +442,11 @@ export default function Dashboard() {
 
       {/* Banner promosi reseller — hanya untuk user biasa */}
       {user?.role === "user" && !promoRequested && (
-        <ReselerPromoBanner onRequest={() => setPromoRequested(true)} />
+        <ResellerPromoBanner onRequest={() => setPromoRequested(true)} />
       )}
+
+      {/* Widget Reseller — hanya untuk reseller */}
+      {user?.role === "reseller" && <ResellerWidget />}
 
       <div className="relative overflow-hidden rounded-3xl border border-primary/25 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/70 p-4 md:p-5 shadow-2xl">
         <div className="absolute -right-16 -top-20 h-40 w-40 sm:h-56 sm:w-56 rounded-full bg-emerald-500/20 blur-3xl" />

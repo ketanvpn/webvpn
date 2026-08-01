@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { formatRupiah } from "@/lib/format";
 import { format } from "date-fns";
 import { useDebounce } from "@/hooks/use-debounce";
-import { Users, Search, ShieldAlert, Shield, ChevronLeft, ChevronRight, UserPlus } from "lucide-react";
+import { Users, Search, ShieldAlert, Shield, ChevronLeft, ChevronRight, UserPlus, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -30,12 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { getApiError } from "@/lib/utils";
 import { apiClient } from "@/lib/api-client";
-
-const roleColors: Record<string, string> = {
-  admin: "bg-red-500/10 text-red-600 border-red-200",
-  reseller: "bg-blue-500/10 text-blue-600 border-blue-200",
-  user: "",
-};
+import { ROLE_COLORS } from "@/lib/constants";
 
 const PAGE_SIZE = 20;
 
@@ -194,15 +189,21 @@ export default function AdminUsers() {
               {users.map((user) => (
                 <div key={user.id} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/5 transition-colors">
                   <div className="flex items-start gap-4">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">
+                    <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold shrink-0 ${
+                      user.role === 'reseller' 
+                        ? 'bg-emerald-500/15 text-emerald-400' 
+                        : user.role === 'admin'
+                        ? 'bg-amber-500/15 text-amber-400'
+                        : 'bg-primary/10 text-primary'
+                    }`}>
                       {user.username.substring(0, 2).toUpperCase()}
                     </div>
                     <div>
                       <div className="font-semibold flex items-center gap-2 flex-wrap">
                         {user.username}
-                        {user.role === 'admin' && <ShieldAlert className="h-3 w-3 text-red-500" />}
-                        {user.role === 'reseller' && <Shield className="h-3 w-3 text-blue-500" />}
-                        <Badge variant="outline" className={`text-[10px] capitalize ${roleColors[user.role] ?? ""}`}>
+                        {user.role === 'admin' && <ShieldAlert className="h-3.5 w-3.5 text-amber-400" />}
+                        {user.role === 'reseller' && <Crown className="h-3.5 w-3.5 text-emerald-400" />}
+                        <Badge variant="outline" className={`text-[10px] capitalize ${ROLE_COLORS[user.role]?.badge ?? ""}`}>
                           {user.role}
                         </Badge>
                       </div>

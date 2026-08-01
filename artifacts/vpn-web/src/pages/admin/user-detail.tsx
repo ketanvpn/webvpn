@@ -11,7 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   ArrowLeft, UserCircle, Wallet, Lock, Unlock, Mail, Calendar,
   ShoppingCart, Server, CreditCard, CheckCircle, XCircle, Clock,
-  History, ArrowUpRight, ArrowDownLeft, Settings2, Phone, Send, Users, Trash2,
+  History, ArrowUpRight, ArrowDownLeft, Settings2, Phone, Send, Users, Trash2, Crown,
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import type { AdminUpdateUserBodyRole } from "@workspace/api-client-react";
 import { useState } from "react";
+import { ROLE_COLORS } from "@/lib/constants";
 
 const statusColor: Record<string, string> = {
   pending: "bg-yellow-500/10 text-yellow-600 border-yellow-200",
@@ -190,7 +191,12 @@ export default function AdminUserDetail() {
                   <Badge variant={user.isActive ? "outline" : "destructive"}>
                     {user.isActive ? "Aktif" : "Disuspend"}
                   </Badge>
-                  <Badge variant="secondary" className="capitalize">{user.role}</Badge>
+                  <div className="flex items-center gap-1.5">
+                    {user.role === 'reseller' && <Crown className="h-3.5 w-3.5 text-emerald-400" />}
+                    <Badge variant="outline" className={`capitalize ${ROLE_COLORS[user.role]?.badge ?? ""}`}>
+                      {user.role}
+                    </Badge>
+                  </div>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4 mt-6 pt-4 border-t border-white/5 text-sm">

@@ -72,3 +72,28 @@ export function getOrderStatusLabel(status: string): string {
 export function getOrderStatusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   return ORDER_STATUS[status?.toLowerCase()]?.variant ?? "outline";
 }
+
+/**
+ * Role colors for consistent styling across the app
+ * user: blue, reseller: emerald (primary), admin: amber
+ */
+
+export const ROLE_COLORS: Record<string, { badge: string; icon: string; glow: string }> = {
+  user: {
+    badge: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+    icon: "text-blue-400",
+    glow: "shadow-blue-500/20",
+  },
+  reseller: {
+    badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+    icon: "text-emerald-400",
+    glow: "shadow-emerald-500/20",
+  },
+  admin: {
+    badge: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+    icon: "text-amber-400",
+    glow: "shadow-amber-500/20",
+  },
+};
+
+export type UserRole = keyof typeof ROLE_COLORS;

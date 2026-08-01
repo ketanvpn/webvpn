@@ -35,6 +35,7 @@ import {
   Cloud,
   ShieldPlus,
   Network,
+  Crown,
 } from "lucide-react";
 import {
   Sheet,
@@ -364,6 +365,7 @@ function NavLinks({
   pendingTopups,
   pendingTickets,
   userIsAdmin,
+  userRole,
   logout,
   location,
 }: {
@@ -371,6 +373,7 @@ function NavLinks({
   pendingTopups: number;
   pendingTickets: number;
   userIsAdmin: boolean;
+  userRole?: string;
   logout: () => void;
   location: string;
 }) {
@@ -380,9 +383,17 @@ function NavLinks({
         <LogoIcon size={38} />
         <div className="flex flex-col leading-none">
           <span className="font-extrabold text-base tracking-tight text-foreground">KETANTECH</span>
-          <span className="text-[10px] font-semibold text-primary tracking-widest uppercase">
-            {isAdmin ? "Admin Portal" : "VPN Store"}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold text-primary tracking-widest uppercase">
+              {isAdmin ? "Admin Portal" : "VPN Store"}
+            </span>
+            {!isAdmin && userRole === "reseller" && (
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                <Crown className="h-2.5 w-2.5" />
+                RESELLER
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -424,7 +435,7 @@ function NavLinks({
 
 export function MobileAdminHeader() {
   const [location] = useLocation();
-  const { logout, isAdmin: userIsAdmin } = useAuth();
+  const { logout, isAdmin: userIsAdmin, user } = useAuth();
   const { pendingTopups, pendingTickets } = useAdminBadges(true);
 
   const pageTitle = resolveAdminPageTitle(location);
@@ -456,6 +467,7 @@ export function MobileAdminHeader() {
               pendingTopups={pendingTopups}
               pendingTickets={pendingTickets}
               userIsAdmin={userIsAdmin}
+              userRole={user?.role}
               logout={logout}
               location={location}
             />
@@ -483,7 +495,7 @@ export function MobileAdminHeader() {
 
 export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const [location] = useLocation();
-  const { logout, isAdmin: userIsAdmin } = useAuth();
+  const { logout, isAdmin: userIsAdmin, user } = useAuth();
   const { pendingTopups, pendingTickets } = useAdminBadges(isAdmin);
 
   return (
@@ -493,6 +505,7 @@ export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
         pendingTopups={pendingTopups}
         pendingTickets={pendingTickets}
         userIsAdmin={userIsAdmin}
+        userRole={user?.role}
         logout={logout}
         location={location}
       />
