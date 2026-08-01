@@ -12,7 +12,6 @@ import {
   Settings,
   Users,
   ShieldAlert,
-  Package,
   CreditCard,
   Menu,
   Shield,
@@ -82,7 +81,6 @@ const adminNavGroups: AdminNavGroup[] = [
   {
     title: "Katalog",
     items: [
-      { title: "Produk", href: "/admin/products", icon: Package },
       { title: "Server", href: "/admin/servers", icon: Server },
       { title: "Akun VPN", href: "/admin/accounts", icon: Shield },
       { title: "Voucher / Kode Promo", href: "/admin/vouchers", icon: Tag },

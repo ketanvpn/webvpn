@@ -3,7 +3,7 @@
 ## Ringkasan
 Platform penjualan VPN Indonesia berbasis web + bot Telegram. Dibangun sebagai pnpm monorepo dengan TypeScript. Memiliki:
 - **User dashboard** — beli VPN, kelola akun, topup saldo
-- **Admin dashboard** — kelola user/produk/server/order/topup/akun VPN
+- **Admin dashboard** — kelola user/server/order/topup/akun VPN (pembelian via dynamic VPN saja)
 - **Bot Telegram** — penjualan VPN via chat (`botvpn-fixed/`)
 
 ---
@@ -88,7 +88,7 @@ cd /var/www/ketantech-vpn && git pull origin main && pnpm install && DATABASE_UR
 artifacts/
   api-server/          — Backend Express API
     src/
-      routes/          — auth, admin, orders, accounts, balance, products, servers,
+      routes/          — auth, admin, orders, accounts, balance, servers,
                          dashboard, reseller, settings, webhook, broadcast, backup, export,
                          announcements, points, tickets
       lib/             — auth middleware, vpn-panel, scheduler (auto-disable server, expiry notif,
@@ -102,19 +102,18 @@ artifacts/
         logo.tsx       — LogoIcon + LogoBrand SVG component (dipakai di navbar & sidebar)
       pages/
         admin/         — dashboard, users, user-detail, orders, topups, accounts (+ bulk actions),
-                         servers (+ maxAccounts field), products, broadcast, backup,
+                         servers (+ maxAccounts field), broadcast, backup,
                          announcements, points-settings, tickets, ticket-detail, server-monitor,
                          payment-settings, telegram-settings, whatsapp-settings,
                          referral-settings, reseller-settings, expiry-notification-settings
         user/          — dashboard (+ announcement banners), orders, order-detail, accounts,
-                         account-detail, balance, balance-logs, products, product-detail,
-                         profile, points, tickets, ticket-detail
+account-detail, balance, balance-logs, profile, points, tickets, ticket-detail
         auth/          — login, register, forgot-password
         home.tsx       — Landing page publik (stats bar + paket harga real-time + hero + features + CTA)
 
 lib/
   db/                  — Drizzle ORM schema + migrations
-    src/schema/        — users (+ points), products, servers (+ maxAccounts), orders,
+    src/schema/        — users (+ points), servers (+ maxAccounts), orders,
                          vpn_accounts, topup_transactions, settings, balance_logs,
                          announcements, point_logs, tickets, ticket_messages
   api-spec/            — openapi.yaml + orval codegen config
@@ -132,7 +131,6 @@ botvpn-fixed/          — Bot Telegram (Node.js + SQLite, terpisah dari web)
 |---|---|
 | `users` | id, username, email, passwordHash, role, balance, isActive, referralCode, **telegramId** (bigint), **telegramLinkToken** (text) |
 | `vpn_servers` | id, name, location, flag, host, apiUrl, apiToken, supportedProtocols, isActive |
-| `products` | id, name, protocol, durationDays, price, quota, maxConnections, **stock** (INTEGER NOT NULL DEFAULT 100), isActive, category, sortOrder |
 | `orders` | id, userId, productId, amount, status (pending/processing/paid/failed/expired), paymentMethod, notes, vpnAccountId, **autogopayTransactionId**, **qrisUrl**, **expiresAt** |
 | `vpn_accounts` | id, userId, protocol, username, password, uuid, serverId, configLink, allLinks, expiresAt, isActive |
 | `topup_transactions` | id, userId, amount, qrisUrl, status (pending/confirmed/rejected), confirmedBy, rejectionNote |
@@ -151,6 +149,7 @@ botvpn-fixed/          — Bot Telegram (Node.js + SQLite, terpisah dari web)
 - `GET /api/auth/check-username?username=xxx` — cek ketersediaan username saat register (min 3 karakter); response: `{ available: bool, suggestions: string[] }` (maks 3 saran)
 - `POST /api/auth/forgot-password/send-otp` — kirim OTP WA untuk reset password (rate limit 3x/15 menit, OTP berlaku 5 menit, purpose `"reset"`)
 - `POST /api/auth/forgot-password/reset` — reset password dengan OTP yang valid (field: whatsapp, otp, newPassword)
+- `GET /api/dynamic-vpn/public-servers` — daftar server dynamic (publik, tanpa auth) untuk landing page
 
 ### Reseller (requireAuth)
 - `GET /api/reseller/promo` — info promosi reseller untuk user biasa: `promoEnabled`, `promoTitle`, `promoText`, `requestEnabled`, `discountPercent`, `autoUpgradeEnabled`, `autoUpgradeMinTopup`, `targetEnabled`, `monthlyTarget`
@@ -162,16 +161,23 @@ botvpn-fixed/          — Bot Telegram (Node.js + SQLite, terpisah dari web)
 - `POST /api/balance/topup` — buat permintaan topup + QRIS
 - `GET /api/balance/topup/history` — riwayat topup
 - `GET /api/balance/logs` — log semua perubahan saldo user (topup, pembelian, penyesuaian)
-- `GET /api/products` — daftar produk
-- `GET /api/products/:id` — detail produk
-- `GET /api/servers` — daftar server (publik)
-- `POST /api/orders` — beli produk; jika `paymentMethod=qris` dan AutoGoPay aktif → generate QRIS otomatis, simpan `qrisUrl`/`expiresAt`/`autogopayTransactionId`
-- `GET /api/orders` — riwayat order user
+- `GET /api/products` — *(historical compatibility)* daftar produk static lama; untuk pembelian baru gunakan `/dynamic-vpn/*`
+- `GET /api/products/:id` — *(historical compatibility)* detail produk static lama
+- `GET /api/dynamic-vpn/servers` — daftar server dynamic yang tersedia (auth)
+- `POST /api/dynamic-vpn/quote` — dapatkan harga quote untuk order dynamic
+- `POST /api/dynamic-vpn/orders` — order VPN dynamic (pilih server, protokol, durasi)
+- `GET /api/dynamic-vpn/orders` — list order dynamic user
+- `GET /api/dynamic-vpn/orders/:id` — detail order dynamic
+- `POST /api/dynamic-vpn/orders/:id/pay` — bayar order dynamic dengan saldo
+- `GET /api/orders` — riwayat order user (termasuk static lama dan dynamic)
 - `GET /api/orders/:id` — detail order (include `qrisUrl`, `expiresAt`)
-- `POST /api/orders/:id/pay` — bayar order dengan saldo (QRIS dikonfirmasi otomatis via webhook)
-- `GET /api/accounts` — daftar akun VPN aktif user
+- `POST /api/orders/:id/pay` — *(static orders, retired 410)* gunakan pembayaran via webhook untuk dynamic orders
+- `GET /api/accounts` — daftar akun VPN aktif user (static dan dynamic)
 - `GET /api/accounts/:id` — detail akun VPN
-- `POST /api/accounts/:id/renew` — perpanjang akun VPN
+- `POST /api/accounts/:id/renew` — *(retired 410)* gunakan `/accounts/:id/renew-dynamic` untuk akun dynamic
+- `POST /api/accounts/:id/renew-dynamic` — perpanjang akun VPN dynamic (quote + renew)
+- `POST /api/accounts/:id/renew-dynamic/quote` — dapatkan harga quote untuk renew dynamic
+- `POST /api/accounts/:id/sync-provider` — sinkronkan status akun dari provider
 - `GET /api/dashboard/summary` — summary dashboard user
 
 ### Admin (requireAdmin)
@@ -180,22 +186,28 @@ botvpn-fixed/          — Bot Telegram (Node.js + SQLite, terpisah dari web)
 - `GET /api/admin/users/:id` — detail user beserta orders dan akun
 - `PATCH /api/admin/users/:id` — update role/status user
 - `POST /api/admin/users/:id/adjust-balance` — adjust saldo manual
-- `GET /api/admin/products` — list produk (termasuk `stock` dan `availableStock`)
-- `POST /api/admin/products` — buat produk baru (wajib isi `stock`)
-- `PATCH /api/admin/products/:id` — update produk
-- `DELETE /api/admin/products/:id` — hapus/nonaktifkan produk
-- `GET /api/admin/servers` — list server
-- `POST /api/admin/servers` — tambah server
-- `PUT /api/admin/servers/:id` — update server
-- `DELETE /api/admin/servers/:id` — hapus server
-- `GET /api/admin/orders?status=&userId=&search=&limit=&offset=` — list order (search by username)
-- `POST /api/admin/orders/:id/confirm` — konfirmasi order (buat akun VPN via panel)
-- `DELETE /api/admin/orders/:id` — hapus order (non-paid only)
+- `GET /api/admin/products` — *(historical compatibility)* list produk static lama
+- `POST /api/admin/products` — *(retired 410)* tidak ada pembuatan produk manual; gunakan sinkronisasi dynamic
+- `PATCH /api/admin/products/:id` — *(retired 410)* produk static tidak dapat diubah
+- `DELETE /api/admin/products/:id` — *(retired 410)* produk static tidak dapat dihapus
+- `GET /api/admin/dynamic-vpn/servers` — list server dynamic dari provider
+- `POST /api/admin/dynamic-vpn/servers/sync/nadiavpn` — sinkronkan server dari NadiaVPN
+- `POST /api/admin/dynamic-vpn/servers/sync/local-panel` — sinkronkan server dari local panel
+- `PATCH /api/admin/dynamic-vpn/servers/:id` — update harga jual/markup server
+- `GET /api/admin/dynamic-vpn/orders` — list order dynamic (filter status, server, date)
+- `GET /api/admin/servers` — list server local panel
+- `POST /api/admin/servers` — tambah server local panel
+- `PUT /api/admin/servers/:id` — update server local panel
+- `DELETE /api/admin/servers/:id` — hapus server local panel
+- `GET /api/admin/orders?status=&userId=&search=&limit=&offset=` — list order (search by username, termasuk static lama)
+- `POST /api/admin/orders/:id/confirm` — *(retired 410)* order static tidak dapat dikonfirmasi manual; settlement hanya via webhook untuk QRIS pending
+- `DELETE /api/admin/orders/:id` — *(retired 410)* order tidak dapat dihapus manual; gunakan cancel expired otomatis
 - `GET /api/admin/topups?status=` — list permintaan topup
-- `POST /api/admin/topups/:id/confirm` — konfirmasi topup
+- `POST /api/admin/topups/:id/confirm` — konfirmasi topup manual
 - `POST /api/admin/topups/:id/reject` — tolak topup (body: `{ rejectionNote?: string }`)
-- `GET /api/admin/accounts` — list akun VPN
-- `POST /api/admin/accounts/:id/extend` — perpanjang akun N hari
+- `GET /api/admin/accounts` — list akun VPN (static dan dynamic)
+- `POST /api/admin/accounts/:id/extend` — perpanjang akun N hari (dynamic only)
+- `POST /api/admin/accounts/:id/sync` — sinkronkan status akun dari provider
 - `PATCH /api/admin/accounts/:id/toggle` — aktif/nonaktif akun
 - `DELETE /api/admin/accounts/:id` — hapus akun permanen
 - `GET/PUT /api/admin/settings/payment` — konfigurasi AutoGoPay (apiUrl, secretKey, enabled)
@@ -297,6 +309,8 @@ Setiap kali mengubah `lib/api-spec/openapi.yaml`:
 - Session plan progress dicatat di `.local/` (jangan commit)
 
 ## Progress Batch Improvement
+
+> **Catatan:** Entry batch di bawah ini mendokumentasikan perilaku sistem yang sudah **tidak berlaku lagi** setelah migrasi ke dynamic VPN pada 2026-08-01. Produk static, pembelian manual, dan operasi terkait telah digantikan oleh sistem dynamic VPN. Entry disimpan untuk referensi historis.
 
 ### Batch 7 ✅ (April 2026)
 - **AutoGoPay QRIS untuk Order — end-to-end selesai:**

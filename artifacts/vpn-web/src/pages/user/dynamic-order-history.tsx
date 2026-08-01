@@ -1,11 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
-import { Activity, CheckCircle2, Clock, RefreshCw, Server, XCircle } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Activity, RefreshCw, Server, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "wouter";
 import { dynamicDurationUnit } from "@/lib/dynamic-duration";
+import { DynamicOrderStatusBadge, type OrderStatus } from "@/components/dynamic-order-status-badge";
+import { Badge } from "@/components/ui/badge";
+import { formatRupiah } from "@/lib/format";
+import { format } from "date-fns";
 
 type DynamicOrder = {
   id: number;
@@ -16,33 +19,11 @@ type DynamicOrder = {
   duration: number;
   username: string;
   amount: number;
-  status: string;
+  status: OrderStatus;
   paymentMethod: string;
   vpnAccountId: number | null;
   createdAt: string;
 };
-
-function rupiah(value: number) {
-  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value || 0);
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
-}
-
-function statusBadge(status: string) {
-  if (status === "paid") return "bg-emerald-500/10 text-emerald-300 border-emerald-500/30";
-  if (status === "processing") return "bg-cyan-500/10 text-cyan-300 border-cyan-500/30";
-  if (status === "pending") return "bg-amber-500/10 text-amber-300 border-amber-500/30";
-  return "bg-red-500/10 text-red-300 border-red-500/30";
-}
-
-function StatusIcon({ status }: { status: string }) {
-  if (status === "paid") return <CheckCircle2 className="h-4 w-4" />;
-  if (status === "processing") return <RefreshCw className="h-4 w-4 animate-spin" />;
-  if (status === "pending") return <Clock className="h-4 w-4" />;
-  return <XCircle className="h-4 w-4" />;
-}
 
 function providerLabel(provider: string) {
   return provider === "local_panel" ? "Server Saya" : "Dynamic";
@@ -93,37 +74,42 @@ export default function DynamicOrderHistory() {
           ) : (
             <div className="space-y-3">
               {orders.map((order) => (
-                <div key={order.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-primary/40 hover:bg-white/[0.06]">
+                <Link
+                  key={order.id}
+                  href={`/order-vpn/history/${order.id}`}
+                  className="block rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-primary/40 hover:bg-white/[0.06] cursor-pointer"
+                >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline">#{order.id}</Badge>
                         <Badge variant="outline">{providerLabel(order.provider)}</Badge>
-                        <Badge className={`${statusBadge(order.status)} gap-1 uppercase`}><StatusIcon status={order.status} /> {order.status}</Badge>
+                        <DynamicOrderStatusBadge status={order.status} />
                         <Badge variant="secondary" className="uppercase">{order.protocol}</Badge>
                       </div>
                       <div>
                         <h3 className="break-words font-bold">{order.serverDisplayName}</h3>
                         <p className="break-words text-sm text-muted-foreground">
-                          Akun VPN: <span className="font-mono text-foreground">{order.username}</span> • {order.duration} {dynamicDurationUnit(order.durationType)}
+                          Akun VPN: <span className="font-mono text-foreground">{order.username}</span> - {order.duration} {dynamicDurationUnit(order.durationType)}
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                        <span>Dibuat: {formatDate(order.createdAt)}</span>
+                        <span>Dibuat: {format(new Date(order.createdAt), "d MMM yyyy, HH:mm")}</span>
                         <span>Bayar: {order.paymentMethod === "balance" ? "Saldo" : order.paymentMethod}</span>
                         {order.vpnAccountId && (
-                          <Link href={`/accounts/${order.vpnAccountId}`} className="text-primary hover:underline">
-                            Lihat akun
-                          </Link>
+                          <span className="text-primary">Akun VPN aktif</span>
                         )}
                       </div>
                     </div>
-                    <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-right text-sm sm:min-w-40">
-                      <div className="text-xs text-muted-foreground">Total</div>
-                      <div className="font-bold text-primary">{rupiah(order.amount)}</div>
+                    <div className="flex items-center gap-2 sm:flex-col sm:items-end">
+                      <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-right text-sm sm:min-w-40">
+                        <div className="text-xs text-muted-foreground">Total</div>
+                        <div className="font-bold text-primary">{formatRupiah(order.amount)}</div>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                     </div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}

@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -6,6 +6,7 @@ import { AuthProvider } from "@/hooks/use-auth";
 import { Layout } from "@/components/layout";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { useEffect } from "react";
 
 // Pages
 import NotFound from "@/pages/not-found";
@@ -14,8 +15,6 @@ import Login from "@/pages/auth/login";
 import Register from "@/pages/auth/register";
 import ForgotPassword from "@/pages/auth/forgot-password";
 import Dashboard from "@/pages/user/dashboard";
-import Products from "@/pages/user/products";
-import ProductDetail from "@/pages/user/product-detail";
 import Orders from "@/pages/user/orders";
 import OrderDetail from "@/pages/user/order-detail";
 import Accounts from "@/pages/user/accounts";
@@ -29,11 +28,11 @@ import UserTicketDetail from "@/pages/user/ticket-detail";
 import ConfigConverter from "@/pages/user/converter";
 import DynamicOrderPage from "@/pages/user/dynamic-order";
 import DynamicOrderHistory from "@/pages/user/dynamic-order-history";
+import DynamicOrderDetail from "@/pages/user/dynamic-order-detail";
 
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminUsers from "@/pages/admin/users";
 import AdminUserDetail from "@/pages/admin/user-detail";
-import AdminProducts from "@/pages/admin/products";
 import AdminServers from "@/pages/admin/servers";
 import AdminOrders from "@/pages/admin/orders";
 import AdminTopups from "@/pages/admin/topups";
@@ -58,6 +57,15 @@ import AdminBugPresets from "@/pages/admin/bug-presets";
 import AdminInjectPresets from "@/pages/admin/inject-presets";
 import AdminAuditLogs from "@/pages/admin/audit-logs";
 
+// Redirect component for legacy routes
+function Redirect({ to }: { to: string }) {
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    setLocation(to);
+  }, [to, setLocation]);
+  return null;
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -80,10 +88,10 @@ function Router() {
         <Layout><Dashboard /></Layout>
       </Route>
       <Route path="/products">
-        <Layout><Products /></Layout>
+        <Layout><Redirect to="/order-vpn" /></Layout>
       </Route>
       <Route path="/products/:id">
-        <Layout><ProductDetail /></Layout>
+        <Layout><Redirect to="/order-vpn" /></Layout>
       </Route>
       <Route path="/orders">
         <Layout><Orders /></Layout>
@@ -121,6 +129,9 @@ function Router() {
       <Route path="/order-vpn">
         <Layout><DynamicOrderPage /></Layout>
       </Route>
+      <Route path="/order-vpn/history/:id">
+        <Layout><DynamicOrderDetail /></Layout>
+      </Route>
       <Route path="/order-vpn/history">
         <Layout><DynamicOrderHistory /></Layout>
       </Route>
@@ -134,9 +145,6 @@ function Router() {
       </Route>
       <Route path="/admin/users/:id">
         <Layout requireAdmin><AdminUserDetail /></Layout>
-      </Route>
-      <Route path="/admin/products">
-        <Layout requireAdmin><AdminProducts /></Layout>
       </Route>
       <Route path="/admin/servers">
         <Layout requireAdmin><AdminServers /></Layout>

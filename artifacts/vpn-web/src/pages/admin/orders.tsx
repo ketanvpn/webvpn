@@ -1,8 +1,5 @@
-import { getApiError } from "@/lib/utils";
 import {
   useAdminListOrders,
-  useAdminConfirmOrder,
-  useAdminDeleteOrder,
   getAdminListOrdersQueryKey,
 } from "@workspace/api-client-react";
 import { useState } from "react";
@@ -11,25 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatRupiah } from "@/lib/format";
 import { format } from "date-fns";
-import { ShoppingCart, CheckCircle, Trash2, FileText, Search, Server, Download } from "lucide-react";
+import { ShoppingCart, FileText, Search, Server, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/common";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { AdminListOrdersStatus } from "@workspace/api-client-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Link, useSearch } from "wouter";
 import { useDebounce } from "@/hooks/use-debounce";
 
@@ -57,8 +41,6 @@ export default function AdminOrders() {
   const [status, setStatus] = useState<string>(initialStatus);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 400);
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   const queryParams = {
     status: status === "all" ? undefined : (status as AdminListOrdersStatus),
@@ -70,38 +52,11 @@ export default function AdminOrders() {
     { query: { queryKey: getAdminListOrdersQueryKey(queryParams), refetchInterval: 30_000 } }
   );
 
-  const confirmOrder = useAdminConfirmOrder();
-  const deleteOrder = useAdminDeleteOrder();
-
-  const handleConfirm = (id: number) => {
-    confirmOrder.mutate({ id }, {
-      onSuccess: () => {
-        toast({ title: "Order dikonfirmasi", description: "Akun VPN berhasil dibuat" });
-        queryClient.invalidateQueries({ queryKey: getAdminListOrdersQueryKey() });
-      },
-      onError: (err) => {
-        toast({ title: "Gagal konfirmasi", description: getApiError(err), variant: "destructive" });
-      }
-    });
-  };
-
-  const handleDelete = (id: number) => {
-    deleteOrder.mutate({ id }, {
-      onSuccess: () => {
-        toast({ title: "Order dihapus" });
-        queryClient.invalidateQueries({ queryKey: getAdminListOrdersQueryKey() });
-      },
-      onError: (err) => {
-        toast({ title: "Gagal menghapus", description: getApiError(err), variant: "destructive" });
-      }
-    });
-  };
-
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Orders"
-        description="Kelola dan konfirmasi pembelian user."
+        title="Riwayat Order"
+        description="Lihat riwayat transaksi dan audit order (data statis hanya untuk dibaca)."
         actions={
           <>
             <Button
@@ -192,47 +147,6 @@ export default function AdminOrders() {
                     <div className="font-bold text-lg text-primary">
                       {formatRupiah(order.payableAmount ?? order.amount)}
                     </div>
-                    {order.status === "pending" && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleConfirm(order.id)}
-                        disabled={confirmOrder.isPending}
-                        className="gap-2"
-                      >
-                        <CheckCircle className="h-4 w-4" /> Konfirmasi
-                      </Button>
-                    )}
-                    {order.status !== "paid" && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="gap-1.5 text-red-600 border-red-200 hover:bg-red-50"
-                            disabled={deleteOrder.isPending}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Hapus Order #{order.id}?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Order dari <strong>{order.user?.username}</strong> untuk <strong>{order.product?.name}</strong> akan dihapus permanen. Aksi ini tidak bisa dibatalkan.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Batal</AlertDialogCancel>
-                            <AlertDialogAction
-                              className="bg-destructive hover:bg-destructive/90"
-                              onClick={() => handleDelete(order.id)}
-                            >
-                              Hapus
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    )}
                   </div>
                 </div>
               ))}

@@ -4,6 +4,30 @@ Semua perubahan penting pada proyek KETANTECH VPN akan didokumentasikan di file 
 
 ---
 
+## [2026-08-01] - Migrasi ke Dynamic VPN
+
+### 🔄 Perubahan Besar
+
+- **Produk static dihentikan** — Semua pembelian VPN baru kini menggunakan sistem dynamic VPN (NadiaVPN + Local Panel). Pengguna tidak lagi membuat produk static manual; produk disinkronkan otomatis dari provider.
+- **Order via `/order-vpn`** — Halaman order baru menggantikan alur beli produk static lama. User memilih server, protokol, dan durasi secara langsung.
+- **Perpanjangan hanya untuk akun dynamic** — Hanya akun VPN dengan tipe dynamic yang mendukung perpanjangan. Akun static (lama) tetap dapat dilihat datanya namun tidak dapat diperpanjang.
+- **Halaman produk dihapus** — Halaman `products` dan `product-detail` di frontend dihapus dari routing. Data historis tetap ada di database untuk keperluan audit.
+- **QRIS pending tetap berjalan** — Order static dengan QRIS pending masih dapat settle otomatis via webhook jika pembayaran diterima.
+
+### 📋 Data Historis
+
+- Order static lama tetap tercatat di database dengan status masing-masing.
+- Akun VPN static yang masih aktif tetap berjalan hingga masa berlaku habis.
+- Tabel `products` di database tetap ada untuk referensi data lama, namun tidak digunakan untuk pembelian baru.
+
+### 📁 File yang Dihapus
+
+- `artifacts/vpn-web/src/pages/user/products.tsx`
+- `artifacts/vpn-web/src/pages/user/product-detail.tsx`
+- Route terkait di `App.tsx` dan sidebar
+
+---
+
 ## [2026-05-02] - Hardening Auth & Webhook Security
 
 ### 🛡️ Security Fixes

@@ -1,5 +1,4 @@
 export * from "./generated/api";
-export type { CreateOrderBodyPaymentMethod } from "./generated/types/createOrderBodyPaymentMethod";
 export type { AdminListUsersRole } from "./generated/types/adminListUsersRole";
 export type { AdminListOrdersStatus } from "./generated/types/adminListOrdersStatus";
 export type { AdminListTopupsStatus } from "./generated/types/adminListTopupsStatus";
@@ -7,8 +6,6 @@ export type { AdminListAccountsProtocol } from "./generated/types/adminListAccou
 export type { AdminUpdateUserBodyRole } from "./generated/types/adminUpdateUserBodyRole";
 export type { CreateBugPresetBodyMode } from "./generated/types/createBugPresetBodyMode";
 export type { UpdateBugPresetBodyMode } from "./generated/types/updateBugPresetBodyMode";
-export type { CreateProductBodyProtocol } from "./generated/types/createProductBodyProtocol";
-export type { UpdateProductBodyProtocol } from "./generated/types/updateProductBodyProtocol";
 export type { CreateVoucherBodyDiscountType } from "./generated/types/createVoucherBodyDiscountType";
 export type { UpdateVoucherBodyDiscountType } from "./generated/types/updateVoucherBodyDiscountType";
 export type { ListOrdersStatus } from "./generated/types/listOrdersStatus";

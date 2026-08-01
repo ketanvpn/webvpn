@@ -17,6 +17,8 @@ tags:
     description: VPN products/packages
   - name: orders
     description: Orders and transactions
+  - name: dynamic-vpn
+    description: Dynamic VPN server purchasing and order history
   - name: accounts
     description: VPN accounts (user's active services)
   - name: balance
@@ -313,7 +315,8 @@ paths:
     get:
       operationId: listProducts
       tags: [products]
-      summary: List all active VPN packages
+      summary: List historical static VPN packages
+      description: Compatibility endpoint for historical static packages. Create new purchases with POST /dynamic-vpn/orders.
       parameters:
         - name: protocol
           in: query
@@ -326,7 +329,7 @@ paths:
             type: string
       responses:
         "200":
-          description: Product list
+          description: Historical static product list
           content:
             application/json:
               schema:
@@ -338,7 +341,8 @@ paths:
     get:
       operationId: getProduct
       tags: [products]
-      summary: Get product detail
+      summary: Get historical static VPN package detail
+      description: Compatibility endpoint for a historical static package. Create new purchases with POST /dynamic-vpn/orders.
       parameters:
         - name: id
           in: path
@@ -347,7 +351,7 @@ paths:
             type: integer
       responses:
         "200":
-          description: Product detail
+          description: Historical static product detail
           content:
             application/json:
               schema:
@@ -393,24 +397,14 @@ paths:
     post:
       operationId: createOrder
       tags: [orders]
-      summary: Create a new order (purchase VPN)
+      summary: Retired static product purchase endpoint
+      deprecated: true
+      description: Static product purchases have been retired. Use POST /dynamic-vpn/orders for new purchases.
       security:
         - cookieAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateOrderBody"
       responses:
-        "201":
-          description: Order created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Order"
-        "400":
-          description: Invalid request
+        "410":
+          description: Static purchases are retired; use POST /dynamic-vpn/orders.
           content:
             application/json:
               schema:
@@ -447,7 +441,9 @@ paths:
     post:
       operationId: payOrder
       tags: [orders]
-      summary: Pay for order using balance
+      summary: Retired static order payment endpoint
+      deprecated: true
+      description: Static order payments are retired. Use GET /orders for history and POST /dynamic-vpn/orders for new purchases.
       security:
         - cookieAuth: []
       parameters:
@@ -457,14 +453,8 @@ paths:
           schema:
             type: integer
       responses:
-        "200":
-          description: Payment successful, VPN account created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Order"
-        "400":
-          description: Insufficient balance or invalid state
+        "410":
+          description: Static order payments are retired; use order history or dynamic ordering.
           content:
             application/json:
               schema:
@@ -610,7 +600,9 @@ paths:
     post:
       operationId: renewAccount
       tags: [accounts]
-      summary: Renew a VPN account
+      summary: Retired static product renewal endpoint
+      deprecated: true
+      description: Static product renewals are retired. Create a new account through POST /dynamic-vpn/orders.
       security:
         - cookieAuth: []
       parameters:
@@ -619,21 +611,9 @@ paths:
           required: true
           schema:
             type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RenewAccountBody"
       responses:
-        "200":
-          description: Renewed
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/VpnAccount"
-        "400":
-          description: Insufficient balance or error
+        "410":
+          description: Static renewals are retired; create a new account through POST /dynamic-vpn/orders.
           content:
             application/json:
               schema:
@@ -862,7 +842,188 @@ paths:
     post:
       operationId: adminCreateProduct
       tags: [admin]
-      summary: Create product (admin)
+      summary: Retired static product creation endpoint
+      deprecated: true
+      description: Static product mutations are retired. GET /admin/products remains available for history and audit.
+      security:
+        - cookieAuth: []
+      responses:
+        "410":
+          description: Static product mutations are retired.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RetiredRouteResponse"
+
+  /accounts/{id}/renew-dynamic/quote:
+    post:
+      operationId: quoteDynamicAccountRenewal
+      tags: [accounts, dynamic-vpn]
+      summary: Quote a balance-funded renewal for a dynamic VPN account
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DynamicRenewalBody"
+      responses:
+        "200":
+          description: Dynamic renewal price quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DynamicRenewalQuote"
+        "400":
+          description: Invalid duration or account cannot be renewed dynamically
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /accounts/{id}/sync-provider:
+    post:
+      operationId: syncDynamicAccountProvider
+      tags: [accounts, dynamic-vpn]
+      summary: Synchronize a NadiaVPN dynamic account from its provider
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+      responses:
+        "200":
+          description: Synchronized VPN account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VpnAccount"
+        "400":
+          description: Account is not a synchronizable NadiaVPN dynamic account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /accounts/{id}/renew-dynamic:
+    post:
+      operationId: renewDynamicAccount
+      tags: [accounts, dynamic-vpn]
+      summary: Renew a dynamic VPN account using balance
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DynamicRenewalBody"
+      responses:
+        "200":
+          description: Dynamic account renewed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DynamicRenewalResponse"
+        "400":
+          description: Invalid renewal request or insufficient balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Renewal already in progress for this account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Dynamic renewal failed after the request was accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── Dynamic VPN ───────────────────────────────────────────────────────
+  /dynamic-vpn/public-servers:
+    get:
+      operationId: listPublicDynamicVpnServers
+      tags: [dynamic-vpn]
+      summary: List active dynamic VPN servers for public display
+      responses:
+        "200":
+          description: Active dynamic servers, including servers currently at capacity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DynamicVpnServerListResponse"
+
+  /dynamic-vpn/servers:
+    get:
+      operationId: listDynamicVpnServers
+      tags: [dynamic-vpn]
+      summary: List purchasable dynamic VPN servers
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Active dynamic servers with available capacity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DynamicVpnServerListResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /dynamic-vpn/quote:
+    post:
+      operationId: quoteDynamicVpnOrder
+      tags: [dynamic-vpn]
+      summary: Quote a dynamic VPN purchase
       security:
         - cookieAuth: []
       requestBody:
@@ -870,20 +1031,425 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateProductBody"
+              $ref: "#/components/schemas/DynamicVpnQuoteBody"
       responses:
-        "201":
-          description: Created product
+        "200":
+          description: Dynamic VPN price quote
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Product"
+                $ref: "#/components/schemas/DynamicVpnQuote"
+        "400":
+          description: Invalid server, protocol, duration, or voucher
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Dynamic server is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /dynamic-vpn/orders:
+    get:
+      operationId: listDynamicVpnOrders
+      tags: [dynamic-vpn]
+      summary: List the current user's dynamic VPN orders
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Dynamic VPN order history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DynamicVpnOrderListResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      operationId: createDynamicVpnOrder
+      tags: [dynamic-vpn]
+      summary: Create a pending dynamic VPN order
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDynamicVpnOrderBody"
+      responses:
+        "200":
+          description: Matching pending or failed order was reused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateDynamicVpnOrderResponse"
+        "201":
+          description: Dynamic VPN order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateDynamicVpnOrderResponse"
+        "400":
+          description: Invalid order request, unavailable protocol, duration, or voucher
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Server capacity, username, or an order-in-progress conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Dynamic order could not be created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /dynamic-vpn/orders/{id}:
+    get:
+      operationId: getDynamicVpnOrder
+      tags: [dynamic-vpn]
+      summary: Get one of the current user's dynamic VPN orders
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DynamicVpnOrderId"
+      responses:
+        "200":
+          description: Dynamic VPN order detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DynamicVpnOrderResponse"
+        "400":
+          description: Invalid order ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Dynamic VPN order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /dynamic-vpn/orders/{id}/pay:
+    post:
+      operationId: payDynamicVpnOrder
+      tags: [dynamic-vpn]
+      summary: Pay and provision a pending dynamic VPN order from balance
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DynamicVpnOrderId"
+      responses:
+        "200":
+          description: Dynamic VPN order was provisioned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DynamicVpnOrderResponse"
+        "400":
+          description: Insufficient balance or invalid payment request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Dynamic VPN order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Dynamic VPN order cannot be paid in its current status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Dynamic VPN provisioning failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── Admin: Dynamic VPN ─────────────────────────────────────────────────
+  /admin/dynamic-vpn/servers:
+    get:
+      operationId: adminListDynamicVpnServers
+      tags: [admin, dynamic-vpn]
+      summary: List all dynamic VPN servers with provider and pricing metadata
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Dynamic VPN server list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDynamicVpnServerListResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/dynamic-vpn/servers/sync/nadiavpn:
+    post:
+      operationId: adminSyncNadiaVpnDynamicServers
+      tags: [admin, dynamic-vpn]
+      summary: Synchronize dynamic VPN servers from NadiaVPN
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: NadiaVPN dynamic servers synchronized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDynamicVpnServerSyncResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Provider synchronization failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/dynamic-vpn/servers/sync/local-panel:
+    post:
+      operationId: adminSyncLocalPanelDynamicServers
+      tags: [admin, dynamic-vpn]
+      summary: Synchronize dynamic VPN servers from local panels
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Local-panel dynamic servers synchronized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDynamicVpnServerSyncResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Local-panel synchronization failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/dynamic-vpn/orders:
+    get:
+      operationId: adminListDynamicVpnOrders
+      tags: [admin, dynamic-vpn]
+      summary: List dynamic VPN orders with buyer and voucher metadata
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+          description: Filter by order status; use all or omit for every status.
+        - name: provider
+          in: query
+          schema:
+            type: string
+          description: Filter by provider; use all or omit for every provider.
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Sanitized dynamic VPN order list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDynamicVpnOrderListResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/dynamic-vpn/servers/{id}:
+    patch:
+      operationId: adminUpdateDynamicVpnServer
+      tags: [admin, dynamic-vpn]
+      summary: Update dynamic VPN server availability, pricing, and limits
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DynamicVpnServerId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDynamicVpnServerBody"
+      responses:
+        "200":
+          description: Updated dynamic VPN server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDynamicVpnServer"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Dynamic VPN server not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/accounts/{id}/sync:
+    post:
+      operationId: adminSyncVpnAccount
+      tags: [admin, accounts]
+      summary: Synchronize a VPN account from its local panel
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+      responses:
+        "200":
+          description: VPN account synchronized from its panel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminVpnAccountSyncResponse"
+        "400":
+          description: Account server has no configured panel API credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Panel did not return account information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /admin/products/{id}:
     patch:
       operationId: adminUpdateProduct
       tags: [admin]
-      summary: Update product (admin)
+      summary: Retired static product update endpoint
+      deprecated: true
+      description: Static product mutations are retired. GET /admin/products remains available for history and audit.
       security:
         - cookieAuth: []
       parameters:
@@ -892,23 +1458,19 @@ paths:
           required: true
           schema:
             type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateProductBody"
       responses:
-        "200":
-          description: Updated product
+        "410":
+          description: Static product mutations are retired.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Product"
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       operationId: adminDeleteProduct
       tags: [admin]
-      summary: Delete product (admin)
+      summary: Retired static product deletion endpoint
+      deprecated: true
+      description: Static product mutations are retired. GET /admin/products remains available for history and audit.
       security:
         - cookieAuth: []
       parameters:
@@ -918,12 +1480,12 @@ paths:
           schema:
             type: integer
       responses:
-        "200":
-          description: Deleted
+        "410":
+          description: Static product mutations are retired.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MessageResponse"
+                $ref: "#/components/schemas/ErrorResponse"
 
   # ─── Admin: Servers ────────────────────────────────────────────────────
   /admin/servers:
@@ -1053,7 +1615,9 @@ paths:
     post:
       operationId: adminConfirmOrder
       tags: [admin]
-      summary: Manually confirm/approve an order
+      summary: Retired static order confirmation endpoint
+      deprecated: true
+      description: Static order confirmation is retired. Payment settlement remains responsible for fulfillment; GET /admin/orders remains available for history and audit.
       security:
         - cookieAuth: []
       parameters:
@@ -1063,12 +1627,12 @@ paths:
           schema:
             type: integer
       responses:
-        "200":
-          description: Order confirmed
+        "410":
+          description: Static order confirmation is retired; use payment settlement or GET /admin/orders for history and audit.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Order"
+                $ref: "#/components/schemas/ErrorResponse"
 
   # ─── Admin: Topup ──────────────────────────────────────────────────────
   /admin/topups:
@@ -1286,7 +1850,9 @@ paths:
     delete:
       operationId: adminDeleteOrder
       tags: [admin]
-      summary: Delete an order (admin, non-paid only)
+      summary: Retired static order deletion endpoint
+      deprecated: true
+      description: Static order deletion is retired to preserve historical data. GET /admin/orders remains available for history and audit.
       security:
         - cookieAuth: []
       parameters:
@@ -1296,24 +1862,12 @@ paths:
           schema:
             type: integer
       responses:
-        "200":
-          description: Order deleted
+        "410":
+          description: Static order deletion is retired; use GET /admin/orders for history and audit.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SuccessResponse"
-        "400":
-          description: Cannot delete paid order
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: Order not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/RetiredRouteResponse"
 
   /admin/accounts/{id}/toggle:
     post:
@@ -2005,6 +2559,24 @@ components:
       name: token
 
   parameters:
+    AccountId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+    DynamicVpnServerId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+    DynamicVpnOrderId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
     EasyInjectPresetId:
       name: id
       in: path
@@ -2205,6 +2777,20 @@ components:
       properties:
         error:
           type: string
+        replacement:
+          type: string
+
+    RetiredRouteResponse:
+      type: object
+      required: [status, error, replacement]
+      properties:
+        status:
+          type: integer
+          enum: [410]
+        error:
+          type: string
+        replacement:
+          type: string
 
     MessageResponse:
       type: object
@@ -2212,6 +2798,412 @@ components:
       properties:
         message:
           type: string
+
+    # ─── Dynamic VPN ───────────────────────────────────────────────────────
+    DynamicDurationType:
+      type: string
+      enum: [day, week, month]
+
+    DynamicVpnProtocol:
+      type: string
+      enum: [ssh, vmess, vless, trojan]
+
+    DynamicVpnServer:
+      type: object
+      required:
+        [id, provider, displayName, enabledProtocols, supportedTypes, isActive, trialEnabled, renewEnabled, sellPricePerDay, sellPricePerWeek, sellPricePerMonth, minDays, maxDays, minMonths, maxMonths, capacityUsed, capacityIsFull, maxConnections, sortOrder]
+      properties:
+        id:
+          type: integer
+        provider:
+          type: string
+          enum: [nadiavpn, local_panel]
+        displayName:
+          type: string
+        location:
+          type: string
+          nullable: true
+        enabledProtocols:
+          type: array
+          items:
+            $ref: "#/components/schemas/DynamicVpnProtocol"
+        supportedTypes:
+          type: array
+          items:
+            $ref: "#/components/schemas/DynamicDurationType"
+        isActive:
+          type: boolean
+        trialEnabled:
+          type: boolean
+        trialDuration:
+          type: string
+          nullable: true
+        renewEnabled:
+          type: boolean
+        sellPricePerDay:
+          type: number
+        sellPricePerWeek:
+          type: number
+        sellPricePerMonth:
+          type: number
+        minDays:
+          type: integer
+        maxDays:
+          type: integer
+        minMonths:
+          type: integer
+        maxMonths:
+          type: integer
+        capacityLimit:
+          type: string
+          nullable: true
+        capacityUsed:
+          type: integer
+        capacityIsFull:
+          type: boolean
+        maxConnections:
+          type: integer
+        sortOrder:
+          type: integer
+
+    DynamicVpnServerListResponse:
+      type: object
+      required: [servers]
+      properties:
+        servers:
+          type: array
+          items:
+            $ref: "#/components/schemas/DynamicVpnServer"
+
+    AdminDynamicVpnServer:
+      allOf:
+        - $ref: "#/components/schemas/DynamicVpnServer"
+        - type: object
+          required: [providerServerId, providerName, supportedProtocols, providerTrialEnabled, costPerDay, costPerWeek, costPerMonth, pricingMode, markupPercent, lastSyncedAt, createdAt, updatedAt]
+          properties:
+            providerServerId:
+              type: string
+            providerName:
+              type: string
+            supportedProtocols:
+              type: array
+              items:
+                $ref: "#/components/schemas/DynamicVpnProtocol"
+            providerTrialEnabled:
+              type: boolean
+            costPerDay:
+              type: number
+            costPerWeek:
+              type: number
+            costPerMonth:
+              type: number
+            pricingMode:
+              type: string
+              enum: [auto_markup, manual]
+            markupPercent:
+              type: integer
+            lastSyncedAt:
+              type: string
+              format: date-time
+              nullable: true
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    AdminDynamicVpnServerListResponse:
+      type: object
+      required: [servers]
+      properties:
+        servers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminDynamicVpnServer"
+
+    AdminDynamicVpnServerSyncResponse:
+      type: object
+      required: [success, total, servers]
+      properties:
+        success:
+          type: boolean
+        total:
+          type: integer
+        servers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminDynamicVpnServer"
+
+    UpdateDynamicVpnServerBody:
+      type: object
+      properties:
+        displayName:
+          type: string
+        isActive:
+          type: boolean
+        trialEnabled:
+          type: boolean
+        enabledProtocols:
+          type: array
+          items:
+            $ref: "#/components/schemas/DynamicVpnProtocol"
+        sellPricePerDay:
+          type: number
+          minimum: 0
+        sellPricePerWeek:
+          type: number
+          minimum: 0
+        sellPricePerMonth:
+          type: number
+          minimum: 0
+        minDays:
+          type: integer
+          minimum: 1
+        maxDays:
+          type: integer
+          minimum: 1
+        minMonths:
+          type: integer
+          minimum: 1
+        maxMonths:
+          type: integer
+          minimum: 1
+        maxConnections:
+          type: integer
+          minimum: 0
+        sortOrder:
+          type: integer
+        pricingMode:
+          type: string
+          enum: [auto_markup, manual]
+        markupPercent:
+          type: integer
+          minimum: 0
+          maximum: 1000
+
+    DynamicVpnQuoteBody:
+      type: object
+      required: [serverId, protocol, durationType, duration]
+      properties:
+        serverId:
+          type: integer
+        protocol:
+          $ref: "#/components/schemas/DynamicVpnProtocol"
+        durationType:
+          $ref: "#/components/schemas/DynamicDurationType"
+        duration:
+          type: integer
+          minimum: 1
+        voucherCode:
+          type: string
+
+    DynamicVpnQuote:
+      type: object
+      required: [unitPrice, baseAmount, durationLabel, amount, resellerDiscountAmount, voucherDiscountAmount, discountAmount, voucherId, voucherCode]
+      properties:
+        unitPrice:
+          type: number
+        baseAmount:
+          type: number
+        durationLabel:
+          type: string
+        amount:
+          type: number
+        resellerDiscountAmount:
+          type: number
+        voucherDiscountAmount:
+          type: number
+        discountAmount:
+          type: number
+        voucherId:
+          type: integer
+          nullable: true
+        voucherCode:
+          type: string
+          nullable: true
+
+    CreateDynamicVpnOrderBody:
+      type: object
+      required: [serverId, protocol, durationType, duration, username]
+      properties:
+        serverId:
+          type: integer
+        protocol:
+          $ref: "#/components/schemas/DynamicVpnProtocol"
+        durationType:
+          $ref: "#/components/schemas/DynamicDurationType"
+        duration:
+          type: integer
+          minimum: 1
+        username:
+          type: string
+          minLength: 5
+          pattern: '^(?=.*[a-z])(?=(?:.*\d){2,})[a-zA-Z0-9]+$'
+        password:
+          type: string
+          minLength: 6
+          maxLength: 32
+          description: Required for SSH orders; not returned in user order responses.
+        paymentMethod:
+          type: string
+          enum: [balance]
+          default: balance
+        voucherCode:
+          type: string
+
+    DynamicVpnOrder:
+      type: object
+      required: [id, userId, dynamicServerId, provider, providerServerId, serverDisplayName, protocol, durationType, duration, username, amount, voucherId, discountAmount, status, paymentMethod, vpnAccountId, providerAccountId, qrisUrl, expiresAt, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        dynamicServerId:
+          type: integer
+          nullable: true
+        provider:
+          type: string
+        providerServerId:
+          type: string
+        serverDisplayName:
+          type: string
+        protocol:
+          $ref: "#/components/schemas/DynamicVpnProtocol"
+        durationType:
+          $ref: "#/components/schemas/DynamicDurationType"
+        duration:
+          type: integer
+        username:
+          type: string
+        amount:
+          type: number
+        voucherId:
+          type: integer
+          nullable: true
+        discountAmount:
+          type: number
+        status:
+          type: string
+          enum: [pending, processing, paid, failed, expired]
+        paymentMethod:
+          type: string
+        vpnAccountId:
+          type: integer
+          nullable: true
+        providerAccountId:
+          type: string
+          nullable: true
+        qrisUrl:
+          type: string
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    DynamicVpnOrderResponse:
+      type: object
+      required: [order]
+      properties:
+        order:
+          $ref: "#/components/schemas/DynamicVpnOrder"
+
+    DynamicVpnOrderListResponse:
+      type: object
+      required: [orders]
+      properties:
+        orders:
+          type: array
+          items:
+            $ref: "#/components/schemas/DynamicVpnOrder"
+
+    AdminDynamicVpnOrder:
+      allOf:
+        - $ref: "#/components/schemas/DynamicVpnOrder"
+        - type: object
+          required: [buyer, voucherCode]
+          properties:
+            buyer:
+              type: object
+              required: [username, email]
+              properties:
+                username:
+                  type: string
+                  nullable: true
+                email:
+                  type: string
+                  nullable: true
+            voucherCode:
+              type: string
+              nullable: true
+
+    AdminDynamicVpnOrderListResponse:
+      type: object
+      required: [orders]
+      properties:
+        orders:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminDynamicVpnOrder"
+
+    CreateDynamicVpnOrderResponse:
+      type: object
+      required: [order, quote, reused]
+      properties:
+        order:
+          $ref: "#/components/schemas/DynamicVpnOrder"
+        quote:
+          $ref: "#/components/schemas/DynamicVpnQuote"
+        reused:
+          type: boolean
+
+    DynamicRenewalBody:
+      type: object
+      required: [durationType, duration]
+      properties:
+        durationType:
+          $ref: "#/components/schemas/DynamicDurationType"
+        duration:
+          type: integer
+          minimum: 1
+
+    DynamicRenewalQuote:
+      type: object
+      required: [amount, baseAmount, resellerDiscountAmount, unitPrice, durationType, duration, durationLabel]
+      properties:
+        amount:
+          type: number
+        baseAmount:
+          type: number
+        resellerDiscountAmount:
+          type: number
+        unitPrice:
+          type: number
+        durationType:
+          $ref: "#/components/schemas/DynamicDurationType"
+        duration:
+          type: integer
+        durationLabel:
+          type: string
+
+    DynamicRenewalResponse:
+      type: object
+      required: [account, amount, discountAmount]
+      properties:
+        account:
+          $ref: "#/components/schemas/VpnAccount"
+        amount:
+          type: number
+        discountAmount:
+          type: number
 
     ValidationErrorResponse:
       type: object
@@ -2365,77 +3357,6 @@ components:
           nullable: true
           description: Nama server yang di-pin (null jika tidak di-pin)
 
-    CreateProductBody:
-      type: object
-      required: [name, protocol, durationDays, price, stock]
-      properties:
-        name:
-          type: string
-        description:
-          type: string
-        protocol:
-          type: string
-          enum: [ssh, vmess, vless, trojan, shadowsocks]
-        durationDays:
-          type: integer
-        price:
-          type: number
-        quota:
-          type: number
-          nullable: true
-        maxConnections:
-          type: integer
-          nullable: true
-        stock:
-          type: integer
-          description: Batas maksimal akun aktif
-        isActive:
-          type: boolean
-          default: true
-        category:
-          type: string
-        sortOrder:
-          type: integer
-          default: 0
-        serverId:
-          type: integer
-          nullable: true
-          description: ID server yang di-pin untuk produk ini (null = pilih otomatis)
-
-    UpdateProductBody:
-      type: object
-      properties:
-        name:
-          type: string
-        description:
-          type: string
-        protocol:
-          type: string
-          enum: [ssh, vmess, vless, trojan, shadowsocks]
-        durationDays:
-          type: integer
-        price:
-          type: number
-        quota:
-          type: number
-          nullable: true
-        maxConnections:
-          type: integer
-          nullable: true
-        stock:
-          type: integer
-          description: Batas maksimal akun aktif
-        isActive:
-          type: boolean
-        category:
-          type: string
-        sortOrder:
-          type: integer
-        serverId:
-          type: integer
-          nullable: true
-          description: ID server yang di-pin untuk produk ini (null = pilih otomatis)
-
     # ─── Orders ───────────────────────────────────────────────────────────
     Order:
       type: object
@@ -2500,28 +3421,6 @@ components:
         updatedAt:
           type: string
           format: date-time
-
-    CreateOrderBody:
-      type: object
-      required: [productId, remarks]
-      properties:
-        productId:
-          type: integer
-        serverId:
-          type: integer
-          nullable: true
-        paymentMethod:
-          type: string
-          enum: [balance, qris]
-          default: balance
-        remarks:
-          type: string
-          minLength: 5
-          pattern: '^(?=(?:.*[a-zA-Z]))(?=(?:.*[0-9]){2,})[a-zA-Z0-9]{5,}$'
-          description: "Nama akun VPN unik. Wajib minimal 5 karakter, hanya huruf dan angka (minimal 2 angka). Contoh: daaw12"
-        voucherCode:
-          type: string
-          nullable: true
 
     OrderListResponse:
       type: object
@@ -2684,7 +3583,7 @@ components:
     # ─── VPN Accounts ─────────────────────────────────────────────────────
     VpnAccount:
       type: object
-      required: [id, userId, protocol, username, server, expiresAt, isActive, createdAt]
+      required: [id, userId, orderId, dynamicOrder, protocol, username, serverId, server, configLink, allLinks, expiresAt, quota, usedQuota, productName, isActive, createdAt]
       properties:
         id:
           type: integer
@@ -2693,6 +3592,37 @@ components:
         orderId:
           type: integer
           nullable: true
+        dynamicOrder:
+          type: object
+          nullable: true
+          required: [id, provider, providerServerId, serverDisplayName, providerAccountId, dynamicServerId, renewEnabled, supportedTypes, sellPricePerDay, sellPricePerWeek, sellPricePerMonth]
+          properties:
+            id:
+              type: integer
+            provider:
+              type: string
+            providerServerId:
+              type: string
+            serverDisplayName:
+              type: string
+            providerAccountId:
+              type: string
+              nullable: true
+            dynamicServerId:
+              type: integer
+              nullable: true
+            renewEnabled:
+              type: boolean
+            supportedTypes:
+              type: array
+              items:
+                $ref: "#/components/schemas/DynamicDurationType"
+            sellPricePerDay:
+              type: number
+            sellPricePerWeek:
+              type: number
+            sellPricePerMonth:
+              type: number
         protocol:
           type: string
           enum: [ssh, vmess, vless, trojan, shadowsocks]
@@ -2708,6 +3638,7 @@ components:
           type: integer
         server:
           $ref: "#/components/schemas/PublicServer"
+          nullable: true
         configLink:
           type: string
           nullable: true
@@ -2738,12 +3669,42 @@ components:
           type: string
           format: date-time
 
-    RenewAccountBody:
+    AdminVpnAccountSyncResponse:
       type: object
-      required: [productId]
+      required: [success, panelInfo, account]
       properties:
-        productId:
-          type: integer
+        success:
+          type: boolean
+        panelInfo:
+          type: object
+          properties:
+            username:
+              type: string
+            uuid:
+              type: string
+            hostname:
+              type: string
+            expired:
+              type: string
+            configLink:
+              type: string
+            allLinks:
+              type: object
+              additionalProperties:
+                type: string
+                nullable: true
+        account:
+          type: object
+          required: [id, uuid, configLink]
+          properties:
+            id:
+              type: integer
+            uuid:
+              type: string
+              nullable: true
+            configLink:
+              type: string
+              nullable: true
 
     # ─── Servers ──────────────────────────────────────────────────────────
     PublicServer:

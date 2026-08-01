@@ -13,14 +13,13 @@ import {
   ticketsTable,
   ticketMessagesTable,
   pointLogsTable,
-  paymentAttemptsTable,
 } from "@workspace/db";
 import { eq, and, or, ilike, like, desc, asc, sql, inArray } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { requireAdmin } from "../lib/auth";
 import { formatProduct, getActiveCountMap } from "./products";
-import { formatOrder, fulfillOrder } from "./orders";
+import { formatOrder } from "./orders";
 import { formatAccount } from "./accounts";
 import { formatTopup } from "./balance";
 import { formatFullServer } from "./servers";
@@ -29,6 +28,7 @@ import { notifyUserTopupConfirmed, notifyUserTopupRejected } from "../lib/telegr
 import { addBalanceLog } from "./balance-logs";
 import { logAdminAction } from "./admin-audit";
 import { getClientIp } from "../lib/request-ip";
+import { retiredRouteResponse } from "../lib/retired-route";
 import { tryAutoUpgradeReseller } from "../lib/reseller-upgrade";
 import { getReferralBonusAmount } from "../lib/scheduler";
 import { addPoints, getPointsSettings } from "./points";
@@ -37,8 +37,6 @@ import { manualTopupCredit } from "../lib/payment/manual-topup-policy";
 import {
   AdminListUsersQueryParams,
   AdminUpdateUserBody,
-  AdminCreateProductBody,
-  AdminUpdateProductBody,
   AdminCreateServerBody,
   AdminUpdateServerBody,
   AdminListOrdersQueryParams,
@@ -709,149 +707,19 @@ router.get("/admin/products", requireAdmin, async (_req, res) => {
   res.json(rows.map((r: any) => formatProduct(r.product, countMap.get(r.product.id) ?? 0, 0, r.serverName ?? null)));
 });
 
-router.post("/admin/products", requireAdmin, async (req, res) => {
-  const parsed = AdminCreateProductBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: "Invalid input" });
-    return;
-  }
-  const data = parsed.data;
-  const [product] = await db
-    .insert(productsTable)
-    .values({
-      name: data.name,
-      description: data.description ?? null,
-      protocol: data.protocol,
-      durationDays: data.durationDays,
-      price: String(data.price),
-      quota: data.quota != null ? String(data.quota) : null,
-      maxConnections: data.maxConnections ?? null,
-      stock: data.stock ?? 100,
-      isActive: data.isActive ?? true,
-      category: data.category ?? null,
-      sortOrder: data.sortOrder ?? 0,
-      serverId: data.serverId ?? null,
-    })
-    .returning();
-  let serverName: string | null = null;
-  if (product.serverId) {
-    const [srv] = await db.select({ name: serversTable.name }).from(serversTable).where(eq(serversTable.id, product.serverId)).limit(1);
-    serverName = srv?.name ?? null;
-  }
-
-  // Audit log
-  const adminIdProductCreate = req.user!.userId;
-  logAdminAction({
-    adminUserId: adminIdProductCreate,
-    action: "create_product",
-    targetType: "product",
-    targetId: product.id,
-    details: { name: product.name, protocol: product.protocol, price: product.price },
-    ipAddress: getClientIp(req as any),
-  }).catch(() => {});
-
-  res.status(201).json(formatProduct(product, 0, 0, serverName));
+router.post("/admin/products", requireAdmin, async (_req, res) => {
+  const response = retiredRouteResponse("adminProductMutation");
+  res.status(response.status).json(response);
 });
 
-router.patch("/admin/products/:id", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id as string, 10);
-  const parsed = AdminUpdateProductBody.safeParse(req.body);
-
-  if (!parsed.success) {
-    res.status(400).json({ error: "Invalid input" });
-    return;
-  }
-
-  const data = parsed.data;
-  const updateData: Record<string, unknown> = {};
-  if (data.name !== undefined) updateData.name = data.name;
-  if (data.description !== undefined) updateData.description = data.description;
-  if (data.protocol !== undefined) updateData.protocol = data.protocol;
-  if (data.durationDays !== undefined) updateData.durationDays = data.durationDays;
-  if (data.price !== undefined) updateData.price = String(data.price);
-  if (data.quota !== undefined) updateData.quota = data.quota != null ? String(data.quota) : null;
-  if (data.maxConnections !== undefined) updateData.maxConnections = data.maxConnections;
-  if (data.stock !== undefined) updateData.stock = data.stock;
-  if (data.isActive !== undefined) updateData.isActive = data.isActive;
-  if (data.category !== undefined) updateData.category = data.category;
-  if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
-  if (data.serverId !== undefined) updateData.serverId = data.serverId ?? null;
-
-  const [product] = await db
-    .update(productsTable)
-    .set(updateData)
-    .where(eq(productsTable.id, id))
-    .returning();
-
-  if (!product) {
-    res.status(404).json({ error: "Product not found" });
-    return;
-  }
-
-  let serverName: string | null = null;
-  if (product.serverId) {
-    const [srv] = await db.select({ name: serversTable.name }).from(serversTable).where(eq(serversTable.id, product.serverId)).limit(1);
-    serverName = srv?.name ?? null;
-  }
-  const countMap = await getActiveCountMap([product.id]);
-
-  // Audit log
-  const adminIdProductPatch = req.user!.userId;
-  logAdminAction({
-    adminUserId: adminIdProductPatch,
-    action: "update_product",
-    targetType: "product",
-    targetId: product.id,
-    details: { changes: data },
-    ipAddress: getClientIp(req as any),
-  }).catch(() => {});
-
-  res.json(formatProduct(product, countMap.get(product.id) ?? 0, 0, serverName));
+router.patch("/admin/products/:id", requireAdmin, async (_req, res) => {
+  const response = retiredRouteResponse("adminProductMutation");
+  res.status(response.status).json(response);
 });
 
-router.delete("/admin/products/:id", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id as string, 10);
-
-  // Cek apakah produk ada
-  const [product] = await db
-    .select({ id: productsTable.id, name: productsTable.name })
-    .from(productsTable)
-    .where(eq(productsTable.id, id))
-    .limit(1);
-
-  if (!product) {
-    res.status(404).json({ error: "Produk tidak ditemukan" });
-    return;
-  }
-
-  // Cek apakah ada order yang menggunakan produk ini
-  const [orderCount] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(ordersTable)
-    .where(eq(ordersTable.productId, id));
-
-  if (orderCount.count > 0) {
-    res.status(409).json({
-      error: `Produk tidak dapat dihapus karena memiliki ${orderCount.count} order terkait. Nonaktifkan produk jika tidak ingin ditampilkan di toko.`,
-    });
-    return;
-  }
-
-  // Tidak ada order → hard delete
-  await db.delete(productsTable).where(eq(productsTable.id, id));
-
-  // Audit log
-  const adminIdProductDelete = req.user!.userId;
-  logAdminAction({
-    adminUserId: adminIdProductDelete,
-    action: "delete_product",
-    targetType: "product",
-    targetId: id,
-    details: { name: product.name },
-    ipAddress: getClientIp(req as any),
-  }).catch(() => {});
-
-  res.json({ success: true, message: "Produk berhasil dihapus" });
+router.delete("/admin/products/:id", requireAdmin, async (_req, res) => {
+  const response = retiredRouteResponse("adminProductMutation");
+  res.status(response.status).json(response);
 });
 
 // ─── Admin: Servers ───────────────────────────────────────────────────────────
@@ -1101,91 +969,9 @@ router.get("/admin/orders", requireAdmin, async (req, res) => {
   res.json({ orders: formatted, total: total?.count ?? 0 });
 });
 
-router.post("/admin/orders/:id/confirm", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id as string, 10);
-
-  const [order] = await db
-    .select()
-    .from(ordersTable)
-    .where(eq(ordersTable.id, id))
-    .limit(1);
-
-  if (!order) {
-    res.status(404).json({ error: "Order not found" });
-    return;
-  }
-
-  if (order.status === "paid") {
-    res.json(await formatOrder(order));
-    return;
-  }
-
-  if (!['pending', 'processing'].includes(order.status)) {
-    res.status(400).json({ error: `Order tidak bisa dikonfirmasi (status saat ini: ${order.status})` });
-    return;
-  }
-
-  if (order.vpnAccountId) {
-    const [updated] = await db
-      .update(ordersTable)
-      .set({ status: "paid", updatedAt: new Date() })
-      .where(and(eq(ordersTable.id, id), eq(ordersTable.status, order.status)))
-      .returning();
-
-    res.json(await formatOrder(updated ?? order));
-    return;
-  }
-
-  if (order.status === "processing") {
-    res.status(409).json({ error: "Order sedang diproses. Tunggu proses sebelumnya selesai atau cek status order terlebih dahulu." });
-    return;
-  }
-
-  if (order.status === "pending") {
-    const [locked] = await db
-      .update(ordersTable)
-      .set({ status: "processing", updatedAt: new Date() })
-      .where(and(eq(ordersTable.id, id), eq(ordersTable.status, "pending")))
-      .returning();
-
-    if (!locked) {
-      const [latest] = await db.select().from(ordersTable).where(eq(ordersTable.id, id)).limit(1);
-      res.status(409).json({ error: `Order sedang/sudah diproses (status saat ini: ${latest?.status ?? "unknown"})` });
-      return;
-    }
-  }
-
-  try {
-    await fulfillOrder(id, { deductBalance: false });
-  } catch (err) {
-    await db
-      .update(ordersTable)
-      .set({ status: "pending", updatedAt: new Date() })
-      .where(and(eq(ordersTable.id, id), eq(ordersTable.status, "processing")));
-
-    const message = err instanceof Error ? err.message : "Gagal konfirmasi order";
-    res.status(message.includes("Panel") || message.includes("server") || message.includes("provision") ? 502 : 400).json({ error: message });
-    return;
-  }
-
-  const [updated] = await db.select().from(ordersTable).where(eq(ordersTable.id, id)).limit(1);
-  if (!updated) {
-    res.status(500).json({ error: "Order berhasil diproses tetapi data order tidak ditemukan" });
-    return;
-  }
-
-  // Audit log
-  const adminIdOrderConfirm = req.user!.userId;
-  logAdminAction({
-    adminUserId: adminIdOrderConfirm,
-    action: "confirm_order",
-    targetType: "order",
-    targetId: id,
-    details: { userId: order.userId, productId: order.productId, amount: Number(order.amount) },
-    ipAddress: getClientIp(req as any),
-  }).catch(() => {});
-
-  res.json(await formatOrder(updated));
+router.post("/admin/orders/:id/confirm", requireAdmin, (_req, res) => {
+  const response = retiredRouteResponse("adminStaticOrderConfirmation");
+  res.status(response.status).json(response);
 });
 
 // ─── Admin: Topups ────────────────────────────────────────────────────────────
@@ -1696,52 +1482,9 @@ router.post("/admin/accounts/bulk-delete", requireAdmin, async (req, res) => {
   });
 });
 
-router.delete("/admin/orders/:id", requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id as string, 10);
-
-  const [order] = await db
-    .select()
-    .from(ordersTable)
-    .where(eq(ordersTable.id, id))
-    .limit(1);
-
-  if (!order) {
-    res.status(404).json({ error: "Order not found" });
-    return;
-  }
-
-  if (order.status === "paid" || order.status === "processing") {
-    res.status(400).json({ error: "Order yang sedang/sudah diproses tidak bisa dihapus" });
-    return;
-  }
-
-  const [paymentAttempt] = await db
-    .select({ id: paymentAttemptsTable.id, status: paymentAttemptsTable.status })
-    .from(paymentAttemptsTable)
-    .where(eq(paymentAttemptsTable.orderId, id))
-    .limit(1);
-  if (paymentAttempt) {
-    res.status(409).json({
-      error:
-        "Order memiliki riwayat percobaan provider dan tidak boleh dihapus. Ubah status atau biarkan sebagai audit pembayaran.",
-    });
-    return;
-  }
-
-  await db.delete(ordersTable).where(eq(ordersTable.id, id));
-
-  // Audit log
-  const adminIdOrderDelete = req.user!.userId;
-  logAdminAction({
-    adminUserId: adminIdOrderDelete,
-    action: "delete_order",
-    targetType: "order",
-    targetId: id,
-    details: { status: order.status, userId: order.userId },
-    ipAddress: getClientIp(req as any),
-  }).catch(() => {});
-
-  res.json({ success: true });
+router.delete("/admin/orders/:id", requireAdmin, (_req, res) => {
+  const response = retiredRouteResponse("adminStaticOrderDeletion");
+  res.status(response.status).json(response);
 });
 
 router.post("/admin/accounts/:id/toggle", requireAdmin, async (req, res) => {

@@ -23,11 +23,16 @@ import type {
   AdminDashboard,
   AdminDeleteBugPreset200,
   AdminDeleteUser200,
+  AdminDynamicVpnOrderListResponse,
+  AdminDynamicVpnServer,
+  AdminDynamicVpnServerListResponse,
+  AdminDynamicVpnServerSyncResponse,
   AdminEasyInjectPreset,
   AdminExtendAccount200,
   AdminExtendAccountBody,
   AdminGetUserBalanceLogsParams,
   AdminListAccountsParams,
+  AdminListDynamicVpnOrdersParams,
   AdminListOrdersParams,
   AdminListTopupsParams,
   AdminListUsersParams,
@@ -40,6 +45,7 @@ import type {
   AdminUpdateUserBody,
   AdminUserDetail,
   AdminUserListResponse,
+  AdminVpnAccountSyncResponse,
   AuthResponse,
   BalanceLogList,
   BalanceResponse,
@@ -48,13 +54,21 @@ import type {
   CheckUsername200,
   CheckUsernameParams,
   CreateBugPresetBody,
+  CreateDynamicVpnOrderBody,
+  CreateDynamicVpnOrderResponse,
   CreateEasyInjectPresetBody,
-  CreateOrderBody,
-  CreateProductBody,
   CreateServerBody,
   CreateVoucherBody,
   DashboardSummary,
   DeleteEasyInjectPresetResponse,
+  DynamicRenewalBody,
+  DynamicRenewalQuote,
+  DynamicRenewalResponse,
+  DynamicVpnOrderListResponse,
+  DynamicVpnOrderResponse,
+  DynamicVpnQuote,
+  DynamicVpnQuoteBody,
+  DynamicVpnServerListResponse,
   EasyInjectPreset,
   EasyInjectPresetRevision,
   ErrorResponse,
@@ -64,6 +78,7 @@ import type {
   GetTelegramLink200,
   HealthStatus,
   ListBalanceLogsParams,
+  ListDynamicVpnOrdersParams,
   ListOrdersParams,
   ListProductsParams,
   ListTopupHistoryParams,
@@ -75,8 +90,8 @@ import type {
   Product,
   PublicServer,
   RegisterBody,
-  RenewAccountBody,
   ResellerSettings,
+  RetiredRouteResponse,
   SuccessResponse,
   TelegramSettings,
   TopupBody,
@@ -84,8 +99,8 @@ import type {
   TopupTransaction,
   UnlinkTelegram200,
   UpdateBugPresetBody,
+  UpdateDynamicVpnServerBody,
   UpdateEasyInjectPresetBody,
-  UpdateProductBody,
   UpdateProfileBody,
   UpdateServerBody,
   UpdateVoucherBody,
@@ -938,7 +953,8 @@ export const useForgotPasswordReset = <
 };
 
 /**
- * @summary List all active VPN packages
+ * Compatibility endpoint for historical static packages. Create new purchases with POST /dynamic-vpn/orders.
+ * @summary List historical static VPN packages
  */
 export const getListProductsUrl = (params?: ListProductsParams) => {
   const normalizedParams = new URLSearchParams();
@@ -1005,7 +1021,7 @@ export type ListProductsQueryResult = NonNullable<
 export type ListProductsQueryError = ErrorType<unknown>;
 
 /**
- * @summary List all active VPN packages
+ * @summary List historical static VPN packages
  */
 
 export function useListProducts<
@@ -1032,7 +1048,8 @@ export function useListProducts<
 }
 
 /**
- * @summary Get product detail
+ * Compatibility endpoint for a historical static package. Create new purchases with POST /dynamic-vpn/orders.
+ * @summary Get historical static VPN package detail
  */
 export const getGetProductUrl = (id: number) => {
   return `/api/products/${id}`;
@@ -1092,7 +1109,7 @@ export type GetProductQueryResult = NonNullable<
 export type GetProductQueryError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Get product detail
+ * @summary Get historical static VPN package detail
  */
 
 export function useGetProduct<
@@ -1213,21 +1230,18 @@ export function useListOrders<
 }
 
 /**
- * @summary Create a new order (purchase VPN)
+ * Static product purchases have been retired. Use POST /dynamic-vpn/orders for new purchases.
+ * @deprecated
+ * @summary Retired static product purchase endpoint
  */
 export const getCreateOrderUrl = () => {
   return `/api/orders`;
 };
 
-export const createOrder = async (
-  createOrderBody: CreateOrderBody,
-  options?: RequestInit,
-): Promise<Order> => {
-  return customFetch<Order>(getCreateOrderUrl(), {
+export const createOrder = async (options?: RequestInit): Promise<unknown> => {
+  return customFetch<unknown>(getCreateOrderUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(createOrderBody),
   });
 };
 
@@ -1238,14 +1252,14 @@ export const getCreateOrderMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof createOrder>>,
     TError,
-    { data: BodyType<CreateOrderBody> },
+    void,
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof createOrder>>,
   TError,
-  { data: BodyType<CreateOrderBody> },
+  void,
   TContext
 > => {
   const mutationKey = ["createOrder"];
@@ -1259,11 +1273,9 @@ export const getCreateOrderMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof createOrder>>,
-    { data: BodyType<CreateOrderBody> }
-  > = (props) => {
-    const { data } = props ?? {};
-
-    return createOrder(data, requestOptions);
+    void
+  > = () => {
+    return createOrder(requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -1272,11 +1284,12 @@ export const getCreateOrderMutationOptions = <
 export type CreateOrderMutationResult = NonNullable<
   Awaited<ReturnType<typeof createOrder>>
 >;
-export type CreateOrderMutationBody = BodyType<CreateOrderBody>;
+
 export type CreateOrderMutationError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Create a new order (purchase VPN)
+ * @deprecated
+ * @summary Retired static product purchase endpoint
  */
 export const useCreateOrder = <
   TError = ErrorType<ErrorResponse>,
@@ -1285,14 +1298,14 @@ export const useCreateOrder = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof createOrder>>,
     TError,
-    { data: BodyType<CreateOrderBody> },
+    void,
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof createOrder>>,
   TError,
-  { data: BodyType<CreateOrderBody> },
+  void,
   TContext
 > => {
   return useMutation(getCreateOrderMutationOptions(options));
@@ -1384,7 +1397,9 @@ export function useGetOrder<
 }
 
 /**
- * @summary Pay for order using balance
+ * Static order payments are retired. Use GET /orders for history and POST /dynamic-vpn/orders for new purchases.
+ * @deprecated
+ * @summary Retired static order payment endpoint
  */
 export const getPayOrderUrl = (id: number) => {
   return `/api/orders/${id}/pay`;
@@ -1393,8 +1408,8 @@ export const getPayOrderUrl = (id: number) => {
 export const payOrder = async (
   id: number,
   options?: RequestInit,
-): Promise<Order> => {
-  return customFetch<Order>(getPayOrderUrl(id), {
+): Promise<unknown> => {
+  return customFetch<unknown>(getPayOrderUrl(id), {
     ...options,
     method: "POST",
   });
@@ -1445,7 +1460,8 @@ export type PayOrderMutationResult = NonNullable<
 export type PayOrderMutationError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Pay for order using balance
+ * @deprecated
+ * @summary Retired static order payment endpoint
  */
 export const usePayOrder = <
   TError = ErrorType<ErrorResponse>,
@@ -1982,7 +1998,9 @@ export function useGetAccount<
 }
 
 /**
- * @summary Renew a VPN account
+ * Static product renewals are retired. Create a new account through POST /dynamic-vpn/orders.
+ * @deprecated
+ * @summary Retired static product renewal endpoint
  */
 export const getRenewAccountUrl = (id: number) => {
   return `/api/accounts/${id}/renew`;
@@ -1990,14 +2008,11 @@ export const getRenewAccountUrl = (id: number) => {
 
 export const renewAccount = async (
   id: number,
-  renewAccountBody: RenewAccountBody,
   options?: RequestInit,
-): Promise<VpnAccount> => {
-  return customFetch<VpnAccount>(getRenewAccountUrl(id), {
+): Promise<unknown> => {
+  return customFetch<unknown>(getRenewAccountUrl(id), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(renewAccountBody),
   });
 };
 
@@ -2008,14 +2023,14 @@ export const getRenewAccountMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof renewAccount>>,
     TError,
-    { id: number; data: BodyType<RenewAccountBody> },
+    { id: number },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof renewAccount>>,
   TError,
-  { id: number; data: BodyType<RenewAccountBody> },
+  { id: number },
   TContext
 > => {
   const mutationKey = ["renewAccount"];
@@ -2029,11 +2044,11 @@ export const getRenewAccountMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof renewAccount>>,
-    { id: number; data: BodyType<RenewAccountBody> }
+    { id: number }
   > = (props) => {
-    const { id, data } = props ?? {};
+    const { id } = props ?? {};
 
-    return renewAccount(id, data, requestOptions);
+    return renewAccount(id, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -2042,11 +2057,12 @@ export const getRenewAccountMutationOptions = <
 export type RenewAccountMutationResult = NonNullable<
   Awaited<ReturnType<typeof renewAccount>>
 >;
-export type RenewAccountMutationBody = BodyType<RenewAccountBody>;
+
 export type RenewAccountMutationError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Renew a VPN account
+ * @deprecated
+ * @summary Retired static product renewal endpoint
  */
 export const useRenewAccount = <
   TError = ErrorType<ErrorResponse>,
@@ -2055,14 +2071,14 @@ export const useRenewAccount = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof renewAccount>>,
     TError,
-    { id: number; data: BodyType<RenewAccountBody> },
+    { id: number },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof renewAccount>>,
   TError,
-  { id: number; data: BodyType<RenewAccountBody> },
+  { id: number },
   TContext
 > => {
   return useMutation(getRenewAccountMutationOptions(options));
@@ -2857,39 +2873,38 @@ export function useAdminListProducts<
 }
 
 /**
- * @summary Create product (admin)
+ * Static product mutations are retired. GET /admin/products remains available for history and audit.
+ * @deprecated
+ * @summary Retired static product creation endpoint
  */
 export const getAdminCreateProductUrl = () => {
   return `/api/admin/products`;
 };
 
 export const adminCreateProduct = async (
-  createProductBody: CreateProductBody,
   options?: RequestInit,
-): Promise<Product> => {
-  return customFetch<Product>(getAdminCreateProductUrl(), {
+): Promise<unknown> => {
+  return customFetch<unknown>(getAdminCreateProductUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(createProductBody),
   });
 };
 
 export const getAdminCreateProductMutationOptions = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<RetiredRouteResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof adminCreateProduct>>,
     TError,
-    { data: BodyType<CreateProductBody> },
+    void,
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof adminCreateProduct>>,
   TError,
-  { data: BodyType<CreateProductBody> },
+  void,
   TContext
 > => {
   const mutationKey = ["adminCreateProduct"];
@@ -2903,11 +2918,9 @@ export const getAdminCreateProductMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof adminCreateProduct>>,
-    { data: BodyType<CreateProductBody> }
-  > = (props) => {
-    const { data } = props ?? {};
-
-    return adminCreateProduct(data, requestOptions);
+    void
+  > = () => {
+    return adminCreateProduct(requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -2916,34 +2929,1447 @@ export const getAdminCreateProductMutationOptions = <
 export type AdminCreateProductMutationResult = NonNullable<
   Awaited<ReturnType<typeof adminCreateProduct>>
 >;
-export type AdminCreateProductMutationBody = BodyType<CreateProductBody>;
-export type AdminCreateProductMutationError = ErrorType<unknown>;
+
+export type AdminCreateProductMutationError = ErrorType<RetiredRouteResponse>;
 
 /**
- * @summary Create product (admin)
+ * @deprecated
+ * @summary Retired static product creation endpoint
  */
 export const useAdminCreateProduct = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<RetiredRouteResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof adminCreateProduct>>,
     TError,
-    { data: BodyType<CreateProductBody> },
+    void,
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof adminCreateProduct>>,
   TError,
-  { data: BodyType<CreateProductBody> },
+  void,
   TContext
 > => {
   return useMutation(getAdminCreateProductMutationOptions(options));
 };
 
 /**
- * @summary Update product (admin)
+ * @summary Quote a balance-funded renewal for a dynamic VPN account
+ */
+export const getQuoteDynamicAccountRenewalUrl = (id: number) => {
+  return `/api/accounts/${id}/renew-dynamic/quote`;
+};
+
+export const quoteDynamicAccountRenewal = async (
+  id: number,
+  dynamicRenewalBody: DynamicRenewalBody,
+  options?: RequestInit,
+): Promise<DynamicRenewalQuote> => {
+  return customFetch<DynamicRenewalQuote>(
+    getQuoteDynamicAccountRenewalUrl(id),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(dynamicRenewalBody),
+    },
+  );
+};
+
+export const getQuoteDynamicAccountRenewalMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof quoteDynamicAccountRenewal>>,
+    TError,
+    { id: number; data: BodyType<DynamicRenewalBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof quoteDynamicAccountRenewal>>,
+  TError,
+  { id: number; data: BodyType<DynamicRenewalBody> },
+  TContext
+> => {
+  const mutationKey = ["quoteDynamicAccountRenewal"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof quoteDynamicAccountRenewal>>,
+    { id: number; data: BodyType<DynamicRenewalBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return quoteDynamicAccountRenewal(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type QuoteDynamicAccountRenewalMutationResult = NonNullable<
+  Awaited<ReturnType<typeof quoteDynamicAccountRenewal>>
+>;
+export type QuoteDynamicAccountRenewalMutationBody =
+  BodyType<DynamicRenewalBody>;
+export type QuoteDynamicAccountRenewalMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Quote a balance-funded renewal for a dynamic VPN account
+ */
+export const useQuoteDynamicAccountRenewal = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof quoteDynamicAccountRenewal>>,
+    TError,
+    { id: number; data: BodyType<DynamicRenewalBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof quoteDynamicAccountRenewal>>,
+  TError,
+  { id: number; data: BodyType<DynamicRenewalBody> },
+  TContext
+> => {
+  return useMutation(getQuoteDynamicAccountRenewalMutationOptions(options));
+};
+
+/**
+ * @summary Synchronize a NadiaVPN dynamic account from its provider
+ */
+export const getSyncDynamicAccountProviderUrl = (id: number) => {
+  return `/api/accounts/${id}/sync-provider`;
+};
+
+export const syncDynamicAccountProvider = async (
+  id: number,
+  options?: RequestInit,
+): Promise<VpnAccount> => {
+  return customFetch<VpnAccount>(getSyncDynamicAccountProviderUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getSyncDynamicAccountProviderMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof syncDynamicAccountProvider>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof syncDynamicAccountProvider>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["syncDynamicAccountProvider"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof syncDynamicAccountProvider>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return syncDynamicAccountProvider(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SyncDynamicAccountProviderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof syncDynamicAccountProvider>>
+>;
+
+export type SyncDynamicAccountProviderMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Synchronize a NadiaVPN dynamic account from its provider
+ */
+export const useSyncDynamicAccountProvider = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof syncDynamicAccountProvider>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof syncDynamicAccountProvider>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getSyncDynamicAccountProviderMutationOptions(options));
+};
+
+/**
+ * @summary Renew a dynamic VPN account using balance
+ */
+export const getRenewDynamicAccountUrl = (id: number) => {
+  return `/api/accounts/${id}/renew-dynamic`;
+};
+
+export const renewDynamicAccount = async (
+  id: number,
+  dynamicRenewalBody: DynamicRenewalBody,
+  options?: RequestInit,
+): Promise<DynamicRenewalResponse> => {
+  return customFetch<DynamicRenewalResponse>(getRenewDynamicAccountUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(dynamicRenewalBody),
+  });
+};
+
+export const getRenewDynamicAccountMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof renewDynamicAccount>>,
+    TError,
+    { id: number; data: BodyType<DynamicRenewalBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof renewDynamicAccount>>,
+  TError,
+  { id: number; data: BodyType<DynamicRenewalBody> },
+  TContext
+> => {
+  const mutationKey = ["renewDynamicAccount"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof renewDynamicAccount>>,
+    { id: number; data: BodyType<DynamicRenewalBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return renewDynamicAccount(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RenewDynamicAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof renewDynamicAccount>>
+>;
+export type RenewDynamicAccountMutationBody = BodyType<DynamicRenewalBody>;
+export type RenewDynamicAccountMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Renew a dynamic VPN account using balance
+ */
+export const useRenewDynamicAccount = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof renewDynamicAccount>>,
+    TError,
+    { id: number; data: BodyType<DynamicRenewalBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof renewDynamicAccount>>,
+  TError,
+  { id: number; data: BodyType<DynamicRenewalBody> },
+  TContext
+> => {
+  return useMutation(getRenewDynamicAccountMutationOptions(options));
+};
+
+/**
+ * @summary List active dynamic VPN servers for public display
+ */
+export const getListPublicDynamicVpnServersUrl = () => {
+  return `/api/dynamic-vpn/public-servers`;
+};
+
+export const listPublicDynamicVpnServers = async (
+  options?: RequestInit,
+): Promise<DynamicVpnServerListResponse> => {
+  return customFetch<DynamicVpnServerListResponse>(
+    getListPublicDynamicVpnServersUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListPublicDynamicVpnServersQueryKey = () => {
+  return [`/api/dynamic-vpn/public-servers`] as const;
+};
+
+export const getListPublicDynamicVpnServersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPublicDynamicVpnServers>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPublicDynamicVpnServers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListPublicDynamicVpnServersQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPublicDynamicVpnServers>>
+  > = ({ signal }) =>
+    listPublicDynamicVpnServers({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPublicDynamicVpnServers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPublicDynamicVpnServersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPublicDynamicVpnServers>>
+>;
+export type ListPublicDynamicVpnServersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List active dynamic VPN servers for public display
+ */
+
+export function useListPublicDynamicVpnServers<
+  TData = Awaited<ReturnType<typeof listPublicDynamicVpnServers>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listPublicDynamicVpnServers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPublicDynamicVpnServersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List purchasable dynamic VPN servers
+ */
+export const getListDynamicVpnServersUrl = () => {
+  return `/api/dynamic-vpn/servers`;
+};
+
+export const listDynamicVpnServers = async (
+  options?: RequestInit,
+): Promise<DynamicVpnServerListResponse> => {
+  return customFetch<DynamicVpnServerListResponse>(
+    getListDynamicVpnServersUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListDynamicVpnServersQueryKey = () => {
+  return [`/api/dynamic-vpn/servers`] as const;
+};
+
+export const getListDynamicVpnServersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listDynamicVpnServers>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listDynamicVpnServers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListDynamicVpnServersQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listDynamicVpnServers>>
+  > = ({ signal }) => listDynamicVpnServers({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listDynamicVpnServers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListDynamicVpnServersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDynamicVpnServers>>
+>;
+export type ListDynamicVpnServersQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List purchasable dynamic VPN servers
+ */
+
+export function useListDynamicVpnServers<
+  TData = Awaited<ReturnType<typeof listDynamicVpnServers>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listDynamicVpnServers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListDynamicVpnServersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Quote a dynamic VPN purchase
+ */
+export const getQuoteDynamicVpnOrderUrl = () => {
+  return `/api/dynamic-vpn/quote`;
+};
+
+export const quoteDynamicVpnOrder = async (
+  dynamicVpnQuoteBody: DynamicVpnQuoteBody,
+  options?: RequestInit,
+): Promise<DynamicVpnQuote> => {
+  return customFetch<DynamicVpnQuote>(getQuoteDynamicVpnOrderUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(dynamicVpnQuoteBody),
+  });
+};
+
+export const getQuoteDynamicVpnOrderMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof quoteDynamicVpnOrder>>,
+    TError,
+    { data: BodyType<DynamicVpnQuoteBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof quoteDynamicVpnOrder>>,
+  TError,
+  { data: BodyType<DynamicVpnQuoteBody> },
+  TContext
+> => {
+  const mutationKey = ["quoteDynamicVpnOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof quoteDynamicVpnOrder>>,
+    { data: BodyType<DynamicVpnQuoteBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return quoteDynamicVpnOrder(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type QuoteDynamicVpnOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof quoteDynamicVpnOrder>>
+>;
+export type QuoteDynamicVpnOrderMutationBody = BodyType<DynamicVpnQuoteBody>;
+export type QuoteDynamicVpnOrderMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Quote a dynamic VPN purchase
+ */
+export const useQuoteDynamicVpnOrder = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof quoteDynamicVpnOrder>>,
+    TError,
+    { data: BodyType<DynamicVpnQuoteBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof quoteDynamicVpnOrder>>,
+  TError,
+  { data: BodyType<DynamicVpnQuoteBody> },
+  TContext
+> => {
+  return useMutation(getQuoteDynamicVpnOrderMutationOptions(options));
+};
+
+/**
+ * @summary List the current user's dynamic VPN orders
+ */
+export const getListDynamicVpnOrdersUrl = (
+  params?: ListDynamicVpnOrdersParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/dynamic-vpn/orders?${stringifiedParams}`
+    : `/api/dynamic-vpn/orders`;
+};
+
+export const listDynamicVpnOrders = async (
+  params?: ListDynamicVpnOrdersParams,
+  options?: RequestInit,
+): Promise<DynamicVpnOrderListResponse> => {
+  return customFetch<DynamicVpnOrderListResponse>(
+    getListDynamicVpnOrdersUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListDynamicVpnOrdersQueryKey = (
+  params?: ListDynamicVpnOrdersParams,
+) => {
+  return [`/api/dynamic-vpn/orders`, ...(params ? [params] : [])] as const;
+};
+
+export const getListDynamicVpnOrdersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listDynamicVpnOrders>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: ListDynamicVpnOrdersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDynamicVpnOrders>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListDynamicVpnOrdersQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listDynamicVpnOrders>>
+  > = ({ signal }) =>
+    listDynamicVpnOrders(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listDynamicVpnOrders>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListDynamicVpnOrdersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDynamicVpnOrders>>
+>;
+export type ListDynamicVpnOrdersQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List the current user's dynamic VPN orders
+ */
+
+export function useListDynamicVpnOrders<
+  TData = Awaited<ReturnType<typeof listDynamicVpnOrders>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: ListDynamicVpnOrdersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDynamicVpnOrders>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListDynamicVpnOrdersQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a pending dynamic VPN order
+ */
+export const getCreateDynamicVpnOrderUrl = () => {
+  return `/api/dynamic-vpn/orders`;
+};
+
+export const createDynamicVpnOrder = async (
+  createDynamicVpnOrderBody: CreateDynamicVpnOrderBody,
+  options?: RequestInit,
+): Promise<CreateDynamicVpnOrderResponse> => {
+  return customFetch<CreateDynamicVpnOrderResponse>(
+    getCreateDynamicVpnOrderUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createDynamicVpnOrderBody),
+    },
+  );
+};
+
+export const getCreateDynamicVpnOrderMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createDynamicVpnOrder>>,
+    TError,
+    { data: BodyType<CreateDynamicVpnOrderBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createDynamicVpnOrder>>,
+  TError,
+  { data: BodyType<CreateDynamicVpnOrderBody> },
+  TContext
+> => {
+  const mutationKey = ["createDynamicVpnOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createDynamicVpnOrder>>,
+    { data: BodyType<CreateDynamicVpnOrderBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createDynamicVpnOrder(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateDynamicVpnOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createDynamicVpnOrder>>
+>;
+export type CreateDynamicVpnOrderMutationBody =
+  BodyType<CreateDynamicVpnOrderBody>;
+export type CreateDynamicVpnOrderMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a pending dynamic VPN order
+ */
+export const useCreateDynamicVpnOrder = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createDynamicVpnOrder>>,
+    TError,
+    { data: BodyType<CreateDynamicVpnOrderBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createDynamicVpnOrder>>,
+  TError,
+  { data: BodyType<CreateDynamicVpnOrderBody> },
+  TContext
+> => {
+  return useMutation(getCreateDynamicVpnOrderMutationOptions(options));
+};
+
+/**
+ * @summary Get one of the current user's dynamic VPN orders
+ */
+export const getGetDynamicVpnOrderUrl = (id: number) => {
+  return `/api/dynamic-vpn/orders/${id}`;
+};
+
+export const getDynamicVpnOrder = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DynamicVpnOrderResponse> => {
+  return customFetch<DynamicVpnOrderResponse>(getGetDynamicVpnOrderUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetDynamicVpnOrderQueryKey = (id: number) => {
+  return [`/api/dynamic-vpn/orders/${id}`] as const;
+};
+
+export const getGetDynamicVpnOrderQueryOptions = <
+  TData = Awaited<ReturnType<typeof getDynamicVpnOrder>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDynamicVpnOrder>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetDynamicVpnOrderQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getDynamicVpnOrder>>
+  > = ({ signal }) => getDynamicVpnOrder(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getDynamicVpnOrder>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetDynamicVpnOrderQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getDynamicVpnOrder>>
+>;
+export type GetDynamicVpnOrderQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get one of the current user's dynamic VPN orders
+ */
+
+export function useGetDynamicVpnOrder<
+  TData = Awaited<ReturnType<typeof getDynamicVpnOrder>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDynamicVpnOrder>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetDynamicVpnOrderQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Pay and provision a pending dynamic VPN order from balance
+ */
+export const getPayDynamicVpnOrderUrl = (id: number) => {
+  return `/api/dynamic-vpn/orders/${id}/pay`;
+};
+
+export const payDynamicVpnOrder = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DynamicVpnOrderResponse> => {
+  return customFetch<DynamicVpnOrderResponse>(getPayDynamicVpnOrderUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getPayDynamicVpnOrderMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof payDynamicVpnOrder>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof payDynamicVpnOrder>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["payDynamicVpnOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof payDynamicVpnOrder>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return payDynamicVpnOrder(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PayDynamicVpnOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof payDynamicVpnOrder>>
+>;
+
+export type PayDynamicVpnOrderMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Pay and provision a pending dynamic VPN order from balance
+ */
+export const usePayDynamicVpnOrder = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof payDynamicVpnOrder>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof payDynamicVpnOrder>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getPayDynamicVpnOrderMutationOptions(options));
+};
+
+/**
+ * @summary List all dynamic VPN servers with provider and pricing metadata
+ */
+export const getAdminListDynamicVpnServersUrl = () => {
+  return `/api/admin/dynamic-vpn/servers`;
+};
+
+export const adminListDynamicVpnServers = async (
+  options?: RequestInit,
+): Promise<AdminDynamicVpnServerListResponse> => {
+  return customFetch<AdminDynamicVpnServerListResponse>(
+    getAdminListDynamicVpnServersUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getAdminListDynamicVpnServersQueryKey = () => {
+  return [`/api/admin/dynamic-vpn/servers`] as const;
+};
+
+export const getAdminListDynamicVpnServersQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListDynamicVpnServers>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListDynamicVpnServers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListDynamicVpnServersQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListDynamicVpnServers>>
+  > = ({ signal }) => adminListDynamicVpnServers({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListDynamicVpnServers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListDynamicVpnServersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListDynamicVpnServers>>
+>;
+export type AdminListDynamicVpnServersQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List all dynamic VPN servers with provider and pricing metadata
+ */
+
+export function useAdminListDynamicVpnServers<
+  TData = Awaited<ReturnType<typeof adminListDynamicVpnServers>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListDynamicVpnServers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListDynamicVpnServersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Synchronize dynamic VPN servers from NadiaVPN
+ */
+export const getAdminSyncNadiaVpnDynamicServersUrl = () => {
+  return `/api/admin/dynamic-vpn/servers/sync/nadiavpn`;
+};
+
+export const adminSyncNadiaVpnDynamicServers = async (
+  options?: RequestInit,
+): Promise<AdminDynamicVpnServerSyncResponse> => {
+  return customFetch<AdminDynamicVpnServerSyncResponse>(
+    getAdminSyncNadiaVpnDynamicServersUrl(),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getAdminSyncNadiaVpnDynamicServersMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminSyncNadiaVpnDynamicServers>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminSyncNadiaVpnDynamicServers>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["adminSyncNadiaVpnDynamicServers"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminSyncNadiaVpnDynamicServers>>,
+    void
+  > = () => {
+    return adminSyncNadiaVpnDynamicServers(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminSyncNadiaVpnDynamicServersMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminSyncNadiaVpnDynamicServers>>
+>;
+
+export type AdminSyncNadiaVpnDynamicServersMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Synchronize dynamic VPN servers from NadiaVPN
+ */
+export const useAdminSyncNadiaVpnDynamicServers = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminSyncNadiaVpnDynamicServers>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminSyncNadiaVpnDynamicServers>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(
+    getAdminSyncNadiaVpnDynamicServersMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Synchronize dynamic VPN servers from local panels
+ */
+export const getAdminSyncLocalPanelDynamicServersUrl = () => {
+  return `/api/admin/dynamic-vpn/servers/sync/local-panel`;
+};
+
+export const adminSyncLocalPanelDynamicServers = async (
+  options?: RequestInit,
+): Promise<AdminDynamicVpnServerSyncResponse> => {
+  return customFetch<AdminDynamicVpnServerSyncResponse>(
+    getAdminSyncLocalPanelDynamicServersUrl(),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getAdminSyncLocalPanelDynamicServersMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminSyncLocalPanelDynamicServers>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminSyncLocalPanelDynamicServers>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["adminSyncLocalPanelDynamicServers"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminSyncLocalPanelDynamicServers>>,
+    void
+  > = () => {
+    return adminSyncLocalPanelDynamicServers(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminSyncLocalPanelDynamicServersMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminSyncLocalPanelDynamicServers>>
+>;
+
+export type AdminSyncLocalPanelDynamicServersMutationError =
+  ErrorType<ErrorResponse>;
+
+/**
+ * @summary Synchronize dynamic VPN servers from local panels
+ */
+export const useAdminSyncLocalPanelDynamicServers = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminSyncLocalPanelDynamicServers>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminSyncLocalPanelDynamicServers>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(
+    getAdminSyncLocalPanelDynamicServersMutationOptions(options),
+  );
+};
+
+/**
+ * @summary List dynamic VPN orders with buyer and voucher metadata
+ */
+export const getAdminListDynamicVpnOrdersUrl = (
+  params?: AdminListDynamicVpnOrdersParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/dynamic-vpn/orders?${stringifiedParams}`
+    : `/api/admin/dynamic-vpn/orders`;
+};
+
+export const adminListDynamicVpnOrders = async (
+  params?: AdminListDynamicVpnOrdersParams,
+  options?: RequestInit,
+): Promise<AdminDynamicVpnOrderListResponse> => {
+  return customFetch<AdminDynamicVpnOrderListResponse>(
+    getAdminListDynamicVpnOrdersUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getAdminListDynamicVpnOrdersQueryKey = (
+  params?: AdminListDynamicVpnOrdersParams,
+) => {
+  return [
+    `/api/admin/dynamic-vpn/orders`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getAdminListDynamicVpnOrdersQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListDynamicVpnOrders>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: AdminListDynamicVpnOrdersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListDynamicVpnOrders>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListDynamicVpnOrdersQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListDynamicVpnOrders>>
+  > = ({ signal }) =>
+    adminListDynamicVpnOrders(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListDynamicVpnOrders>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListDynamicVpnOrdersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListDynamicVpnOrders>>
+>;
+export type AdminListDynamicVpnOrdersQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List dynamic VPN orders with buyer and voucher metadata
+ */
+
+export function useAdminListDynamicVpnOrders<
+  TData = Awaited<ReturnType<typeof adminListDynamicVpnOrders>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: AdminListDynamicVpnOrdersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListDynamicVpnOrders>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListDynamicVpnOrdersQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update dynamic VPN server availability, pricing, and limits
+ */
+export const getAdminUpdateDynamicVpnServerUrl = (id: number) => {
+  return `/api/admin/dynamic-vpn/servers/${id}`;
+};
+
+export const adminUpdateDynamicVpnServer = async (
+  id: number,
+  updateDynamicVpnServerBody: UpdateDynamicVpnServerBody,
+  options?: RequestInit,
+): Promise<AdminDynamicVpnServer> => {
+  return customFetch<AdminDynamicVpnServer>(
+    getAdminUpdateDynamicVpnServerUrl(id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(updateDynamicVpnServerBody),
+    },
+  );
+};
+
+export const getAdminUpdateDynamicVpnServerMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateDynamicVpnServer>>,
+    TError,
+    { id: number; data: BodyType<UpdateDynamicVpnServerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateDynamicVpnServer>>,
+  TError,
+  { id: number; data: BodyType<UpdateDynamicVpnServerBody> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateDynamicVpnServer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateDynamicVpnServer>>,
+    { id: number; data: BodyType<UpdateDynamicVpnServerBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminUpdateDynamicVpnServer(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateDynamicVpnServerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateDynamicVpnServer>>
+>;
+export type AdminUpdateDynamicVpnServerMutationBody =
+  BodyType<UpdateDynamicVpnServerBody>;
+export type AdminUpdateDynamicVpnServerMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Update dynamic VPN server availability, pricing, and limits
+ */
+export const useAdminUpdateDynamicVpnServer = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateDynamicVpnServer>>,
+    TError,
+    { id: number; data: BodyType<UpdateDynamicVpnServerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateDynamicVpnServer>>,
+  TError,
+  { id: number; data: BodyType<UpdateDynamicVpnServerBody> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateDynamicVpnServerMutationOptions(options));
+};
+
+/**
+ * @summary Synchronize a VPN account from its local panel
+ */
+export const getAdminSyncVpnAccountUrl = (id: number) => {
+  return `/api/admin/accounts/${id}/sync`;
+};
+
+export const adminSyncVpnAccount = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminVpnAccountSyncResponse> => {
+  return customFetch<AdminVpnAccountSyncResponse>(
+    getAdminSyncVpnAccountUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getAdminSyncVpnAccountMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminSyncVpnAccount>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminSyncVpnAccount>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminSyncVpnAccount"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminSyncVpnAccount>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminSyncVpnAccount(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminSyncVpnAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminSyncVpnAccount>>
+>;
+
+export type AdminSyncVpnAccountMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Synchronize a VPN account from its local panel
+ */
+export const useAdminSyncVpnAccount = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminSyncVpnAccount>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminSyncVpnAccount>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminSyncVpnAccountMutationOptions(options));
+};
+
+/**
+ * Static product mutations are retired. GET /admin/products remains available for history and audit.
+ * @deprecated
+ * @summary Retired static product update endpoint
  */
 export const getAdminUpdateProductUrl = (id: number) => {
   return `/api/admin/products/${id}`;
@@ -2951,32 +4377,29 @@ export const getAdminUpdateProductUrl = (id: number) => {
 
 export const adminUpdateProduct = async (
   id: number,
-  updateProductBody: UpdateProductBody,
   options?: RequestInit,
-): Promise<Product> => {
-  return customFetch<Product>(getAdminUpdateProductUrl(id), {
+): Promise<unknown> => {
+  return customFetch<unknown>(getAdminUpdateProductUrl(id), {
     ...options,
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(updateProductBody),
   });
 };
 
 export const getAdminUpdateProductMutationOptions = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<ErrorResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof adminUpdateProduct>>,
     TError,
-    { id: number; data: BodyType<UpdateProductBody> },
+    { id: number },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof adminUpdateProduct>>,
   TError,
-  { id: number; data: BodyType<UpdateProductBody> },
+  { id: number },
   TContext
 > => {
   const mutationKey = ["adminUpdateProduct"];
@@ -2990,11 +4413,11 @@ export const getAdminUpdateProductMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof adminUpdateProduct>>,
-    { id: number; data: BodyType<UpdateProductBody> }
+    { id: number }
   > = (props) => {
-    const { id, data } = props ?? {};
+    const { id } = props ?? {};
 
-    return adminUpdateProduct(id, data, requestOptions);
+    return adminUpdateProduct(id, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -3003,34 +4426,37 @@ export const getAdminUpdateProductMutationOptions = <
 export type AdminUpdateProductMutationResult = NonNullable<
   Awaited<ReturnType<typeof adminUpdateProduct>>
 >;
-export type AdminUpdateProductMutationBody = BodyType<UpdateProductBody>;
-export type AdminUpdateProductMutationError = ErrorType<unknown>;
+
+export type AdminUpdateProductMutationError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Update product (admin)
+ * @deprecated
+ * @summary Retired static product update endpoint
  */
 export const useAdminUpdateProduct = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<ErrorResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof adminUpdateProduct>>,
     TError,
-    { id: number; data: BodyType<UpdateProductBody> },
+    { id: number },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof adminUpdateProduct>>,
   TError,
-  { id: number; data: BodyType<UpdateProductBody> },
+  { id: number },
   TContext
 > => {
   return useMutation(getAdminUpdateProductMutationOptions(options));
 };
 
 /**
- * @summary Delete product (admin)
+ * Static product mutations are retired. GET /admin/products remains available for history and audit.
+ * @deprecated
+ * @summary Retired static product deletion endpoint
  */
 export const getAdminDeleteProductUrl = (id: number) => {
   return `/api/admin/products/${id}`;
@@ -3039,15 +4465,15 @@ export const getAdminDeleteProductUrl = (id: number) => {
 export const adminDeleteProduct = async (
   id: number,
   options?: RequestInit,
-): Promise<MessageResponse> => {
-  return customFetch<MessageResponse>(getAdminDeleteProductUrl(id), {
+): Promise<unknown> => {
+  return customFetch<unknown>(getAdminDeleteProductUrl(id), {
     ...options,
     method: "DELETE",
   });
 };
 
 export const getAdminDeleteProductMutationOptions = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<ErrorResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -3088,13 +4514,14 @@ export type AdminDeleteProductMutationResult = NonNullable<
   Awaited<ReturnType<typeof adminDeleteProduct>>
 >;
 
-export type AdminDeleteProductMutationError = ErrorType<unknown>;
+export type AdminDeleteProductMutationError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Delete product (admin)
+ * @deprecated
+ * @summary Retired static product deletion endpoint
  */
 export const useAdminDeleteProduct = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<ErrorResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -3540,7 +4967,9 @@ export function useAdminListOrders<
 }
 
 /**
- * @summary Manually confirm/approve an order
+ * Static order confirmation is retired. Payment settlement remains responsible for fulfillment; GET /admin/orders remains available for history and audit.
+ * @deprecated
+ * @summary Retired static order confirmation endpoint
  */
 export const getAdminConfirmOrderUrl = (id: number) => {
   return `/api/admin/orders/${id}/confirm`;
@@ -3549,15 +4978,15 @@ export const getAdminConfirmOrderUrl = (id: number) => {
 export const adminConfirmOrder = async (
   id: number,
   options?: RequestInit,
-): Promise<Order> => {
-  return customFetch<Order>(getAdminConfirmOrderUrl(id), {
+): Promise<unknown> => {
+  return customFetch<unknown>(getAdminConfirmOrderUrl(id), {
     ...options,
     method: "POST",
   });
 };
 
 export const getAdminConfirmOrderMutationOptions = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<ErrorResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -3598,13 +5027,14 @@ export type AdminConfirmOrderMutationResult = NonNullable<
   Awaited<ReturnType<typeof adminConfirmOrder>>
 >;
 
-export type AdminConfirmOrderMutationError = ErrorType<unknown>;
+export type AdminConfirmOrderMutationError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Manually confirm/approve an order
+ * @deprecated
+ * @summary Retired static order confirmation endpoint
  */
 export const useAdminConfirmOrder = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<ErrorResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -4160,7 +5590,9 @@ export const useAdminDeleteAccount = <
 };
 
 /**
- * @summary Delete an order (admin, non-paid only)
+ * Static order deletion is retired to preserve historical data. GET /admin/orders remains available for history and audit.
+ * @deprecated
+ * @summary Retired static order deletion endpoint
  */
 export const getAdminDeleteOrderUrl = (id: number) => {
   return `/api/admin/orders/${id}`;
@@ -4169,15 +5601,15 @@ export const getAdminDeleteOrderUrl = (id: number) => {
 export const adminDeleteOrder = async (
   id: number,
   options?: RequestInit,
-): Promise<SuccessResponse> => {
-  return customFetch<SuccessResponse>(getAdminDeleteOrderUrl(id), {
+): Promise<unknown> => {
+  return customFetch<unknown>(getAdminDeleteOrderUrl(id), {
     ...options,
     method: "DELETE",
   });
 };
 
 export const getAdminDeleteOrderMutationOptions = <
-  TError = ErrorType<ErrorResponse>,
+  TError = ErrorType<RetiredRouteResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -4218,13 +5650,14 @@ export type AdminDeleteOrderMutationResult = NonNullable<
   Awaited<ReturnType<typeof adminDeleteOrder>>
 >;
 
-export type AdminDeleteOrderMutationError = ErrorType<ErrorResponse>;
+export type AdminDeleteOrderMutationError = ErrorType<RetiredRouteResponse>;
 
 /**
- * @summary Delete an order (admin, non-paid only)
+ * @deprecated
+ * @summary Retired static order deletion endpoint
  */
 export const useAdminDeleteOrder = <
-  TError = ErrorType<ErrorResponse>,
+  TError = ErrorType<RetiredRouteResponse>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<

@@ -100,7 +100,7 @@ export default function Accounts() {
                   isExpiringSoon ? "bg-red-500/10" : ""
                 }`}>
                   {/* Flag */}
-                  <span className="text-xl shrink-0 leading-none">{account.server.flag}</span>
+                  <span className="text-xl shrink-0 leading-none">{account.server?.flag ?? ""}</span>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
@@ -115,7 +115,7 @@ export default function Accounts() {
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-[11px] text-muted-foreground truncate">
-                        {account.server.name} · {account.server.location}
+                        {account.server?.name ?? "Server lama/tidak tersedia"} · {account.server?.location ?? "-"}
                       </span>
                     </div>
                   </div>

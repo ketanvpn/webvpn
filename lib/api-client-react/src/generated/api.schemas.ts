@@ -138,10 +138,349 @@ export interface SuccessResponse {
 
 export interface ErrorResponse {
   error: string;
+  replacement?: string;
+}
+
+export type RetiredRouteResponseStatus =
+  (typeof RetiredRouteResponseStatus)[keyof typeof RetiredRouteResponseStatus];
+
+export const RetiredRouteResponseStatus = {
+  NUMBER_410: 410,
+} as const;
+
+export interface RetiredRouteResponse {
+  status: RetiredRouteResponseStatus;
+  error: string;
+  replacement: string;
 }
 
 export interface MessageResponse {
   message: string;
+}
+
+export type DynamicDurationType =
+  (typeof DynamicDurationType)[keyof typeof DynamicDurationType];
+
+export const DynamicDurationType = {
+  day: "day",
+  week: "week",
+  month: "month",
+} as const;
+
+export type DynamicVpnProtocol =
+  (typeof DynamicVpnProtocol)[keyof typeof DynamicVpnProtocol];
+
+export const DynamicVpnProtocol = {
+  ssh: "ssh",
+  vmess: "vmess",
+  vless: "vless",
+  trojan: "trojan",
+} as const;
+
+export type DynamicVpnServerProvider =
+  (typeof DynamicVpnServerProvider)[keyof typeof DynamicVpnServerProvider];
+
+export const DynamicVpnServerProvider = {
+  nadiavpn: "nadiavpn",
+  local_panel: "local_panel",
+} as const;
+
+export interface DynamicVpnServer {
+  id: number;
+  provider: DynamicVpnServerProvider;
+  displayName: string;
+  location?: string | null;
+  enabledProtocols: DynamicVpnProtocol[];
+  supportedTypes: DynamicDurationType[];
+  isActive: boolean;
+  trialEnabled: boolean;
+  trialDuration?: string | null;
+  renewEnabled: boolean;
+  sellPricePerDay: number;
+  sellPricePerWeek: number;
+  sellPricePerMonth: number;
+  minDays: number;
+  maxDays: number;
+  minMonths: number;
+  maxMonths: number;
+  capacityLimit?: string | null;
+  capacityUsed: number;
+  capacityIsFull: boolean;
+  maxConnections: number;
+  sortOrder: number;
+}
+
+export interface DynamicVpnServerListResponse {
+  servers: DynamicVpnServer[];
+}
+
+export type AdminDynamicVpnServerPricingMode =
+  (typeof AdminDynamicVpnServerPricingMode)[keyof typeof AdminDynamicVpnServerPricingMode];
+
+export const AdminDynamicVpnServerPricingMode = {
+  auto_markup: "auto_markup",
+  manual: "manual",
+} as const;
+
+export type AdminDynamicVpnServer = DynamicVpnServer & {
+  providerServerId: string;
+  providerName: string;
+  supportedProtocols: DynamicVpnProtocol[];
+  providerTrialEnabled: boolean;
+  costPerDay: number;
+  costPerWeek: number;
+  costPerMonth: number;
+  pricingMode: AdminDynamicVpnServerPricingMode;
+  markupPercent: number;
+  lastSyncedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export interface AdminDynamicVpnServerListResponse {
+  servers: AdminDynamicVpnServer[];
+}
+
+export interface AdminDynamicVpnServerSyncResponse {
+  success: boolean;
+  total: number;
+  servers: AdminDynamicVpnServer[];
+}
+
+export type UpdateDynamicVpnServerBodyPricingMode =
+  (typeof UpdateDynamicVpnServerBodyPricingMode)[keyof typeof UpdateDynamicVpnServerBodyPricingMode];
+
+export const UpdateDynamicVpnServerBodyPricingMode = {
+  auto_markup: "auto_markup",
+  manual: "manual",
+} as const;
+
+export interface UpdateDynamicVpnServerBody {
+  displayName?: string;
+  isActive?: boolean;
+  trialEnabled?: boolean;
+  enabledProtocols?: DynamicVpnProtocol[];
+  /** @minimum 0 */
+  sellPricePerDay?: number;
+  /** @minimum 0 */
+  sellPricePerWeek?: number;
+  /** @minimum 0 */
+  sellPricePerMonth?: number;
+  /** @minimum 1 */
+  minDays?: number;
+  /** @minimum 1 */
+  maxDays?: number;
+  /** @minimum 1 */
+  minMonths?: number;
+  /** @minimum 1 */
+  maxMonths?: number;
+  /** @minimum 0 */
+  maxConnections?: number;
+  sortOrder?: number;
+  pricingMode?: UpdateDynamicVpnServerBodyPricingMode;
+  /**
+   * @minimum 0
+   * @maximum 1000
+   */
+  markupPercent?: number;
+}
+
+export interface DynamicVpnQuoteBody {
+  serverId: number;
+  protocol: DynamicVpnProtocol;
+  durationType: DynamicDurationType;
+  /** @minimum 1 */
+  duration: number;
+  voucherCode?: string;
+}
+
+export interface DynamicVpnQuote {
+  unitPrice: number;
+  baseAmount: number;
+  durationLabel: string;
+  amount: number;
+  resellerDiscountAmount: number;
+  voucherDiscountAmount: number;
+  discountAmount: number;
+  voucherId: number | null;
+  voucherCode: string | null;
+}
+
+export type CreateDynamicVpnOrderBodyPaymentMethod =
+  (typeof CreateDynamicVpnOrderBodyPaymentMethod)[keyof typeof CreateDynamicVpnOrderBodyPaymentMethod];
+
+export const CreateDynamicVpnOrderBodyPaymentMethod = {
+  balance: "balance",
+} as const;
+
+export interface CreateDynamicVpnOrderBody {
+  serverId: number;
+  protocol: DynamicVpnProtocol;
+  durationType: DynamicDurationType;
+  /** @minimum 1 */
+  duration: number;
+  /**
+   * @minLength 5
+   * @pattern ^(?=.*[a-z])(?=(?:.*\d){2,})[a-zA-Z0-9]+$
+   */
+  username: string;
+  /**
+   * Required for SSH orders; not returned in user order responses.
+   * @minLength 6
+   * @maxLength 32
+   */
+  password?: string;
+  paymentMethod?: CreateDynamicVpnOrderBodyPaymentMethod;
+  voucherCode?: string;
+}
+
+export type DynamicVpnOrderStatus =
+  (typeof DynamicVpnOrderStatus)[keyof typeof DynamicVpnOrderStatus];
+
+export const DynamicVpnOrderStatus = {
+  pending: "pending",
+  processing: "processing",
+  paid: "paid",
+  failed: "failed",
+  expired: "expired",
+} as const;
+
+export interface DynamicVpnOrder {
+  id: number;
+  userId: number;
+  dynamicServerId: number | null;
+  provider: string;
+  providerServerId: string;
+  serverDisplayName: string;
+  protocol: DynamicVpnProtocol;
+  durationType: DynamicDurationType;
+  duration: number;
+  username: string;
+  amount: number;
+  voucherId: number | null;
+  discountAmount: number;
+  status: DynamicVpnOrderStatus;
+  paymentMethod: string;
+  vpnAccountId: number | null;
+  providerAccountId: string | null;
+  qrisUrl: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DynamicVpnOrderResponse {
+  order: DynamicVpnOrder;
+}
+
+export interface DynamicVpnOrderListResponse {
+  orders: DynamicVpnOrder[];
+}
+
+export type AdminDynamicVpnOrderBuyer = {
+  username: string | null;
+  email: string | null;
+};
+
+export type AdminDynamicVpnOrder = DynamicVpnOrder & {
+  buyer: AdminDynamicVpnOrderBuyer;
+  voucherCode: string | null;
+};
+
+export interface AdminDynamicVpnOrderListResponse {
+  orders: AdminDynamicVpnOrder[];
+}
+
+export interface CreateDynamicVpnOrderResponse {
+  order: DynamicVpnOrder;
+  quote: DynamicVpnQuote;
+  reused: boolean;
+}
+
+export interface DynamicRenewalBody {
+  durationType: DynamicDurationType;
+  /** @minimum 1 */
+  duration: number;
+}
+
+export interface DynamicRenewalQuote {
+  amount: number;
+  baseAmount: number;
+  resellerDiscountAmount: number;
+  unitPrice: number;
+  durationType: DynamicDurationType;
+  duration: number;
+  durationLabel: string;
+}
+
+export type VpnAccountProtocol =
+  (typeof VpnAccountProtocol)[keyof typeof VpnAccountProtocol];
+
+export const VpnAccountProtocol = {
+  ssh: "ssh",
+  vmess: "vmess",
+  vless: "vless",
+  trojan: "trojan",
+  shadowsocks: "shadowsocks",
+} as const;
+
+export interface PublicServer {
+  id: number;
+  name: string;
+  host?: string | null;
+  location: string;
+  /** Country flag emoji or code */
+  flag: string;
+  isActive: boolean;
+}
+
+export type VpnAccountDynamicOrder = {
+  id: number;
+  provider: string;
+  providerServerId: string;
+  serverDisplayName: string;
+  providerAccountId: string | null;
+  dynamicServerId: number | null;
+  renewEnabled: boolean;
+  supportedTypes: DynamicDurationType[];
+  sellPricePerDay: number;
+  sellPricePerWeek: number;
+  sellPricePerMonth: number;
+} | null;
+
+/**
+ * All config link variants (tls, none, grpc, uptls, upntls)
+ */
+export type VpnAccountAllLinks = { [key: string]: string | null } | null;
+
+export interface VpnAccount {
+  id: number;
+  userId: number;
+  orderId: number | null;
+  dynamicOrder: VpnAccountDynamicOrder;
+  protocol: VpnAccountProtocol;
+  username: string;
+  password?: string | null;
+  uuid?: string | null;
+  serverId: number;
+  server: PublicServer | null;
+  /** Primary config link (TLS) */
+  configLink: string | null;
+  /** All config link variants (tls, none, grpc, uptls, upntls) */
+  allLinks: VpnAccountAllLinks;
+  expiresAt: string;
+  quota: number | null;
+  usedQuota: number | null;
+  /** Nama paket produk yang dibeli */
+  productName: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface DynamicRenewalResponse {
+  account: VpnAccount;
+  amount: number;
+  discountAmount: number;
 }
 
 export type ValidationErrorResponseIssuesItem = {
@@ -240,62 +579,6 @@ export interface Product {
   serverName?: string | null;
 }
 
-export type CreateProductBodyProtocol =
-  (typeof CreateProductBodyProtocol)[keyof typeof CreateProductBodyProtocol];
-
-export const CreateProductBodyProtocol = {
-  ssh: "ssh",
-  vmess: "vmess",
-  vless: "vless",
-  trojan: "trojan",
-  shadowsocks: "shadowsocks",
-} as const;
-
-export interface CreateProductBody {
-  name: string;
-  description?: string;
-  protocol: CreateProductBodyProtocol;
-  durationDays: number;
-  price: number;
-  quota?: number | null;
-  maxConnections?: number | null;
-  /** Batas maksimal akun aktif */
-  stock: number;
-  isActive?: boolean;
-  category?: string;
-  sortOrder?: number;
-  /** ID server yang di-pin untuk produk ini (null = pilih otomatis) */
-  serverId?: number | null;
-}
-
-export type UpdateProductBodyProtocol =
-  (typeof UpdateProductBodyProtocol)[keyof typeof UpdateProductBodyProtocol];
-
-export const UpdateProductBodyProtocol = {
-  ssh: "ssh",
-  vmess: "vmess",
-  vless: "vless",
-  trojan: "trojan",
-  shadowsocks: "shadowsocks",
-} as const;
-
-export interface UpdateProductBody {
-  name?: string;
-  description?: string;
-  protocol?: UpdateProductBodyProtocol;
-  durationDays?: number;
-  price?: number;
-  quota?: number | null;
-  maxConnections?: number | null;
-  /** Batas maksimal akun aktif */
-  stock?: number;
-  isActive?: boolean;
-  category?: string;
-  sortOrder?: number;
-  /** ID server yang di-pin untuk produk ini (null = pilih otomatis) */
-  serverId?: number | null;
-}
-
 /**
  * processing berarti pembayaran sudah diterima dan akun VPN sedang dibuat
  */
@@ -363,27 +646,6 @@ export interface Order {
   expiresAt?: string | null;
   createdAt: string;
   updatedAt?: string;
-}
-
-export type CreateOrderBodyPaymentMethod =
-  (typeof CreateOrderBodyPaymentMethod)[keyof typeof CreateOrderBodyPaymentMethod];
-
-export const CreateOrderBodyPaymentMethod = {
-  balance: "balance",
-  qris: "qris",
-} as const;
-
-export interface CreateOrderBody {
-  productId: number;
-  serverId?: number | null;
-  paymentMethod?: CreateOrderBodyPaymentMethod;
-  /**
-   * Nama akun VPN unik. Wajib minimal 5 karakter, hanya huruf dan angka (minimal 2 angka). Contoh: daaw12
-   * @minLength 5
-   * @pattern ^(?=(?:.*[a-zA-Z]))(?=(?:.*[0-9]){2,})[a-zA-Z0-9]{5,}$
-   */
-  remarks: string;
-  voucherCode?: string | null;
 }
 
 export interface OrderListResponse {
@@ -560,57 +822,29 @@ export interface TopupTransaction {
   updatedAt?: string;
 }
 
-export type VpnAccountProtocol =
-  (typeof VpnAccountProtocol)[keyof typeof VpnAccountProtocol];
+export type AdminVpnAccountSyncResponsePanelInfoAllLinks = {
+  [key: string]: string | null;
+};
 
-export const VpnAccountProtocol = {
-  ssh: "ssh",
-  vmess: "vmess",
-  vless: "vless",
-  trojan: "trojan",
-  shadowsocks: "shadowsocks",
-} as const;
+export type AdminVpnAccountSyncResponsePanelInfo = {
+  username?: string;
+  uuid?: string;
+  hostname?: string;
+  expired?: string;
+  configLink?: string;
+  allLinks?: AdminVpnAccountSyncResponsePanelInfoAllLinks;
+};
 
-/**
- * All config link variants (tls, none, grpc, uptls, upntls)
- */
-export type VpnAccountAllLinks = { [key: string]: string | null } | null;
-
-export interface PublicServer {
+export type AdminVpnAccountSyncResponseAccount = {
   id: number;
-  name: string;
-  host?: string | null;
-  location: string;
-  /** Country flag emoji or code */
-  flag: string;
-  isActive: boolean;
-}
+  uuid: string | null;
+  configLink: string | null;
+};
 
-export interface VpnAccount {
-  id: number;
-  userId: number;
-  orderId?: number | null;
-  protocol: VpnAccountProtocol;
-  username: string;
-  password?: string | null;
-  uuid?: string | null;
-  serverId?: number;
-  server: PublicServer;
-  /** Primary config link (TLS) */
-  configLink?: string | null;
-  /** All config link variants (tls, none, grpc, uptls, upntls) */
-  allLinks?: VpnAccountAllLinks;
-  expiresAt: string;
-  quota?: number | null;
-  usedQuota?: number | null;
-  /** Nama paket produk yang dibeli */
-  productName?: string | null;
-  isActive: boolean;
-  createdAt: string;
-}
-
-export interface RenewAccountBody {
-  productId: number;
+export interface AdminVpnAccountSyncResponse {
+  success: boolean;
+  panelInfo: AdminVpnAccountSyncResponsePanelInfo;
+  account: AdminVpnAccountSyncResponseAccount;
 }
 
 export type VpnServer = PublicServer & {
@@ -1323,6 +1557,29 @@ export type AdminResetUserPassword200 = {
 export type AdminGetUserBalanceLogsParams = {
   limit?: number;
   offset?: number;
+};
+
+export type ListDynamicVpnOrdersParams = {
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: number;
+};
+
+export type AdminListDynamicVpnOrdersParams = {
+  /**
+   * Filter by order status; use all or omit for every status.
+   */
+  status?: string;
+  /**
+   * Filter by provider; use all or omit for every provider.
+   */
+  provider?: string;
+  /**
+   * @maximum 100
+   */
+  limit?: number;
 };
 
 export type AdminListOrdersParams = {

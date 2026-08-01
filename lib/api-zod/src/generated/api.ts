@@ -171,7 +171,8 @@ export const ForgotPasswordResetResponse = zod.object({
 });
 
 /**
- * @summary List all active VPN packages
+ * Compatibility endpoint for historical static packages. Create new purchases with POST /dynamic-vpn/orders.
+ * @summary List historical static VPN packages
  */
 export const ListProductsQueryParams = zod.object({
   protocol: zod
@@ -217,7 +218,8 @@ export const ListProductsResponseItem = zod.object({
 export const ListProductsResponse = zod.array(ListProductsResponseItem);
 
 /**
- * @summary Get product detail
+ * Compatibility endpoint for a historical static package. Create new purchases with POST /dynamic-vpn/orders.
+ * @summary Get historical static VPN package detail
  */
 export const GetProductParams = zod.object({
   id: zod.coerce.number(),
@@ -378,32 +380,6 @@ export const ListOrdersResponse = zod.object({
 });
 
 /**
- * @summary Create a new order (purchase VPN)
- */
-export const createOrderBodyPaymentMethodDefault = `balance`;
-export const createOrderBodyRemarksMin = 5;
-
-export const createOrderBodyRemarksRegExp = new RegExp(
-  "^(?=(?:.\*[a-zA-Z]))(?=(?:.\*[0-9]){2,})[a-zA-Z0-9]{5,}$",
-);
-
-export const CreateOrderBody = zod.object({
-  productId: zod.number(),
-  serverId: zod.number().nullish(),
-  paymentMethod: zod
-    .enum(["balance", "qris"])
-    .default(createOrderBodyPaymentMethodDefault),
-  remarks: zod
-    .string()
-    .min(createOrderBodyRemarksMin)
-    .regex(createOrderBodyRemarksRegExp)
-    .describe(
-      "Nama akun VPN unik. Wajib minimal 5 karakter, hanya huruf dan angka (minimal 2 angka). Contoh: daaw12",
-    ),
-  voucherCode: zod.string().nullish(),
-});
-
-/**
  * @summary Get order detail
  */
 export const GetOrderParams = zod.object({
@@ -505,104 +481,12 @@ export const GetOrderResponse = zod.object({
 });
 
 /**
- * @summary Pay for order using balance
+ * Static order payments are retired. Use GET /orders for history and POST /dynamic-vpn/orders for new purchases.
+ * @deprecated
+ * @summary Retired static order payment endpoint
  */
 export const PayOrderParams = zod.object({
   id: zod.coerce.number(),
-});
-
-export const payOrderResponseUniqueCodeMin = 0;
-
-export const PayOrderResponse = zod.object({
-  id: zod.number(),
-  userId: zod.number(),
-  productId: zod.number(),
-  product: zod
-    .object({
-      id: zod.number(),
-      name: zod.string(),
-      description: zod.string().nullish(),
-      protocol: zod.enum(["ssh", "vmess", "vless", "trojan", "shadowsocks"]),
-      durationDays: zod.number(),
-      price: zod.number(),
-      quota: zod
-        .number()
-        .nullish()
-        .describe("Bandwidth quota in GB, null = unlimited"),
-      maxConnections: zod.number().nullish(),
-      stock: zod
-        .number()
-        .describe("Batas maksimal akun aktif untuk produk ini"),
-      availableStock: zod
-        .number()
-        .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
-      resellerPrice: zod
-        .number()
-        .nullish()
-        .describe(
-          "Harga khusus reseller (null jika user bukan reseller atau fitur reseller nonaktif)",
-        ),
-      isActive: zod.boolean(),
-      category: zod.string().nullish(),
-      sortOrder: zod.number().optional(),
-      serverId: zod
-        .number()
-        .nullish()
-        .describe(
-          "ID server yang di-pin untuk produk ini (null = pilih otomatis)",
-        ),
-      serverName: zod
-        .string()
-        .nullish()
-        .describe("Nama server yang di-pin (null jika tidak di-pin)"),
-    })
-    .nullish(),
-  status: zod
-    .enum(["pending", "processing", "paid", "failed", "expired"])
-    .describe(
-      "processing berarti pembayaran sudah diterima dan akun VPN sedang dibuat",
-    ),
-  amount: zod
-    .number()
-    .describe("Harga dasar order dalam IDR, sebelum kode unik"),
-  vpnAccountId: zod.number().nullish(),
-  paymentMethod: zod.string().nullish(),
-  paymentProvider: zod
-    .enum(["ketantechpay", "autogopay"])
-    .nullish()
-    .describe(
-      "Penyedia pembayaran yang memproses transaksi; null untuk pembayaran saldo atau QRIS statis legacy",
-    ),
-  paymentChannel: zod
-    .enum(["ketantechpay", "autogopay_gopay", "autogopay_shopeepay"])
-    .nullish()
-    .describe(
-      "Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan channel yang dipilih secara terpisah.",
-    ),
-  payableAmount: zod
-    .number()
-    .nullish()
-    .describe(
-      "Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null",
-    ),
-  uniqueCode: zod
-    .number()
-    .min(payOrderResponseUniqueCodeMin)
-    .nullish()
-    .describe(
-      "Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna",
-    ),
-  notes: zod.string().nullish(),
-  qrisUrl: zod
-    .string()
-    .nullish()
-    .describe("URL gambar QRIS untuk paymentMethod=qris"),
-  expiresAt: zod.coerce
-    .date()
-    .nullish()
-    .describe("Waktu kedaluwarsa pembayaran QRIS"),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date().optional(),
 });
 
 /**
@@ -730,29 +614,49 @@ export const ListBalanceLogsResponse = zod.object({
 export const ListAccountsResponseItem = zod.object({
   id: zod.number(),
   userId: zod.number(),
-  orderId: zod.number().nullish(),
+  orderId: zod.number().nullable(),
+  dynamicOrder: zod
+    .object({
+      id: zod.number(),
+      provider: zod.string(),
+      providerServerId: zod.string(),
+      serverDisplayName: zod.string(),
+      providerAccountId: zod.string().nullable(),
+      dynamicServerId: zod.number().nullable(),
+      renewEnabled: zod.boolean(),
+      supportedTypes: zod.array(zod.enum(["day", "week", "month"])),
+      sellPricePerDay: zod.number(),
+      sellPricePerWeek: zod.number(),
+      sellPricePerMonth: zod.number(),
+    })
+    .nullable(),
   protocol: zod.enum(["ssh", "vmess", "vless", "trojan", "shadowsocks"]),
   username: zod.string(),
   password: zod.string().nullish(),
   uuid: zod.string().nullish(),
-  serverId: zod.number().optional(),
-  server: zod.object({
-    id: zod.number(),
-    name: zod.string(),
-    host: zod.string().nullish(),
-    location: zod.string(),
-    flag: zod.string().describe("Country flag emoji or code"),
-    isActive: zod.boolean(),
-  }),
-  configLink: zod.string().nullish().describe("Primary config link (TLS)"),
+  serverId: zod.number(),
+  server: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      host: zod.string().nullish(),
+      location: zod.string(),
+      flag: zod.string().describe("Country flag emoji or code"),
+      isActive: zod.boolean(),
+    })
+    .nullable(),
+  configLink: zod.string().nullable().describe("Primary config link (TLS)"),
   allLinks: zod
     .record(zod.string(), zod.string().nullable())
-    .nullish()
+    .nullable()
     .describe("All config link variants (tls, none, grpc, uptls, upntls)"),
   expiresAt: zod.coerce.date(),
-  quota: zod.number().nullish(),
-  usedQuota: zod.number().nullish(),
-  productName: zod.string().nullish().describe("Nama paket produk yang dibeli"),
+  quota: zod.number().nullable(),
+  usedQuota: zod.number().nullable(),
+  productName: zod
+    .string()
+    .nullable()
+    .describe("Nama paket produk yang dibeli"),
   isActive: zod.boolean(),
   createdAt: zod.coerce.date(),
 });
@@ -768,72 +672,60 @@ export const GetAccountParams = zod.object({
 export const GetAccountResponse = zod.object({
   id: zod.number(),
   userId: zod.number(),
-  orderId: zod.number().nullish(),
+  orderId: zod.number().nullable(),
+  dynamicOrder: zod
+    .object({
+      id: zod.number(),
+      provider: zod.string(),
+      providerServerId: zod.string(),
+      serverDisplayName: zod.string(),
+      providerAccountId: zod.string().nullable(),
+      dynamicServerId: zod.number().nullable(),
+      renewEnabled: zod.boolean(),
+      supportedTypes: zod.array(zod.enum(["day", "week", "month"])),
+      sellPricePerDay: zod.number(),
+      sellPricePerWeek: zod.number(),
+      sellPricePerMonth: zod.number(),
+    })
+    .nullable(),
   protocol: zod.enum(["ssh", "vmess", "vless", "trojan", "shadowsocks"]),
   username: zod.string(),
   password: zod.string().nullish(),
   uuid: zod.string().nullish(),
-  serverId: zod.number().optional(),
-  server: zod.object({
-    id: zod.number(),
-    name: zod.string(),
-    host: zod.string().nullish(),
-    location: zod.string(),
-    flag: zod.string().describe("Country flag emoji or code"),
-    isActive: zod.boolean(),
-  }),
-  configLink: zod.string().nullish().describe("Primary config link (TLS)"),
+  serverId: zod.number(),
+  server: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      host: zod.string().nullish(),
+      location: zod.string(),
+      flag: zod.string().describe("Country flag emoji or code"),
+      isActive: zod.boolean(),
+    })
+    .nullable(),
+  configLink: zod.string().nullable().describe("Primary config link (TLS)"),
   allLinks: zod
     .record(zod.string(), zod.string().nullable())
-    .nullish()
+    .nullable()
     .describe("All config link variants (tls, none, grpc, uptls, upntls)"),
   expiresAt: zod.coerce.date(),
-  quota: zod.number().nullish(),
-  usedQuota: zod.number().nullish(),
-  productName: zod.string().nullish().describe("Nama paket produk yang dibeli"),
+  quota: zod.number().nullable(),
+  usedQuota: zod.number().nullable(),
+  productName: zod
+    .string()
+    .nullable()
+    .describe("Nama paket produk yang dibeli"),
   isActive: zod.boolean(),
   createdAt: zod.coerce.date(),
 });
 
 /**
- * @summary Renew a VPN account
+ * Static product renewals are retired. Create a new account through POST /dynamic-vpn/orders.
+ * @deprecated
+ * @summary Retired static product renewal endpoint
  */
 export const RenewAccountParams = zod.object({
   id: zod.coerce.number(),
-});
-
-export const RenewAccountBody = zod.object({
-  productId: zod.number(),
-});
-
-export const RenewAccountResponse = zod.object({
-  id: zod.number(),
-  userId: zod.number(),
-  orderId: zod.number().nullish(),
-  protocol: zod.enum(["ssh", "vmess", "vless", "trojan", "shadowsocks"]),
-  username: zod.string(),
-  password: zod.string().nullish(),
-  uuid: zod.string().nullish(),
-  serverId: zod.number().optional(),
-  server: zod.object({
-    id: zod.number(),
-    name: zod.string(),
-    host: zod.string().nullish(),
-    location: zod.string(),
-    flag: zod.string().describe("Country flag emoji or code"),
-    isActive: zod.boolean(),
-  }),
-  configLink: zod.string().nullish().describe("Primary config link (TLS)"),
-  allLinks: zod
-    .record(zod.string(), zod.string().nullable())
-    .nullish()
-    .describe("All config link variants (tls, none, grpc, uptls, upntls)"),
-  expiresAt: zod.coerce.date(),
-  quota: zod.number().nullish(),
-  usedQuota: zod.number().nullish(),
-  productName: zod.string().nullish().describe("Nama paket produk yang dibeli"),
-  isActive: zod.boolean(),
-  createdAt: zod.coerce.date(),
 });
 
 /**
@@ -950,36 +842,53 @@ export const GetDashboardSummaryResponse = zod.object({
       zod.object({
         id: zod.number(),
         userId: zod.number(),
-        orderId: zod.number().nullish(),
+        orderId: zod.number().nullable(),
+        dynamicOrder: zod
+          .object({
+            id: zod.number(),
+            provider: zod.string(),
+            providerServerId: zod.string(),
+            serverDisplayName: zod.string(),
+            providerAccountId: zod.string().nullable(),
+            dynamicServerId: zod.number().nullable(),
+            renewEnabled: zod.boolean(),
+            supportedTypes: zod.array(zod.enum(["day", "week", "month"])),
+            sellPricePerDay: zod.number(),
+            sellPricePerWeek: zod.number(),
+            sellPricePerMonth: zod.number(),
+          })
+          .nullable(),
         protocol: zod.enum(["ssh", "vmess", "vless", "trojan", "shadowsocks"]),
         username: zod.string(),
         password: zod.string().nullish(),
         uuid: zod.string().nullish(),
-        serverId: zod.number().optional(),
-        server: zod.object({
-          id: zod.number(),
-          name: zod.string(),
-          host: zod.string().nullish(),
-          location: zod.string(),
-          flag: zod.string().describe("Country flag emoji or code"),
-          isActive: zod.boolean(),
-        }),
+        serverId: zod.number(),
+        server: zod
+          .object({
+            id: zod.number(),
+            name: zod.string(),
+            host: zod.string().nullish(),
+            location: zod.string(),
+            flag: zod.string().describe("Country flag emoji or code"),
+            isActive: zod.boolean(),
+          })
+          .nullable(),
         configLink: zod
           .string()
-          .nullish()
+          .nullable()
           .describe("Primary config link (TLS)"),
         allLinks: zod
           .record(zod.string(), zod.string().nullable())
-          .nullish()
+          .nullable()
           .describe(
             "All config link variants (tls, none, grpc, uptls, upntls)",
           ),
         expiresAt: zod.coerce.date(),
-        quota: zod.number().nullish(),
-        usedQuota: zod.number().nullish(),
+        quota: zod.number().nullable(),
+        usedQuota: zod.number().nullable(),
         productName: zod
           .string()
-          .nullish()
+          .nullable()
           .describe("Nama paket produk yang dibeli"),
         isActive: zod.boolean(),
         createdAt: zod.coerce.date(),
@@ -1379,7 +1288,22 @@ export const AdminGetUserResponse = zod
           zod.object({
             id: zod.number(),
             userId: zod.number(),
-            orderId: zod.number().nullish(),
+            orderId: zod.number().nullable(),
+            dynamicOrder: zod
+              .object({
+                id: zod.number(),
+                provider: zod.string(),
+                providerServerId: zod.string(),
+                serverDisplayName: zod.string(),
+                providerAccountId: zod.string().nullable(),
+                dynamicServerId: zod.number().nullable(),
+                renewEnabled: zod.boolean(),
+                supportedTypes: zod.array(zod.enum(["day", "week", "month"])),
+                sellPricePerDay: zod.number(),
+                sellPricePerWeek: zod.number(),
+                sellPricePerMonth: zod.number(),
+              })
+              .nullable(),
             protocol: zod.enum([
               "ssh",
               "vmess",
@@ -1390,31 +1314,33 @@ export const AdminGetUserResponse = zod
             username: zod.string(),
             password: zod.string().nullish(),
             uuid: zod.string().nullish(),
-            serverId: zod.number().optional(),
-            server: zod.object({
-              id: zod.number(),
-              name: zod.string(),
-              host: zod.string().nullish(),
-              location: zod.string(),
-              flag: zod.string().describe("Country flag emoji or code"),
-              isActive: zod.boolean(),
-            }),
+            serverId: zod.number(),
+            server: zod
+              .object({
+                id: zod.number(),
+                name: zod.string(),
+                host: zod.string().nullish(),
+                location: zod.string(),
+                flag: zod.string().describe("Country flag emoji or code"),
+                isActive: zod.boolean(),
+              })
+              .nullable(),
             configLink: zod
               .string()
-              .nullish()
+              .nullable()
               .describe("Primary config link (TLS)"),
             allLinks: zod
               .record(zod.string(), zod.string().nullable())
-              .nullish()
+              .nullable()
               .describe(
                 "All config link variants (tls, none, grpc, uptls, upntls)",
               ),
             expiresAt: zod.coerce.date(),
-            quota: zod.number().nullish(),
-            usedQuota: zod.number().nullish(),
+            quota: zod.number().nullable(),
+            usedQuota: zod.number().nullable(),
             productName: zod
               .string()
-              .nullish()
+              .nullable()
               .describe("Nama paket produk yang dibeli"),
             isActive: zod.boolean(),
             createdAt: zod.coerce.date(),
@@ -1628,100 +1554,788 @@ export const AdminListProductsResponse = zod.array(
 );
 
 /**
- * @summary Create product (admin)
+ * @summary Quote a balance-funded renewal for a dynamic VPN account
  */
-export const adminCreateProductBodyIsActiveDefault = true;
-export const adminCreateProductBodySortOrderDefault = 0;
+export const QuoteDynamicAccountRenewalParams = zod.object({
+  id: zod.coerce.number(),
+});
 
-export const AdminCreateProductBody = zod.object({
-  name: zod.string(),
-  description: zod.string().optional(),
-  protocol: zod.enum(["ssh", "vmess", "vless", "trojan", "shadowsocks"]),
-  durationDays: zod.number(),
-  price: zod.number(),
-  quota: zod.number().nullish(),
-  maxConnections: zod.number().nullish(),
-  stock: zod.number().describe("Batas maksimal akun aktif"),
-  isActive: zod.boolean().default(adminCreateProductBodyIsActiveDefault),
-  category: zod.string().optional(),
-  sortOrder: zod.number().default(adminCreateProductBodySortOrderDefault),
-  serverId: zod
-    .number()
-    .nullish()
-    .describe("ID server yang di-pin untuk produk ini (null = pilih otomatis)"),
+export const QuoteDynamicAccountRenewalBody = zod.object({
+  durationType: zod.enum(["day", "week", "month"]),
+  duration: zod.number().min(1),
+});
+
+export const QuoteDynamicAccountRenewalResponse = zod.object({
+  amount: zod.number(),
+  baseAmount: zod.number(),
+  resellerDiscountAmount: zod.number(),
+  unitPrice: zod.number(),
+  durationType: zod.enum(["day", "week", "month"]),
+  duration: zod.number(),
+  durationLabel: zod.string(),
 });
 
 /**
- * @summary Update product (admin)
+ * @summary Synchronize a NadiaVPN dynamic account from its provider
+ */
+export const SyncDynamicAccountProviderParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SyncDynamicAccountProviderResponse = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  orderId: zod.number().nullable(),
+  dynamicOrder: zod
+    .object({
+      id: zod.number(),
+      provider: zod.string(),
+      providerServerId: zod.string(),
+      serverDisplayName: zod.string(),
+      providerAccountId: zod.string().nullable(),
+      dynamicServerId: zod.number().nullable(),
+      renewEnabled: zod.boolean(),
+      supportedTypes: zod.array(zod.enum(["day", "week", "month"])),
+      sellPricePerDay: zod.number(),
+      sellPricePerWeek: zod.number(),
+      sellPricePerMonth: zod.number(),
+    })
+    .nullable(),
+  protocol: zod.enum(["ssh", "vmess", "vless", "trojan", "shadowsocks"]),
+  username: zod.string(),
+  password: zod.string().nullish(),
+  uuid: zod.string().nullish(),
+  serverId: zod.number(),
+  server: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      host: zod.string().nullish(),
+      location: zod.string(),
+      flag: zod.string().describe("Country flag emoji or code"),
+      isActive: zod.boolean(),
+    })
+    .nullable(),
+  configLink: zod.string().nullable().describe("Primary config link (TLS)"),
+  allLinks: zod
+    .record(zod.string(), zod.string().nullable())
+    .nullable()
+    .describe("All config link variants (tls, none, grpc, uptls, upntls)"),
+  expiresAt: zod.coerce.date(),
+  quota: zod.number().nullable(),
+  usedQuota: zod.number().nullable(),
+  productName: zod
+    .string()
+    .nullable()
+    .describe("Nama paket produk yang dibeli"),
+  isActive: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Renew a dynamic VPN account using balance
+ */
+export const RenewDynamicAccountParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RenewDynamicAccountBody = zod.object({
+  durationType: zod.enum(["day", "week", "month"]),
+  duration: zod.number().min(1),
+});
+
+export const RenewDynamicAccountResponse = zod.object({
+  account: zod.object({
+    id: zod.number(),
+    userId: zod.number(),
+    orderId: zod.number().nullable(),
+    dynamicOrder: zod
+      .object({
+        id: zod.number(),
+        provider: zod.string(),
+        providerServerId: zod.string(),
+        serverDisplayName: zod.string(),
+        providerAccountId: zod.string().nullable(),
+        dynamicServerId: zod.number().nullable(),
+        renewEnabled: zod.boolean(),
+        supportedTypes: zod.array(zod.enum(["day", "week", "month"])),
+        sellPricePerDay: zod.number(),
+        sellPricePerWeek: zod.number(),
+        sellPricePerMonth: zod.number(),
+      })
+      .nullable(),
+    protocol: zod.enum(["ssh", "vmess", "vless", "trojan", "shadowsocks"]),
+    username: zod.string(),
+    password: zod.string().nullish(),
+    uuid: zod.string().nullish(),
+    serverId: zod.number(),
+    server: zod
+      .object({
+        id: zod.number(),
+        name: zod.string(),
+        host: zod.string().nullish(),
+        location: zod.string(),
+        flag: zod.string().describe("Country flag emoji or code"),
+        isActive: zod.boolean(),
+      })
+      .nullable(),
+    configLink: zod.string().nullable().describe("Primary config link (TLS)"),
+    allLinks: zod
+      .record(zod.string(), zod.string().nullable())
+      .nullable()
+      .describe("All config link variants (tls, none, grpc, uptls, upntls)"),
+    expiresAt: zod.coerce.date(),
+    quota: zod.number().nullable(),
+    usedQuota: zod.number().nullable(),
+    productName: zod
+      .string()
+      .nullable()
+      .describe("Nama paket produk yang dibeli"),
+    isActive: zod.boolean(),
+    createdAt: zod.coerce.date(),
+  }),
+  amount: zod.number(),
+  discountAmount: zod.number(),
+});
+
+/**
+ * @summary List active dynamic VPN servers for public display
+ */
+export const ListPublicDynamicVpnServersResponse = zod.object({
+  servers: zod.array(
+    zod.object({
+      id: zod.number(),
+      provider: zod.enum(["nadiavpn", "local_panel"]),
+      displayName: zod.string(),
+      location: zod.string().nullish(),
+      enabledProtocols: zod.array(
+        zod.enum(["ssh", "vmess", "vless", "trojan"]),
+      ),
+      supportedTypes: zod.array(zod.enum(["day", "week", "month"])),
+      isActive: zod.boolean(),
+      trialEnabled: zod.boolean(),
+      trialDuration: zod.string().nullish(),
+      renewEnabled: zod.boolean(),
+      sellPricePerDay: zod.number(),
+      sellPricePerWeek: zod.number(),
+      sellPricePerMonth: zod.number(),
+      minDays: zod.number(),
+      maxDays: zod.number(),
+      minMonths: zod.number(),
+      maxMonths: zod.number(),
+      capacityLimit: zod.string().nullish(),
+      capacityUsed: zod.number(),
+      capacityIsFull: zod.boolean(),
+      maxConnections: zod.number(),
+      sortOrder: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary List purchasable dynamic VPN servers
+ */
+export const ListDynamicVpnServersResponse = zod.object({
+  servers: zod.array(
+    zod.object({
+      id: zod.number(),
+      provider: zod.enum(["nadiavpn", "local_panel"]),
+      displayName: zod.string(),
+      location: zod.string().nullish(),
+      enabledProtocols: zod.array(
+        zod.enum(["ssh", "vmess", "vless", "trojan"]),
+      ),
+      supportedTypes: zod.array(zod.enum(["day", "week", "month"])),
+      isActive: zod.boolean(),
+      trialEnabled: zod.boolean(),
+      trialDuration: zod.string().nullish(),
+      renewEnabled: zod.boolean(),
+      sellPricePerDay: zod.number(),
+      sellPricePerWeek: zod.number(),
+      sellPricePerMonth: zod.number(),
+      minDays: zod.number(),
+      maxDays: zod.number(),
+      minMonths: zod.number(),
+      maxMonths: zod.number(),
+      capacityLimit: zod.string().nullish(),
+      capacityUsed: zod.number(),
+      capacityIsFull: zod.boolean(),
+      maxConnections: zod.number(),
+      sortOrder: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Quote a dynamic VPN purchase
+ */
+
+export const QuoteDynamicVpnOrderBody = zod.object({
+  serverId: zod.number(),
+  protocol: zod.enum(["ssh", "vmess", "vless", "trojan"]),
+  durationType: zod.enum(["day", "week", "month"]),
+  duration: zod.number().min(1),
+  voucherCode: zod.string().optional(),
+});
+
+export const QuoteDynamicVpnOrderResponse = zod.object({
+  unitPrice: zod.number(),
+  baseAmount: zod.number(),
+  durationLabel: zod.string(),
+  amount: zod.number(),
+  resellerDiscountAmount: zod.number(),
+  voucherDiscountAmount: zod.number(),
+  discountAmount: zod.number(),
+  voucherId: zod.number().nullable(),
+  voucherCode: zod.string().nullable(),
+});
+
+/**
+ * @summary List the current user's dynamic VPN orders
+ */
+export const listDynamicVpnOrdersQueryLimitMax = 100;
+
+export const ListDynamicVpnOrdersQueryParams = zod.object({
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listDynamicVpnOrdersQueryLimitMax)
+    .optional(),
+});
+
+export const ListDynamicVpnOrdersResponse = zod.object({
+  orders: zod.array(
+    zod.object({
+      id: zod.number(),
+      userId: zod.number(),
+      dynamicServerId: zod.number().nullable(),
+      provider: zod.string(),
+      providerServerId: zod.string(),
+      serverDisplayName: zod.string(),
+      protocol: zod.enum(["ssh", "vmess", "vless", "trojan"]),
+      durationType: zod.enum(["day", "week", "month"]),
+      duration: zod.number(),
+      username: zod.string(),
+      amount: zod.number(),
+      voucherId: zod.number().nullable(),
+      discountAmount: zod.number(),
+      status: zod.enum(["pending", "processing", "paid", "failed", "expired"]),
+      paymentMethod: zod.string(),
+      vpnAccountId: zod.number().nullable(),
+      providerAccountId: zod.string().nullable(),
+      qrisUrl: zod.string().nullable(),
+      expiresAt: zod.coerce.date().nullable(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create a pending dynamic VPN order
+ */
+
+export const createDynamicVpnOrderBodyUsernameMin = 5;
+
+export const createDynamicVpnOrderBodyUsernameRegExp = new RegExp(
+  "^(?=.\*[a-z])(?=(?:.\*\\d){2,})[a-zA-Z0-9]+$",
+);
+export const createDynamicVpnOrderBodyPasswordMin = 6;
+export const createDynamicVpnOrderBodyPasswordMax = 32;
+
+export const createDynamicVpnOrderBodyPaymentMethodDefault = `balance`;
+
+export const CreateDynamicVpnOrderBody = zod.object({
+  serverId: zod.number(),
+  protocol: zod.enum(["ssh", "vmess", "vless", "trojan"]),
+  durationType: zod.enum(["day", "week", "month"]),
+  duration: zod.number().min(1),
+  username: zod
+    .string()
+    .min(createDynamicVpnOrderBodyUsernameMin)
+    .regex(createDynamicVpnOrderBodyUsernameRegExp),
+  password: zod
+    .string()
+    .min(createDynamicVpnOrderBodyPasswordMin)
+    .max(createDynamicVpnOrderBodyPasswordMax)
+    .optional()
+    .describe("Required for SSH orders; not returned in user order responses."),
+  paymentMethod: zod
+    .enum(["balance"])
+    .default(createDynamicVpnOrderBodyPaymentMethodDefault),
+  voucherCode: zod.string().optional(),
+});
+
+export const CreateDynamicVpnOrderResponse = zod.object({
+  order: zod.object({
+    id: zod.number(),
+    userId: zod.number(),
+    dynamicServerId: zod.number().nullable(),
+    provider: zod.string(),
+    providerServerId: zod.string(),
+    serverDisplayName: zod.string(),
+    protocol: zod.enum(["ssh", "vmess", "vless", "trojan"]),
+    durationType: zod.enum(["day", "week", "month"]),
+    duration: zod.number(),
+    username: zod.string(),
+    amount: zod.number(),
+    voucherId: zod.number().nullable(),
+    discountAmount: zod.number(),
+    status: zod.enum(["pending", "processing", "paid", "failed", "expired"]),
+    paymentMethod: zod.string(),
+    vpnAccountId: zod.number().nullable(),
+    providerAccountId: zod.string().nullable(),
+    qrisUrl: zod.string().nullable(),
+    expiresAt: zod.coerce.date().nullable(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+  quote: zod.object({
+    unitPrice: zod.number(),
+    baseAmount: zod.number(),
+    durationLabel: zod.string(),
+    amount: zod.number(),
+    resellerDiscountAmount: zod.number(),
+    voucherDiscountAmount: zod.number(),
+    discountAmount: zod.number(),
+    voucherId: zod.number().nullable(),
+    voucherCode: zod.string().nullable(),
+  }),
+  reused: zod.boolean(),
+});
+
+/**
+ * @summary Get one of the current user's dynamic VPN orders
+ */
+export const GetDynamicVpnOrderParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetDynamicVpnOrderResponse = zod.object({
+  order: zod.object({
+    id: zod.number(),
+    userId: zod.number(),
+    dynamicServerId: zod.number().nullable(),
+    provider: zod.string(),
+    providerServerId: zod.string(),
+    serverDisplayName: zod.string(),
+    protocol: zod.enum(["ssh", "vmess", "vless", "trojan"]),
+    durationType: zod.enum(["day", "week", "month"]),
+    duration: zod.number(),
+    username: zod.string(),
+    amount: zod.number(),
+    voucherId: zod.number().nullable(),
+    discountAmount: zod.number(),
+    status: zod.enum(["pending", "processing", "paid", "failed", "expired"]),
+    paymentMethod: zod.string(),
+    vpnAccountId: zod.number().nullable(),
+    providerAccountId: zod.string().nullable(),
+    qrisUrl: zod.string().nullable(),
+    expiresAt: zod.coerce.date().nullable(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
+
+/**
+ * @summary Pay and provision a pending dynamic VPN order from balance
+ */
+export const PayDynamicVpnOrderParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const PayDynamicVpnOrderResponse = zod.object({
+  order: zod.object({
+    id: zod.number(),
+    userId: zod.number(),
+    dynamicServerId: zod.number().nullable(),
+    provider: zod.string(),
+    providerServerId: zod.string(),
+    serverDisplayName: zod.string(),
+    protocol: zod.enum(["ssh", "vmess", "vless", "trojan"]),
+    durationType: zod.enum(["day", "week", "month"]),
+    duration: zod.number(),
+    username: zod.string(),
+    amount: zod.number(),
+    voucherId: zod.number().nullable(),
+    discountAmount: zod.number(),
+    status: zod.enum(["pending", "processing", "paid", "failed", "expired"]),
+    paymentMethod: zod.string(),
+    vpnAccountId: zod.number().nullable(),
+    providerAccountId: zod.string().nullable(),
+    qrisUrl: zod.string().nullable(),
+    expiresAt: zod.coerce.date().nullable(),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+  }),
+});
+
+/**
+ * @summary List all dynamic VPN servers with provider and pricing metadata
+ */
+export const AdminListDynamicVpnServersResponse = zod.object({
+  servers: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        provider: zod.enum(["nadiavpn", "local_panel"]),
+        displayName: zod.string(),
+        location: zod.string().nullish(),
+        enabledProtocols: zod.array(
+          zod.enum(["ssh", "vmess", "vless", "trojan"]),
+        ),
+        supportedTypes: zod.array(zod.enum(["day", "week", "month"])),
+        isActive: zod.boolean(),
+        trialEnabled: zod.boolean(),
+        trialDuration: zod.string().nullish(),
+        renewEnabled: zod.boolean(),
+        sellPricePerDay: zod.number(),
+        sellPricePerWeek: zod.number(),
+        sellPricePerMonth: zod.number(),
+        minDays: zod.number(),
+        maxDays: zod.number(),
+        minMonths: zod.number(),
+        maxMonths: zod.number(),
+        capacityLimit: zod.string().nullish(),
+        capacityUsed: zod.number(),
+        capacityIsFull: zod.boolean(),
+        maxConnections: zod.number(),
+        sortOrder: zod.number(),
+      })
+      .and(
+        zod.object({
+          providerServerId: zod.string(),
+          providerName: zod.string(),
+          supportedProtocols: zod.array(
+            zod.enum(["ssh", "vmess", "vless", "trojan"]),
+          ),
+          providerTrialEnabled: zod.boolean(),
+          costPerDay: zod.number(),
+          costPerWeek: zod.number(),
+          costPerMonth: zod.number(),
+          pricingMode: zod.enum(["auto_markup", "manual"]),
+          markupPercent: zod.number(),
+          lastSyncedAt: zod.coerce.date().nullable(),
+          createdAt: zod.coerce.date(),
+          updatedAt: zod.coerce.date(),
+        }),
+      ),
+  ),
+});
+
+/**
+ * @summary Synchronize dynamic VPN servers from NadiaVPN
+ */
+export const AdminSyncNadiaVpnDynamicServersResponse = zod.object({
+  success: zod.boolean(),
+  total: zod.number(),
+  servers: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        provider: zod.enum(["nadiavpn", "local_panel"]),
+        displayName: zod.string(),
+        location: zod.string().nullish(),
+        enabledProtocols: zod.array(
+          zod.enum(["ssh", "vmess", "vless", "trojan"]),
+        ),
+        supportedTypes: zod.array(zod.enum(["day", "week", "month"])),
+        isActive: zod.boolean(),
+        trialEnabled: zod.boolean(),
+        trialDuration: zod.string().nullish(),
+        renewEnabled: zod.boolean(),
+        sellPricePerDay: zod.number(),
+        sellPricePerWeek: zod.number(),
+        sellPricePerMonth: zod.number(),
+        minDays: zod.number(),
+        maxDays: zod.number(),
+        minMonths: zod.number(),
+        maxMonths: zod.number(),
+        capacityLimit: zod.string().nullish(),
+        capacityUsed: zod.number(),
+        capacityIsFull: zod.boolean(),
+        maxConnections: zod.number(),
+        sortOrder: zod.number(),
+      })
+      .and(
+        zod.object({
+          providerServerId: zod.string(),
+          providerName: zod.string(),
+          supportedProtocols: zod.array(
+            zod.enum(["ssh", "vmess", "vless", "trojan"]),
+          ),
+          providerTrialEnabled: zod.boolean(),
+          costPerDay: zod.number(),
+          costPerWeek: zod.number(),
+          costPerMonth: zod.number(),
+          pricingMode: zod.enum(["auto_markup", "manual"]),
+          markupPercent: zod.number(),
+          lastSyncedAt: zod.coerce.date().nullable(),
+          createdAt: zod.coerce.date(),
+          updatedAt: zod.coerce.date(),
+        }),
+      ),
+  ),
+});
+
+/**
+ * @summary Synchronize dynamic VPN servers from local panels
+ */
+export const AdminSyncLocalPanelDynamicServersResponse = zod.object({
+  success: zod.boolean(),
+  total: zod.number(),
+  servers: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        provider: zod.enum(["nadiavpn", "local_panel"]),
+        displayName: zod.string(),
+        location: zod.string().nullish(),
+        enabledProtocols: zod.array(
+          zod.enum(["ssh", "vmess", "vless", "trojan"]),
+        ),
+        supportedTypes: zod.array(zod.enum(["day", "week", "month"])),
+        isActive: zod.boolean(),
+        trialEnabled: zod.boolean(),
+        trialDuration: zod.string().nullish(),
+        renewEnabled: zod.boolean(),
+        sellPricePerDay: zod.number(),
+        sellPricePerWeek: zod.number(),
+        sellPricePerMonth: zod.number(),
+        minDays: zod.number(),
+        maxDays: zod.number(),
+        minMonths: zod.number(),
+        maxMonths: zod.number(),
+        capacityLimit: zod.string().nullish(),
+        capacityUsed: zod.number(),
+        capacityIsFull: zod.boolean(),
+        maxConnections: zod.number(),
+        sortOrder: zod.number(),
+      })
+      .and(
+        zod.object({
+          providerServerId: zod.string(),
+          providerName: zod.string(),
+          supportedProtocols: zod.array(
+            zod.enum(["ssh", "vmess", "vless", "trojan"]),
+          ),
+          providerTrialEnabled: zod.boolean(),
+          costPerDay: zod.number(),
+          costPerWeek: zod.number(),
+          costPerMonth: zod.number(),
+          pricingMode: zod.enum(["auto_markup", "manual"]),
+          markupPercent: zod.number(),
+          lastSyncedAt: zod.coerce.date().nullable(),
+          createdAt: zod.coerce.date(),
+          updatedAt: zod.coerce.date(),
+        }),
+      ),
+  ),
+});
+
+/**
+ * @summary List dynamic VPN orders with buyer and voucher metadata
+ */
+export const adminListDynamicVpnOrdersQueryLimitDefault = 50;
+export const adminListDynamicVpnOrdersQueryLimitMax = 100;
+
+export const AdminListDynamicVpnOrdersQueryParams = zod.object({
+  status: zod.coerce
+    .string()
+    .optional()
+    .describe("Filter by order status; use all or omit for every status."),
+  provider: zod.coerce
+    .string()
+    .optional()
+    .describe("Filter by provider; use all or omit for every provider."),
+  limit: zod.coerce
+    .number()
+    .max(adminListDynamicVpnOrdersQueryLimitMax)
+    .default(adminListDynamicVpnOrdersQueryLimitDefault),
+});
+
+export const AdminListDynamicVpnOrdersResponse = zod.object({
+  orders: zod.array(
+    zod
+      .object({
+        id: zod.number(),
+        userId: zod.number(),
+        dynamicServerId: zod.number().nullable(),
+        provider: zod.string(),
+        providerServerId: zod.string(),
+        serverDisplayName: zod.string(),
+        protocol: zod.enum(["ssh", "vmess", "vless", "trojan"]),
+        durationType: zod.enum(["day", "week", "month"]),
+        duration: zod.number(),
+        username: zod.string(),
+        amount: zod.number(),
+        voucherId: zod.number().nullable(),
+        discountAmount: zod.number(),
+        status: zod.enum([
+          "pending",
+          "processing",
+          "paid",
+          "failed",
+          "expired",
+        ]),
+        paymentMethod: zod.string(),
+        vpnAccountId: zod.number().nullable(),
+        providerAccountId: zod.string().nullable(),
+        qrisUrl: zod.string().nullable(),
+        expiresAt: zod.coerce.date().nullable(),
+        createdAt: zod.coerce.date(),
+        updatedAt: zod.coerce.date(),
+      })
+      .and(
+        zod.object({
+          buyer: zod.object({
+            username: zod.string().nullable(),
+            email: zod.string().nullable(),
+          }),
+          voucherCode: zod.string().nullable(),
+        }),
+      ),
+  ),
+});
+
+/**
+ * @summary Update dynamic VPN server availability, pricing, and limits
+ */
+export const AdminUpdateDynamicVpnServerParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const adminUpdateDynamicVpnServerBodySellPricePerDayMin = 0;
+
+export const adminUpdateDynamicVpnServerBodySellPricePerWeekMin = 0;
+
+export const adminUpdateDynamicVpnServerBodySellPricePerMonthMin = 0;
+
+export const adminUpdateDynamicVpnServerBodyMaxConnectionsMin = 0;
+
+export const adminUpdateDynamicVpnServerBodyMarkupPercentMin = 0;
+export const adminUpdateDynamicVpnServerBodyMarkupPercentMax = 1000;
+
+export const AdminUpdateDynamicVpnServerBody = zod.object({
+  displayName: zod.string().optional(),
+  isActive: zod.boolean().optional(),
+  trialEnabled: zod.boolean().optional(),
+  enabledProtocols: zod
+    .array(zod.enum(["ssh", "vmess", "vless", "trojan"]))
+    .optional(),
+  sellPricePerDay: zod
+    .number()
+    .min(adminUpdateDynamicVpnServerBodySellPricePerDayMin)
+    .optional(),
+  sellPricePerWeek: zod
+    .number()
+    .min(adminUpdateDynamicVpnServerBodySellPricePerWeekMin)
+    .optional(),
+  sellPricePerMonth: zod
+    .number()
+    .min(adminUpdateDynamicVpnServerBodySellPricePerMonthMin)
+    .optional(),
+  minDays: zod.number().min(1).optional(),
+  maxDays: zod.number().min(1).optional(),
+  minMonths: zod.number().min(1).optional(),
+  maxMonths: zod.number().min(1).optional(),
+  maxConnections: zod
+    .number()
+    .min(adminUpdateDynamicVpnServerBodyMaxConnectionsMin)
+    .optional(),
+  sortOrder: zod.number().optional(),
+  pricingMode: zod.enum(["auto_markup", "manual"]).optional(),
+  markupPercent: zod
+    .number()
+    .min(adminUpdateDynamicVpnServerBodyMarkupPercentMin)
+    .max(adminUpdateDynamicVpnServerBodyMarkupPercentMax)
+    .optional(),
+});
+
+export const AdminUpdateDynamicVpnServerResponse = zod
+  .object({
+    id: zod.number(),
+    provider: zod.enum(["nadiavpn", "local_panel"]),
+    displayName: zod.string(),
+    location: zod.string().nullish(),
+    enabledProtocols: zod.array(zod.enum(["ssh", "vmess", "vless", "trojan"])),
+    supportedTypes: zod.array(zod.enum(["day", "week", "month"])),
+    isActive: zod.boolean(),
+    trialEnabled: zod.boolean(),
+    trialDuration: zod.string().nullish(),
+    renewEnabled: zod.boolean(),
+    sellPricePerDay: zod.number(),
+    sellPricePerWeek: zod.number(),
+    sellPricePerMonth: zod.number(),
+    minDays: zod.number(),
+    maxDays: zod.number(),
+    minMonths: zod.number(),
+    maxMonths: zod.number(),
+    capacityLimit: zod.string().nullish(),
+    capacityUsed: zod.number(),
+    capacityIsFull: zod.boolean(),
+    maxConnections: zod.number(),
+    sortOrder: zod.number(),
+  })
+  .and(
+    zod.object({
+      providerServerId: zod.string(),
+      providerName: zod.string(),
+      supportedProtocols: zod.array(
+        zod.enum(["ssh", "vmess", "vless", "trojan"]),
+      ),
+      providerTrialEnabled: zod.boolean(),
+      costPerDay: zod.number(),
+      costPerWeek: zod.number(),
+      costPerMonth: zod.number(),
+      pricingMode: zod.enum(["auto_markup", "manual"]),
+      markupPercent: zod.number(),
+      lastSyncedAt: zod.coerce.date().nullable(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+    }),
+  );
+
+/**
+ * @summary Synchronize a VPN account from its local panel
+ */
+export const AdminSyncVpnAccountParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminSyncVpnAccountResponse = zod.object({
+  success: zod.boolean(),
+  panelInfo: zod.object({
+    username: zod.string().optional(),
+    uuid: zod.string().optional(),
+    hostname: zod.string().optional(),
+    expired: zod.string().optional(),
+    configLink: zod.string().optional(),
+    allLinks: zod.record(zod.string(), zod.string().nullable()).optional(),
+  }),
+  account: zod.object({
+    id: zod.number(),
+    uuid: zod.string().nullable(),
+    configLink: zod.string().nullable(),
+  }),
+});
+
+/**
+ * Static product mutations are retired. GET /admin/products remains available for history and audit.
+ * @deprecated
+ * @summary Retired static product update endpoint
  */
 export const AdminUpdateProductParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const AdminUpdateProductBody = zod.object({
-  name: zod.string().optional(),
-  description: zod.string().optional(),
-  protocol: zod
-    .enum(["ssh", "vmess", "vless", "trojan", "shadowsocks"])
-    .optional(),
-  durationDays: zod.number().optional(),
-  price: zod.number().optional(),
-  quota: zod.number().nullish(),
-  maxConnections: zod.number().nullish(),
-  stock: zod.number().optional().describe("Batas maksimal akun aktif"),
-  isActive: zod.boolean().optional(),
-  category: zod.string().optional(),
-  sortOrder: zod.number().optional(),
-  serverId: zod
-    .number()
-    .nullish()
-    .describe("ID server yang di-pin untuk produk ini (null = pilih otomatis)"),
-});
-
-export const AdminUpdateProductResponse = zod.object({
-  id: zod.number(),
-  name: zod.string(),
-  description: zod.string().nullish(),
-  protocol: zod.enum(["ssh", "vmess", "vless", "trojan", "shadowsocks"]),
-  durationDays: zod.number(),
-  price: zod.number(),
-  quota: zod
-    .number()
-    .nullish()
-    .describe("Bandwidth quota in GB, null = unlimited"),
-  maxConnections: zod.number().nullish(),
-  stock: zod.number().describe("Batas maksimal akun aktif untuk produk ini"),
-  availableStock: zod
-    .number()
-    .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
-  resellerPrice: zod
-    .number()
-    .nullish()
-    .describe(
-      "Harga khusus reseller (null jika user bukan reseller atau fitur reseller nonaktif)",
-    ),
-  isActive: zod.boolean(),
-  category: zod.string().nullish(),
-  sortOrder: zod.number().optional(),
-  serverId: zod
-    .number()
-    .nullish()
-    .describe("ID server yang di-pin untuk produk ini (null = pilih otomatis)"),
-  serverName: zod
-    .string()
-    .nullish()
-    .describe("Nama server yang di-pin (null jika tidak di-pin)"),
-});
-
 /**
- * @summary Delete product (admin)
+ * Static product mutations are retired. GET /admin/products remains available for history and audit.
+ * @deprecated
+ * @summary Retired static product deletion endpoint
  */
 export const AdminDeleteProductParams = zod.object({
   id: zod.coerce.number(),
-});
-
-export const AdminDeleteProductResponse = zod.object({
-  message: zod.string(),
 });
 
 /**
@@ -1981,104 +2595,12 @@ export const AdminListOrdersResponse = zod.object({
 });
 
 /**
- * @summary Manually confirm/approve an order
+ * Static order confirmation is retired. Payment settlement remains responsible for fulfillment; GET /admin/orders remains available for history and audit.
+ * @deprecated
+ * @summary Retired static order confirmation endpoint
  */
 export const AdminConfirmOrderParams = zod.object({
   id: zod.coerce.number(),
-});
-
-export const adminConfirmOrderResponseUniqueCodeMin = 0;
-
-export const AdminConfirmOrderResponse = zod.object({
-  id: zod.number(),
-  userId: zod.number(),
-  productId: zod.number(),
-  product: zod
-    .object({
-      id: zod.number(),
-      name: zod.string(),
-      description: zod.string().nullish(),
-      protocol: zod.enum(["ssh", "vmess", "vless", "trojan", "shadowsocks"]),
-      durationDays: zod.number(),
-      price: zod.number(),
-      quota: zod
-        .number()
-        .nullish()
-        .describe("Bandwidth quota in GB, null = unlimited"),
-      maxConnections: zod.number().nullish(),
-      stock: zod
-        .number()
-        .describe("Batas maksimal akun aktif untuk produk ini"),
-      availableStock: zod
-        .number()
-        .describe("Sisa stok yang masih tersedia (stock - akun aktif)"),
-      resellerPrice: zod
-        .number()
-        .nullish()
-        .describe(
-          "Harga khusus reseller (null jika user bukan reseller atau fitur reseller nonaktif)",
-        ),
-      isActive: zod.boolean(),
-      category: zod.string().nullish(),
-      sortOrder: zod.number().optional(),
-      serverId: zod
-        .number()
-        .nullish()
-        .describe(
-          "ID server yang di-pin untuk produk ini (null = pilih otomatis)",
-        ),
-      serverName: zod
-        .string()
-        .nullish()
-        .describe("Nama server yang di-pin (null jika tidak di-pin)"),
-    })
-    .nullish(),
-  status: zod
-    .enum(["pending", "processing", "paid", "failed", "expired"])
-    .describe(
-      "processing berarti pembayaran sudah diterima dan akun VPN sedang dibuat",
-    ),
-  amount: zod
-    .number()
-    .describe("Harga dasar order dalam IDR, sebelum kode unik"),
-  vpnAccountId: zod.number().nullish(),
-  paymentMethod: zod.string().nullish(),
-  paymentProvider: zod
-    .enum(["ketantechpay", "autogopay"])
-    .nullish()
-    .describe(
-      "Penyedia pembayaran yang memproses transaksi; null untuk pembayaran saldo atau QRIS statis legacy",
-    ),
-  paymentChannel: zod
-    .enum(["ketantechpay", "autogopay_gopay", "autogopay_shopeepay"])
-    .nullish()
-    .describe(
-      "Channel pembayaran: ketantechpay = QRIS dinamis KetantechPay; autogopay_gopay = QRIS dinamis melalui channel GoPay AutoGoPay; autogopay_shopeepay = QRIS melalui channel ShopeePay AutoGoPay. QRIS interoperabel dapat dipindai dengan GoPay, OVO, ShopeePay, atau aplikasi QRIS lain; OVO bukan channel yang dipilih secara terpisah.",
-    ),
-  payableAmount: zod
-    .number()
-    .nullish()
-    .describe(
-      "Jumlah aktual dalam IDR yang harus dibayar, termasuk kode unik jika ada; gunakan amount bila null",
-    ),
-  uniqueCode: zod
-    .number()
-    .min(adminConfirmOrderResponseUniqueCodeMin)
-    .nullish()
-    .describe(
-      "Tambahan kode unik pada payableAmount; setelah pembayaran berhasil nilai kode unik dikreditkan ke saldo pengguna",
-    ),
-  notes: zod.string().nullish(),
-  qrisUrl: zod
-    .string()
-    .nullish()
-    .describe("URL gambar QRIS untuk paymentMethod=qris"),
-  expiresAt: zod.coerce
-    .date()
-    .nullish()
-    .describe("Waktu kedaluwarsa pembayaran QRIS"),
-  createdAt: zod.coerce.date(),
-  updatedAt: zod.coerce.date().optional(),
 });
 
 /**
@@ -2294,36 +2816,53 @@ export const AdminListAccountsResponse = zod.object({
       .object({
         id: zod.number(),
         userId: zod.number(),
-        orderId: zod.number().nullish(),
+        orderId: zod.number().nullable(),
+        dynamicOrder: zod
+          .object({
+            id: zod.number(),
+            provider: zod.string(),
+            providerServerId: zod.string(),
+            serverDisplayName: zod.string(),
+            providerAccountId: zod.string().nullable(),
+            dynamicServerId: zod.number().nullable(),
+            renewEnabled: zod.boolean(),
+            supportedTypes: zod.array(zod.enum(["day", "week", "month"])),
+            sellPricePerDay: zod.number(),
+            sellPricePerWeek: zod.number(),
+            sellPricePerMonth: zod.number(),
+          })
+          .nullable(),
         protocol: zod.enum(["ssh", "vmess", "vless", "trojan", "shadowsocks"]),
         username: zod.string(),
         password: zod.string().nullish(),
         uuid: zod.string().nullish(),
-        serverId: zod.number().optional(),
-        server: zod.object({
-          id: zod.number(),
-          name: zod.string(),
-          host: zod.string().nullish(),
-          location: zod.string(),
-          flag: zod.string().describe("Country flag emoji or code"),
-          isActive: zod.boolean(),
-        }),
+        serverId: zod.number(),
+        server: zod
+          .object({
+            id: zod.number(),
+            name: zod.string(),
+            host: zod.string().nullish(),
+            location: zod.string(),
+            flag: zod.string().describe("Country flag emoji or code"),
+            isActive: zod.boolean(),
+          })
+          .nullable(),
         configLink: zod
           .string()
-          .nullish()
+          .nullable()
           .describe("Primary config link (TLS)"),
         allLinks: zod
           .record(zod.string(), zod.string().nullable())
-          .nullish()
+          .nullable()
           .describe(
             "All config link variants (tls, none, grpc, uptls, upntls)",
           ),
         expiresAt: zod.coerce.date(),
-        quota: zod.number().nullish(),
-        usedQuota: zod.number().nullish(),
+        quota: zod.number().nullable(),
+        usedQuota: zod.number().nullable(),
         productName: zod
           .string()
-          .nullish()
+          .nullable()
           .describe("Nama paket produk yang dibeli"),
         isActive: zod.boolean(),
         createdAt: zod.coerce.date(),
@@ -2393,14 +2932,12 @@ export const AdminDeleteAccountResponse = zod.object({
 });
 
 /**
- * @summary Delete an order (admin, non-paid only)
+ * Static order deletion is retired to preserve historical data. GET /admin/orders remains available for history and audit.
+ * @deprecated
+ * @summary Retired static order deletion endpoint
  */
 export const AdminDeleteOrderParams = zod.object({
   id: zod.coerce.number(),
-});
-
-export const AdminDeleteOrderResponse = zod.object({
-  success: zod.boolean(),
 });
 
 /**
@@ -2413,29 +2950,49 @@ export const AdminToggleAccountParams = zod.object({
 export const AdminToggleAccountResponse = zod.object({
   id: zod.number(),
   userId: zod.number(),
-  orderId: zod.number().nullish(),
+  orderId: zod.number().nullable(),
+  dynamicOrder: zod
+    .object({
+      id: zod.number(),
+      provider: zod.string(),
+      providerServerId: zod.string(),
+      serverDisplayName: zod.string(),
+      providerAccountId: zod.string().nullable(),
+      dynamicServerId: zod.number().nullable(),
+      renewEnabled: zod.boolean(),
+      supportedTypes: zod.array(zod.enum(["day", "week", "month"])),
+      sellPricePerDay: zod.number(),
+      sellPricePerWeek: zod.number(),
+      sellPricePerMonth: zod.number(),
+    })
+    .nullable(),
   protocol: zod.enum(["ssh", "vmess", "vless", "trojan", "shadowsocks"]),
   username: zod.string(),
   password: zod.string().nullish(),
   uuid: zod.string().nullish(),
-  serverId: zod.number().optional(),
-  server: zod.object({
-    id: zod.number(),
-    name: zod.string(),
-    host: zod.string().nullish(),
-    location: zod.string(),
-    flag: zod.string().describe("Country flag emoji or code"),
-    isActive: zod.boolean(),
-  }),
-  configLink: zod.string().nullish().describe("Primary config link (TLS)"),
+  serverId: zod.number(),
+  server: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      host: zod.string().nullish(),
+      location: zod.string(),
+      flag: zod.string().describe("Country flag emoji or code"),
+      isActive: zod.boolean(),
+    })
+    .nullable(),
+  configLink: zod.string().nullable().describe("Primary config link (TLS)"),
   allLinks: zod
     .record(zod.string(), zod.string().nullable())
-    .nullish()
+    .nullable()
     .describe("All config link variants (tls, none, grpc, uptls, upntls)"),
   expiresAt: zod.coerce.date(),
-  quota: zod.number().nullish(),
-  usedQuota: zod.number().nullish(),
-  productName: zod.string().nullish().describe("Nama paket produk yang dibeli"),
+  quota: zod.number().nullable(),
+  usedQuota: zod.number().nullable(),
+  productName: zod
+    .string()
+    .nullable()
+    .describe("Nama paket produk yang dibeli"),
   isActive: zod.boolean(),
   createdAt: zod.coerce.date(),
 });

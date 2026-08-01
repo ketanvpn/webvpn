@@ -7,27 +7,29 @@
  */
 import type { PublicServer } from "./publicServer";
 import type { VpnAccountAllLinks } from "./vpnAccountAllLinks";
+import type { VpnAccountDynamicOrder } from "./vpnAccountDynamicOrder";
 import type { VpnAccountProtocol } from "./vpnAccountProtocol";
 
 export interface VpnAccount {
   id: number;
   userId: number;
-  orderId?: number | null;
+  orderId: number | null;
+  dynamicOrder: VpnAccountDynamicOrder;
   protocol: VpnAccountProtocol;
   username: string;
   password?: string | null;
   uuid?: string | null;
-  serverId?: number;
-  server: PublicServer;
+  serverId: number;
+  server: PublicServer | null;
   /** Primary config link (TLS) */
-  configLink?: string | null;
+  configLink: string | null;
   /** All config link variants (tls, none, grpc, uptls, upntls) */
-  allLinks?: VpnAccountAllLinks;
+  allLinks: VpnAccountAllLinks;
   expiresAt: Date;
-  quota?: number | null;
-  usedQuota?: number | null;
+  quota: number | null;
+  usedQuota: number | null;
   /** Nama paket produk yang dibeli */
-  productName?: string | null;
+  productName: string | null;
   isActive: boolean;
   createdAt: Date;
 }

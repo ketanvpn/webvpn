@@ -101,7 +101,7 @@ const faqItems = [
   { q: "Protokol apa saja yang tersedia?", a: "Kami menyediakan SSH, VMess, VLess, dan Trojan. Setiap protokol memiliki kelebihan masing-masing untuk berbagai kebutuhan koneksi." },
   { q: "Bagaimana cara pembayaran?", a: "Kamu bisa top-up saldo via QRIS (scan langsung bayar) atau transfer manual ke rekening bank/e-wallet yang tersedia. Setelah saldo terisi, tinggal pilih paket." },
   { q: "Apakah akun VPN langsung aktif?", a: "Ya! Setelah pembayaran dikonfirmasi, akun VPN kamu langsung dibuat secara otomatis. Tidak perlu menunggu admin." },
-  { q: "Bisa perpanjang masa aktif?", a: "Tentu. Masuk ke menu Akun VPN di dashboard, lalu klik Perpanjang pada akun yang ingin diperpanjang." },
+  { q: "Bisa perpanjang masa aktif?", a: "Tentu, untuk akun VPN dengan tipe dynamic yang mendukung perpanjangan. Masuk ke menu Akun VPN di dashboard, lalu klik Perpanjang pada akun yang ingin diperpanjang. Akun static (lama) tidak bisa diperpanjang, tapi tetap bisa dilihat datanya." },
 ];
 
 // formatRupiah diimpor dari @/lib/format

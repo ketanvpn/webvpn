@@ -58,11 +58,11 @@ export type AnnouncementType = keyof typeof ANNOUNCE_STYLE;
  */
 
 export const ORDER_STATUS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  paid: { label: "Lunas", variant: "default" },
-  pending: { label: "Menunggu", variant: "secondary" },
-  processing: { label: "Diproses", variant: "secondary" },
+  paid: { label: "Berhasil", variant: "default" },
+  pending: { label: "Menunggu Diproses", variant: "secondary" },
+  processing: { label: "Sedang Diproses", variant: "secondary" },
   failed: { label: "Gagal", variant: "destructive" },
-  expired: { label: "Expired", variant: "destructive" },
+  expired: { label: "Kedaluwarsa", variant: "destructive" },
 };
 
 export function getOrderStatusLabel(status: string): string {

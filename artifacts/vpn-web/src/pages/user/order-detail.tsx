@@ -1,7 +1,5 @@
-import { getApiError } from "@/lib/utils";
 import {
   useGetOrder,
-  usePayOrder,
   getGetOrderQueryKey,
   useGetAccount,
   getGetBalanceQueryKey,
@@ -20,16 +18,6 @@ import { format, formatDistanceToNow, differenceInCalendarDays } from "date-fns"
 import { id as idLocale } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useState, useEffect, useRef } from "react";
 
@@ -85,7 +73,6 @@ export default function OrderDetail() {
   const orderId = parseInt(id || "0", 10);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [payConfirmOpen, setPayConfirmOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
 
   const isQrisPending = (o?: { status: string; paymentMethod?: string | null; expiresAt?: string | null }) => {
@@ -140,28 +127,6 @@ export default function OrderDetail() {
       enabled: !!order?.vpnAccountId && order?.status === "paid" 
     }
   });
-
-  const payOrder = usePayOrder();
-
-  const handlePay = () => {
-    payOrder.mutate({ id: orderId }, {
-      onSuccess: () => {
-        toast({
-          title: "Pembayaran Berhasil!",
-          description: "Akun VPN kamu sudah siap digunakan.",
-        });
-        queryClient.invalidateQueries({ queryKey: getGetOrderQueryKey(orderId) });
-        queryClient.invalidateQueries({ queryKey: getGetBalanceQueryKey() });
-      },
-      onError: (err) => {
-        toast({
-          title: "Pembayaran Gagal",
-          description: getApiError(err) || "Terjadi kesalahan saat pembayaran",
-          variant: "destructive",
-        });
-      }
-    });
-  };
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -556,47 +521,22 @@ export default function OrderDetail() {
         </CardContent>
 
         {order.status === "pending" && order.paymentMethod === "balance" && (
-          <CardFooter className="border-t border-white/5 pt-6 flex justify-end gap-3">
-            <Button variant="outline" asChild>
-              <Link href="/balance">Topup Saldo</Link>
-            </Button>
-            <Button onClick={() => setPayConfirmOpen(true)} disabled={payOrder.isPending} className="gap-2">
-              {payOrder.isPending ? "Memproses..." : "Bayar Sekarang"}
-            </Button>
+          <CardFooter className="border-t border-white/5 pt-6">
+            <div className="w-full rounded-xl border-2 border-amber-500/30 bg-amber-500/5 p-5 text-center space-y-3">
+              <AlertCircle className="h-8 w-8 text-amber-500 mx-auto" />
+              <div>
+                <p className="font-semibold text-amber-700">Order Tidak Dapat Diselesaikan</p>
+                <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                  Sistem pembayaran untuk order ini sudah tidak aktif. Order ini hanya tersimpan sebagai riwayat.
+                </p>
+              </div>
+              <Button variant="outline" size="sm" asChild className="gap-2">
+                <Link href="/order-vpn">Buat Order Baru</Link>
+              </Button>
+            </div>
           </CardFooter>
         )}
       </Card>
-
-      {/* Payment confirmation dialog */}
-      <AlertDialog open={payConfirmOpen} onOpenChange={setPayConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Konfirmasi Pembayaran</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-3 pt-1">
-                <p>Kamu akan membayar order ini menggunakan saldo akun:</p>
-                <div className="rounded-lg border bg-muted/30 divide-y text-sm">
-                  <div className="flex justify-between px-4 py-2.5">
-                    <span className="text-muted-foreground">Produk</span>
-                    <span className="font-semibold">{order.product?.name}</span>
-                  </div>
-                  <div className="flex justify-between px-4 py-2.5 bg-primary/5">
-                    <span className="font-semibold">Total</span>
-                    <span className="font-bold text-primary">{formatRupiah(payableAmount)}</span>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">Saldo akan dipotong dan akun VPN langsung aktif setelah pembayaran berhasil.</p>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={payOrder.isPending}>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={handlePay} disabled={payOrder.isPending}>
-              {payOrder.isPending ? "Memproses..." : "Ya, Bayar Sekarang"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

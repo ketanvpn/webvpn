@@ -6,13 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type CreateProductBodyProtocol =
-  (typeof CreateProductBodyProtocol)[keyof typeof CreateProductBodyProtocol];
+export type DynamicVpnProtocol =
+  (typeof DynamicVpnProtocol)[keyof typeof DynamicVpnProtocol];
 
-export const CreateProductBodyProtocol = {
+export const DynamicVpnProtocol = {
   ssh: "ssh",
   vmess: "vmess",
   vless: "vless",
   trojan: "trojan",
-  shadowsocks: "shadowsocks",
 } as const;

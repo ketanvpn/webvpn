@@ -1,24 +1,18 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { ordersTable, productsTable, usersTable, vpnAccountsTable, serversTable, vouchersTable, dynamicVpnOrdersTable } from "@workspace/db";
-import { eq, and, desc, sql, gte, count, gt, ne } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
-import { CreateOrderBody } from "@workspace/api-zod";
 import { formatProduct } from "./products";
 import { randomUUID } from "crypto";
 import { createPanelAccount, createTrialPanelAccount, sanitizeVpnUsername, deletePanelAccount } from "../lib/vpn-panel";
 import { addBalanceLog } from "./balance-logs";
-import { getPaymentSettingsMap, getResellerSettings } from "./settings";
 import { logger } from "../lib/logger";
 import { notifyUserVpnAccountCreated, notifyAdminOrderFulfilled } from "../lib/telegram";
 import { addPoints, getPointsSettings } from "./points";
 import { getReferralSettings } from "../lib/scheduler";
 import { createOrderLimiter } from "../lib/rate-limit";
-import {
-  createEntityQrPayment,
-  isPaymentProviderError,
-  markEntityQrCreationFailed,
-} from "../lib/payment";
+import { retiredRouteResponse } from "../lib/retired-route";
 
 const router = Router();
 
@@ -410,279 +404,9 @@ router.get("/orders", requireAuth, async (req, res) => {
   });
 });
 
-router.post("/orders", requireAuth, createOrderLimiter, async (req, res) => {
-  // Cek dulu apakah ini produk Trial (durationDays === 0) agar bisa skip validasi remarks
-  const bodyProductId = typeof req.body?.productId === "number" ? req.body.productId : null;
-  let isTrialProduct = false;
-  if (bodyProductId) {
-    const [checkProduct] = await db
-      .select({ durationDays: productsTable.durationDays })
-      .from(productsTable)
-      .where(eq(productsTable.id, bodyProductId))
-      .limit(1);
-    isTrialProduct = checkProduct?.durationDays === 0;
-  }
-
-  // Untuk Trial: remarks tidak wajib, auto-generate yang pasti lolos validasi
-  // Format: "trial" (huruf) + 6 digit terakhir timestamp (angka) = selalu valid
-  if (isTrialProduct && (!req.body.remarks || req.body.remarks.trim().length < 5)) {
-    req.body.remarks = `trial${String(Date.now()).slice(-6)}`;
-  }
-
-  const parsed = CreateOrderBody.safeParse(req.body);
-  if (!parsed.success) {
-    const remarksIssue = parsed.error.issues.find((i: any) => i.path.includes("remarks"));
-    const errorMsg = remarksIssue
-      ? "Nama akun tidak valid. Minimal 5 karakter, harus mengandung huruf dan minimal 2 angka. Contoh: daaw12"
-      : "Input tidak valid";
-    res.status(400).json({ error: errorMsg });
-    return;
-  }
-  const { productId, paymentMethod = "balance", remarks } = parsed.data;
-  const userId = req.user!.userId;
-
-  // Normalisasi: pastikan lowercase karena Zod sudah memastikan hanya alphanumeric
-  const normalizedRemarks = remarks.trim().toLowerCase();
-
-  const [productRow] = await db
-    .select({ product: productsTable, serverActive: serversTable.isActive })
-    .from(productsTable)
-    .leftJoin(serversTable, eq(productsTable.serverId, serversTable.id))
-    .where(and(eq(productsTable.id, productId), eq(productsTable.isActive, true)))
-    .limit(1);
-
-  if (!productRow) {
-    res.status(400).json({ error: "Product not found or not active" });
-    return;
-  }
-
-  const product = productRow.product;
-  if (product.serverId && productRow.serverActive === false) {
-    res.status(400).json({ error: "Server untuk produk ini sedang offline/maintenance" });
-    return;
-  }
-
-  // Cek apakah produk ini Trial 1 Jam (durationDays = 0)
-  if (product.durationDays === 0) {
-    const [existingTrial] = await db
-      .select({ id: ordersTable.id })
-      .from(ordersTable)
-      .innerJoin(productsTable, eq(ordersTable.productId, productsTable.id))
-      .where(
-        and(
-          eq(ordersTable.userId, userId),
-          eq(productsTable.durationDays, 0),
-          eq(ordersTable.status, "paid")
-        )
-      )
-      .limit(1);
-
-    if (existingTrial) {
-      res.status(400).json({ error: "Kamu sudah pernah mengambil paket Trial 1 Jam. Trial hanya berlaku 1 kali per akun." });
-      return;
-    }
-  }
-
-  // ─── Cek ketersediaan stok ─────────────────────────────────────────────────
-  const [{ activeCount }] = await db
-    .select({ activeCount: count(vpnAccountsTable.id) })
-    .from(vpnAccountsTable)
-    .innerJoin(ordersTable, eq(ordersTable.id, vpnAccountsTable.orderId))
-    .where(and(eq(ordersTable.productId, productId), gt(vpnAccountsTable.expiresAt, new Date())));
-
-  if (Number(activeCount) >= product.stock) {
-    res.status(400).json({ error: "Stok produk ini sudah habis. Coba lagi nanti atau pilih produk lain." });
-    return;
-  }
-
-  // Ambil role terkini dari DB (bukan JWT yang bisa basi setelah admin ubah role)
-  const [dbUser] = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-  const userRole = dbUser?.role ?? req.user!.role;
-
-  let amount = Number(product.price);
-  if (userRole === "reseller") {
-    const resellerSettings = await getResellerSettings();
-    if (resellerSettings.resellerEnabled && resellerSettings.resellerDiscountPercent > 0) {
-      const discountPercent = Math.max(1, Math.min(99, resellerSettings.resellerDiscountPercent));
-      amount = Math.floor(amount * (1 - discountPercent / 100));
-    }
-  }
-
-  let appliedVoucherId: number | null = null;
-  let appliedDiscountAmount = 0;
-
-  if (parsed.data.voucherCode) {
-    const [voucher] = await db
-      .select()
-      .from(vouchersTable)
-      .where(eq(vouchersTable.code, parsed.data.voucherCode))
-      .limit(1);
-
-    if (!voucher || !voucher.isActive) {
-      res.status(400).json({ error: "Voucher tidak valid atau sudah tidak aktif" });
-      return;
-    }
-
-    if (voucher.maxUses && voucher.currentUses >= voucher.maxUses) {
-      res.status(400).json({ error: "Voucher telah mencapai batas maksimal penggunaan" });
-      return;
-    }
-
-    if (voucher.expiresAt && new Date() > voucher.expiresAt) {
-      res.status(400).json({ error: "Voucher sudah kedaluwarsa" });
-      return;
-    }
-
-    if (voucher.discountType === "percent") {
-      appliedDiscountAmount = Math.floor(amount * (Number(voucher.discountValue) / 100));
-    } else if (voucher.discountType === "fixed") {
-      appliedDiscountAmount = Number(voucher.discountValue);
-    }
-    
-    appliedDiscountAmount = Math.min(appliedDiscountAmount, amount);
-    amount = amount - appliedDiscountAmount;
-    appliedVoucherId = voucher.id;
-  }
-
-  // ─── Cek duplikat nama akun: cegah bentrok username di server VPN ─────────
-  const [existingAccount] = await db
-    .select({ id: vpnAccountsTable.id })
-    .from(vpnAccountsTable)
-    .where(and(eq(vpnAccountsTable.username, normalizedRemarks), eq(vpnAccountsTable.isActive, true)))
-    .limit(1);
-
-  if (existingAccount) {
-    res.status(409).json({
-      error: `Nama akun "${normalizedRemarks}" sudah dipakai. Pilih nama lain.`,
-    });
-    return;
-  }
-
-  // Cek juga di order pending/processing yang belum jadi akun (supaya tidak race condition)
-  const [existingOrderWithSameName] = await db
-    .select({ id: ordersTable.id })
-    .from(ordersTable)
-    .where(
-      and(
-        sql`lower(notes) = ${normalizedRemarks}`,
-        sql`status IN ('pending', 'processing')`
-      )
-    )
-    .limit(1);
-
-  if (existingOrderWithSameName) {
-    res.status(409).json({
-      error: `Nama akun "${normalizedRemarks}" sedang digunakan di order lain yang belum selesai. Tunggu sebentar atau pilih nama lain.`,
-    });
-    return;
-  }
-
-  // ─── Deduplication: cegah order duplikat dalam 2 menit terakhir ───────────
-  const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
-  const [existingPending] = await db
-    .select({ id: ordersTable.id })
-    .from(ordersTable)
-    .where(
-      and(
-        eq(ordersTable.userId, userId),
-        eq(ordersTable.productId, productId),
-        eq(ordersTable.status, "pending"),
-        gte(ordersTable.createdAt, twoMinutesAgo)
-      )
-    )
-    .limit(1);
-
-  if (existingPending) {
-    res.status(409).json({
-      error: "Kamu sudah punya order pending untuk produk ini. Selesaikan order sebelumnya atau tunggu 2 menit.",
-      existingOrderId: existingPending.id,
-    });
-    return;
-  }
-
-  // Persist first so every provider sees the same local reference/idempotency key.
-  // Balance orders keep their existing pending/fulfillment behavior.
-  // Set default expiry 30 menit untuk QRIS orders (akan di-update oleh provider jika berhasil)
-  const DEFAULT_QRIS_EXPIRY_MINUTES = 30;
-  const orderValues: any = {
-    userId,
-    productId,
-    status: "pending",
-    amount: String(amount),
-    payableAmount: String(amount),
-    paymentMethod,
-    notes: normalizedRemarks,
-    voucherId: appliedVoucherId,
-    discountAmount: String(appliedDiscountAmount),
-  };
-  
-  if (paymentMethod === "qris") {
-    orderValues.expiresAt = new Date(Date.now() + DEFAULT_QRIS_EXPIRY_MINUTES * 60 * 1000);
-  }
-  
-  const [order] = await db
-    .insert(ordersTable)
-    .values(orderValues)
-    .returning();
-
-  if (paymentMethod === "qris") {
-    const settingsMap = await getPaymentSettingsMap();
-    const activeGateway = settingsMap["activeGateway"] ?? "qris_static";
-
-    if (activeGateway === "qris_static") {
-      // Order QRIS historically requires an outbound gateway; preserve that
-      // validation rather than silently creating a manual/static QR order.
-      await markEntityQrCreationFailed(
-        { kind: "order", id: order.id },
-        new Error("No outbound QRIS provider is configured"),
-      );
-      res.status(400).json({
-        error: "Pembayaran QRIS via AutoGoPay belum dikonfigurasi. Hubungi admin.",
-        orderId: order.id,
-      });
-      return;
-    }
-
-    try {
-      await createEntityQrPayment({
-        entity: { kind: "order", id: order.id },
-        baseAmount: amount,
-        settings: settingsMap,
-        customer: {
-          name: "WebVPN User",
-          email: "webvpn@local.invalid",
-        },
-        description: `WebVPN QRIS order #${order.id}`,
-      });
-    } catch (err) {
-      await markEntityQrCreationFailed({ kind: "order", id: order.id }, err);
-      const ambiguous =
-        isPaymentProviderError(err) && err.category === "ambiguous";
-      logger.error(
-        {
-          err,
-          orderId: order.id,
-          paymentOutcome: ambiguous ? "unknown" : "failed",
-        },
-        "Order QRIS creation failed",
-      );
-      res.status(ambiguous ? 503 : 502).json({
-        error: ambiguous
-          ? "Status pembuatan QRIS belum dapat dipastikan. Jangan buat order ulang; hubungi admin."
-          : "Gagal membuat QRIS. Coba lagi.",
-        orderId: order.id,
-        paymentStatus: ambiguous ? "unknown" : "failed",
-      });
-      return;
-    }
-  }
-
-  const [updatedOrder] = await db
-    .select()
-    .from(ordersTable)
-    .where(eq(ordersTable.id, order.id))
-    .limit(1);
-  res.status(201).json(await formatOrder(updatedOrder ?? order));
+router.post("/orders", requireAuth, createOrderLimiter, async (_req, res) => {
+  const response = retiredRouteResponse("staticOrder");
+  res.status(response.status).json(response);
 });
 
 router.get("/orders/:id", requireAuth, async (req, res) => {
@@ -703,66 +427,9 @@ router.get("/orders/:id", requireAuth, async (req, res) => {
   res.json(await formatOrder(order));
 });
 
-router.post("/orders/:id/pay", requireAuth, createOrderLimiter, async (req, res) => {
-  const id = parseInt(req.params.id as string, 10);
-  const userId = req.user!.userId;
-
-  const [order] = await db
-    .select()
-    .from(ordersTable)
-    .where(and(eq(ordersTable.id, id), eq(ordersTable.userId, userId)))
-    .limit(1);
-
-  if (!order) {
-    res.status(404).json({ error: "Order tidak ditemukan" });
-    return;
-  }
-
-  if (order.status === "paid") {
-    res.status(400).json({ error: "Order sudah dibayar" });
-    return;
-  }
-
-  if (order.status !== "pending") {
-    res.status(400).json({ error: `Order tidak dapat dibayar (status: ${order.status})` });
-    return;
-  }
-
-  // QRIS orders: payment is automatic via webhook. Just return current QRIS data.
-  if (order.paymentMethod === "qris") {
-    res.json(await formatOrder(order));
-    return;
-  }
-
-  // Balance payment: lock order then fulfill
-  const [lockedOrder] = await db
-    .update(ordersTable)
-    .set({ status: "processing", updatedAt: new Date() })
-    .where(and(eq(ordersTable.id, id), eq(ordersTable.userId, userId), eq(ordersTable.status, "pending")))
-    .returning();
-
-  if (!lockedOrder) {
-    res.status(409).json({ error: "Order sedang diproses, harap tunggu sebentar" });
-    return;
-  }
-
-  try {
-    await fulfillOrder(id, { deductBalance: true });
-  } catch (err) {
-    // Release lock on failure
-    await db.update(ordersTable).set({ status: "pending", updatedAt: new Date() }).where(eq(ordersTable.id, id)).catch(() => {});
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg === "INSUFFICIENT_BALANCE") {
-      res.status(400).json({ error: "Saldo tidak cukup untuk membayar order ini" });
-    } else {
-      logger.error({ err }, "[orders:pay] fulfillOrder failed");
-      res.status(500).json({ error: `Gagal memproses pembayaran: ${msg}` });
-    }
-    return;
-  }
-
-  const [updatedOrder] = await db.select().from(ordersTable).where(eq(ordersTable.id, id)).limit(1);
-  res.json(await formatOrder(updatedOrder));
+router.post("/orders/:id/pay", requireAuth, createOrderLimiter, async (_req, res) => {
+  const response = retiredRouteResponse("staticOrderPayment");
+  res.status(response.status).json(response);
 });
 
 export { formatOrder };

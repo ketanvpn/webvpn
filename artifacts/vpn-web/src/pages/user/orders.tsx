@@ -5,22 +5,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { Link } from "wouter";
 import { ChevronRight, ShoppingBag } from "lucide-react";
-
-const statusColors: Record<string, string> = {
-  pending: "border-yellow-500/30 text-yellow-400 bg-yellow-500/10",
-  processing: "border-blue-500/30 text-blue-400 bg-blue-500/10",
-  paid: "border-green-500/30 text-green-400 bg-green-500/10",
-  failed: "border-red-500/30 text-red-400 bg-red-500/10",
-  expired: "border-gray-500/30 text-gray-400 bg-gray-500/10",
-};
-
-const statusLabel: Record<string, string> = {
-  pending: "Menunggu",
-  processing: "Diproses",
-  paid: "Lunas",
-  failed: "Gagal",
-  expired: "Expired",
-};
+import { DynamicOrderStatusBadge } from "@/components/dynamic-order-status-badge";
+import { getOrderStatusLabel } from "@/lib/constants";
+import { parseOrderStatus, extractIsDynamicFromOrder } from "@/lib/parse-order";
 
 const paymentLabel: Record<string, string> = {
   balance: "Saldo",
@@ -44,7 +31,9 @@ export default function Orders() {
       ) : data?.orders && data.orders.length > 0 ? (
         <div className="glass-panel rounded-xl overflow-hidden divide-y divide-white/5">
           {data.orders.map((order) => {
-            const isDynamic = Boolean((order as typeof order & { isDynamic?: boolean }).isDynamic);
+            const isDynamic = extractIsDynamicFromOrder(order);
+            const parsedStatus = parseOrderStatus(order.status);
+            
             const content = (
               <div className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer">
                 {/* Kiri: ID + Produk + Waktu */}
@@ -74,18 +63,28 @@ export default function Orders() {
                 <div className="flex items-center gap-2 shrink-0">
                   <div className="text-right">
                     <div className="text-sm font-bold">{formatRupiah(order.payableAmount ?? order.amount)}</div>
-                    <Badge
-                      variant="outline"
-                      className={`text-[10px] h-4 px-1.5 mt-0.5 ${statusColors[order.status] ?? ""}`}
-                    >
-                      {statusLabel[order.status] ?? order.status}
-                    </Badge>
+                    {isDynamic && parsedStatus ? (
+                      <DynamicOrderStatusBadge status={parsedStatus} className="mt-0.5" />
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] h-4 px-1.5 mt-0.5">
+                        {getOrderStatusLabel(order.status)}
+                      </Badge>
+                    )}
                   </div>
-                  {!isDynamic && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
               </div>
             );
-            return isDynamic ? <div key={`dynamic-${order.id}`}>{content}</div> : <Link key={`static-${order.id}`} href={`/orders/${order.id}`}>{content}</Link>;
+            
+            return isDynamic ? (
+              <Link key={`dynamic-${order.id}`} href={`/order-vpn/history/${order.id}`}>
+                {content}
+              </Link>
+            ) : (
+              <Link key={`static-${order.id}`} href={`/orders/${order.id}`}>
+                {content}
+              </Link>
+            );
           })}
         </div>
       ) : (

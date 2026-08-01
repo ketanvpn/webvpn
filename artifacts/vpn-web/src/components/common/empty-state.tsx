@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
  *     icon={ShoppingCart}
  *     title="Belum ada order"
  *     description="Order pertama akan muncul di sini setelah checkout."
- *     action={<Button asChild><Link href="/products">Lihat Produk</Link></Button>}
+ *     action={<Button asChild><Link href="/order-vpn">Buat Order</Link></Button>}
  *   />
  */
 export interface EmptyStateProps {

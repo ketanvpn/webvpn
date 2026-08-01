@@ -8,7 +8,7 @@ import {
   vouchersTable,
   vpnAccountsTable,
 } from "@workspace/db";
-import { and, asc, count, desc, eq, gt, gte, lt, sql, sum } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, inArray, lt, sql, sum } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { requireAdmin, requireAuth } from "../lib/auth";
 import { createNadiaVpnOrder, getNadiaVpnAccountDetails, getNadiaVpnServers } from "../lib/nadiavpn";
@@ -29,10 +29,19 @@ import {
   isDynamicDurationType,
   type DynamicDurationType,
 } from "../lib/dynamic-duration";
+import {
+  decideCreation,
+  decidePaymentLock,
+  parseDynamicOrderStatus,
+  toDynamicOrderConfiguration,
+  type DynamicOrderConfiguration,
+} from "../lib/dynamic-order/lifecycle-policy";
+import { formatDynamicOrderForUser } from "../lib/dynamic-order/order-response";
 
 const router = Router();
 const VALID_PROTOCOLS = ["ssh", "vmess", "vless", "trojan"];
 const VALID_TYPES = [...DYNAMIC_DURATION_TYPES];
+const DYNAMIC_ORDER_CREATION_LOCK_NAMESPACE = 1_904_231;
 
 function sendError(res: Response, status: number, message: string) {
   res.status(status).json({ error: message });
@@ -795,10 +804,7 @@ router.get("/admin/dynamic-vpn/orders", requireAdmin, async (req, res) => {
 
   res.json({
     orders: rows.map(({ order, buyerUsername, buyerEmail, voucherCode }) => ({
-      ...order,
-      amount: Number(order.amount),
-      discountAmount: Number(order.discountAmount ?? 0),
-      providerResponse: undefined,
+      ...formatDynamicOrderForUser(order),
       buyer: { username: buyerUsername, email: buyerEmail },
       voucherCode: voucherCode ?? null,
     })),
@@ -964,28 +970,81 @@ router.post("/dynamic-vpn/orders", requireAuth, dynamicOrderLimiter, async (req,
     .limit(1);
   if (existingAccount) return sendError(res, 409, `Nama akun "${username}" sudah dipakai`);
 
-  const [order] = await db
-    .insert(dynamicVpnOrdersTable)
-    .values({
-      userId,
-      dynamicServerId: server.id,
-      provider: server.provider,
-      providerServerId: server.providerServerId,
-      serverDisplayName: server.displayName,
-      protocol,
-      durationType,
-      duration,
-      username,
-      password: protocol === "ssh" ? password : null,
-      amount: String(quote.amount),
-      voucherId: quote.voucherId,
-      discountAmount: String(quote.discountAmount),
-      status: "pending",
-      paymentMethod,
-    })
-    .returning();
+  const requestedConfiguration = {
+    dynamicServerId: server.id,
+    protocol,
+    durationType,
+    duration,
+    username,
+    password: protocol === "ssh" ? password : null,
+    paymentMethod,
+    voucherId: quote.voucherId,
+  } satisfies DynamicOrderConfiguration;
+  const creationResult = await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(${DYNAMIC_ORDER_CREATION_LOCK_NAMESPACE}, ${userId})`,
+    );
 
-  res.status(201).json({ order: { ...order, amount: Number(order.amount) }, quote });
+    const candidateOrders = await tx
+      .select()
+      .from(dynamicVpnOrdersTable)
+      .where(
+        and(
+          eq(dynamicVpnOrdersTable.userId, userId),
+          inArray(dynamicVpnOrdersTable.status, ["pending", "processing", "failed"]),
+        ),
+      )
+      .orderBy(desc(dynamicVpnOrdersTable.createdAt));
+
+    for (const candidate of candidateOrders) {
+      const status = parseDynamicOrderStatus(candidate.status);
+      if (status === null) {
+        logger.error({ orderId: candidate.id, status: candidate.status }, "[dynamic-vpn] unknown dynamic order status during creation");
+        return { kind: "invalid-status" } as const;
+      }
+
+      const configuration = toDynamicOrderConfiguration(candidate);
+      const decision = decideCreation(
+        configuration === null ? null : { status, configuration },
+        requestedConfiguration,
+      );
+      if (decision.kind === "reuse") return { kind: "reuse", order: candidate } as const;
+      if (decision.kind === "conflict") return { kind: "conflict" } as const;
+    }
+
+    const [order] = await tx
+      .insert(dynamicVpnOrdersTable)
+      .values({
+        userId,
+        dynamicServerId: server.id,
+        provider: server.provider,
+        providerServerId: server.providerServerId,
+        serverDisplayName: server.displayName,
+        protocol,
+        durationType,
+        duration,
+        username,
+        password: protocol === "ssh" ? password : null,
+        amount: String(quote.amount),
+        voucherId: quote.voucherId,
+        discountAmount: String(quote.discountAmount),
+        status: "pending",
+        paymentMethod,
+      })
+      .returning();
+    return { kind: "create", order } as const;
+  });
+
+  switch (creationResult.kind) {
+    case "reuse":
+      return res.json({ order: formatDynamicOrderForUser(creationResult.order), quote, reused: true });
+    case "conflict":
+      return sendError(res, 409, "Order dengan konfigurasi yang sama sedang diproses. Tunggu beberapa menit; jika tetap belum selesai, hubungi bantuan.");
+    case "invalid-status":
+      return sendError(res, 500, "Order tidak dapat diproses. Silakan hubungi bantuan.");
+    case "create":
+      return res.status(201).json({ order: formatDynamicOrderForUser(creationResult.order), quote, reused: false });
+  }
 });
 
 router.post("/dynamic-vpn/orders/:id/pay", requireAuth, dynamicOrderLimiter, async (req, res) => {
@@ -995,38 +1054,95 @@ router.post("/dynamic-vpn/orders/:id/pay", requireAuth, dynamicOrderLimiter, asy
   const [locked] = await db
     .update(dynamicVpnOrdersTable)
     .set({ status: "processing", updatedAt: new Date() })
-    .where(and(eq(dynamicVpnOrdersTable.id, id), eq(dynamicVpnOrdersTable.userId, userId), eq(dynamicVpnOrdersTable.status, "pending")))
+    .where(and(
+      eq(dynamicVpnOrdersTable.id, id),
+      eq(dynamicVpnOrdersTable.userId, userId),
+      inArray(dynamicVpnOrdersTable.status, ["pending", "failed"]),
+    ))
     .returning();
 
-  if (!locked) return sendError(res, 409, "Order tidak ditemukan atau sedang diproses");
+  if (!locked) {
+    const [existingOrder] = await db
+      .select({ status: dynamicVpnOrdersTable.status })
+      .from(dynamicVpnOrdersTable)
+      .where(and(eq(dynamicVpnOrdersTable.id, id), eq(dynamicVpnOrdersTable.userId, userId)))
+      .limit(1);
+    if (!existingOrder) return sendError(res, 404, "Order tidak ditemukan");
+
+    const status = parseDynamicOrderStatus(existingOrder.status);
+    if (status === null) {
+      logger.error({ orderId: id, status: existingOrder.status }, "[dynamic-vpn] unknown dynamic order status during payment lock");
+      return sendError(res, 500, "Status order tidak dapat diproses. Silakan hubungi bantuan.");
+    }
+
+    const decision = decidePaymentLock(status);
+    if (decision.kind === "lock") {
+      logger.error({ orderId: id, status }, "[dynamic-vpn] payment lock was not acquired for retryable order");
+      return sendError(res, 409, "Order sedang diperbarui. Silakan coba lagi.");
+    }
+
+    switch (decision.status) {
+      case "processing":
+        return sendError(res, 409, "Order sedang diproses. Jangan ulangi pembayaran; tunggu beberapa menit atau hubungi bantuan jika status tidak berubah.");
+      case "paid":
+        return sendError(res, 409, "Order ini sudah berhasil dibayar dan akun VPN sudah dibuat.");
+      case "expired":
+        return sendError(res, 409, "Order ini sudah kedaluwarsa dan tidak dapat dibayar ulang. Buat order baru.");
+    }
+  }
 
   logger.info({ orderId: id, userId }, "[dynamic-vpn] Order locked to processing, starting fulfill");
 
   try {
     await fulfillDynamicOrder(id, userId);
   } catch (error) {
-    await db.update(dynamicVpnOrdersTable).set({ status: "pending", updatedAt: new Date() }).where(eq(dynamicVpnOrdersTable.id, id)).catch(() => {});
+    try {
+      await db
+        .update(dynamicVpnOrdersTable)
+        .set({ status: "failed", updatedAt: new Date() })
+        .where(and(eq(dynamicVpnOrdersTable.id, id), eq(dynamicVpnOrdersTable.userId, userId), eq(dynamicVpnOrdersTable.status, "processing")));
+    } catch (statusError) {
+      logger.error({ err: statusError, originalError: error, orderId: id, userId }, "[dynamic-vpn] failed to mark failed dynamic order after fulfillment error");
+      return sendError(res, 500, "Order gagal diproses dan statusnya belum dapat diperbarui. Silakan hubungi bantuan.");
+    }
     const msg = error instanceof Error ? error.message : String(error);
     if (msg === "INSUFFICIENT_BALANCE") {
       logger.warn({ orderId: id, userId }, "Dynamic order pay failed due to insufficient balance (should have been caught earlier)");
       return sendError(res, 400, "Saldo tidak cukup");
     }
-    logger.error({ err: error, orderId: id, userId }, "[dynamic-vpn] pay failed - order reset to pending, any necessary refunds handled inside fulfill");
-    return sendError(res, 500, `Gagal memproses order: ${msg}`);
+    logger.error({ err: error, orderId: id, userId }, "[dynamic-vpn] pay failed - order marked failed, any necessary refunds handled inside fulfill");
+    return sendError(res, 500, "Gagal memproses order. Anda dapat mencoba pembayaran lagi atau hubungi bantuan jika masalah berlanjut.");
   }
 
   const [paid] = await db.select().from(dynamicVpnOrdersTable).where(eq(dynamicVpnOrdersTable.id, id)).limit(1);
-  res.json({ order: { ...paid, amount: Number(paid.amount) } });
+  if (!paid) {
+    logger.error({ orderId: id, userId }, "[dynamic-vpn] fulfilled order missing after successful fulfillment");
+    return sendError(res, 500, "Order berhasil diproses tetapi detailnya belum tersedia. Silakan hubungi bantuan.");
+  }
+  res.json({ order: formatDynamicOrderForUser(paid) });
 });
 
 router.get("/dynamic-vpn/orders", requireAuth, async (req, res) => {
   const userId = req.user!.userId;
   const limitRaw = req.query.limit;
   const limit = limitRaw ? Math.min(parseInt(String(limitRaw), 10) || 50, 100) : undefined;
-  let q = db.select().from(dynamicVpnOrdersTable).where(eq(dynamicVpnOrdersTable.userId, userId)).orderBy(desc(dynamicVpnOrdersTable.createdAt));
-  if (limit) q = q.limit(limit) as any;
-  const rows = await q;
-  res.json({ orders: rows.map((row) => ({ ...row, amount: Number(row.amount), providerResponse: undefined })) });
+  const query = db.select().from(dynamicVpnOrdersTable).where(eq(dynamicVpnOrdersTable.userId, userId)).orderBy(desc(dynamicVpnOrdersTable.createdAt));
+  const rows = limit ? await query.limit(limit) : await query;
+  res.json({ orders: rows.map(formatDynamicOrderForUser) });
+});
+
+router.get("/dynamic-vpn/orders/:id", requireAuth, async (req, res) => {
+  const id = parseInt(String(req.params.id), 10);
+  if (!Number.isInteger(id)) return sendError(res, 400, "ID order tidak valid");
+
+  const [order] = await db
+    .select()
+    .from(dynamicVpnOrdersTable)
+    .where(and(eq(dynamicVpnOrdersTable.id, id), eq(dynamicVpnOrdersTable.userId, req.user!.userId)))
+    .limit(1);
+  if (!order) return sendError(res, 404, "Order tidak ditemukan");
+
+  res.json({ order: formatDynamicOrderForUser(order) });
 });
 
 // ─── Admin: Profit Tracking per Server ────────────────────────────────────────

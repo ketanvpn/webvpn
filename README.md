@@ -41,7 +41,7 @@ Platform penjualan VPN berbasis web lengkap — dashboard user, panel admin, ver
 
 **Untuk Admin:**
 - Dashboard statistik lengkap (revenue harian/bulanan, pengguna, order, topup) dengan grafik
-- Kelola pengguna, produk, server, order, topup, akun VPN
+- Kelola pengguna, server dynamic/pricing, audit order historis, topup, akun VPN
 - **Dynamic VPN (NadiaVPN + Local Panel)** — sync otomatis server provider, pricing auto-markup, order langsung tanpa stok manual
 - **Profit Tracking** — API endpoint hitung profit per server per bulan, alert Telegram jika margin < 10%
 - **Aksi Massal (Bulk Actions)** — pilih banyak akun/user sekaligus untuk diproses sekaligus
@@ -722,16 +722,19 @@ Kalau pakai domain, ubah DNS record (A record) domain kamu ke IP VPS baru. Tungg
 
 Login sebagai admin dan lakukan pengaturan berikut:
 
-### Tambah Server VPN
-Menu: **Admin → Server → Tambah Server**
-- Isi URL API panel VPN (contoh: `http://152.42.xxx.xxx`)
-- Isi Bearer token dari panel VPN
+### Tambah Server VPN (Dynamic Provider)
+Menu: **Admin → Server → Tambah Server** atau sinkronkan dari provider
+- **Untuk local panel:** Isi URL API panel VPN (contoh: `http://152.42.xxx.xxx`) dan Bearer token
+- **Untuk dynamic provider (NadiaVPN):** Isi konfigurasi API di file `.env` (`NADIAVPN_API_BASE_URL` dan `NADIAVPN_API_TOKEN`), lalu sinkronkan server via menu **Admin → Dynamic VPN**
+- Server yang tersinkronisasi otomatis muncul di halaman order user
 
-### Tambah Produk VPN
-Menu: **Admin → Produk → Tambah Produk**
-- Pilih server, protokol (SSH/VMess/VLess/Trojan/Shadowsocks), durasi, harga
-- Isi **Stok** — jumlah maksimal akun VPN yang bisa aktif bersamaan untuk produk ini
-- Jika stok habis, tombol beli di halaman user otomatis disabled dan tampil "Stok Habis"
+### Pembelian VPN oleh User
+Menu: **User → Order VPN** (`/order-vpn`)
+- User memilih server, protokol, dan durasi secara langsung
+- Harga diambil dari markup otomatis (cost provider + margin)
+- Pembayaran via QRIS (AutoGoPay) atau saldo
+- Akun VPN aktif otomatis setelah pembayaran dikonfirmasi
+- **Catatan:** Produk static lama sudah tidak digunakan lagi. Semua pembelian baru melalui sistem dynamic VPN.
 
 ### WhatsApp OTP (Fonnte)
 Menu: **Admin → WhatsApp OTP**

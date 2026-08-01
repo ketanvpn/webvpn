@@ -157,7 +157,7 @@ export default function AdminResellerSettings() {
                 <li>Set role user menjadi "Reseller" di halaman detail pengguna.</li>
                 <li>Aktifkan fitur ini dan set persentase diskon.</li>
                 <li>Reseller otomatis melihat dan membayar harga yang sudah didiskon.</li>
-                <li>Harga reseller tampil di halaman produk saat mereka login.</li>
+                <li>Harga reseller tampil di halaman order VPN saat mereka login.</li>
               </ol>
             </div>
           </div>
