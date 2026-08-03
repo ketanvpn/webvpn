@@ -14,10 +14,7 @@ import {
   FloatingParticles, 
   GlowingOrbs,
   TiltCard,
-  ScrollReveal,
-  ScrollStagger,
-  ScrollStaggerItem,
-  CounterUp
+  ScrollReveal
 } from "@/components/effects";
 
 async function fetchPublicDynamicServers() {
@@ -240,25 +237,32 @@ export default function Home() {
 
         {/* ── Info Cards ─────────────────────────────── */}
         <section className="px-4 sm:px-6 pb-20 relative z-10">
-          <ScrollStagger staggerDelay={0.1} className="container mx-auto max-w-5xl">
+          <motion.div
+            className="container mx-auto max-w-5xl"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={staggerContainer}
+          >
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
               {infoItems.map(({ icon: Icon, title, desc, accent }, idx) => (
-                <ScrollStaggerItem key={title}>
-                  <TiltCard intensity={12} scaleOnHover={1.02} className="h-full">
-                    <div className="glass-card group flex flex-col sm:flex-row gap-4 sm:gap-5 items-start p-6 rounded-3xl hover:border-primary/40 hover:shadow-[0_8px_30px_rgba(16,185,129,0.12)] transition-all duration-300 h-full cursor-pointer">
-                      <div className={`shrink-0 h-12 w-12 sm:h-14 sm:w-14 rounded-2xl border flex items-center justify-center group-hover:scale-110 transition-all duration-300 ${accentMap[accent].box}`}>
-                        <Icon className={`h-6 w-6 transition-all ${accentMap[accent].icon}`} />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-base sm:text-lg mb-1.5">{title}</h3>
-                        <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
-                      </div>
-                    </div>
-                  </TiltCard>
-                </ScrollStaggerItem>
+                <motion.div
+                  key={title}
+                  variants={fadeUp}
+                  whileHover={{ y: -5 }}
+                  className="glass-card group flex flex-col sm:flex-row gap-4 sm:gap-5 items-start p-6 rounded-3xl hover:border-primary/40 hover:shadow-[0_8px_30px_rgba(16,185,129,0.12)] transition-all duration-300"
+                >
+                  <div className={`shrink-0 h-12 w-12 sm:h-14 sm:w-14 rounded-2xl border flex items-center justify-center group-hover:scale-110 transition-all duration-300 ${accentMap[accent].box}`}>
+                    <Icon className={`h-6 w-6 transition-all ${accentMap[accent].icon}`} />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-base sm:text-lg mb-1.5">{title}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
+                  </div>
+                </motion.div>
               ))}
             </div>
-          </ScrollStagger>
+          </motion.div>
         </section>
 
         {/* ── Server List ────────────────────────────── */}
@@ -307,7 +311,7 @@ export default function Home() {
                 <p className="text-sm text-muted-foreground mt-1">Silakan daftar untuk melihat paket lengkap kami.</p>
               </motion.div>
             ) : (
-              <ScrollStagger staggerDelay={0.08} className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+              <motion.div variants={staggerContainer} className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                 {dynamicServers.map((s: any) => {
                   const capacityPct = s.capacityLimit > 0 ? Math.round((s.capacityUsed / s.capacityLimit) * 100) : 0;
                   const slotsLeft = Math.max(0, (s.capacityLimit ?? 0) - (s.capacityUsed ?? 0));
@@ -320,94 +324,84 @@ export default function Home() {
                         ? { price: s.sellPricePerMonth, unit: "bulan" }
                         : null;
                   return (
-                    <ScrollStaggerItem key={s.id}>
-                      <TiltCard intensity={10} scaleOnHover={1.02} className="h-full">
-                        <div className="group flex flex-col gap-3 p-5 rounded-3xl glass-card hover:border-primary/40 hover:bg-card/60 hover:shadow-[0_10px_40px_rgba(16,185,129,0.1)] transition-all duration-300 relative overflow-hidden h-full cursor-pointer">
-                          {/* Glow accent */}
-                          <motion.div 
-                            className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary/0 to-transparent"
-                            initial={{ opacity: 0 }}
-                            whileHover={{ opacity: 1 }}
-                            animate={{ background: "linear-gradient(to right, transparent, hsl(var(--primary) / 0.6), transparent)" }}
-                          />
+                    <motion.div
+                      key={s.id}
+                      variants={fadeUp}
+                      whileHover={{ y: -4, scale: 1.01 }}
+                      className="group flex flex-col gap-3 p-5 rounded-3xl glass-card hover:border-primary/40 hover:bg-card/60 hover:shadow-[0_10px_40px_rgba(16,185,129,0.1)] transition-all duration-300 relative overflow-hidden"
+                    >
+                      {/* Glow accent */}
+                      <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary/0 to-transparent group-hover:via-primary/60 transition-all duration-500" />
 
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-3">
-                              <motion.div 
-                                className="shrink-0 h-12 w-12 rounded-2xl bg-gradient-to-br from-primary/20 to-emerald-600/10 border border-primary/20 flex items-center justify-center"
-                                whileHover={{ rotate: 10, scale: 1.1 }}
-                                transition={{ type: "spring", stiffness: 300 }}
-                              >
-                                <Sparkles className="h-5 w-5 text-primary" />
-                              </motion.div>
-                              <div>
-                                <p className="font-bold text-base line-clamp-1">{s.displayName}</p>
-                                <div className="flex items-center gap-1.5 mt-0.5">
-                                  <MapPin className="h-3 w-3 text-muted-foreground" />
-                                  <p className="text-xs font-medium text-muted-foreground line-clamp-1">{s.location}</p>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                              <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
-                              </span>
-                              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Online</span>
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="shrink-0 h-12 w-12 rounded-2xl bg-gradient-to-br from-primary/20 to-emerald-600/10 border border-primary/20 flex items-center justify-center">
+                            <Sparkles className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-bold text-base line-clamp-1">{s.displayName}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <MapPin className="h-3 w-3 text-muted-foreground" />
+                              <p className="text-xs font-medium text-muted-foreground line-clamp-1">{s.location}</p>
                             </div>
                           </div>
-
-                          {/* Protocols */}
-                          <div className="flex flex-wrap gap-1.5">
-                            {(s.enabledProtocols ?? []).map((p: string) => (
-                              <span
-                                key={p}
-                                className={`inline-flex items-center rounded-lg border px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase shadow-sm ${
-                                  protocolColor[p] ?? "bg-muted/40 text-muted-foreground border-white/10"
-                                }`}
-                              >
-                                {protocolLabel[p] ?? p}
-                              </span>
-                            ))}
-                          </div>
-
-                          {/* Capacity bar */}
-                          {s.capacityLimit > 0 && (
-                            <div className="mt-1">
-                              <div className="flex items-center justify-between text-[10px] mb-1.5">
-                                <span className="text-muted-foreground font-medium">Kapasitas</span>
-                                <span className={`font-bold ${slotsLeft <= 3 ? "text-amber-400" : "text-primary"}`}>
-                                  {slotsLeft} slot tersedia
-                                </span>
-                              </div>
-                              <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
-                                <motion.div
-                                  className={`h-full rounded-full ${
-                                    capacityPct >= 90 ? "bg-gradient-to-r from-amber-500 to-red-500" :
-                                    capacityPct >= 70 ? "bg-gradient-to-r from-primary to-amber-400" :
-                                    "bg-gradient-to-r from-primary to-emerald-400"
-                                  }`}
-                                  initial={{ width: 0 }}
-                                  whileInView={{ width: `${Math.min(capacityPct, 100)}%` }}
-                                  transition={{ duration: 0.8, ease: "easeOut" }}
-                                />
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Price Hint */}
-                          {priceHint && (
-                            <div className="flex items-center justify-between pt-1 border-t border-white/5">
-                              <span className="text-xs text-muted-foreground">Mulai dari</span>
-                              <span className="text-sm font-bold text-primary">{formatRupiah(priceHint.price)}<span className="text-xs text-muted-foreground font-normal">/{priceHint.unit}</span></span>
-                            </div>
-                          )}
                         </div>
-                      </TiltCard>
-                    </ScrollStaggerItem>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                          </span>
+                          <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Online</span>
+                        </div>
+                      </div>
+
+                      {/* Protocols */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {(s.enabledProtocols ?? []).map((p: string) => (
+                          <span
+                            key={p}
+                            className={`inline-flex items-center rounded-lg border px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase shadow-sm ${
+                              protocolColor[p] ?? "bg-muted/40 text-muted-foreground border-white/10"
+                            }`}
+                          >
+                            {protocolLabel[p] ?? p}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Capacity bar */}
+                      {s.capacityLimit > 0 && (
+                        <div className="mt-1">
+                          <div className="flex items-center justify-between text-[10px] mb-1.5">
+                            <span className="text-muted-foreground font-medium">Kapasitas</span>
+                            <span className={`font-bold ${slotsLeft <= 3 ? "text-amber-400" : "text-primary"}`}>
+                              {slotsLeft} slot tersedia
+                            </span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                capacityPct >= 90 ? "bg-gradient-to-r from-amber-500 to-red-500" :
+                                capacityPct >= 70 ? "bg-gradient-to-r from-primary to-amber-400" :
+                                "bg-gradient-to-r from-primary to-emerald-400"
+                              }`}
+                              style={{ width: `${Math.min(capacityPct, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Price Hint */}
+                      {priceHint && (
+                        <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                          <span className="text-xs text-muted-foreground">Mulai dari</span>
+                          <span className="text-sm font-bold text-primary">{formatRupiah(priceHint.price)}<span className="text-xs text-muted-foreground font-normal">/{priceHint.unit}</span></span>
+                        </div>
+                      )}
+                    </motion.div>
                   );
                 })}
-              </ScrollStagger>
+              </motion.div>
             )}
 
             {/* bottom CTA */}
@@ -424,7 +418,7 @@ export default function Home() {
 
         {/* ── Stats ───────────────────────────────────── */}
         <section className="px-4 sm:px-6 pb-20 relative z-10">
-          <ScrollStagger staggerDelay={0.1} className="container mx-auto max-w-4xl">
+          <motion.div className="container mx-auto max-w-4xl" initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={staggerContainer}>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
                 { icon: Users, value: 500, suffix: "+", label: "Pengguna Aktif" },
@@ -432,26 +426,14 @@ export default function Home() {
                 { icon: Activity, value: 99, suffix: "%", label: "Uptime Server" },
                 { icon: Clock, value: 24, suffix: "/7", label: "Dukungan Online" },
               ].map(({ icon: Icon, value, suffix, label }, idx) => (
-                <ScrollStaggerItem key={label}>
-                  <TiltCard intensity={8} scaleOnHover={1.05} className="h-full">
-                    <div className="glass-card rounded-2xl p-5 text-center hover:border-primary/30 transition-colors cursor-pointer h-full">
-                      <motion.div
-                        whileHover={{ rotate: 360, scale: 1.2 }}
-                        transition={{ duration: 0.5 }}
-                        className="inline-block"
-                      >
-                        <Icon className={`h-5 w-5 mx-auto mb-2 ${idx % 2 === 0 ? "text-emerald-400" : "text-cyan-400"}`} />
-                      </motion.div>
-                      <p className="text-2xl sm:text-3xl font-extrabold text-foreground">
-                        <CounterUp target={value} suffix={suffix} />
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1 font-medium">{label}</p>
-                    </div>
-                  </TiltCard>
-                </ScrollStaggerItem>
+                <motion.div key={label} variants={fadeUp} className="glass-card rounded-2xl p-5 text-center hover:border-primary/30 transition-colors">
+                  <Icon className={`h-5 w-5 mx-auto mb-2 ${idx % 2 === 0 ? "text-emerald-400" : "text-cyan-400"}`} />
+                  <p className="text-2xl sm:text-3xl font-extrabold text-foreground"><AnimatedCounter target={value} suffix={suffix} /></p>
+                  <p className="text-xs text-muted-foreground mt-1 font-medium">{label}</p>
+                </motion.div>
               ))}
             </div>
-          </ScrollStagger>
+          </motion.div>
         </section>
 
         {/* ── Cara Kerja ──────────────────────────────── */}
