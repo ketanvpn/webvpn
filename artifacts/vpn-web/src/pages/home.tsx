@@ -492,13 +492,13 @@ export default function Home() {
                 <li>
                   <a href="https://t.me/ketantechvpn_bot" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 text-muted-foreground hover:text-foreground transition-colors">
                     <Send className="h-4 w-4 text-cyan-400 shrink-0" />
-                    <span className="truncate">Telegram ┬╖ @ketantechvpn_bot</span>
+                    <span className="truncate">Telegram · @ketantechvpn_bot</span>
                   </a>
                 </li>
                 <li>
                   <Link href={isAuthenticated ? "/dashboard" : "/login"} className="flex items-center gap-2.5 text-muted-foreground hover:text-foreground transition-colors">
                     <MessageCircle className="h-4 w-4 text-emerald-400 shrink-0" />
-                    <span className="truncate">WhatsApp ┬╖ Via Dashboard</span>
+                    <span className="truncate">WhatsApp · Via Dashboard</span>
                   </Link>
                 </li>
               </ul>
