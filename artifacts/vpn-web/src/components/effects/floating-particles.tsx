@@ -11,12 +11,6 @@ interface Particle {
   opacity: number;
 }
 
-/**
- * FloatingParticles - Subtle floating particle effect
- * Adds depth and life to hero sections with gentle floating particles
- * 
- * Performance optimized: fewer particles on mobile devices
- */
 export function FloatingParticles({ 
   count = 30,
   className = "" 
@@ -25,17 +19,20 @@ export function FloatingParticles({
   className?: string;
 }) {
   const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Reduce particles on mobile for better performance
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const particleCount = isMobile ? Math.floor(count * 0.4) : count;
+  if (!mounted || isMobile) return null;
 
   const particles = useMemo<Particle[]>(() => {
-    return Array.from({ length: particleCount }, (_, i) => ({
+    return Array.from({ length: count }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
       y: Math.random() * 100,
@@ -44,9 +41,7 @@ export function FloatingParticles({
       delay: Math.random() * 10,
       opacity: Math.random() * 0.3 + 0.1,
     }));
-  }, [particleCount]);
-
-  if (!mounted) return null;
+  }, [count]);
 
   return (
     <div className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`}>
@@ -60,7 +55,6 @@ export function FloatingParticles({
             width: particle.size,
             height: particle.size,
             opacity: particle.opacity,
-            // GPU acceleration hints
             willChange: 'transform, opacity',
           }}
           animate={{
@@ -77,6 +71,82 @@ export function FloatingParticles({
           }}
         />
       ))}
+    </div>
+  );
+}
+
+export function GlowingOrbs() {
+  const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  if (!mounted || isMobile) return null;
+
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none -z-5">
+      <motion.div
+        className="absolute w-96 h-96 rounded-full"
+        style={{
+          background: 'radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, transparent 70%)',
+          left: '10%',
+          top: '20%',
+        }}
+        animate={{
+          scale: [1, 1.2, 1],
+          opacity: [0.3, 0.5, 0.3],
+        }}
+        transition={{
+          duration: 8,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+      />
+
+      <motion.div
+        className="absolute w-80 h-80 rounded-full"
+        style={{
+          background: 'radial-gradient(circle, rgba(34, 211, 238, 0.12) 0%, transparent 70%)',
+          right: '15%',
+          bottom: '30%',
+        }}
+        animate={{
+          scale: [1.2, 1, 1.2],
+          opacity: [0.4, 0.2, 0.4],
+        }}
+        transition={{
+          duration: 10,
+          repeat: Infinity,
+          ease: "easeInOut",
+          delay: 2,
+        }}
+      />
+
+      <motion.div
+        className="absolute w-64 h-64 rounded-full"
+        style={{
+          background: 'radial-gradient(circle, rgba(20, 184, 166, 0.1) 0%, transparent 70%)',
+          left: '50%',
+          top: '50%',
+          transform: 'translate(-50%, -50%)',
+        }}
+        animate={{
+          scale: [1, 1.3, 1],
+          opacity: [0.2, 0.4, 0.2],
+        }}
+        transition={{
+          duration: 12,
+          repeat: Infinity,
+          ease: "easeInOut",
+          delay: 4,
+        }}
+      />
     </div>
   );
 }
