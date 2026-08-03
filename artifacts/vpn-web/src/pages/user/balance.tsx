@@ -14,7 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Wallet, ArrowUpRight, History, Clock, XCircle, Zap, Timer, QrCode } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Wallet, ArrowUpRight, History, Clock, XCircle, Zap, Timer, QrCode, Landmark, TrendingUp, CreditCard, Smartphone, Info, ArrowUpCircle, ChevronDown, Lightbulb, CheckCircle, AlertTriangle, Gift, PlusCircle } from "lucide-react";
 import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -22,8 +24,7 @@ import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect, useRef } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useState, useEffect, useRef, useMemo } from "react";
 
 function useCountdown(expiresAt: string | null) {
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
@@ -133,6 +134,7 @@ export default function Balance() {
   const [showQris, setShowQris] = useState(false);
   const [activeTopup, setActiveTopup] = useState<ActiveTopup | null>(null);
   const [qrisImageError, setQrisImageError] = useState(false);
+  const [tipsOpen, setTipsOpen] = useState(false);
   const countdown = useCountdown(showQris ? activeTopup?.expiresAt ?? null : null);
 
   const openQrisFromHistory = (tx: TopupTransaction) => {
@@ -211,6 +213,28 @@ export default function Balance() {
   };
 
   const topupHistory = historyData ?? [];
+
+  // Statistik dihitung dari riwayat topup yang sudah dikonfirmasi.
+  // ponytail: pengeluaran diturunkan dari selisih total topup vs saldo saat ini
+  // (backend belum expose balance logs bertipe "order"); ganti ke endpoint
+  // riwayat pengeluaran begitu tersedia.
+  const stats = useMemo(() => {
+    const confirmed = topupHistory.filter((tx) => tx.status === "confirmed");
+    const now = new Date();
+    const monthTopup = confirmed
+      .filter((tx) => {
+        const d = new Date(tx.createdAt);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      })
+      .reduce((sum, tx) => sum + (tx.payableAmount ?? tx.amount), 0);
+
+    const lifetimeTopup = confirmed.reduce((sum, tx) => sum + (tx.payableAmount ?? tx.amount), 0);
+    const spent = Math.max(0, lifetimeTopup - (balanceData?.balance ?? 0));
+    const average = confirmed.length > 0 ? Math.round(lifetimeTopup / confirmed.length) : 0;
+
+    return { monthTopup, spent, average, count: confirmed.length };
+  }, [topupHistory, balanceData?.balance]);
+
   const activePaymentChannelName = getPaymentChannelName(
     activeTopup?.paymentChannel,
     activeTopup?.paymentProvider,
@@ -232,29 +256,61 @@ export default function Balance() {
       <div className="grid md:grid-cols-2 gap-5">
         {/* Kiri: Saldo + Form */}
         <div className="space-y-4">
-          {/* Kartu Saldo */}
-          <div className="rounded-xl bg-primary text-primary-foreground p-4 relative overflow-hidden">
-            <div className="absolute right-0 top-0 opacity-10 pointer-events-none">
-              <Wallet className="h-32 w-32 -mr-6 -mt-6" />
+          {/* Kartu Saldo - Premium dengan Gradient & Glow */}
+          <div className="rounded-xl bg-gradient-to-br from-primary via-primary to-teal-600 text-primary-foreground p-6 relative overflow-hidden glow-primary">
+            {/* Background glow effect */}
+            <div className="absolute inset-0 opacity-20 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+            {/* Icon watermark */}
+            <div className="absolute right-0 top-0 opacity-5 pointer-events-none">
+              <Wallet className="h-40 w-40 -mr-8 -mt-8" />
             </div>
-            <div className="flex items-center gap-2 text-primary-foreground/70 text-sm mb-2">
-              <Wallet className="h-4 w-4" /> Saldo Saat Ini
-            </div>
-            {isLoadingBalance ? (
-              <Skeleton className="h-9 w-40 bg-primary-foreground/20" />
-            ) : (
-              <div>
-                <div className="text-3xl font-bold tracking-tight">
-                  {formatRupiah(balanceData?.balance || 0)}
-                </div>
-                {balanceData?.pendingTopup !== undefined && balanceData.pendingTopup > 0 && (
-                  <div className="mt-2 text-xs bg-primary-foreground/10 inline-block px-2.5 py-1 rounded-full font-medium">
-                    + {formatRupiah(balanceData.pendingTopup)} menunggu konfirmasi
-                  </div>
-                )}
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 text-primary-foreground/80 text-sm mb-3">
+                <Wallet className="h-4 w-4" /> Saldo Saat Ini
               </div>
-            )}
+              {isLoadingBalance ? (
+                <Skeleton className="h-10 w-44 bg-primary-foreground/20 rounded" />
+              ) : (
+                <div>
+                  <div className="text-4xl font-bold tracking-tighter animate-pulse">
+                    {formatRupiah(balanceData?.balance || 0)}
+                  </div>
+                  {balanceData?.pendingTopup !== undefined && balanceData.pendingTopup > 0 && (
+                    <div className="mt-3 text-xs bg-primary-foreground/15 backdrop-blur-sm inline-block px-3 py-1.5 rounded-full font-medium border border-primary-foreground/20">
+                      + {formatRupiah(balanceData.pendingTopup)} menunggu konfirmasi
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Quick Stats */}
+          {!isLoadingHistory && stats.count > 0 && (
+            <div className="grid grid-cols-3 gap-3">
+              <Card className="p-3">
+                <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                  <TrendingUp className="h-3.5 w-3.5" />
+                  Bulan Ini
+                </div>
+                <div className="text-lg font-bold">{formatRupiah(stats.monthTopup)}</div>
+              </Card>
+              <Card className="p-3">
+                <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                  <CreditCard className="h-3.5 w-3.5" />
+                  Terpakai
+                </div>
+                <div className="text-lg font-bold">{formatRupiah(stats.spent)}</div>
+              </Card>
+              <Card className="p-3">
+                <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                  <Landmark className="h-3.5 w-3.5" />
+                  Rata-rata
+                </div>
+                <div className="text-lg font-bold">{formatRupiah(stats.average)}</div>
+              </Card>
+            </div>
+          )}
 
           {/* Form Topup */}
           <Card>
@@ -304,6 +360,38 @@ export default function Balance() {
                   <Button type="submit" className="w-full" disabled={topup.isPending}>
                     {topup.isPending ? "Membuat QRIS..." : "Buat QRIS"}
                   </Button>
+
+                  <Collapsible className="mt-4 border rounded-lg overflow-hidden">
+                    <CollapsibleTrigger className="flex items-center justify-between w-full p-3 text-sm font-medium hover:bg-accent/10 transition-colors">
+                      <span className="flex items-center gap-2">
+                        <Lightbulb className="h-4 w-4" />
+                        Tips Topup QRIS
+                      </span>
+                      <ChevronDown className="h-4 w-4 transition-transform data-[state=open]:rotate-180" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="px-3 pb-3 pt-1 text-xs text-muted-foreground space-y-2">
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="h-3 w-3 mt-0.5 text-green-500 flex-shrink-0" />
+                        <span>Scan QRIS dalam <strong>15 menit</strong> untuk menghindari kedaluwarsa</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="h-3 w-3 mt-0.5 text-green-500 flex-shrink-0" />
+                        <span>Saldo akan otomatis bertambah <strong>3-5 menit</strong> setelah pembayaran sukses</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="h-3 w-3 mt-0.5 text-green-500 flex-shrink-0" />
+                        <span>Gunakan aplikasi bank yang mendukung <strong>QRIS</strong> (BCA Mobile, Mandiri, dll)</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-3 w-3 mt-0.5 text-amber-500 flex-shrink-0" />
+                        <span>Hindari refresh halaman saat menunggu pembayaran</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <Info className="h-3 w-3 mt-0.5 text-blue-500 flex-shrink-0" />
+                        <span>Minimal topup <strong>Rp 10.000</strong>, maksimal <strong>Rp 10.000.000</strong></span>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
                 </form>
               </Form>
             </CardContent>
@@ -377,8 +465,23 @@ export default function Balance() {
                 })}
               </div>
             ) : (
-              <div className="py-12 text-center text-sm text-muted-foreground">
-                Belum ada riwayat topup.
+              <div className="py-16 px-6 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+                  <History className="h-8 w-8 text-muted-foreground/50" />
+                </div>
+                <p className="text-sm font-medium text-foreground mb-1">Belum ada riwayat topup</p>
+                <p className="text-xs text-muted-foreground mb-4 max-w-xs mx-auto">
+                  Isi saldo sekarang untuk mulai berlangganan VPN dan nikmati akses internet tanpa batas.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() => document.querySelector<HTMLInputElement>('input[type="number"]')?.focus()}
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  Isi Saldo Sekarang
+                </Button>
               </div>
             )}
           </div>
