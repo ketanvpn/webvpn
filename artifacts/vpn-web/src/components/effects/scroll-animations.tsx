@@ -1,5 +1,5 @@
+import React, { useRef, ReactNode, useState, useEffect } from "react";
 import { motion, useInView } from "framer-motion";
-import { useRef, ReactNode } from "react";
 
 interface ScrollRevealProps {
   children: ReactNode;
@@ -187,9 +187,9 @@ export function CounterUp({
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const isInView = useInView(ref, { once: true });
-  const [count, setCount] = React.useState(0);
+  const [count, setCount] = useState(0);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isInView) return;
 
     let startTime: number;
@@ -213,6 +213,3 @@ export function CounterUp({
     </span>
   );
 }
-
-// Import React for useState
-import React from "react";
