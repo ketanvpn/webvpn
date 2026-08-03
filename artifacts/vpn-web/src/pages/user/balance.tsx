@@ -359,16 +359,23 @@ export default function Balance() {
                           <div className="relative">
                             <span className="absolute left-3 top-2.5 text-muted-foreground text-sm font-medium">Rp</span>
                             <Input
-                              type="number"
+                              type="text"
                               inputMode="numeric"
-                              placeholder="Contoh: 75000"
-                              className="pl-9 font-medium"
-                              {...field}
+                              placeholder="Contoh: 75.000"
+                              className="pl-9 font-medium tabular-nums"
+                              value={field.value ? Number(field.value).toLocaleString("id-ID") : ""}
+                              onChange={(e) => {
+                                const digits = e.target.value.replace(/\D/g, "");
+                                field.onChange(digits ? Number(digits) : 0);
+                              }}
+                              onBlur={field.onBlur}
+                              name={field.name}
+                              ref={field.ref}
                             />
                           </div>
                         </FormControl>
                         <p className="text-[11px] text-muted-foreground mt-1">
-                          Bebas isi nominal berapa pun, minimal Rp 10.000.
+                          Bebas isi nominal berapa pun, minimal Rp 10.000. Nominal saat ini: <strong className="text-foreground tabular-nums">{formatRupiah(Number(form.watch("amount")) || 0)}</strong>
                         </p>
                         <FormMessage />
                       </FormItem>
