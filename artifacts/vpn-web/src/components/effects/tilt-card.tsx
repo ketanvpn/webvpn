@@ -1,18 +1,19 @@
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
-import { useRef, useState, ReactNode } from "react";
+import { useRef, useState, ReactNode, useEffect } from "react";
 
 interface TiltCardProps {
   children: ReactNode;
   className?: string;
-  intensity?: number; // How strong the tilt effect is (default: 15)
-  glareEnabled?: boolean; // Enable glare effect on hover
-  scaleOnHover?: number; // Scale factor on hover (default: 1.02)
+  intensity?: number;
+  glareEnabled?: boolean;
+  scaleOnHover?: number;
 }
 
-/**
- * TiltCard - 3D tilt effect card with optional glare
- * Creates an interactive 3D perspective effect on hover
- */
+function isMobileDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.innerWidth < 768;
+}
+
 export function TiltCard({
   children,
   className = "",
@@ -22,6 +23,14 @@ export function TiltCard({
 }: TiltCardProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    setIsMobile(isMobileDevice());
+    const handleResize = () => setIsMobile(isMobileDevice());
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -33,6 +42,7 @@ export function TiltCard({
   const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], [-intensity, intensity]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isMobile) return;
     if (!ref.current) return;
 
     const rect = ref.current.getBoundingClientRect();
@@ -55,8 +65,23 @@ export function TiltCard({
   };
 
   const handleMouseEnter = () => {
-    setIsHovered(true);
+    if (!isMobile) setIsHovered(true);
   };
+
+  // On mobile, render without tilt effect
+  if (isMobile) {
+    return (
+      <motion.div
+        className={`relative ${className}`}
+        whileHover={{ scale: scaleOnHover }}
+        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+      >
+        <div className="relative w-full h-full">
+          {children}
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
@@ -75,6 +100,7 @@ export function TiltCard({
           rotateX,
           rotateY,
           transformStyle: "preserve-3d",
+          willChange: 'transform',
         }}
         animate={{
           scale: isHovered ? scaleOnHover : 1,
@@ -84,7 +110,6 @@ export function TiltCard({
       >
         {children}
 
-        {/* Glare effect */}
         {glareEnabled && (
           <motion.div
             className="absolute inset-0 rounded-inherit pointer-events-none"

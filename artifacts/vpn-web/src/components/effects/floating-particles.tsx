@@ -14,6 +14,8 @@ interface Particle {
 /**
  * FloatingParticles - Subtle floating particle effect
  * Adds depth and life to hero sections with gentle floating particles
+ * 
+ * Performance optimized: fewer particles on mobile devices
  */
 export function FloatingParticles({ 
   count = 30,
@@ -28,8 +30,12 @@ export function FloatingParticles({
     setMounted(true);
   }, []);
 
+  // Reduce particles on mobile for better performance
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const particleCount = isMobile ? Math.floor(count * 0.4) : count;
+
   const particles = useMemo<Particle[]>(() => {
-    return Array.from({ length: count }, (_, i) => ({
+    return Array.from({ length: particleCount }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
       y: Math.random() * 100,
@@ -38,7 +44,7 @@ export function FloatingParticles({
       delay: Math.random() * 10,
       opacity: Math.random() * 0.3 + 0.1,
     }));
-  }, [count]);
+  }, [particleCount]);
 
   if (!mounted) return null;
 
@@ -54,6 +60,8 @@ export function FloatingParticles({
             width: particle.size,
             height: particle.size,
             opacity: particle.opacity,
+            // GPU acceleration hints
+            willChange: 'transform, opacity',
           }}
           animate={{
             y: [0, -100, 0],
