@@ -9,13 +9,6 @@ import { useRef, useEffect, useState } from "react";
 import { formatRupiah } from "@/lib/format";
 import { protocolLabel, protocolColor, type ProtocolType } from "@/lib/constants";
 import { apiClient } from "@/lib/api-client";
-import { 
-  AnimatedGradientBackground, 
-  FloatingParticles, 
-  GlowingOrbs,
-  TiltCard,
-  ScrollReveal
-} from "@/components/effects";
 
 async function fetchPublicDynamicServers() {
   try {
@@ -31,7 +24,7 @@ const infoItems = [
     icon: Zap,
     accent: "emerald",
     title: "Aktif Otomatis",
-    desc: "Akun langsung dibuat setelah konfirmasi pembayaran — tanpa tunggu admin.",
+    desc: "Akun langsung dibuat setelah konfirmasi pembayaran ΓÇö tanpa tunggu admin.",
   },
   {
     icon: Globe,
@@ -129,7 +122,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col overflow-x-hidden selection:bg-primary/30 selection:text-white">
-      {/* ── Navbar ─────────────────────────────────── */}
+      {/* ΓöÇΓöÇ Navbar ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
       <header className="border-b border-white/5 bg-background/60 backdrop-blur-xl sticky top-0 z-50">
         <div className="container mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <LogoBrand iconSize={32} />
@@ -161,17 +154,15 @@ export default function Home() {
       </header>
 
       <main className="flex-1 flex flex-col relative">
-        {/* Animated Gradient Background */}
-        <AnimatedGradientBackground />
+        {/* Abstract Background Orbs */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10">
+          <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] min-w-[300px] min-h-[300px] bg-emerald-500/10 rounded-full blur-[100px] opacity-60" />
+          <div className="absolute top-[20%] right-[-10%] w-[35vw] h-[35vw] min-w-[250px] min-h-[250px] bg-cyan-500/10 rounded-full blur-[120px] opacity-40" />
+          <div className="absolute bottom-[-10%] left-[20%] w-[50vw] h-[50vw] min-w-[400px] min-h-[400px] bg-teal-500/10 rounded-full blur-[150px] opacity-50" />
+        </div>
 
-        {/* ── Hero ───────────────────────────────────── */}
+        {/* ΓöÇΓöÇ Hero ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
         <section className="relative px-4 sm:px-6 pt-20 pb-16 lg:pt-32 lg:pb-24 text-center overflow-hidden flex flex-col items-center justify-center min-h-[75vh]">
-          {/* Floating Particles */}
-          <FloatingParticles count={40} className="opacity-50" />
-          
-          {/* Glowing Orbs */}
-          <GlowingOrbs />
-
           <motion.div
             className="relative z-10 mx-auto max-w-3xl flex flex-col items-center gap-6"
             initial="hidden"
@@ -219,7 +210,7 @@ export default function Home() {
                     className="w-full sm:w-auto px-8 h-14 text-base glow-primary hover:scale-[1.02] transition-all duration-300"
                     asChild
                   >
-                    <Link href="/register">Mulai Sekarang — Gratis Daftar</Link>
+                    <Link href="/register">Mulai Sekarang ΓÇö Gratis Daftar</Link>
                   </Button>
                   <Button
                     size="lg"
@@ -235,7 +226,7 @@ export default function Home() {
           </motion.div>
         </section>
 
-        {/* ── Info Cards ─────────────────────────────── */}
+        {/* ΓöÇΓöÇ Info Cards ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
         <section className="px-4 sm:px-6 pb-20 relative z-10">
           <motion.div
             className="container mx-auto max-w-5xl"
@@ -265,7 +256,7 @@ export default function Home() {
           </motion.div>
         </section>
 
-        {/* ── Server List ────────────────────────────── */}
+        {/* ΓöÇΓöÇ Server List ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
         <section id="server-list" className="px-4 sm:px-6 pb-24 relative z-10">
           <motion.div
             className="container mx-auto max-w-5xl"
@@ -391,7 +382,7 @@ export default function Home() {
                         </div>
                       )}
 
-                      {/* Price Hint */}
+                      {/* Price hint */}
                       {priceHint && (
                         <div className="flex items-center justify-between pt-1 border-t border-white/5">
                           <span className="text-xs text-muted-foreground">Mulai dari</span>
@@ -416,7 +407,7 @@ export default function Home() {
           </motion.div>
         </section>
 
-        {/* ── Stats ───────────────────────────────────── */}
+        {/* ΓöÇΓöÇ Stats ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
         <section className="px-4 sm:px-6 pb-20 relative z-10">
           <motion.div className="container mx-auto max-w-4xl" initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={staggerContainer}>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -436,7 +427,7 @@ export default function Home() {
           </motion.div>
         </section>
 
-        {/* ── Cara Kerja ──────────────────────────────── */}
+        {/* ΓöÇΓöÇ Cara Kerja ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
         <section className="px-4 sm:px-6 pb-20 relative z-10">
           <motion.div className="container mx-auto max-w-4xl" initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={staggerContainer}>
             <motion.div variants={fadeUp} className="text-center mb-10">
@@ -458,7 +449,7 @@ export default function Home() {
           </motion.div>
         </section>
 
-        {/* ── FAQ ──────────────────────────────────────── */}
+        {/* ΓöÇΓöÇ FAQ ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
         <section className="px-4 sm:px-6 pb-24 relative z-10">
           <motion.div className="container mx-auto max-w-2xl" initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-80px" }} variants={staggerContainer}>
             <motion.div variants={fadeUp} className="text-center mb-10">
@@ -485,7 +476,7 @@ export default function Home() {
 
       </main>
 
-      {/* ── Footer ─────────────────────────────────── */}
+      {/* ΓöÇΓöÇ Footer ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
       <footer className="py-10 border-t border-white/5 bg-background/60 backdrop-blur-md">
         <div className="container mx-auto px-4 sm:px-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-8">
@@ -501,13 +492,13 @@ export default function Home() {
                 <li>
                   <a href="https://t.me/ketantechvpn_bot" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 text-muted-foreground hover:text-foreground transition-colors">
                     <Send className="h-4 w-4 text-cyan-400 shrink-0" />
-                    <span className="truncate">Telegram · @ketantechvpn_bot</span>
+                    <span className="truncate">Telegram ┬╖ @ketantechvpn_bot</span>
                   </a>
                 </li>
                 <li>
                   <Link href={isAuthenticated ? "/dashboard" : "/login"} className="flex items-center gap-2.5 text-muted-foreground hover:text-foreground transition-colors">
                     <MessageCircle className="h-4 w-4 text-emerald-400 shrink-0" />
-                    <span className="truncate">WhatsApp · Via Dashboard</span>
+                    <span className="truncate">WhatsApp ┬╖ Via Dashboard</span>
                   </Link>
                 </li>
               </ul>
@@ -517,7 +508,7 @@ export default function Home() {
             <p className="text-xs text-muted-foreground font-medium">
               &copy; {new Date().getFullYear()} KETANTECH VPN. Hak Cipta Dilindungi.
             </p>
-            <p className="text-[10px] text-muted-foreground/50">v2.0 • Dibuat di Indonesia</p>
+            <p className="text-[10px] text-muted-foreground/50">v2.0 ΓÇó Dibuat di Indonesia</p>
           </div>
         </div>
       </footer>
