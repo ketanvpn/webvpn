@@ -288,26 +288,26 @@ export default function Balance() {
           {/* Quick Stats */}
           {!isLoadingHistory && stats.count > 0 && (
             <div className="grid grid-cols-3 gap-3">
-              <Card className="p-3">
-                <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-                  <TrendingUp className="h-3.5 w-3.5" />
-                  Bulan Ini
+              <Card className="p-3 min-w-0">
+                <div className="flex items-center gap-1.5 text-muted-foreground text-[11px] mb-1">
+                  <TrendingUp className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Bulan Ini</span>
                 </div>
-                <div className="text-lg font-bold">{formatRupiah(stats.monthTopup)}</div>
+                <div className="text-sm font-bold tabular-nums truncate" title={formatRupiah(stats.monthTopup)}>{formatRupiah(stats.monthTopup)}</div>
               </Card>
-              <Card className="p-3">
-                <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-                  <CreditCard className="h-3.5 w-3.5" />
-                  Terpakai
+              <Card className="p-3 min-w-0">
+                <div className="flex items-center gap-1.5 text-muted-foreground text-[11px] mb-1">
+                  <CreditCard className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Terpakai</span>
                 </div>
-                <div className="text-lg font-bold">{formatRupiah(stats.spent)}</div>
+                <div className="text-sm font-bold tabular-nums truncate" title={formatRupiah(stats.spent)}>{formatRupiah(stats.spent)}</div>
               </Card>
-              <Card className="p-3">
-                <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-                  <Landmark className="h-3.5 w-3.5" />
-                  Rata-rata
+              <Card className="p-3 min-w-0">
+                <div className="flex items-center gap-1.5 text-muted-foreground text-[11px] mb-1">
+                  <Landmark className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Rata-rata</span>
                 </div>
-                <div className="text-lg font-bold">{formatRupiah(stats.average)}</div>
+                <div className="text-sm font-bold tabular-nums truncate" title={formatRupiah(stats.average)}>{formatRupiah(stats.average)}</div>
               </Card>
             </div>
           )}
@@ -324,7 +324,7 @@ export default function Balance() {
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-xs">Pilih Nominal</Label>
+                    <Label className="text-xs">Pilih Nominal Cepat</Label>
                     <div className="grid grid-cols-3 gap-2">
                       {presetAmounts.map((amt) => (
                         <Button
@@ -340,18 +340,36 @@ export default function Balance() {
                     </div>
                   </div>
 
+                  <div className="relative flex items-center gap-3 py-1">
+                    <div className="flex-1 border-t border-dashed" />
+                    <span className="text-[11px] text-muted-foreground font-medium">atau ketik sendiri</span>
+                    <div className="flex-1 border-t border-dashed" />
+                  </div>
+
                   <FormField
                     control={form.control}
                     name="amount"
                     render={({ field }) => (
                       <FormItem>
-                        <Label className="text-xs">Nominal Lain (Min. Rp 10.000)</Label>
+                        <Label className="text-xs flex items-center gap-1.5">
+                          <Info className="h-3.5 w-3.5 text-primary" />
+                          Masukkan Nominal Sendiri
+                        </Label>
                         <FormControl>
                           <div className="relative">
                             <span className="absolute left-3 top-2.5 text-muted-foreground text-sm font-medium">Rp</span>
-                            <Input type="number" className="pl-9 font-medium" {...field} />
+                            <Input
+                              type="number"
+                              inputMode="numeric"
+                              placeholder="Contoh: 75000"
+                              className="pl-9 font-medium"
+                              {...field}
+                            />
                           </div>
                         </FormControl>
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          Bebas isi nominal berapa pun, minimal Rp 10.000.
+                        </p>
                         <FormMessage />
                       </FormItem>
                     )}
