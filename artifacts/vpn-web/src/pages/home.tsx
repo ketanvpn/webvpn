@@ -24,7 +24,7 @@ const infoItems = [
     icon: Zap,
     accent: "emerald",
     title: "Aktif Otomatis",
-    desc: "Akun langsung dibuat setelah konfirmasi pembayaran ΓÇö tanpa tunggu admin.",
+    desc: "Akun langsung dibuat setelah konfirmasi pembayaran — tanpa tunggu admin.",
   },
   {
     icon: Globe,
@@ -210,7 +210,7 @@ export default function Home() {
                     className="w-full sm:w-auto px-8 h-14 text-base glow-primary hover:scale-[1.02] transition-all duration-300"
                     asChild
                   >
-                    <Link href="/register">Mulai Sekarang ΓÇö Gratis Daftar</Link>
+                    <Link href="/register">Mulai Sekarang — Gratis Daftar</Link>
                   </Button>
                   <Button
                     size="lg"
@@ -508,7 +508,7 @@ export default function Home() {
             <p className="text-xs text-muted-foreground font-medium">
               &copy; {new Date().getFullYear()} KETANTECH VPN. Hak Cipta Dilindungi.
             </p>
-            <p className="text-[10px] text-muted-foreground/50">v2.0 ΓÇó Dibuat di Indonesia</p>
+            <p className="text-[10px] text-muted-foreground/50">v2.0 • Dibuat di Indonesia</p>
           </div>
         </div>
       </footer>
