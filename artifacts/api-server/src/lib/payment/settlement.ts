@@ -445,10 +445,48 @@ async function settleAttemptTopup(
   return result;
 }
 
+interface OrderPostCommit {
+  orderId: number;
+  userId: number;
+  amount: number;
+}
+
+function runOrderPostCommit(result: OrderPostCommit): void {
+  // Tambah poin jika sistem poin aktif
+  getPointsSettings()
+    .then(async (settings) => {
+      if (
+        !settings.enabled ||
+        result.amount < settings.pointsMinOrder ||
+        settings.pointsRateOrder <= 0
+      ) {
+        return;
+      }
+      const points = Math.floor(result.amount / settings.pointsRateOrder);
+      if (points > 0) {
+        await addPoints(
+          result.userId,
+          points,
+          "order",
+          `Order QRIS otomatis #${result.orderId}`,
+          result.orderId,
+        );
+      }
+    })
+    .catch((err) =>
+      logger.error(
+        { err, orderId: result.orderId },
+        "addPoints failed after order settlement",
+      ),
+    );
+}
+
 async function completePaidOrderAttempt(
   attemptId: number,
 ): Promise<SettlementResult> {
-  return db.transaction(async (tx: any) => {
+  let postCommit: OrderPostCommit | undefined;
+
+  const result = await db.transaction(async (tx: any) => {
     const [attempt] = await tx
       .select()
       .from(paymentAttemptsTable)
@@ -549,6 +587,12 @@ async function completePaidOrderAttempt(
         ),
       );
 
+    postCommit = {
+      orderId: order.id,
+      userId: order.userId,
+      amount: Number(order.amount),
+    };
+
     return {
       outcome: "settled",
       ownerType: "order",
@@ -556,6 +600,9 @@ async function completePaidOrderAttempt(
       attemptId: attempt.id,
     } as SettlementResult;
   });
+
+  if (postCommit) runOrderPostCommit(postCommit);
+  return result;
 }
 
 async function settleAttemptOrder(

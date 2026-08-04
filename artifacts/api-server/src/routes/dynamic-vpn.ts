@@ -14,6 +14,7 @@ import { requireAdmin, requireAuth } from "../lib/auth";
 import { createNadiaVpnOrder, getNadiaVpnAccountDetails, getNadiaVpnServers } from "../lib/nadiavpn";
 import { createPanelAccount, deletePanelAccount } from "../lib/vpn-panel";
 import { addBalanceLog } from "./balance-logs";
+import { addPoints, getPointsSettings } from "./points";
 import { getResellerSettings, getSettingValue } from "./settings";
 import { dynamicOrderLimiter } from "../lib/rate-limit";
 import { notifyAdminDynamicOrderFulfilled, notifyUserDynamicVpnAccountCreated, notifyAdminPriceChanged } from "../lib/telegram";
@@ -536,6 +537,31 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
     description: `Dynamic VPN order: ${order.serverDisplayName} ${order.protocol.toUpperCase()} ${order.duration} ${order.durationType}`,
     relatedId: order.id,
   }).catch(() => {});
+
+  // Tambah poin jika sistem poin aktif
+  getPointsSettings()
+    .then(async (settings) => {
+      if (
+        !settings.enabled ||
+        amount < settings.pointsMinOrder ||
+        settings.pointsRateOrder <= 0
+      ) {
+        return;
+      }
+      const points = Math.floor(amount / settings.pointsRateOrder);
+      if (points > 0) {
+        await addPoints(
+          userId,
+          points,
+          "order",
+          `Dynamic VPN #${order.id} — ${order.serverDisplayName}`,
+          order.id,
+        );
+      }
+    })
+    .catch((err) =>
+      logger.error({ err, orderId: order.id }, "addPoints failed after dynamic order"),
+    );
 
   if (server.provider === "local_panel") {
     const refreshed = await refreshLocalDynamicServerCapacity(server).catch(() => null);
