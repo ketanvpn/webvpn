@@ -29,6 +29,8 @@ import pointsRouter from "./points";
 import ticketsRouter from "./tickets";
 import bugPresetsRouter from "./bug-presets";
 import easyInjectPresetsRouter from "./easy-inject-presets";
+import generatorApiKeysRouter from "./generator-api-keys";
+import configGeneratorRouter from "./config-generator";
 
 const router: IRouter = Router();
 
@@ -59,5 +61,7 @@ router.use(pointsRouter);
 router.use(ticketsRouter);
 router.use(bugPresetsRouter);
 router.use(easyInjectPresetsRouter);
+router.use(generatorApiKeysRouter);
+router.use(configGeneratorRouter);
 
 export default router;

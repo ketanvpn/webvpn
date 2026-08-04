@@ -56,6 +56,16 @@ import {
   type EasyInjectPreset,
   type HttpCustomGuide,
 } from "@/lib/darktunnel";
+import {
+  checkGeneratorApiStatus,
+  generateHcConfig,
+  generateDarkConfig,
+  downloadBase64File,
+  downloadTextFile,
+  type HcGenerateResponse,
+  type DarkGenerateResponse,
+  type GeneratorApiStatus,
+} from "@/lib/config-generator";
 
 type BugPreset = {
   id: number;
@@ -183,12 +193,18 @@ type HttpCustomGuideCardProps = {
   guide: HttpCustomGuide;
   copiedField: string | null;
   onCopy: (id: string, value: string, label: string) => void;
+  generatorApiAvailable?: boolean;
+  onGenerateHc?: () => void;
+  isGeneratingHc?: boolean;
 };
 
 function HttpCustomGuideCard({
   guide,
   copiedField,
   onCopy,
+  generatorApiAvailable,
+  onGenerateHc,
+  isGeneratingHc,
 }: HttpCustomGuideCardProps) {
   const steps = [
     "Pilih mode SSH di HTTP Custom, lalu tempel SSH Login.",
@@ -222,6 +238,35 @@ function HttpCustomGuideCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {generatorApiAvailable && onGenerateHc && (
+          <div className="space-y-3">
+            <Alert className="border-emerald-500/25 bg-emerald-500/5">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+              <AlertTitle className="text-emerald-300">File HC Otomatis Tersedia</AlertTitle>
+              <AlertDescription>
+                Admin sudah mengaktifkan fitur pembuatan file .hc otomatis. Klik tombol di bawah untuk langsung mendownload file config yang siap import.
+              </AlertDescription>
+            </Alert>
+            <Button
+              className="w-full gap-2"
+              onClick={onGenerateHc}
+              disabled={isGeneratingHc}
+            >
+              {isGeneratingHc ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Membuat file HC...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4" />
+                  Buat File HC Otomatis
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Belum berupa file import</AlertTitle>
@@ -420,8 +465,11 @@ function convertShadowsocks(raw: string, bug: BugPreset) {
 
     const [host, ...portParts] = hostPort.split(":");
     const portRest = portParts.join(":");
-    const newHost = bug.mode === "wildcard" ? bug.bugDomain : bug.bugDomain;
-    return `ss://${userinfo}@${newHost}:${portRest}${remark}`;
+    let newHostValue = host;
+    if (bug.mode === "wildcard" || bug.mode === "host") {
+      newHostValue = bug.bugDomain;
+    }
+    return `ss://${userinfo}@${newHostValue}:${portRest}${remark}`;
   } catch {
     return null;
   }
@@ -519,6 +567,14 @@ export default function ConfigConverter() {
   const [showEasyResult, setShowEasyResult] = useState(false);
   const [isEasyCopied, setIsEasyCopied] = useState(false);
   const [copiedHttpField, setCopiedHttpField] = useState<string | null>(null);
+  
+  const [hcResult, setHcResult] = useState<HcGenerateResponse["data"] | null>(null);
+  const [showHcResult, setShowHcResult] = useState(false);
+  const [isHcGenerating, setIsHcGenerating] = useState(false);
+
+  const [darkApiResult, setDarkApiResult] = useState<DarkGenerateResponse["data"] | null>(null);
+  const [showDarkApiResult, setShowDarkApiResult] = useState(false);
+  const [isDarkGenerating, setIsDarkGenerating] = useState(false);
 
   const [rawConfig, setRawConfig] = useState("");
   const [selectedBugId, setSelectedBugId] = useState("");
@@ -562,6 +618,13 @@ export default function ConfigConverter() {
   } = useQuery<DarkTunnelAccount[]>({
     queryKey: ["my-ssh-accounts"],
     queryFn: () => apiClient.get<DarkTunnelAccount[]>("/api/accounts"),
+  });
+
+  const { data: generatorApiStatus } = useQuery<GeneratorApiStatus>({
+    queryKey: ["generator-api-status"],
+    queryFn: checkGeneratorApiStatus,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const requestedAccountId = Number(
@@ -691,6 +754,12 @@ export default function ConfigConverter() {
     setShowEasyResult(false);
     setIsEasyCopied(false);
     setCopiedHttpField(null);
+    setDarkApiResult(null);
+    setShowDarkApiResult(false);
+    setIsDarkGenerating(false);
+    setHcResult(null);
+    setShowHcResult(false);
+    setIsHcGenerating(false);
   }
 
   function selectEasyPreset(presetId: string) {
@@ -716,6 +785,10 @@ export default function ConfigConverter() {
     setShowEasyResult(false);
     setIsEasyCopied(false);
     setCopiedHttpField(null);
+    setDarkApiResult(null);
+    setShowDarkApiResult(false);
+    setHcResult(null);
+    setShowHcResult(false);
   }
 
   function generateEasyConfig() {
@@ -752,6 +825,177 @@ export default function ConfigConverter() {
       toast({
         title: "Config gagal dibuat",
         description: error instanceof Error ? error.message : "Data akun tidak valid.",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function generateHcConfigViaApi() {
+    if (!selectedEasyPreset || !easyAccountId) {
+      toast({
+        title: "Pilih paket dan akun",
+        description: "Pilih preset aktif dan akun SSH yang cocok.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const account = compatibleAccounts.find(
+      (item) => String(item.id) === easyAccountId,
+    );
+    if (!account) {
+      toast({
+        title: "Akun tidak kompatibel",
+        description: "Pilih akun yang ditampilkan pada daftar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!generatorApiStatus?.configured || !generatorApiStatus?.available) {
+      toast({
+        title: "Generator API tidak tersedia",
+        description: "Admin belum mengkonfigurasi Generator API untuk pembuatan file HC otomatis.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsHcGenerating(true);
+    try {
+      const response = await generateHcConfig({
+        presetId: selectedEasyPreset.id,
+        accountId: account.id,
+        name: `${selectedEasyPreset.name} - ${account.username}`,
+      });
+
+      setHcResult(response.data);
+      setShowHcResult(true);
+      toast({
+        title: "Config HC berhasil dibuat",
+        description: "File .hc siap diunduh dan diimport ke HTTP Custom.",
+      });
+    } catch (error) {
+      toast({
+        title: "Gagal membuat config HC",
+        description: error instanceof Error ? error.message : "Terjadi kesalahan saat membuat config.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsHcGenerating(false);
+    }
+  }
+
+  function downloadHcConfig() {
+    if (!hcResult) return;
+    try {
+      downloadBase64File(hcResult.contentBase64, hcResult.filename);
+      toast({
+        title: "File .hc diunduh",
+        description: "Import file tersebut ke aplikasi HTTP Custom.",
+      });
+    } catch (error) {
+      toast({
+        title: "Gagal download",
+        description: error instanceof Error ? error.message : "Format file tidak valid",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function copyHcContent() {
+    if (!hcResult) return;
+    try {
+      await writeClipboard(hcResult.content);
+      toast({ title: "Config HC tersalin" });
+    } catch {
+      toast({
+        title: "Gagal menyalin",
+        description: "Gunakan tombol Download File .hc sebagai gantinya.",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function generateDarkConfigViaApi() {
+    if (!selectedEasyPreset || !easyAccountId) {
+      toast({
+        title: "Pilih paket dan akun",
+        description: "Pilih preset aktif dan akun SSH yang cocok.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const account = compatibleAccounts.find((item) => String(item.id) === easyAccountId);
+    if (!account) {
+      toast({
+        title: "Akun tidak kompatibel",
+        description: "Pilih akun yang ditampilkan pada daftar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!generatorApiStatus?.configured || !generatorApiStatus?.available) {
+      toast({
+        title: "Generator API tidak tersedia",
+        description: "Admin belum mengkonfigurasi Generator API untuk file .dark terkunci.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsDarkGenerating(true);
+    try {
+      const response = await generateDarkConfig({
+        presetId: selectedEasyPreset.id,
+        accountId: account.id,
+        name: `${selectedEasyPreset.name} - ${account.username}`,
+      });
+      setDarkApiResult(response.data);
+      setShowDarkApiResult(true);
+      toast({
+        title: "Config .dark terkunci berhasil dibuat",
+        description: "File .dark siap diunduh dan diimport ke Dark Tunnel.",
+      });
+    } catch (error) {
+      toast({
+        title: "Gagal membuat config .dark terkunci",
+        description: error instanceof Error ? error.message : "Terjadi kesalahan saat membuat config.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDarkGenerating(false);
+    }
+  }
+
+  function downloadDarkApiFile() {
+    if (!darkApiResult) return;
+    try {
+      downloadTextFile(darkApiResult.link, darkApiResult.filename);
+      toast({
+        title: "File .dark terkunci diunduh",
+        description: "Import file tersebut ke aplikasi Dark Tunnel.",
+      });
+    } catch (error) {
+      toast({
+        title: "Gagal download",
+        description: error instanceof Error ? error.message : "Gagal membuat file",
+        variant: "destructive",
+      });
+    }
+  }
+
+  async function copyDarkApiLink() {
+    if (!darkApiResult) return;
+    try {
+      await writeClipboard(darkApiResult.link);
+      toast({ title: "Link .dark terkunci tersalin" });
+    } catch {
+      toast({
+        title: "Gagal menyalin",
+        description: "Gunakan tombol Download sebagai gantinya.",
         variant: "destructive",
       });
     }
@@ -1154,19 +1398,50 @@ export default function ConfigConverter() {
               <CardHeader>
                 <CardTitle>4. Buat Config DarkTunnel</CardTitle>
                 <CardDescription>
-                  Website membuat file .dark menggunakan akun yang sudah dipilih.
+                  Pilih metode: file unlocked dibuat lokal, atau file terkunci via Generator API jika tersedia.
                 </CardDescription>
               </CardHeader>
-              <CardFooter className="border-t border-white/5 bg-primary/5 p-4">
+              <CardContent className="space-y-4">
                 <Button
                   size="lg"
                   className="w-full gap-2"
                   onClick={generateEasyConfig}
                 >
                   <ShieldPlus className="h-4 w-4" />
-                  Buat Config DarkTunnel
+                  Buat Config DarkTunnel (Unlocked Lokal)
                 </Button>
-              </CardFooter>
+
+                {generatorApiStatus?.configured && generatorApiStatus?.available && (
+                  <div className="space-y-3">
+                    <Alert className="border-emerald-500/25 bg-emerald-500/5">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                      <AlertTitle className="text-emerald-300">File .dark Terkunci Tersedia</AlertTitle>
+                      <AlertDescription>
+                        Admin mengaktifkan pembuatan file .dark terkunci via Generator API. File locked lebih aman dan terenkripsi.
+                      </AlertDescription>
+                    </Alert>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="w-full gap-2 border-emerald-500/30"
+                      onClick={generateDarkConfigViaApi}
+                      disabled={isDarkGenerating}
+                    >
+                      {isDarkGenerating ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Membuat file .dark terkunci...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-4 w-4" />
+                          Buat File .dark Terkunci Otomatis
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
             </Card>
           )}
 
@@ -1175,6 +1450,9 @@ export default function ConfigConverter() {
               guide={httpCustomGuide}
               copiedField={copiedHttpField}
               onCopy={copyHttpField}
+              generatorApiAvailable={generatorApiStatus?.configured && generatorApiStatus?.available}
+              onGenerateHc={generateHcConfigViaApi}
+              isGeneratingHc={isHcGenerating}
             />
           )}
 
@@ -1373,6 +1651,66 @@ export default function ConfigConverter() {
             <Button onClick={() => copyValue(sshLink, "Link DarkTunnel tersalin")} className="gap-2">
               <Copy className="h-4 w-4" /> Salin Link
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showHcResult} onOpenChange={setShowHcResult}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-cyan-400">Config HTTP Custom Siap</DialogTitle>
+            <DialogDescription>
+              Download file .hc dan import ke aplikasi HTTP Custom.
+            </DialogDescription>
+          </DialogHeader>
+          {hcResult && (
+            <>
+              <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-4 text-sm">
+                <div className="font-semibold">{hcResult.filename}</div>
+                <div className="mt-1 text-xs text-muted-foreground">Method: {hcResult.method.toUpperCase()}</div>
+              </div>
+              <div className="grid gap-2">
+                <Button size="lg" className="gap-2" onClick={downloadHcConfig}>
+                  <Download className="h-4 w-4" /> Download File .hc
+                </Button>
+                <Button variant="outline" className="gap-2" onClick={copyHcContent}>
+                  <Copy className="h-4 w-4" /> Salin Config
+                </Button>
+              </div>
+            </>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowHcResult(false)}>Tutup</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDarkApiResult} onOpenChange={setShowDarkApiResult}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-emerald-400">Config DarkTunnel Terkunci Siap</DialogTitle>
+            <DialogDescription>
+              File .dark terkunci terenkripsi via Generator API. Download dan import ke Dark Tunnel.
+            </DialogDescription>
+          </DialogHeader>
+          {darkApiResult && (
+            <>
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm">
+                <div className="font-semibold">{darkApiResult.filename}</div>
+                <div className="mt-1 text-xs text-muted-foreground">Method: {darkApiResult.method.toUpperCase()} - Locked</div>
+              </div>
+              <div className="grid gap-2">
+                <Button size="lg" className="gap-2" onClick={downloadDarkApiFile}>
+                  <Download className="h-4 w-4" /> Download File .dark Terkunci
+                </Button>
+                <Button variant="outline" className="gap-2" onClick={copyDarkApiLink}>
+                  <Copy className="h-4 w-4" /> Salin Link
+                </Button>
+              </div>
+            </>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowDarkApiResult(false)}>Tutup</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
