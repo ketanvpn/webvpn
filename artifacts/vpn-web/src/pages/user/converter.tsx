@@ -238,32 +238,49 @@ function HttpCustomGuideCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {generatorApiAvailable && onGenerateHc && (
+        {onGenerateHc && (
           <div className="space-y-3">
-            <Alert className="border-emerald-500/25 bg-emerald-500/5">
-              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-              <AlertTitle className="text-emerald-300">File HC Otomatis Tersedia</AlertTitle>
-              <AlertDescription>
-                Admin sudah mengaktifkan fitur pembuatan file .hc otomatis. Klik tombol di bawah untuk langsung mendownload file config yang siap import.
-              </AlertDescription>
-            </Alert>
-            <Button
-              className="w-full gap-2"
-              onClick={onGenerateHc}
-              disabled={isGeneratingHc}
-            >
-              {isGeneratingHc ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Membuat file HC...
-                </>
-              ) : (
-                <>
-                  <Download className="h-4 w-4" />
-                  Buat File HC Otomatis
-                </>
-              )}
-            </Button>
+            {generatorApiAvailable ? (
+              <>
+                <Alert className="border-emerald-500/25 bg-emerald-500/5">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                  <AlertTitle className="text-emerald-300">File HC Otomatis Tersedia</AlertTitle>
+                  <AlertDescription>
+                    Admin sudah mengaktifkan fitur pembuatan file .hc otomatis. Klik tombol di bawah untuk langsung mendownload file config yang siap import.
+                  </AlertDescription>
+                </Alert>
+                <Button
+                  className="w-full gap-2"
+                  onClick={onGenerateHc}
+                  disabled={isGeneratingHc}
+                >
+                  {isGeneratingHc ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Membuat file HC...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4" />
+                      Buat File HC Otomatis
+                    </>
+                  )}
+                </Button>
+              </>
+            ) : (
+              <Alert variant="default" className="border-amber-500/30 bg-amber-500/5">
+                <AlertCircle className="h-4 w-4 text-amber-300" />
+                <AlertTitle className="text-amber-200">File HC Otomatis Belum Aktif</AlertTitle>
+                <AlertDescription className="space-y-2">
+                  <p>
+                    Fitur auto .hc butuh konfigurasi Generator API di server. Salin manual dulu pakai panduan di bawah.
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Admin: set GENERATOR_API_BASE_URL, GENERATOR_API_KEY, GENERATOR_API_HC_TEMPLATE di .env lalu pm2 restart
+                  </p>
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
         )}
 
