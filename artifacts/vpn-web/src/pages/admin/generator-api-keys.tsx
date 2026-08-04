@@ -297,6 +297,64 @@ export default function AdminGeneratorApiKeys() {
     });
   }
 
+  const [hcTemplateInput, setHcTemplateInput] = useState("");
+  const [hcTemplateBase64, setHcTemplateBase64] = useState("");
+
+  function handleHcTemplateConvert() {
+    if (!hcTemplateInput.trim()) {
+      toast({ title: "Isi template dulu", variant: "destructive" });
+      return;
+    }
+    try {
+      const trimmed = hcTemplateInput.trim();
+      if (/^[A-Za-z0-9+/=\s]+$/.test(trimmed) && trimmed.length > 100) {
+        try {
+          atob(trimmed.replace(/\s/g, ""));
+          setHcTemplateBase64(trimmed.replace(/\s/g, ""));
+          toast({ title: "Terdeteksi sudah Base64, langsung pakai" });
+          return;
+        } catch {}
+      }
+      const bytes = new TextEncoder().encode(trimmed);
+      let binary = "";
+      for (const b of bytes) binary += String.fromCharCode(b);
+      const b64 = btoa(binary);
+      setHcTemplateBase64(b64);
+      toast({ title: "Berhasil convert ke Base64" });
+    } catch {
+      toast({ title: "Gagal convert", description: "Isi tidak valid", variant: "destructive" });
+    }
+  }
+
+  function handleHcFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const result = reader.result as string;
+        const base64Part = result.includes(",") ? result.split(",")[1] : result;
+        const cleaned = base64Part.trim().replace(/\s/g, "");
+        const isLikelyFileContent = file.name.endsWith(".hc");
+        if (isLikelyFileContent) {
+          setHcTemplateBase64(cleaned);
+          setHcTemplateInput(`[File ${file.name} - ${file.size} bytes]`);
+          toast({ title: "File .hc berhasil dibaca sebagai Base64" });
+        } else {
+          setHcTemplateInput(result);
+          handleHcTemplateConvert();
+        }
+      } catch {
+        toast({ title: "Gagal baca file", variant: "destructive" });
+      }
+    };
+    if (file.name.endsWith(".hc")) {
+      reader.readAsDataURL(file);
+    } else {
+      reader.readAsText(file);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -320,6 +378,59 @@ export default function AdminGeneratorApiKeys() {
           Raw key hanya ditampilkan <strong>satu kali</strong> saat pembuatan.
         </AlertDescription>
       </Alert>
+
+      <Card className="border-cyan-500/20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Eye className="h-4 w-4" /> Tool: Buat Template .hc Base64 & Panduan Bug
+          </CardTitle>
+          <CardDescription>
+            1 template HC bisa untuk SEMUA bug (semua preset). Yang beda tiap preset adalah payload/proxy/SNI yang diambil otomatis dari tabel inject-presets.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert className="border-cyan-500/20 bg-cyan-500/5">
+            <AlertTitle className="text-cyan-300 text-sm">Cara Dapatkan File .hc Template</AlertTitle>
+            <AlertDescription className="space-y-2 text-xs">
+              <ol className="list-decimal pl-4 space-y-1">
+                <li>Buka aplikasi <b>HTTP Custom</b> di HP</li>
+                <li>Buat config kosong: isi SSH apa saja (misal 1.1.1.1:22@user:pass), payload kosong, proxy 127.0.0.1:8080</li>
+                <li>Menu kanan atas → <b>Export</b> → save jadi .hc (misal template.hc)</li>
+                <li>Upload file .hc tersebut di bawah ini, atau copy isi base64-nya</li>
+                <li>Hasil Base64 copy ke .env <code>GENERATOR_API_HC_TEMPLATE=</code></li>
+              </ol>
+              <p className="pt-2"><b>Untuk SEMUA bug?</b> Ya, 1 template cukup. Bug/payload/proxy/SNI akan diisi ulang otomatis sesuai preset yang dipilih user (XL, Telkomsel, Axis dll dari Admin → Preset Inject Paket). Jadi user pilih bug Telkomsel pun tetap pakai template yang sama, hanya payload diisi dari preset Telkomsel.</p>
+              <p className="pt-1"><b>Template .dark?</b> Untuk Dark Tunnel cukup isi <code>GENERATOR_API_DARK_TEMPLATE</code> dengan link <code>darktunnel://...</code> template kosong (export dari Dark Tunnel) atau kosongkan jika hanya pakai HC.</p>
+            </AlertDescription>
+          </Alert>
+
+          <div className="space-y-2">
+            <Label>Upload File .hc (atau .txt berisi config)</Label>
+            <Input type="file" accept=".hc,.txt,.b64" onChange={handleHcFileUpload} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Atau Paste Isi Config / Base64</Label>
+            <Textarea value={hcTemplateInput} onChange={(e) => setHcTemplateInput(e.target.value)} placeholder="Paste isi file .hc (akan auto detect base64 atau text lalu convert)..." className="min-h-[80px] font-mono text-xs" />
+            <Button type="button" variant="outline" size="sm" onClick={handleHcTemplateConvert}>Convert ke Base64</Button>
+          </div>
+
+          {hcTemplateBase64 && (
+            <div className="space-y-2">
+              <Label>Hasil Base64 (copy ke .env)</Label>
+              <div className="flex gap-2">
+                <Textarea readOnly value={hcTemplateBase64} className="font-mono text-[10px] min-h-[100px] flex-1" />
+                <Button type="button" variant="outline" size="sm" className="shrink-0 h-auto" onClick={() => copyToClipboard(hcTemplateBase64)}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="rounded bg-muted p-2 font-mono text-[10px] break-all">
+                GENERATOR_API_HC_TEMPLATE={hcTemplateBase64.slice(0, 80)}... ({hcTemplateBase64.length} chars)
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4">
         {isLoading ? (
