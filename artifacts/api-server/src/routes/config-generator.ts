@@ -296,6 +296,7 @@ router.post(
         res.status(error.statusCode).json({
           error: error.code,
           message: error.message,
+          details: error.code === "bad_request" ? "Template bukan file .hc encrypted yang valid atau payload too large" : undefined,
         });
         return;
       }
@@ -304,15 +305,11 @@ router.post(
         { err: error, userId, presetId: body.presetId, accountId: body.accountId },
         "Failed to generate HC config"
       );
-      res.status(500).json({ error: "Failed to generate HC config" });
+      res.status(500).json({ error: "Failed to generate HC config", message: error instanceof Error ? error.message : "Unknown" });
     }
   }
 );
 
-/**
- * POST /api/config/dark/generate
- * Generate Dark Tunnel (.dark) config file from SSH account and preset
- */
 router.post(
   "/config/dark/generate",
   requireAuth,
@@ -465,29 +462,63 @@ router.post(
  * Check if Generator API is configured and available
  */
 router.get("/config/status", requireAuth, async (_req, res) => {
+  const baseUrl = process.env.GENERATOR_API_BASE_URL;
+  const apiKey = process.env.GENERATOR_API_KEY;
+  const hcTemplate = process.env.GENERATOR_API_HC_TEMPLATE;
+  const darkTemplate = process.env.GENERATOR_API_DARK_TEMPLATE;
+
   const client = getSystemGeneratorClient();
 
   if (!client) {
     res.json({
       configured: false,
-      message: "Generator API not configured by administrator",
+      available: false,
+      message: "Generator API not configured by administrator - set GENERATOR_API_BASE_URL and GENERATOR_API_KEY in .env and ecosystem.config.cjs then pm2 restart",
+      details: {
+        hasBaseUrl: Boolean(baseUrl),
+        hasApiKey: Boolean(apiKey),
+        hasHcTemplate: Boolean(hcTemplate),
+        hasDarkTemplate: Boolean(darkTemplate),
+        checklist: [
+          !baseUrl ? "Missing GENERATOR_API_BASE_URL (e.g. http://127.0.0.1:6969/api/config)" : "BASE_URL set",
+          !apiKey ? "Missing GENERATOR_API_KEY (btg_... from /genapi)" : "API_KEY set",
+          !hcTemplate ? "Missing GENERATOR_API_HC_TEMPLATE (Base64 of encrypted .hc)" : `HC template set (${hcTemplate.length} chars)`,
+          !darkTemplate ? "DARK template not set (optional)" : `DARK template set (${darkTemplate.length} chars)`,
+        ],
+      },
     });
     return;
   }
 
   try {
-    // Try to call health endpoint
     const health = await client.health();
     res.json({
       configured: true,
       available: true,
       endpoints: health.endpoints,
+      details: {
+        baseUrl,
+        hasApiKey: Boolean(apiKey),
+        hasHcTemplate: Boolean(hcTemplate),
+        hasDarkTemplate: Boolean(darkTemplate),
+        hcTemplateLength: hcTemplate?.length ?? 0,
+        darkTemplateLength: darkTemplate?.length ?? 0,
+      },
     });
   } catch (error) {
+    const msg = error instanceof Error ? error.message : "Generator API unreachable";
     res.json({
       configured: true,
       available: false,
-      message: error instanceof Error ? error.message : "Generator API unreachable",
+      message: `${msg} - curl http://127.0.0.1:6969/api/config/health from VPS, check pm2 status`,
+      details: {
+        baseUrl,
+        error: msg,
+        hint: "Ensure saas-bot.js / master bot running on 6969, check GENERATOR_API_PORT, pm2 logs, firewall",
+        hasBaseUrl: Boolean(baseUrl),
+        hasApiKey: Boolean(apiKey),
+        hasHcTemplate: Boolean(hcTemplate),
+      },
     });
   }
 });

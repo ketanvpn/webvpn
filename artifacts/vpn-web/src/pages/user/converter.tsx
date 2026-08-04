@@ -1428,7 +1428,7 @@ export default function ConfigConverter() {
                   Buat Config DarkTunnel (Unlocked Lokal)
                 </Button>
 
-                {generatorApiStatus?.configured && generatorApiStatus?.available && (
+                {generatorApiStatus?.configured && generatorApiStatus?.available ? (
                   <div className="space-y-3">
                     <Alert className="border-emerald-500/25 bg-emerald-500/5">
                       <CheckCircle2 className="h-4 w-4 text-emerald-400" />
@@ -1457,6 +1457,14 @@ export default function ConfigConverter() {
                       )}
                     </Button>
                   </div>
+                ) : (
+                  <Alert className="border-amber-500/20 bg-amber-500/5">
+                    <AlertCircle className="h-4 w-4 text-amber-300" />
+                    <AlertTitle className="text-amber-200 text-sm">File .dark Terkunci Belum Aktif</AlertTitle>
+                    <AlertDescription className="text-xs">
+                      {generatorApiStatus?.message ?? "Butuh GENERATOR_API_* di .env dan service 6969 jalan. Sementara pakai unlocked lokal di atas."}
+                    </AlertDescription>
+                  </Alert>
                 )}
               </CardContent>
             </Card>

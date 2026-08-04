@@ -382,25 +382,30 @@ export default function AdminGeneratorApiKeys() {
       <Card className="border-cyan-500/20">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Eye className="h-4 w-4" /> Tool: Buat Template .hc Base64 & Panduan Bug
+            <Eye className="h-4 w-4" /> Tool: Template .hc & Debugging (Sesuai Docs Asli)
           </CardTitle>
           <CardDescription>
-            1 template HC bisa untuk SEMUA bug (semua preset). Yang beda tiap preset adalah payload/proxy/SNI yang diambil otomatis dari tabel inject-presets.
+            Docs asli: endpoint butuh template .hc encrypted valid via templateBase64. 1 template untuk semua bug/preset (payload/proxy/SNI diisi dari inject-presets).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Alert className="border-cyan-500/20 bg-cyan-500/5">
-            <AlertTitle className="text-cyan-300 text-sm">Cara Dapatkan File .hc Template</AlertTitle>
+            <AlertTitle className="text-cyan-300 text-sm">Cara Dapatkan File .hc Template (Wajib Encrypted Valid)</AlertTitle>
             <AlertDescription className="space-y-2 text-xs">
               <ol className="list-decimal pl-4 space-y-1">
-                <li>Buka aplikasi <b>HTTP Custom</b> di HP</li>
-                <li>Buat config kosong: isi SSH apa saja (misal 1.1.1.1:22@user:pass), payload kosong, proxy 127.0.0.1:8080</li>
-                <li>Menu kanan atas → <b>Export</b> → save jadi .hc (misal template.hc)</li>
-                <li>Upload file .hc tersebut di bawah ini, atau copy isi base64-nya</li>
-                <li>Hasil Base64 copy ke .env <code>GENERATOR_API_HC_TEMPLATE=</code></li>
+                <li>Buka HTTP Custom di HP</li>
+                <li>Buat config: SSH dummy 1.1.1.1:22@user:pass, payload bebas, proxy 127.0.0.1:8080, save &amp; export jadi .hc (ini sudah encrypted valid)</li>
+                <li>JANGAN base64 2x. Upload file .hc mentah di bawah, tool akan base64 satu kali sesuai docs: <code>base64 -w 0 template.hc</code></li>
+                <li>Limit: body 2MB, template decode max 1MB. Jangan kirim multipart.</li>
+                <li>Copy hasil Base64 ke .env <code>GENERATOR_API_HC_TEMPLATE=</code> lalu <code>pm2 restart --update-env</code></li>
               </ol>
-              <p className="pt-2"><b>Untuk SEMUA bug?</b> Ya, 1 template cukup. Bug/payload/proxy/SNI akan diisi ulang otomatis sesuai preset yang dipilih user (XL, Telkomsel, Axis dll dari Admin → Preset Inject Paket). Jadi user pilih bug Telkomsel pun tetap pakai template yang sama, hanya payload diisi dari preset Telkomsel.</p>
-              <p className="pt-1"><b>Template .dark?</b> Untuk Dark Tunnel cukup isi <code>GENERATOR_API_DARK_TEMPLATE</code> dengan link <code>darktunnel://...</code> template kosong (export dari Dark Tunnel) atau kosongkan jika hanya pakai HC.</p>
+              <p className="pt-2"><b>Untuk SEMUA bug?</b> Ya, 1 template cukup. Payload/proxy/SNI diambil dari Admin → Preset Inject Paket (Telkomsel, XL, Axis dll). Flow: templateBase64 + accountText <code>host:port@user:pass</code> + payload + proxy + sni + name → POST /hc/generate → return contentBase64 siap download.</p>
+              <p className="pt-1"><b>Template .dark?</b> Dark butuh <code>darktunnel://BASE64</code> link. Bisa kosongkan jika hanya HC. Field docs: template / templateBase64 / templateObject. Jika kirim JSON jangan kirim sebagai string.</p>
+              <p className="pt-2 font-mono text-[11px] bg-black/20 p-2 rounded">
+                Docs endpoint: POST /hc/generate  Body: &#123; templateBase64, method: "ssh", accountText: "host:port@user:pass", name, payload, proxy, sni &#125;<br/>
+                Response: &#123; success:true, data: &#123; format:"hc", variant:"locked", content, contentBase64 &#125; &#125;<br/>
+                Error: &#123; success:false, error:"bad_request" | "invalid_api_key" | "payload_too_large" | "rate_limit_exceeded" etc &#125;
+              </p>
             </AlertDescription>
           </Alert>
 
