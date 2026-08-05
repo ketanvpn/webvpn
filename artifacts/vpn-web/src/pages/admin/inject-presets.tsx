@@ -507,7 +507,11 @@ export default function AdminInjectPresets() {
     }
     setPoDialogOpen(false);
   }
-  function removePO(id: string) { setPurchaseOptions((prev) => prev.filter((p) => p.id !== id).map((p, i) => ({ ...p, sortOrder: i })))); }
+  function removePO(id: string) {
+    setPurchaseOptions((prev) => {
+      return prev.filter((p) => p.id !== id).map((p, i) => ({ ...p, sortOrder: i }));
+    });
+  }
   function movePO(id: string, dir: -1 | 1) {
     setPurchaseOptions((prev) => {
       const idx = prev.findIndex((p) => p.id === id);
