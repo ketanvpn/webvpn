@@ -836,32 +836,6 @@ Menu: **Admin → Backup & Restore DB**
 - **Restore darurat via terminal** (kalau dashboard tidak bisa diakses): `bash scripts/restore-db.sh /path/backup.sql.gz` — otomatis bikin safety backup dulu.
 - **Mau pindah ke VPS baru?** Lihat panduan **[Migrasi ke VPS Baru](#migrasi-ke-vps-baru-tanpa-install-ulang-dari-nol)** di atas — 1 script, semua data ikut pindah.
 
-### Generator API (Auto Config HTTP Custom & Dark Tunnel) — Opsional
-Menu: **Admin → Generator API Keys**
-
-Fitur ini memungkinkan pembuatan file config `.hc` (HTTP Custom) dan `.dark` (Dark Tunnel) secara otomatis dari akun SSH pengguna tanpa perlu input manual.
-
-**Langkah Setup:**
-1. Pastikan service Generator API aktif (port default: `6969`):
-   ```bash
-   curl http://127.0.0.1:6969/api/config/health
-   ```
-2. Buat master API key dari bot Telegram (menu `/genapi` → **Buat API Key**) dengan scope `generate`
-3. Tambahkan konfigurasi di `.env`:
-   ```env
-   GENERATOR_API_BASE_URL=http://127.0.0.1:6969/api/config
-   GENERATOR_API_KEY=btg_xxxxxxxx_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-   GENERATOR_API_HC_TEMPLATE=BASE64_TEMPLATE_HC
-   GENERATOR_API_DARK_TEMPLATE=darktunnel://...
-   ```
-4. Restart backend: `pm2 restart ketantech-api`
-5. Pengguna sekarang dapat menekan tombol **"Buat File HC Otomatis"** di halaman **Inject Paket** (`/converter`)
-
-**Kelola API Key untuk Klien Eksternal:**
-- Buka **Admin → Generator API Keys**
-- Klik **Buat API Key** untuk memberikan akses ke partner/reseller eksternal
-- Atur scope (`generate`, `unlock`, `inspect`), batas kuota harian, dan masa berlaku
-
 ---
 
 ## Perintah Berguna Sehari-hari
@@ -1064,15 +1038,6 @@ File `.env` berisi semua konfigurasi aplikasi. Berikut daftar lengkapnya:
 |----------|-----------|
 | `NADIAVPN_API_BASE_URL` | Base URL API NadiaVPN |
 | `NADIAVPN_API_TOKEN` | Token autentikasi |
-
-### Generator API (HTTP Custom & Dark Tunnel Auto Config)
-
-| Variable | Deskripsi | Contoh |
-|----------|-----------|--------|
-| `GENERATOR_API_BASE_URL` | Base URL service Generator API | `http://127.0.0.1:6969/api/config` |
-| `GENERATOR_API_KEY` | Master API Key untuk akses generator | `btg_xxxxxxxx_xxxxxxxx...` |
-| `GENERATOR_API_HC_TEMPLATE` | Template file .hc (Base64) untuk HC generate | `BASE64_STRING...` |
-| `GENERATOR_API_DARK_TEMPLATE` | Template link darktunnel:// untuk Dark generate | `darktunnel://...` |
 
 ### CORS & Proxy
 

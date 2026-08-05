@@ -20,8 +20,6 @@ export interface JwtPayload {
   sessionVersion: number;
 }
 
-export type AuthenticatedRequest = Request & { user: JwtPayload };
-
 export function signToken(payload: JwtPayload): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 }

@@ -35,7 +35,6 @@ import {
   ShieldPlus,
   Network,
   Crown,
-  Key,
 } from "lucide-react";
 import {
   Sheet,
@@ -118,7 +117,6 @@ const adminNavGroups: AdminNavGroup[] = [
       { title: "Monitor Server", href: "/admin/server-monitor", icon: Activity },
       { title: "NadiaVPN", href: "/admin/nadiavpn", icon: Cloud },
       { title: "Preset Inject Paket", href: "/admin/inject-presets", icon: Network },
-      { title: "Generator API Keys", href: "/admin/generator-api-keys", icon: Key },
       { title: "Manajemen Bug", href: "/admin/bug-presets", icon: Bug },
       { title: "Payment Gateway", href: "/admin/settings/payment", icon: QrCode },
       { title: "Notifikasi Telegram", href: "/admin/settings/telegram", icon: Bell },

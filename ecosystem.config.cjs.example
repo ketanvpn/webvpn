@@ -23,15 +23,7 @@ module.exports = {
         PM2_APP_NAME: "ketantech-api",
         SITE_URL: "https://DOMAIN_ATAU_IP",
         BOT_API_KEY: "",
-        NADIAVPN_API_BASE_URL: "",
-        NADIAVPN_API_TOKEN: "",
-        BOT_VPN_USERNAME: "",
-        GENERATOR_API_BASE_URL: "",
-        GENERATOR_API_KEY: "",
-        GENERATOR_API_HC_TEMPLATE: "",
-        GENERATOR_API_DARK_TEMPLATE: "",
-        BACKUP_DIR: "./backups",
-        BACKUP_ENCRYPTION_KEY: ""
+        NADIAVPN_API_TOKEN: ""
       }
     }
   ]

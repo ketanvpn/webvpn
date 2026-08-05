@@ -55,7 +55,6 @@ import AdminDynamicVpnHub from "@/pages/admin/dynamic-vpn-hub";
 import AdminVouchers from "@/pages/admin/vouchers";
 import AdminBugPresets from "@/pages/admin/bug-presets";
 import AdminInjectPresets from "@/pages/admin/inject-presets";
-import AdminGeneratorApiKeys from "@/pages/admin/generator-api-keys";
 import AdminAuditLogs from "@/pages/admin/audit-logs";
 
 // Redirect component for legacy routes
@@ -212,9 +211,6 @@ function Router() {
       </Route>
       <Route path="/admin/inject-presets">
         <Layout requireAdmin><AdminInjectPresets /></Layout>
-      </Route>
-      <Route path="/admin/generator-api-keys">
-        <Layout requireAdmin><AdminGeneratorApiKeys /></Layout>
       </Route>
       <Route path="/admin/audit-logs">
         <Layout requireAdmin><AdminAuditLogs /></Layout>
