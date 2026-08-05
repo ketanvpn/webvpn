@@ -31,6 +31,32 @@ function loginRateLimitKey(req: any): string {
 
 // ─── Rate Limiters ────────────────────────────────────────────────────────────
 
+const profileLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req: any) => {
+    const uid = req.user?.userId ?? req.user?.id ?? null;
+    if (uid) return `uid:${uid}`;
+    return getClientIp(req);
+  },
+  message: { error: "Terlalu banyak percobaan edit profil. Coba lagi dalam 15 menit." },
+});
+
+const changePasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req: any) => {
+    const uid = req.user?.userId ?? req.user?.id ?? null;
+    if (uid) return `uid:${uid}`;
+    return getClientIp(req);
+  },
+  message: { error: "Terlalu banyak percobaan ganti password. Coba lagi dalam 15 menit." },
+});
+
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
@@ -518,7 +544,7 @@ router.post("/auth/logout", requireAuth, async (req, res) => {
   res.clearCookie("token").json({ message: "Logged out" });
 });
 
-router.patch("/auth/profile", requireAuth, async (req, res) => {
+router.patch("/auth/profile", requireAuth, profileLimiter, async (req, res) => {
   const userId = req.user!.userId;
   const { fullName, email } = req.body ?? {};
 
@@ -527,23 +553,53 @@ router.patch("/auth/profile", requireAuth, async (req, res) => {
     return;
   }
 
-  if (email !== undefined && email !== null && email !== "") {
-    const existing = await db
-      .select({ id: usersTable.id })
-      .from(usersTable)
-      .where(eq(usersTable.email, String(email)))
-      .limit(1);
-    if (existing.length > 0 && existing[0].id !== userId) {
-      res.status(409).json({ error: "Email sudah digunakan" });
-      return;
+  let normalizedFullName: string | null | undefined;
+  if (fullName !== undefined) {
+    if (fullName === null || String(fullName).trim() === "") {
+      normalizedFullName = null;
+    } else {
+      const trimmed = String(fullName).trim();
+      if (trimmed.length > 100) {
+        res.status(400).json({ error: "Nama lengkap maksimal 100 karakter" });
+        return;
+      }
+      normalizedFullName = trimmed;
+    }
+  }
+
+  let normalizedEmail: string | null | undefined;
+  if (email !== undefined) {
+    if (email === null || String(email).trim() === "") {
+      normalizedEmail = null;
+    } else {
+      const trimmed = String(email).trim().toLowerCase();
+      if (trimmed.length > 254) {
+        res.status(400).json({ error: "Email terlalu panjang" });
+        return;
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(trimmed)) {
+        res.status(400).json({ error: "Format email tidak valid" });
+        return;
+      }
+      normalizedEmail = trimmed;
+      const existing = await db
+        .select({ id: usersTable.id })
+        .from(usersTable)
+        .where(sql`lower(${usersTable.email}) = ${normalizedEmail}`)
+        .limit(1);
+      if (existing.length > 0 && existing[0].id !== userId) {
+        res.status(409).json({ error: "Email sudah digunakan" });
+        return;
+      }
     }
   }
 
   const [updated] = await db
     .update(usersTable)
     .set({
-      ...(fullName !== undefined ? { fullName: fullName ? String(fullName) : null } : {}),
-      ...(email !== undefined ? { email: email ? String(email) : null } : {}),
+      ...(normalizedFullName !== undefined ? { fullName: normalizedFullName } : {}),
+      ...(normalizedEmail !== undefined ? { email: normalizedEmail } : {}),
     })
     .where(eq(usersTable.id, userId))
     .returning();
@@ -564,7 +620,7 @@ router.patch("/auth/profile", requireAuth, async (req, res) => {
   });
 });
 
-router.post("/auth/change-password", requireAuth, async (req, res) => {
+router.post("/auth/change-password", requireAuth, changePasswordLimiter, async (req, res) => {
   const userId = req.user!.userId;
   const { currentPassword, newPassword } = req.body ?? {};
 

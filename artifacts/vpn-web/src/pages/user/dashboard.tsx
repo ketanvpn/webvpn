@@ -13,33 +13,14 @@ import { PageHeader } from "@/components/common";
 import { apiClient } from "@/lib/api-client";
 import { toast } from "@/hooks/use-toast";
 import { getApiError } from "@/lib/utils";
-import { Progress } from "@/components/ui/progress";
+import type { PromoData, ResellerStatus } from "@/lib/types/profile";
 
 const PROMO_DISMISSED_KEY = "reseller_promo_dismissed";
 const INJECT_GUIDE_DISMISSED_KEY = "dashboard_inject_guide_dismissed_v1";
 
-type PromoData = {
-  promoEnabled: boolean;
-  promoTitle: string;
-  promoText: string;
-  requestEnabled: boolean;
-  discountPercent: number;
-  autoUpgradeEnabled: boolean;
-  autoUpgradeMinTopup: number;
-  targetEnabled: boolean;
-  monthlyTarget: number;
-};
-
 type Announcement = { id: number; title: string; content: string; type: string };
 
-type ResellerStatusData = {
-  discountPercent: number;
-  currentMonthSales: number;
-  monthlyTarget: number;
-  progressPercent: number;
-  targetEnabled: boolean;
-  currentMonth: string;
-};
+type ResellerStatusData = ResellerStatus;
 
 const ANNOUNCE_DISMISSED_KEY = "dismissed_announcements_v1";
 
