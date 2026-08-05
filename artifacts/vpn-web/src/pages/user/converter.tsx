@@ -1,6 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearch } from "wouter";
+import { useSearch, useLocation } from "wouter";
+
+const GUIDE_DISMISSED_KEY = "inject_guide_dismissed_v1";
+const GUIDE_COLLAPSED_KEY = "inject_guide_collapsed_v1";
+
+function getActivePurchaseOptions(preset: EasyInjectPreset) {
+  const opts = (preset.purchaseOptions ?? []).filter((o) => o.isActive);
+  return [...opts].sort((a, b) => a.sortOrder - b.sortOrder);
+}
+function presetIcon(slug: string) {
+  const s = slug.toLowerCase();
+  if (s.includes("gamemax") || s.includes("game")) return "🎮";
+  if (s.includes("ilmupedia") || s.includes("ilmu")) return "📚";
+  return "🧩";
+}
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -343,6 +357,177 @@ function HttpCustomGuideCard({
   );
 }
 
+type PaketOnboardingGuideProps = {
+  presets: EasyInjectPreset[];
+  onSelectPreset: (id: string) => void;
+  hasAccounts: boolean;
+};
+
+function PaketOnboardingGuide({ presets, onSelectPreset, hasAccounts }: PaketOnboardingGuideProps) {
+  const [, setLocation] = useLocation();
+  const [dismissed, setDismissed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(GUIDE_DISMISSED_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try {
+      const raw = localStorage.getItem(GUIDE_COLLAPSED_KEY);
+      if (raw === "1") return true;
+      if (raw === "0") return false;
+    } catch {
+      return hasAccounts ? true : false;
+    }
+    return hasAccounts;
+  });
+
+  const handleDismiss = () => {
+    try {
+      localStorage.setItem(GUIDE_DISMISSED_KEY, "1");
+    } catch {
+      return;
+    }
+    setDismissed(true);
+  };
+
+  const handleUndismiss = () => {
+    try {
+      localStorage.removeItem(GUIDE_DISMISSED_KEY);
+    } catch {
+      return;
+    }
+    setDismissed(false);
+  };
+
+  const handleToggleCollapsed = () => {
+    const next = !collapsed;
+    try {
+      localStorage.setItem(GUIDE_COLLAPSED_KEY, next ? "1" : "0");
+    } catch {
+      return;
+    }
+    setCollapsed(next);
+  };
+
+  if (dismissed) {
+    return (
+      <Card className="glass-panel border-white/10 bg-background/20">
+        <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4">
+          <p className="text-sm text-muted-foreground">Butuh panduan paket GameMax/Ilmupedia?</p>
+          <Button size="sm" variant="outline" onClick={handleUndismiss}>
+            Tampilkan panduan
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="glass-panel border-primary/20">
+      <CardHeader className="pb-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <CardTitle className="text-base sm:text-lg">Panduan Pemula - Pilih Paket Kamu</CardTitle>
+            <CardDescription className="mt-1 text-xs sm:text-sm">
+              Baru pertama kali inject? Pilih paket operator dulu, lihat link beli paket MyTelkomsel, lalu buat akun SSH yang sesuai.
+            </CardDescription>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <Button size="sm" variant="outline" onClick={handleToggleCollapsed}>
+              {collapsed ? "Tampilkan" : "Sembunyikan"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={handleDismiss}>
+              Sudah paham
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      {!collapsed && (
+        <CardContent className="space-y-4">
+          <Alert className="border-amber-500/30 bg-amber-500/10">
+            <AlertCircle className="h-4 w-4 text-amber-300" />
+            <AlertTitle className="text-amber-100">Perhatian</AlertTitle>
+            <AlertDescription className="text-xs text-amber-100/80">
+              Link beli mengarah ke MyTelkomsel, wajib punya aplikasi MyTelkomsel &amp; nomor Telkomsel aktif.
+            </AlertDescription>
+          </Alert>
+
+          {presets.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Belum ada paket aktif.</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {presets.map((preset) => {
+                const purchaseOpts = getActivePurchaseOptions(preset);
+                const kindLabel = preset.requiredAccountKind === "cloudfront" ? "CloudFront" : "biasa";
+                return (
+                  <div
+                    key={preset.id}
+                    className="rounded-2xl border border-white/10 bg-background/40 p-4 flex flex-col gap-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-2xl">{presetIcon(preset.slug)}</span>
+                        <span className="font-bold text-sm sm:text-base truncate">{preset.name}</span>
+                      </div>
+                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                        {preset.accountLabel}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-3">{preset.description}</p>
+
+                    {purchaseOpts.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Link Beli MyTelkomsel</p>
+                        <div className="space-y-2">
+                          {purchaseOpts.map((opt) => (
+                            <div
+                              key={opt.id}
+                              className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-white/5 bg-black/10 p-2.5"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium truncate">
+                                  {opt.label}
+                                  {opt.quotaText ? ` • ${opt.quotaText}` : ""}
+                                  {opt.priceText ? ` - ${opt.priceText}` : ""}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground truncate">{opt.url}</p>
+                              </div>
+                              <Button size="sm" variant="outline" asChild className="shrink-0 gap-1 h-7 text-xs">
+                                <a href={opt.url} target="_blank" rel="noopener noreferrer">
+                                  <ExternalLink className="h-3 w-3" /> Beli
+                                </a>
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-auto flex flex-col gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        className="w-full gap-1"
+                        onClick={() => setLocation(`/order-vpn?preset=${encodeURIComponent(preset.slug)}&kind=${preset.requiredAccountKind}`)}
+                      >
+                        Buat Akun SSH {kindLabel} →
+                      </Button>
+                      <Button size="sm" variant="outline" className="w-full gap-1" onClick={() => onSelectPreset(String(preset.id))}>
+                        Pakai Akun Saya →
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
 function convertVmess(raw: string, bug: BugPreset) {
   try {
     const b64 = raw.replace("vmess://", "");
@@ -509,6 +694,8 @@ export default function ConfigConverter() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const search = useSearch();
+  const [, setLocation] = useLocation();
+  const incomingPresetSlug = new URLSearchParams(search).get("preset") || new URLSearchParams(search).get("paket");
   const initializedFromQuery = useRef(false);
   const selectedPresetVersionRef = useRef<string | null>(null);
 
@@ -666,6 +853,12 @@ export default function ConfigConverter() {
       resetEasyApplicationState();
     }
   }, [easyApp, selectedEasyPreset]);
+
+  useEffect(() => {
+    if (presetsLoading || !incomingPresetSlug || easyPresetId) return;
+    const found = easyPresets.find((p) => p.slug === incomingPresetSlug.toLowerCase());
+    if (found) setEasyPresetId(String(found.id));
+  }, [presetsLoading, easyPresets, incomingPresetSlug, easyPresetId]);
 
   const syncAccountMutation = useMutation({
     mutationFn: (accountId: number) =>
@@ -939,6 +1132,8 @@ export default function ConfigConverter() {
         </p>
       </div>
 
+      <PaketOnboardingGuide presets={easyPresets} onSelectPreset={selectEasyPreset} hasAccounts={activeSshAccounts.length > 0} />
+
       <Tabs defaultValue="easy" className="space-y-5">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="easy">Mode Mudah</TabsTrigger>
@@ -1015,6 +1210,11 @@ export default function ConfigConverter() {
                           <Badge variant="outline" className="font-mono text-[10px]">
                             v{preset.version}
                           </Badge>
+                          {getActivePurchaseOptions(preset).length > 0 && (
+                            <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-200 text-[10px]">
+                              {getActivePurchaseOptions(preset).length} link beli
+                            </Badge>
+                          )}
                         </div>
                       </button>
                     );
@@ -1023,6 +1223,35 @@ export default function ConfigConverter() {
               )}
             </CardContent>
           </Card>
+
+          {selectedEasyPreset && getActivePurchaseOptions(selectedEasyPreset).length > 0 && (
+            <Card className="glass-panel border-amber-500/20 bg-amber-500/5">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">🛒 Beli Paket {selectedEasyPreset.name} di MyTelkomsel</CardTitle>
+                <CardDescription className="text-xs">Wajib punya aplikasi MyTelkomsel &amp; nomor Telkomsel aktif. Link buka tab baru.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {getActivePurchaseOptions(selectedEasyPreset).map((opt) => (
+                  <div
+                    key={opt.id}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-white/5 bg-background/40 p-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm">
+                        {opt.label} {opt.quotaText && `• ${opt.quotaText}`} {opt.priceText && `- ${opt.priceText}`}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground truncate">{opt.url}</p>
+                    </div>
+                    <Button size="sm" variant="outline" asChild className="shrink-0 gap-1">
+                      <a href={opt.url} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-3.5 w-3.5" /> Beli
+                      </a>
+                    </Button>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
           {selectedEasyPreset && (
             <Card className="glass-panel overflow-hidden border-cyan-500/20">

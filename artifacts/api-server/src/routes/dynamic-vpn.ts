@@ -44,6 +44,11 @@ const VALID_PROTOCOLS = ["ssh", "vmess", "vless", "trojan"];
 const VALID_TYPES = [...DYNAMIC_DURATION_TYPES];
 const DYNAMIC_ORDER_CREATION_LOCK_NAMESPACE = 1_904_231;
 
+function isCloudfrontCapableServerName(name: string | null | undefined): boolean {
+  if (!name) return false;
+  return /cloudfront/i.test(name);
+}
+
 function sendError(res: Response, status: number, message: string) {
   res.status(status).json({ error: message });
 }
@@ -61,6 +66,7 @@ function sanitizeUsername(raw: unknown) {
 }
 
 function formatServer(row: typeof dynamicProviderServersTable.$inferSelect, admin = false) {
+  const isCloudfrontCapable = isCloudfrontCapableServerName(row.displayName) || isCloudfrontCapableServerName(row.providerName);
   const base = {
     id: row.id,
     provider: row.provider,
@@ -84,6 +90,7 @@ function formatServer(row: typeof dynamicProviderServersTable.$inferSelect, admi
     capacityIsFull: row.capacityIsFull,
     maxConnections: row.maxConnections,
     sortOrder: row.sortOrder,
+    isCloudfrontCapable,
   };
 
   if (!admin) return base;

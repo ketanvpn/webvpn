@@ -75,6 +75,16 @@ type RequiredAccountKind = "normal" | "cloudfront";
 type InjectMode = "PROXY" | "PROXY_SNI";
 type SniPolicy = "none" | "account_host" | "custom";
 
+type PurchaseOption = {
+  id: string;
+  label: string;
+  quotaText?: string;
+  priceText?: string;
+  url: string;
+  isActive: boolean;
+  sortOrder: number;
+};
+
 type EasyInjectPreset = {
   id: number;
   slug: string;
@@ -97,6 +107,7 @@ type EasyInjectPreset = {
   isBuiltIn: boolean;
   sortOrder: number;
   version: number;
+  purchaseOptions: PurchaseOption[];
   createdAt: string;
   updatedAt: string;
 };
@@ -130,6 +141,7 @@ type EasyInjectPresetInput = Pick<
   | "supportsHttpCustom"
   | "isActive"
   | "sortOrder"
+  | "purchaseOptions"
 >;
 
 type PresetForm = Omit<
@@ -240,7 +252,12 @@ function validateForm(form: PresetForm): FormErrors {
   return errors;
 }
 
-function toRequestBody(form: PresetForm): EasyInjectPresetInput {
+function genPOId(label: string): string {
+  const base = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) || 'link';
+  return `${base}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function toRequestBody(form: PresetForm, options: PurchaseOption[]): EasyInjectPresetInput {
   return {
     slug: form.slug.trim(),
     name: form.name.trim(),
@@ -260,6 +277,7 @@ function toRequestBody(form: PresetForm): EasyInjectPresetInput {
     supportsHttpCustom: form.supportsHttpCustom,
     isActive: form.isActive,
     sortOrder: Number(form.sortOrder),
+    purchaseOptions: options.map((o, i) => ({ ...o, sortOrder: i })),
   };
 }
 
@@ -401,6 +419,12 @@ export default function AdminInjectPresets() {
   const [formMessage, setFormMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  const [purchaseOptions, setPurchaseOptions] = useState<PurchaseOption[]>([]);
+  const [poDialogOpen, setPoDialogOpen] = useState(false);
+  const [editingPO, setEditingPO] = useState<PurchaseOption | null>(null);
+  const [poForm, setPoForm] = useState<{ label: string; quotaText: string; priceText: string; url: string; isActive: boolean }>({ label: "", quotaText: "", priceText: "", url: "", isActive: true });
+  const [poFormError, setPoFormError] = useState<string | null>(null);
+
   const [togglePendingIds, setTogglePendingIds] = useState<Set<number>>(new Set());
   const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
 
@@ -467,22 +491,58 @@ export default function AdminInjectPresets() {
     setFormMessage(null);
   }
 
+  function openAddPO() { setEditingPO(null); setPoForm({ label: "", quotaText: "", priceText: "", url: "", isActive: true }); setPoFormError(null); setPoDialogOpen(true); }
+  function openEditPO(po: PurchaseOption) { setEditingPO(po); setPoForm({ label: po.label, quotaText: po.quotaText || "", priceText: po.priceText || "", url: po.url, isActive: po.isActive }); setPoFormError(null); setPoDialogOpen(true); }
+  function savePO() {
+    const label = poForm.label.trim();
+    const url = poForm.url.trim();
+    if (!label) { setPoFormError("Label wajib"); return; }
+    if (!url || !url.startsWith("https://")) { setPoFormError("URL wajib https://"); return; }
+    try { new URL(url); } catch { setPoFormError("URL tidak valid"); return; }
+    if (editingPO) {
+      setPurchaseOptions((prev) => prev.map((p) => p.id === editingPO.id ? { ...p, label, quotaText: poForm.quotaText.trim() || undefined, priceText: poForm.priceText.trim() || undefined, url, isActive: poForm.isActive } : p));
+    } else {
+      const newPO: PurchaseOption = { id: genPOId(label), label, quotaText: poForm.quotaText.trim() || undefined, priceText: poForm.priceText.trim() || undefined, url, isActive: poForm.isActive, sortOrder: purchaseOptions.length };
+      setPurchaseOptions((prev) => [...prev, newPO]);
+    }
+    setPoDialogOpen(false);
+  }
+  function removePO(id: string) { setPurchaseOptions((prev) => prev.filter((p) => p.id !== id).map((p, i) => ({ ...p, sortOrder: i })))); }
+  function movePO(id: string, dir: -1 | 1) {
+    setPurchaseOptions((prev) => {
+      const idx = prev.findIndex((p) => p.id === id);
+      if (idx < 0) return prev;
+      const newIdx = idx + dir;
+      if (newIdx < 0 || newIdx >= prev.length) return prev;
+      const copy = [...prev];
+      const [item] = copy.splice(idx, 1);
+      copy.splice(newIdx, 0, item);
+      return copy.map((p, i) => ({ ...p, sortOrder: i }));
+    });
+  }
+
   function prepareForm(mode: FormMode, preset?: EasyInjectPreset) {
     setFormMode(mode);
     setEditingPreset(mode === "edit" && preset ? preset : null);
     setFormErrors({});
     setFormMessage(null);
+    setEditingPO(null);
+    setPoDialogOpen(false);
+    setPoFormError(null);
 
     if (!preset) {
       setForm(createBlankForm());
+      setPurchaseOptions([]);
     } else if (mode === "duplicate") {
       setForm({
         ...presetToForm(preset),
         slug: "",
         name: `${preset.name} (Salinan)`,
       });
+      setPurchaseOptions((preset.purchaseOptions ?? []).slice().sort((a, b) => a.sortOrder - b.sortOrder));
     } else {
       setForm(presetToForm(preset));
+      setPurchaseOptions((preset.purchaseOptions ?? []).slice().sort((a, b) => a.sortOrder - b.sortOrder));
     }
     setFormOpen(true);
   }
@@ -502,7 +562,7 @@ export default function AdminInjectPresets() {
     setIsSaving(true);
     setFormMessage(null);
     try {
-      const body = toRequestBody(form);
+      const body = toRequestBody(form, purchaseOptions);
       if (editingPreset) {
         const { slug: _immutableSlug, ...updateBody } = body;
         await apiClient.patch(`/api/admin/easy-inject-presets/${editingPreset.id}`, updateBody);
@@ -790,6 +850,11 @@ export default function AdminInjectPresets() {
                               <Smartphone className="h-3 w-3" /> HTTP Custom
                             </Badge>
                           )}
+                          {preset.purchaseOptions?.length > 0 && (
+                            <Badge className="bg-amber-500/15 text-amber-300 border border-amber-500/25 gap-1">
+                              {preset.purchaseOptions.length} link beli
+                            </Badge>
+                          )}
                         </div>
 
                         {preset.isBuiltIn && (
@@ -1011,6 +1076,35 @@ export default function AdminInjectPresets() {
                     onCheckedChange={(value) => updateForm("isActive", value)}
                   />
                 </div>
+              </section>
+
+              <section className="rounded-xl border border-white/5 bg-muted/10 p-4 sm:p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold">Link Pembelian Paket (MyTelkomsel)</h3>
+                    <p className="text-xs text-muted-foreground mt-1">Untuk user awam: tampilkan link beli paket. GameMax 1 link, Ilmupedia bisa beberapa link beda kuota/harga. Wajib https. Link eksternal akan buka tab baru.</p>
+                  </div>
+                  <Button type="button" size="sm" variant="outline" onClick={openAddPO}><Plus className="h-4 w-4" /> Tambah Link</Button>
+                </div>
+                {purchaseOptions.length === 0 ? <p className="text-xs text-muted-foreground">Belum ada link pembelian. Tambah link MyTelkomsel untuk paket ini.</p> : <div className="space-y-2">{purchaseOptions.map((po) => (
+                  <div key={po.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-white/5 bg-background/40 p-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-sm">{po.label}</span>
+                        {po.quotaText && <Badge variant="outline" className="text-[10px]">{po.quotaText}</Badge>}
+                        {po.priceText && <Badge variant="outline" className="text-[10px]">{po.priceText}</Badge>}
+                        <Badge variant={po.isActive ? "default" : "secondary"} className="text-[10px]">{po.isActive ? "Aktif" : "Nonaktif"}</Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground truncate mt-1">{po.url}</p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={po.sortOrder === 0} onClick={() => movePO(po.id, -1)}>↑</Button>
+                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7" disabled={po.sortOrder === purchaseOptions.length - 1} onClick={() => movePO(po.id, 1)}>↓</Button>
+                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditPO(po)}><Pencil className="h-3 w-3" /></Button>
+                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removePO(po.id)}><Trash2 className="h-3 w-3" /></Button>
+                    </div>
+                  </div>
+                ))}</div>}
               </section>
 
               <section className="rounded-xl border border-white/5 bg-muted/10 p-4 sm:p-5 space-y-4">
@@ -1376,6 +1470,23 @@ export default function AdminInjectPresets() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={poDialogOpen} onOpenChange={setPoDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>{editingPO ? "Edit" : "Tambah"} Link Pembelian</DialogTitle><DialogDescription>Link harus https, disarankan my.telkomsel.com. Akan tampil untuk user di converter.</DialogDescription></DialogHeader>
+          {poFormError && <Alert variant="destructive"><AlertDescription>{poFormError}</AlertDescription></Alert>}
+          <div className="space-y-3">
+            <div><Label>Label * misal Ilmupedia 10GB</Label><Input value={poForm.label} onChange={(e) => setPoForm((s) => ({ ...s, label: e.target.value }))} placeholder="GameMax / Ilmupedia 10GB" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Kuota opsional</Label><Input value={poForm.quotaText} onChange={(e) => setPoForm((s) => ({ ...s, quotaText: e.target.value }))} placeholder="10GB 30 Hari" /></div>
+              <div><Label>Harga opsional</Label><Input value={poForm.priceText} onChange={(e) => setPoForm((s) => ({ ...s, priceText: e.target.value }))} placeholder="Rp20.000" /></div>
+            </div>
+            <div><Label>URL MyTelkomsel https *</Label><Input value={poForm.url} onChange={(e) => setPoForm((s) => ({ ...s, url: e.target.value }))} placeholder="https://my.telkomsel.com/..." className="font-mono text-xs" /></div>
+            <div className="flex items-center justify-between rounded-lg border p-3"><div><Label>Aktif</Label><p className="text-xs text-muted-foreground">Tampilkan ke user</p></div><Switch checked={poForm.isActive} onCheckedChange={(v) => setPoForm((s) => ({ ...s, isActive: v }))} /></div>
+          </div>
+          <DialogFooter><Button type="button" variant="outline" onClick={() => setPoDialogOpen(false)}>Batal</Button><Button type="button" onClick={savePO}>Simpan Link</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

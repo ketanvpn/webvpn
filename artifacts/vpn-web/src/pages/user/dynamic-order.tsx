@@ -1,11 +1,16 @@
 import { useLocation, Link } from "wouter";
+import { Info } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useDynamicOrderCheckout } from "@/hooks/use-dynamic-order-checkout";
 import { OrderForm, PaymentConfirmation, ServerList, SuccessBanner } from "@/components/dynamic-order";
 
 export default function DynamicOrderPage() {
   const { state, actions, data } = useDynamicOrderCheckout();
+  const [, setLocation] = useLocation();
+  const d = data as any;
 
   return (
     <div className="space-y-4 pb-8">
@@ -17,6 +22,24 @@ export default function DynamicOrderPage() {
       </div>
 
       <SuccessBanner paidOrderId={state.paidOrderId} />
+
+      {d.paketKind && (
+        <Card className={`border ${d.paketKind === "cloudfront" ? "border-violet-500/30 bg-violet-500/5" : "border-blue-500/30 bg-blue-500/5"}`}>
+          <CardContent className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm">
+            <div className="flex items-start gap-2">
+              <Info className="h-4 w-4 mt-0.5" />
+              <div>
+                <p className="font-semibold">{d.paketKind === "cloudfront" ? `Kamu memilih ${d.presetSlug ?? "Ilmupedia"} - butuh SSH CloudFront` : `Kamu memilih ${d.presetSlug ?? "GameMax"} - SSH Biasa`}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{d.paketKind === "cloudfront" ? "Pilih server dengan badge CLOUDFRONT seperti SSH CLOUDFRONT REGULER / PREMIUM. Sudah diurutkan di atas." : "Semua server bisa dipakai. SSH biasa cocok untuk GameMax."} {d.recommendedCount ? `Ditemukan ${d.recommendedCount} server ${d.paketKind}.` : ""}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button variant="outline" size="sm" asChild><Link href="/converter">← Panduan Inject</Link></Button>
+              <Button variant="ghost" size="sm" onClick={() => setLocation("/order-vpn")}>Hapus Filter</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <ServerList
         servers={data.servers}

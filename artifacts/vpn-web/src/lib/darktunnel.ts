@@ -2,6 +2,16 @@ export type EasyInjectAccountKind = "normal" | "cloudfront";
 export type EasyInjectMode = "PROXY" | "PROXY_SNI";
 export type EasyInjectSniPolicy = "none" | "account_host" | "custom";
 
+export type EasyInjectPurchaseOption = {
+  id: string;
+  label: string;
+  quotaText?: string;
+  priceText?: string;
+  url: string;
+  isActive: boolean;
+  sortOrder: number;
+}
+
 export type EasyInjectPreset = {
   id: number;
   slug: string;
@@ -24,6 +34,7 @@ export type EasyInjectPreset = {
   isActive?: boolean;
   isBuiltIn?: boolean;
   sortOrder?: number;
+  purchaseOptions?: EasyInjectPurchaseOption[];
   createdAt?: string;
   updatedAt?: string;
 };
@@ -409,4 +420,15 @@ export function buildDarkTunnelConfig(params: {
     filename: sanitizeDarkTunnelFilename(`${preset.name}-${account.username}`),
     config,
   };
+}
+
+export function isCloudfrontCapableServerName(name: string | null | undefined): boolean {
+  if (!name) return false;
+  return /cloudfront/i.test(name);
+}
+
+export function isCloudfrontCapableServer(server: { name?: string | null; displayName?: string | null; serverName?: string | null; serverDisplayName?: string | null } | null | undefined): boolean {
+  if (!server) return false;
+  const candidates = [server.name, server.displayName, server.serverName, server.serverDisplayName].filter(Boolean) as string[];
+  return candidates.some(n => isCloudfrontCapableServerName(n));
 }

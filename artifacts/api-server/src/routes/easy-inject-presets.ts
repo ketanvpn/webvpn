@@ -35,6 +35,7 @@ const mutablePresetFields = [
   "supportsHttpCustom",
   "isActive",
   "sortOrder",
+  "purchaseOptions",
 ] as const;
 
 type MutablePresetField = (typeof mutablePresetFields)[number];
@@ -59,6 +60,7 @@ function toPublicPresetDto(preset: EasyInjectPreset) {
     ssl: preset.ssl,
     supportsDarkTunnel: preset.supportsDarkTunnel,
     supportsHttpCustom: preset.supportsHttpCustom,
+    purchaseOptions: preset.purchaseOptions,
     version: preset.version,
   };
 }
@@ -93,6 +95,7 @@ function toSnapshot(preset: EasyInjectPreset): EasyInjectPresetSnapshot {
     ssl: preset.ssl,
     supportsDarkTunnel: preset.supportsDarkTunnel,
     supportsHttpCustom: preset.supportsHttpCustom,
+    purchaseOptions: preset.purchaseOptions,
     isActive: preset.isActive,
     isBuiltIn: preset.isBuiltIn,
     sortOrder: preset.sortOrder,
@@ -120,6 +123,7 @@ function snapshotConfiguration(snapshot: EasyInjectPresetSnapshot) {
     ssl: snapshot.ssl,
     supportsDarkTunnel: snapshot.supportsDarkTunnel,
     supportsHttpCustom: snapshot.supportsHttpCustom,
+    purchaseOptions: snapshot.purchaseOptions,
     isActive: snapshot.isActive,
     sortOrder: snapshot.sortOrder,
   };
@@ -176,6 +180,7 @@ function selectMutableValues(preset: EasyInjectPreset): MutablePresetValues {
     supportsHttpCustom: preset.supportsHttpCustom,
     isActive: preset.isActive,
     sortOrder: preset.sortOrder,
+    purchaseOptions: preset.purchaseOptions,
   };
 }
 
@@ -341,6 +346,7 @@ router.patch("/admin/easy-inject-presets/:id", requireAdmin, async (req, res) =>
         ssl: validated.data.ssl,
         supportsDarkTunnel: validated.data.supportsDarkTunnel,
         supportsHttpCustom: validated.data.supportsHttpCustom,
+        purchaseOptions: validated.data.purchaseOptions,
         isActive: validated.data.isActive,
         sortOrder: validated.data.sortOrder,
       };
@@ -586,6 +592,7 @@ router.post(
           ssl: validated.data.ssl,
           supportsDarkTunnel: validated.data.supportsDarkTunnel,
           supportsHttpCustom: validated.data.supportsHttpCustom,
+          purchaseOptions: validated.data.purchaseOptions,
           isActive: validated.data.isActive,
           sortOrder: validated.data.sortOrder,
         };

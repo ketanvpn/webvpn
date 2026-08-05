@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useGetBalance } from "@workspace/api-client-react";
 import { useEffect, useMemo, useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiClient } from "@/lib/api-client";
 import { isDynamicDurationType, type DynamicDurationType } from "@/lib/dynamic-duration";
@@ -13,6 +13,33 @@ import { computeLocalQuote } from "./quote-helpers";
 export function useDynamicOrderCheckout() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  const presetSlug = params.get("preset") || params.get("paket") || null;
+  const paketKind = params.get("kind") as "normal" | "cloudfront" | null;
+  const validKind = paketKind === "normal" || paketKind === "cloudfront" ? paketKind : null;
+
+  const serversQuery = useQuery<{ servers: DynamicServer[] }>({
+    queryKey: ["dynamic-vpn-servers"],
+    queryFn: () => apiClient.get("/api/dynamic-vpn/servers"),
+  });
+  const serversRaw = serversQuery.data?.servers ?? [];
+
+  const filteredServers = useMemo(() => {
+    if (!validKind) return serversRaw;
+    const copy = [...serversRaw];
+    if (validKind === "cloudfront") {
+      copy.sort((a, b) => (b.isCloudfrontCapable ? 1 : 0) - (a.isCloudfrontCapable ? 1 : 0));
+    }
+    return copy;
+  }, [serversRaw, validKind]);
+
+  const recommendedServers = useMemo(() => {
+    if (!validKind) return [];
+    if (validKind === "cloudfront") return serversRaw.filter((s) => s.isCloudfrontCapable);
+    return serversRaw;
+  }, [serversRaw, validKind]);
+
   const [selectedServer, setSelectedServer] = useState<DynamicServer | null>(null);
   const [protocol, setProtocol] = useState("");
   const [durationType, setDurationType] = useState<DynamicDurationType>("month");
@@ -27,11 +54,6 @@ export function useDynamicOrderCheckout() {
   const { data: balanceData } = useGetBalance();
   const balance = balanceData?.balance || 0;
 
-  const serversQuery = useQuery<{ servers: DynamicServer[] }>({
-    queryKey: ["dynamic-vpn-servers"],
-    queryFn: () => apiClient.get("/api/dynamic-vpn/servers"),
-  });
-  const servers = serversQuery.data?.servers ?? [];
   const durationNum = parseInt(duration || "0", 10);
 
   const localQuote = useMemo(
@@ -104,7 +126,21 @@ export function useDynamicOrderCheckout() {
 
   const state: DynamicOrderState = { selectedServer, protocol, durationType, duration, username, password, voucherInput, appliedVoucher, voucherError, paidOrderId, payConfirmOpen };
   const actions: DynamicOrderActions = { openOrder, closeOrder, setProtocol, setDurationType, setDuration, setUsername, setPassword, setVoucherInput, applyVoucher, removeVoucher, openPayConfirm, closePayConfirm, submitOrder };
-  const data: DynamicOrderData = { servers, serversLoading: serversQuery.isLoading, quote, quoteFetching: quoteQuery.isFetching, balance, unmetRequirements, isSubmitting: orderMut.isPending, durationNum };
+  const data = {
+    servers: filteredServers,
+    serversLoading: serversQuery.isLoading,
+    quote,
+    quoteFetching: quoteQuery.isFetching,
+    balance,
+    unmetRequirements,
+    isSubmitting: orderMut.isPending,
+    durationNum,
+    presetSlug,
+    paketKind: validKind,
+    allServers: serversRaw,
+    recommendedServers,
+    recommendedCount: recommendedServers.length,
+  } as unknown as DynamicOrderData & { presetSlug: string | null; paketKind: "normal" | "cloudfront" | null; allServers: DynamicServer[]; recommendedServers: DynamicServer[]; recommendedCount: number };
 
   return { state, actions, data };
 }

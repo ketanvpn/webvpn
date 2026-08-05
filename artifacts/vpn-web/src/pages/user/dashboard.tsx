@@ -16,6 +16,7 @@ import { getApiError } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 
 const PROMO_DISMISSED_KEY = "reseller_promo_dismissed";
+const INJECT_GUIDE_DISMISSED_KEY = "dashboard_inject_guide_dismissed_v1";
 
 type PromoData = {
   promoEnabled: boolean;
@@ -374,6 +375,75 @@ function ResellerWidget() {
   );
 }
 
+function InjectBeginnerWidget({ activeAccounts }: { activeAccounts: number }) {
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(INJECT_GUIDE_DISMISSED_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  const dismiss = () => {
+    try { localStorage.setItem(INJECT_GUIDE_DISMISSED_KEY, "1"); } catch {}
+    setDismissed(true);
+  };
+  const undismiss = () => {
+    try { localStorage.removeItem(INJECT_GUIDE_DISMISSED_KEY); } catch {}
+    setDismissed(false);
+  };
+
+  if (dismissed) {
+    return (
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur px-3 py-2">
+        <span className="text-xs text-muted-foreground">Baru pertama kali inject?</span>
+        <button
+          onClick={undismiss}
+          className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-primary/15 text-primary hover:bg-primary/25 border border-primary/20 transition-colors"
+        >
+          Tampilkan panduan
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative overflow-hidden glass-panel rounded-xl border border-primary/20 p-4">
+      <div className="absolute -right-10 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
+      <button
+        onClick={dismiss}
+        aria-label="Tutup panduan"
+        className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground transition-colors rounded-md p-1 hover:bg-white/10"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+      <div className="relative">
+        <div className="flex items-center gap-1.5 mb-1">
+          <Sparkles className="h-3.5 w-3.5 text-primary" />
+          <p className="text-sm font-bold">Baru pertama kali inject paket?</p>
+          {activeAccounts < 2 && (
+            <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-primary/30 text-primary">Beginner</Badge>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground leading-snug max-w-[90%]">
+          Pilih paket GameMax atau Ilmupedia dulu, beli paketnya di MyTelkomsel, lalu buat akun SSH.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link href="/converter?preset=gamemax" className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+            🎮 GameMax
+          </Link>
+          <Link href="/converter?preset=ilmupedia" className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-white/10 bg-white/[0.04] hover:border-primary/40 hover:bg-white/10 text-white transition-all">
+            📚 Ilmupedia
+          </Link>
+          <Link href="/converter" className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-2 rounded-lg text-muted-foreground hover:text-primary transition-colors">
+            Buka Converter →
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { data: summary, isLoading } = useGetDashboardSummary();
   const { user } = useAuth();
@@ -447,6 +517,8 @@ export default function Dashboard() {
 
       {/* Widget Reseller — hanya untuk reseller */}
       {user?.role === "reseller" && <ResellerWidget />}
+
+      <InjectBeginnerWidget activeAccounts={summary.activeAccounts ?? 0} />
 
       <div className="relative overflow-hidden rounded-3xl border border-primary/25 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/70 p-4 md:p-5 shadow-2xl">
         <div className="absolute -right-16 -top-20 h-40 w-40 sm:h-56 sm:w-56 rounded-full bg-emerald-500/20 blur-3xl" />

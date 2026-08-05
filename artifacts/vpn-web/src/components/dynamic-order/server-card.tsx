@@ -26,8 +26,14 @@ export function ServerCard({ server, onSelect }: ServerCardProps) {
   const supportedTypes = server.supportedTypes.filter(isDynamicDurationType);
   const selectability = getServerSelectability(server);
 
+  const isCloudfront = Boolean(server.isCloudfrontCapable);
   return (
-    <div className="relative flex flex-col rounded-xl overflow-hidden transition-all duration-300 border border-white/5 hover:border-primary/30 glass-card">
+    <div className={`relative flex flex-col rounded-xl overflow-hidden transition-all duration-300 border glass-card ${isCloudfront ? "border-violet-500/30 hover:border-violet-400/50" : "border-white/5 hover:border-primary/30"}`}>
+      {isCloudfront && (
+        <div className="absolute top-2 right-2 z-10">
+          <Badge className="bg-violet-600 text-white text-[9px] px-1.5 py-0.5">CLOUDFRONT</Badge>
+        </div>
+      )}
       <button
         type="button"
         onClick={onSelect}

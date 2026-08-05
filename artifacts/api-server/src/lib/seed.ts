@@ -37,6 +37,16 @@ const DEFAULT_EASY_INJECT_PRESETS: InsertEasyInjectPreset[] = [
     isBuiltIn: true,
     sortOrder: 10,
     version: 1,
+    purchaseOptions: [
+      {
+        id: "gm-main",
+        label: "GameMax",
+        quotaText: "Unlimited Game",
+        url: "https://my.telkomsel.com/app/payment-method?link=fa9f025645de4e8458280c7462acc9320240ecf31a041050799da4964d123a9089295a3c5ee1a2d45527e68c20a0e8ae",
+        isActive: true,
+        sortOrder: 0,
+      },
+    ],
   },
   {
     slug: "ilmupedia",
@@ -59,6 +69,22 @@ const DEFAULT_EASY_INJECT_PRESETS: InsertEasyInjectPreset[] = [
     isBuiltIn: true,
     sortOrder: 20,
     version: 1,
+    purchaseOptions: [
+      {
+        id: "ilmu-1",
+        label: "Ilmupedia 1",
+        url: "https://my.telkomsel.com/app/package-details/68c4b16ef346a8d08b4650e2155c2d0b",
+        isActive: true,
+        sortOrder: 0,
+      },
+      {
+        id: "ilmu-2",
+        label: "Ilmupedia 2",
+        url: "https://my.telkomsel.com/app/package-details/ad6bad56793e0077a163fcae1faa18e3",
+        isActive: true,
+        sortOrder: 1,
+      },
+    ],
   },
 ];
 
@@ -81,6 +107,7 @@ function toSeedSnapshot(preset: EasyInjectPreset): EasyInjectPresetSnapshot {
     ssl: preset.ssl,
     supportsDarkTunnel: preset.supportsDarkTunnel,
     supportsHttpCustom: preset.supportsHttpCustom,
+    purchaseOptions: preset.purchaseOptions,
     isActive: preset.isActive,
     isBuiltIn: preset.isBuiltIn,
     sortOrder: preset.sortOrder,

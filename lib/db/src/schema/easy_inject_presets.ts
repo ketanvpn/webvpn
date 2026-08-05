@@ -22,6 +22,16 @@ export type EasyInjectAccountKind = (typeof EASY_INJECT_ACCOUNT_KINDS)[number];
 export type EasyInjectMode = (typeof EASY_INJECT_MODES)[number];
 export type EasyInjectSniPolicy = (typeof EASY_INJECT_SNI_POLICIES)[number];
 
+export type EasyInjectPurchaseOption = {
+  id: string;
+  label: string;
+  quotaText?: string;
+  priceText?: string;
+  url: string;
+  isActive: boolean;
+  sortOrder: number;
+};
+
 export interface EasyInjectPresetSnapshot {
   id: number;
   slug: string;
@@ -44,6 +54,7 @@ export interface EasyInjectPresetSnapshot {
   isBuiltIn: boolean;
   sortOrder: number;
   version: number;
+  purchaseOptions: EasyInjectPurchaseOption[];
   createdAt: string;
   updatedAt: string;
 }
@@ -74,6 +85,10 @@ export const easyInjectPresetsTable = pgTable(
     isBuiltIn: boolean("is_built_in").notNull().default(false),
     sortOrder: integer("sort_order").notNull().default(0),
     version: integer("version").notNull().default(1),
+    purchaseOptions: jsonb("purchase_options")
+      .$type<EasyInjectPurchaseOption[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -168,6 +183,33 @@ export const easyInjectPresetRevisionsTable = pgTable(
 const trimmedNonempty = (max: number) => z.string().trim().min(1).max(max);
 const portSchema = z.number().int().min(1).max(65535);
 
+const optionalShortText = z.preprocess(
+  (val) => {
+    if (typeof val === "string" && val.trim() === "") return undefined;
+    return val;
+  },
+  z.string().trim().min(1).max(120).optional(),
+);
+
+export const easyInjectPurchaseOptionSchema = z
+  .object({
+    id: trimmedNonempty(50).regex(/^[a-z0-9]+(?:[-_][a-z0-9]+)*$/),
+    label: trimmedNonempty(120),
+    quotaText: optionalShortText,
+    priceText: optionalShortText,
+    url: z
+      .string()
+      .trim()
+      .url()
+      .max(2000)
+      .refine((v) => v.startsWith("https://"), {
+        message: "Must be https",
+      }),
+    isActive: z.boolean(),
+    sortOrder: z.number().int().min(0),
+  })
+  .strict();
+
 export const easyInjectPresetConfigurationSchema = z
   .object({
     slug: trimmedNonempty(100).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
@@ -188,6 +230,7 @@ export const easyInjectPresetConfigurationSchema = z
     supportsHttpCustom: z.boolean(),
     isActive: z.boolean(),
     sortOrder: z.number().int().min(0),
+    purchaseOptions: z.array(easyInjectPurchaseOptionSchema).max(10),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -248,6 +291,7 @@ const createEasyInjectPresetObjectSchema = z
     supportsHttpCustom: z.boolean(),
     isActive: z.boolean().default(true),
     sortOrder: z.number().int().min(0).default(0),
+    purchaseOptions: z.array(easyInjectPurchaseOptionSchema).max(10).default([]),
   })
   .strict();
 
@@ -281,6 +325,7 @@ export const updateEasyInjectPresetSchema = z
     supportsHttpCustom: z.boolean().optional(),
     isActive: z.boolean().optional(),
     sortOrder: z.number().int().min(0).optional(),
+    purchaseOptions: z.array(easyInjectPurchaseOptionSchema).max(10).optional(),
   })
   .strict()
   .refine((value) => Object.keys(value).length > 0, {
