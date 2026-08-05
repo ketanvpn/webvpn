@@ -23,24 +23,63 @@ const roleColor: Record<string, string> = {
     "bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300 border border-orange-200 dark:border-orange-500/30",
 };
 
+function getInitials(raw: string): string {
+  const s = raw.trim();
+  if (!s) return "?";
+  const parts = s.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return s.slice(0, 2).toUpperCase();
+}
+
+function hashHue(seed: string): number {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = (h * 31 + seed.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h) % 360;
+}
+
+function getAvatarGradientStyle(seed: string): React.CSSProperties {
+  const h = hashHue(seed);
+  const h2 = (h + 38) % 360;
+  return {
+    background: `linear-gradient(135deg, hsl(${h} 78% 60%) 0%, hsl(${h2} 72% 48%) 100%)`,
+  };
+}
+
 export function ProfileHero({ user, onEdit, editMode }: Props) {
-  const initials = (user.fullName || user.username).slice(0, 2).toUpperCase();
+  const displayName = user.fullName?.trim() || user.username;
+  const initials = getInitials(displayName);
+  const gradientStyle = getAvatarGradientStyle(user.username + (user.id ? String(user.id) : ""));
 
   return (
     <Card className="glass-panel border-white/5 overflow-hidden shadow-lg">
       <div className="h-24 bg-gradient-to-br from-primary to-primary/70 relative" />
       <CardContent className="px-5 pb-5 pt-0">
         <div className="flex items-end justify-between -mt-10 mb-4">
-          <Avatar className="h-20 w-20 rounded-2xl border-4 border-background shadow-lg text-primary font-bold text-2xl">
-            <AvatarFallback className="rounded-2xl text-2xl font-bold bg-background text-primary">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+          <div className="relative">
+            <Avatar className="h-20 w-20 rounded-2xl border-4 border-background shadow-xl text-white font-bold text-2xl ring-2 ring-white/20">
+              <AvatarFallback
+                className="rounded-2xl text-2xl font-bold text-white tracking-wide"
+                style={gradientStyle}
+              >
+                <span className="drop-shadow-sm">{initials}</span>
+              </AvatarFallback>
+            </Avatar>
+            {user.isActive && (
+              <span
+                className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-emerald-500 border-2 border-background shadow-sm"
+                aria-label="Status aktif"
+              />
+            )}
+          </div>
           {!editMode && (
             <Button
               size="sm"
               variant="outline"
-              className="gap-1.5 mb-1"
+              className="gap-1.5 mb-1 min-h-9"
               onClick={onEdit}
               aria-label="Edit profil"
             >
