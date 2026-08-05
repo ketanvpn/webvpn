@@ -49,6 +49,11 @@ function isCloudfrontCapableServerName(name: string | null | undefined): boolean
   return /cloudfront/i.test(name);
 }
 
+function isPremiumServerName(name: string | null | undefined): boolean {
+  if (!name) return false;
+  return /premium/i.test(name);
+}
+
 function sendError(res: Response, status: number, message: string) {
   res.status(status).json({ error: message });
 }
@@ -67,6 +72,7 @@ function sanitizeUsername(raw: unknown) {
 
 function formatServer(row: typeof dynamicProviderServersTable.$inferSelect, admin = false) {
   const isCloudfrontCapable = isCloudfrontCapableServerName(row.displayName) || isCloudfrontCapableServerName(row.providerName);
+  const isPremium = isPremiumServerName(row.displayName) || isPremiumServerName(row.providerName);
   const base = {
     id: row.id,
     provider: row.provider,
@@ -91,6 +97,7 @@ function formatServer(row: typeof dynamicProviderServersTable.$inferSelect, admi
     maxConnections: row.maxConnections,
     sortOrder: row.sortOrder,
     isCloudfrontCapable,
+    isPremium,
   };
 
   if (!admin) return base;

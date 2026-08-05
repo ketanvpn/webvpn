@@ -27,8 +27,14 @@ export function ServerCard({ server, onSelect }: ServerCardProps) {
   const selectability = getServerSelectability(server);
 
   const isCloudfront = Boolean(server.isCloudfrontCapable);
+  const isPremium = Boolean(server.isPremium);
+  const borderClass = isPremium
+    ? "border-amber-500/30 hover:border-amber-400/50"
+    : isCloudfront
+      ? "border-violet-500/20 hover:border-violet-400/40"
+      : "border-white/5 hover:border-primary/30";
   return (
-    <div className={`relative flex min-w-0 w-full flex-col rounded-xl overflow-hidden transition-all duration-300 border glass-card ${isCloudfront ? "border-violet-500/20 hover:border-violet-400/40" : "border-white/5 hover:border-primary/30"}`}>
+    <div className={`relative flex min-w-0 w-full flex-col rounded-xl overflow-hidden transition-all duration-300 border glass-card ${borderClass}`}>
       <button
         type="button"
         onClick={onSelect}
@@ -55,6 +61,11 @@ export function ServerCard({ server, onSelect }: ServerCardProps) {
               <h3 className="min-w-0 flex-1 break-words text-sm font-semibold leading-snug text-foreground sm:text-base">
                 {server.displayName}
               </h3>
+              {isPremium && (
+                <Badge className="shrink-0 bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[8px] sm:text-[9px] px-1.5 py-0 font-bold tracking-wide">
+                  PREMIUM
+                </Badge>
+              )}
               {isCloudfront && (
                 <Badge className="shrink-0 bg-violet-500/15 text-violet-300 border border-violet-500/30 text-[8px] sm:text-[9px] px-1.5 py-0 font-bold tracking-wide">
                   CLOUDFRONT

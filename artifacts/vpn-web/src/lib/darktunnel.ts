@@ -427,8 +427,19 @@ export function isCloudfrontCapableServerName(name: string | null | undefined): 
   return /cloudfront/i.test(name);
 }
 
+export function isPremiumServerName(name: string | null | undefined): boolean {
+  if (!name) return false;
+  return /premium/i.test(name);
+}
+
 export function isCloudfrontCapableServer(server: { name?: string | null; displayName?: string | null; serverName?: string | null; serverDisplayName?: string | null } | null | undefined): boolean {
   if (!server) return false;
   const candidates = [server.name, server.displayName, server.serverName, server.serverDisplayName].filter(Boolean) as string[];
   return candidates.some(n => isCloudfrontCapableServerName(n));
+}
+
+export function isPremiumServer(server: { name?: string | null; displayName?: string | null; serverName?: string | null; serverDisplayName?: string | null } | null | undefined): boolean {
+  if (!server) return false;
+  const candidates = [server.name, server.displayName, server.serverName, server.serverDisplayName].filter(Boolean) as string[];
+  return candidates.some(n => isPremiumServerName(n));
 }

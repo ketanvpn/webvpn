@@ -19,6 +19,7 @@ export type DynamicServer = {
   readonly capacityIsFull: boolean;
   readonly maxConnections: number;
   readonly isCloudfrontCapable?: boolean;
+  readonly isPremium?: boolean;
 };
 
 export type Quote = {
