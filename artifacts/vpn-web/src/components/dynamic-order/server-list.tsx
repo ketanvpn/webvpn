@@ -12,9 +12,9 @@ type ServerListProps = {
 export function ServerList({ servers, isLoading, onSelectServer }: ServerListProps) {
   if (isLoading) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {[1, 2, 3, 4].map((i) => (
-          <Skeleton key={i} className="h-36 w-full rounded-xl" />
+          <Skeleton key={i} className="h-36 w-full min-w-0 rounded-xl" />
         ))}
       </div>
     );
@@ -22,15 +22,15 @@ export function ServerList({ servers, isLoading, onSelectServer }: ServerListPro
 
   if (servers.length === 0) {
     return (
-      <div className="text-center py-16 rounded-xl glass-panel border-white/5 flex flex-col items-center justify-center gap-3">
-        <PackageX className="h-10 w-10 text-muted-foreground/50" />
-        <p className="text-sm text-muted-foreground">Belum ada server aktif. Hubungi bantuan.</p>
+      <div className="w-full min-w-0 overflow-hidden text-center py-16 rounded-xl glass-panel border-white/5 flex flex-col items-center justify-center gap-3 px-4">
+        <PackageX className="h-10 w-10 text-muted-foreground/50 shrink-0" />
+        <p className="text-sm text-muted-foreground break-words min-w-0">Belum ada server aktif. Hubungi bantuan.</p>
       </div>
     );
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {servers.map((server) => (
         <ServerCard key={server.id} server={server} onSelect={() => onSelectServer(server)} />
       ))}

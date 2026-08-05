@@ -1,20 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearch, useLocation } from "wouter";
-
-const GUIDE_DISMISSED_KEY = "inject_guide_dismissed_v1";
-const GUIDE_COLLAPSED_KEY = "inject_guide_collapsed_v1";
-
-function getActivePurchaseOptions(preset: EasyInjectPreset) {
-  const opts = (preset.purchaseOptions ?? []).filter((o) => o.isActive);
-  return [...opts].sort((a, b) => a.sortOrder - b.sortOrder);
-}
-function presetIcon(slug: string) {
-  const s = slug.toLowerCase();
-  if (s.includes("gamemax") || s.includes("game")) return "🎮";
-  if (s.includes("ilmupedia") || s.includes("ilmu")) return "📚";
-  return "🧩";
-}
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -71,6 +57,20 @@ import {
   type HttpCustomGuide,
 } from "@/lib/darktunnel";
 
+const GUIDE_DISMISSED_KEY = "inject_guide_dismissed_v1";
+const GUIDE_COLLAPSED_KEY = "inject_guide_collapsed_v1";
+
+function getActivePurchaseOptions(preset: EasyInjectPreset) {
+  const opts = (preset.purchaseOptions ?? []).filter((o) => o.isActive);
+  return [...opts].sort((a, b) => a.sortOrder - b.sortOrder);
+}
+function presetIcon(slug: string) {
+  const s = slug.toLowerCase();
+  if (s.includes("gamemax") || s.includes("game")) return "🎮";
+  if (s.includes("ilmupedia") || s.includes("ilmu")) return "📚";
+  return "🧩";
+}
+
 type BugPreset = {
   id: number;
   name: string;
@@ -111,7 +111,7 @@ function EasyAppSelector({ value, preset, onChange }: EasyAppSelectorProps) {
   ];
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
       {applications.map((application) => {
         const Icon = application.icon;
         const active = value === application.id;
@@ -120,22 +120,22 @@ function EasyAppSelector({ value, preset, onChange }: EasyAppSelectorProps) {
             key={application.id}
             type="button"
             onClick={() => onChange(application.id)}
-            className={`min-h-[128px] rounded-2xl border p-5 text-left transition-all ${
+            className={`flex min-h-[128px] w-full min-w-0 flex-col overflow-hidden rounded-2xl border p-4 sm:p-5 text-left transition-all ${
               active
                 ? "border-primary bg-primary/15 ring-2 ring-primary/30"
                 : "border-white/10 bg-background/40 hover:border-primary/40"
             }`}
           >
-            <div className="flex items-start justify-between gap-2">
-              <Icon className={`h-8 w-8 ${application.iconClass}`} />
+            <div className="flex w-full min-w-0 items-start justify-between gap-2">
+              <Icon className={`h-6 w-6 sm:h-8 sm:w-8 shrink-0 ${application.iconClass}`} />
               {application.id === "http-custom" && (
-                <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-200">
+                <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-200 shrink-0 text-[10px]">
                   Beta
                 </Badge>
               )}
             </div>
-            <div className="mt-3 text-lg font-bold">{application.label}</div>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <div className="mt-3 text-sm sm:text-lg font-bold break-words min-w-0">{application.label}</div>
+            <p className="mt-1 text-xs text-muted-foreground break-words line-clamp-3 min-w-0">
               {application.description}
             </p>
           </button>
@@ -165,15 +165,15 @@ function CopyableGuideField({
   onCopy,
 }: CopyableGuideFieldProps) {
   return (
-    <div className={`min-w-0 space-y-2 ${multiline ? "sm:col-span-2" : ""}`}>
-      <div>
-        <Label>{label}</Label>
-        {hint && <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p>}
+    <div className={`flex min-w-0 w-full flex-col space-y-2 overflow-hidden ${multiline ? "sm:col-span-2" : ""}`}>
+      <div className="min-w-0">
+        <Label className="break-words">{label}</Label>
+        {hint && <p className="mt-1 text-[11px] text-muted-foreground break-words">{hint}</p>}
       </div>
-      <div className={`flex min-w-0 gap-2 ${multiline ? "items-start" : "items-center"}`}>
+      <div className={`flex w-full min-w-0 gap-2 overflow-hidden ${multiline ? "flex-col sm:flex-row sm:items-start" : "flex-col sm:flex-row sm:items-center"}`}>
         <pre
-          className={`min-w-0 flex-1 select-all whitespace-pre-wrap break-all rounded-xl border border-white/10 bg-black/20 p-3 font-mono text-xs leading-relaxed ${
-            multiline ? "min-h-[112px]" : ""
+          className={`min-w-0 w-full flex-1 select-all overflow-hidden whitespace-pre-wrap break-all rounded-xl border border-white/10 bg-black/20 p-3 font-mono text-[11px] sm:text-xs leading-relaxed ${
+            multiline ? "min-h-[112px] max-h-[200px] overflow-y-auto" : "max-h-[150px] overflow-y-auto"
           }`}
         >
           {value}
@@ -181,12 +181,12 @@ function CopyableGuideField({
         <Button
           type="button"
           variant="outline"
-          className="h-11 shrink-0 gap-2 px-3"
+          className="h-10 sm:h-11 w-full sm:w-auto shrink-0 gap-2 px-3"
           aria-label={`Salin ${label}`}
           onClick={() => onCopy(id, value, label)}
         >
-          {copied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-          <span className="hidden sm:inline">{copied ? "Tersalin" : "Salin"}</span>
+          {copied ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <Copy className="h-4 w-4 shrink-0" />}
+          <span className="text-xs sm:text-sm">{copied ? "Tersalin" : "Salin"}</span>
         </Button>
       </div>
     </div>
@@ -220,58 +220,59 @@ function HttpCustomGuideCard({
   ];
 
   return (
-    <Card className="glass-panel overflow-hidden border-cyan-500/25">
-      <CardHeader>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle className="flex items-center gap-2">
-            <Smartphone className="h-5 w-5 text-cyan-300" />
-            4. Panduan HTTP Custom
+    <Card className="w-full min-w-0 glass-panel overflow-hidden border-cyan-500/25">
+      <CardHeader className="min-w-0 overflow-hidden p-4 sm:p-6">
+        <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2">
+          <CardTitle className="flex min-w-0 items-center gap-2 text-base sm:text-lg break-words">
+            <Smartphone className="h-5 w-5 text-cyan-300 shrink-0" />
+            <span className="break-words">4. Panduan HTTP Custom</span>
           </CardTitle>
-          <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-200">
+          <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-200 shrink-0 text-[10px]">
             Beta
           </Badge>
         </div>
-        <CardDescription>
+        <CardDescription className="break-words text-xs sm:text-sm">
           Salin nilai satu per satu ke field yang sama di HTTP Custom. Posisi menu dapat sedikit berbeda menurut versi aplikasi.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Belum berupa file import</AlertTitle>
-          <AlertDescription>
+      <CardContent className="space-y-6 min-w-0 overflow-hidden p-4 sm:p-6">
+        <Alert className="min-w-0 overflow-hidden">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <AlertTitle className="break-words text-sm">Belum berupa file import</AlertTitle>
+          <AlertDescription className="break-words text-xs sm:text-sm">
             Panduan ini menyiapkan data dari akunmu. Jangan ubah teks [host], [ua], atau [crlf] di dalam payload.
           </AlertDescription>
         </Alert>
 
-        <Button variant="outline" className="w-full gap-2" asChild>
+        <Button variant="outline" className="w-full gap-2 min-w-0 break-words whitespace-normal h-auto py-3 text-xs sm:text-sm" asChild>
           <a
             href="https://play.google.com/store/apps/details?id=xyz.easypro.httpcustom"
             target="_blank"
             rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full min-w-0"
           >
-            <ExternalLink className="h-4 w-4" /> Install / Buka HTTP Custom
+            <ExternalLink className="h-4 w-4 shrink-0" /> <span className="break-words">Install / Buka HTTP Custom</span>
           </a>
         </Button>
 
-        <div className="flex flex-wrap gap-2">
-          <Badge className={guide.usePayload ? "bg-emerald-600" : "bg-slate-600"}>
+        <div className="flex flex-wrap gap-2 min-w-0">
+          <Badge className={`shrink-0 text-[11px] ${guide.usePayload ? "bg-emerald-600" : "bg-slate-600"}`}>
             Use Payload: {guide.usePayload ? "ON" : "OFF"}
           </Badge>
-          <Badge className={guide.ssl ? "bg-emerald-600" : "bg-slate-600"}>
+          <Badge className={`shrink-0 text-[11px] ${guide.ssl ? "bg-emerald-600" : "bg-slate-600"}`}>
             SSL: {guide.ssl ? "ON" : "OFF"}
           </Badge>
-          <Badge variant="outline">Mode: {guide.mode}</Badge>
+          <Badge variant="outline" className="shrink-0 text-[10px]">Mode: {guide.mode}</Badge>
         </div>
 
-        <section className="space-y-3">
-          <div>
-            <h3 className="font-semibold">A. Data utama</h3>
-            <p className="text-xs text-muted-foreground">
+        <section className="space-y-3 min-w-0 w-full overflow-hidden">
+          <div className="min-w-0">
+            <h3 className="font-semibold text-sm sm:text-base break-words">A. Data utama</h3>
+            <p className="text-xs text-muted-foreground break-words">
               Tampilan standar HTTP Custom memakai format ip:port@user:pass.
             </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid w-full min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
             <CopyableGuideField
               id="ssh-login"
               label="SSH Login"
@@ -313,28 +314,28 @@ function HttpCustomGuideCard({
           </div>
         </section>
 
-        <section className="space-y-3 rounded-2xl border border-white/10 bg-background/30 p-4">
-          <h3 className="font-semibold">B. Langkah di aplikasi</h3>
-          <ol className="space-y-3 text-sm">
+        <section className="space-y-3 w-full min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-background/30 p-3 sm:p-4">
+          <h3 className="font-semibold text-sm sm:text-base break-words">B. Langkah di aplikasi</h3>
+          <ol className="space-y-3 text-sm min-w-0 w-full">
             {steps.map((step, index) => (
-              <li key={step} className="flex items-start gap-3">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+              <li key={step} className="flex w-full min-w-0 items-start gap-3">
+                <span className="flex h-6 w-6 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] sm:text-xs font-bold text-primary-foreground">
                   {index + 1}
                 </span>
-                <span className="pt-1">{step}</span>
+                <span className="pt-0.5 sm:pt-1 break-words min-w-0 flex-1 text-xs sm:text-sm">{step}</span>
               </li>
             ))}
           </ol>
         </section>
 
-        <section className="space-y-3">
-          <div>
-            <h3 className="font-semibold">C. Jika versi aplikasi meminta field terpisah</h3>
-            <p className="text-xs text-muted-foreground">
+        <section className="space-y-3 min-w-0 w-full overflow-hidden">
+          <div className="min-w-0">
+            <h3 className="font-semibold text-sm sm:text-base break-words">C. Jika versi aplikasi meminta field terpisah</h3>
+            <p className="text-xs text-muted-foreground break-words">
               Gunakan data berikut, bukan SSH Login gabungan.
             </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid w-full min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
             {[
               ["ssh-host", "SSH Host", guide.ssh.host],
               ["ssh-port", "SSH Port", String(guide.ssh.port)],
@@ -413,10 +414,10 @@ function PaketOnboardingGuide({ presets, onSelectPreset, hasAccounts }: PaketOnb
 
   if (dismissed) {
     return (
-      <Card className="glass-panel border-white/10 bg-background/20">
-        <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4">
-          <p className="text-sm text-muted-foreground">Butuh panduan paket GameMax/Ilmupedia?</p>
-          <Button size="sm" variant="outline" onClick={handleUndismiss}>
+      <Card className="w-full min-w-0 overflow-hidden glass-panel border-white/10 bg-background/20">
+        <CardContent className="flex w-full min-w-0 flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:p-4">
+          <p className="text-sm text-muted-foreground break-words min-w-0 flex-1">Butuh panduan paket GameMax/Ilmupedia?</p>
+          <Button size="sm" variant="outline" onClick={handleUndismiss} className="shrink-0 w-full sm:w-auto">
             Tampilkan panduan
           </Button>
         </CardContent>
@@ -425,31 +426,31 @@ function PaketOnboardingGuide({ presets, onSelectPreset, hasAccounts }: PaketOnb
   }
 
   return (
-    <Card className="glass-panel border-primary/20">
-      <CardHeader className="pb-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <CardTitle className="text-base sm:text-lg">Panduan Pemula - Pilih Paket Kamu</CardTitle>
-            <CardDescription className="mt-1 text-xs sm:text-sm">
+    <Card className="w-full min-w-0 overflow-hidden glass-panel border-primary/20">
+      <CardHeader className="pb-3 min-w-0">
+        <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="text-base sm:text-lg break-words">Panduan Pemula - Pilih Paket Kamu</CardTitle>
+            <CardDescription className="mt-1 text-xs sm:text-sm break-words">
               Baru pertama kali inject? Pilih paket operator dulu, lihat link beli paket MyTelkomsel, lalu buat akun SSH yang sesuai.
             </CardDescription>
           </div>
-          <div className="flex shrink-0 gap-2">
-            <Button size="sm" variant="outline" onClick={handleToggleCollapsed}>
+          <div className="flex shrink-0 gap-2 w-full sm:w-auto">
+            <Button size="sm" variant="outline" onClick={handleToggleCollapsed} className="flex-1 sm:flex-none">
               {collapsed ? "Tampilkan" : "Sembunyikan"}
             </Button>
-            <Button size="sm" variant="ghost" onClick={handleDismiss}>
+            <Button size="sm" variant="ghost" onClick={handleDismiss} className="flex-1 sm:flex-none">
               Sudah paham
             </Button>
           </div>
         </div>
       </CardHeader>
       {!collapsed && (
-        <CardContent className="space-y-4">
-          <Alert className="border-amber-500/30 bg-amber-500/10">
-            <AlertCircle className="h-4 w-4 text-amber-300" />
-            <AlertTitle className="text-amber-100">Perhatian</AlertTitle>
-            <AlertDescription className="text-xs text-amber-100/80">
+        <CardContent className="space-y-4 min-w-0 w-full overflow-hidden">
+          <Alert className="border-amber-500/30 bg-amber-500/10 min-w-0 overflow-hidden">
+            <AlertCircle className="h-4 w-4 text-amber-300 shrink-0" />
+            <AlertTitle className="text-amber-100 break-words">Perhatian</AlertTitle>
+            <AlertDescription className="text-xs text-amber-100/80 break-words">
               Link beli mengarah ke MyTelkomsel, wajib punya aplikasi MyTelkomsel &amp; nomor Telkomsel aktif.
             </AlertDescription>
           </Alert>
@@ -457,46 +458,45 @@ function PaketOnboardingGuide({ presets, onSelectPreset, hasAccounts }: PaketOnb
           {presets.length === 0 ? (
             <p className="text-sm text-muted-foreground">Belum ada paket aktif.</p>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
               {presets.map((preset) => {
                 const purchaseOpts = getActivePurchaseOptions(preset);
                 const kindLabel = preset.requiredAccountKind === "cloudfront" ? "CloudFront" : "biasa";
                 return (
                   <div
                     key={preset.id}
-                    className="rounded-2xl border border-white/10 bg-background/40 p-4 flex flex-col gap-3"
+                    className="flex w-full min-w-0 flex-col gap-3 overflow-hidden rounded-2xl border border-white/10 bg-background/40 p-3 sm:p-4"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-2xl">{presetIcon(preset.slug)}</span>
-                        <span className="font-bold text-sm sm:text-base truncate">{preset.name}</span>
+                    <div className="flex w-full min-w-0 items-start justify-between gap-2">
+                      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+                        <span className="text-xl sm:text-2xl shrink-0">{presetIcon(preset.slug)}</span>
+                        <span className="font-bold text-sm sm:text-base break-words min-w-0 flex-1 line-clamp-2">{preset.name}</span>
                       </div>
-                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                      <Badge variant="outline" className="shrink-0 text-[10px] max-w-[90px] truncate">
                         {preset.accountLabel}
                       </Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground line-clamp-3">{preset.description}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-3 break-words min-w-0">{preset.description}</p>
 
                     {purchaseOpts.length > 0 && (
-                      <div className="space-y-2">
+                      <div className="space-y-2 min-w-0 w-full overflow-hidden">
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Link Beli MyTelkomsel</p>
-                        <div className="space-y-2">
+                        <div className="space-y-2 w-full min-w-0">
                           {purchaseOpts.map((opt) => (
                             <div
                               key={opt.id}
-                              className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-white/5 bg-black/10 p-2.5"
+                              className="flex w-full min-w-0 flex-col gap-2 overflow-hidden rounded-lg border border-white/5 bg-black/10 p-2.5"
                             >
-                              <div className="min-w-0">
-                                <p className="text-xs font-medium truncate">
+                              <div className="min-w-0 w-full overflow-hidden">
+                                <p className="text-xs font-medium break-words line-clamp-2">
                                   {opt.label}
                                   {opt.quotaText ? ` • ${opt.quotaText}` : ""}
                                   {opt.priceText ? ` - ${opt.priceText}` : ""}
                                 </p>
-                                <p className="text-[10px] text-muted-foreground truncate">{opt.url}</p>
                               </div>
-                              <Button size="sm" variant="outline" asChild className="shrink-0 gap-1 h-7 text-xs">
-                                <a href={opt.url} target="_blank" rel="noopener noreferrer">
-                                  <ExternalLink className="h-3 w-3" /> Beli
+                              <Button size="sm" variant="outline" asChild className="w-full gap-1 h-8 text-xs shrink-0">
+                                <a href={opt.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1 w-full">
+                                  <ExternalLink className="h-3 w-3 shrink-0" /> Beli - {opt.label}
                                 </a>
                               </Button>
                             </div>
@@ -505,15 +505,15 @@ function PaketOnboardingGuide({ presets, onSelectPreset, hasAccounts }: PaketOnb
                       </div>
                     )}
 
-                    <div className="mt-auto flex flex-col gap-2 pt-1">
+                    <div className="mt-auto flex w-full min-w-0 flex-col gap-2 pt-1">
                       <Button
                         size="sm"
-                        className="w-full gap-1"
+                        className="w-full gap-1 whitespace-normal break-words min-h-[36px] h-auto py-2 text-xs sm:text-sm"
                         onClick={() => setLocation(`/order-vpn?preset=${encodeURIComponent(preset.slug)}&kind=${preset.requiredAccountKind}`)}
                       >
-                        Buat Akun SSH {kindLabel} →
+                        <span className="break-words">Buat Akun SSH {kindLabel} →</span>
                       </Button>
-                      <Button size="sm" variant="outline" className="w-full gap-1" onClick={() => onSelectPreset(String(preset.id))}>
+                      <Button size="sm" variant="outline" className="w-full gap-1 whitespace-normal break-words min-h-[36px] h-auto py-2 text-xs sm:text-sm" onClick={() => onSelectPreset(String(preset.id))}>
                         Pakai Akun Saya →
                       </Button>
                     </div>
@@ -1124,144 +1124,144 @@ export default function ConfigConverter() {
       : null;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Inject Paket Internet</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+    <div className="mx-auto w-full max-w-4xl min-w-0 space-y-6 overflow-hidden px-1 sm:px-0 pb-8">
+      <div className="min-w-0">
+        <h1 className="text-xl sm:text-2xl font-bold break-words">Inject Paket Internet</h1>
+        <p className="mt-1 text-sm text-muted-foreground break-words">
           Pilih trik aktif dari admin, lalu gunakan DarkTunnel otomatis atau panduan HTTP Custom.
         </p>
       </div>
 
       <PaketOnboardingGuide presets={easyPresets} onSelectPreset={selectEasyPreset} hasAccounts={activeSshAccounts.length > 0} />
 
-      <Tabs defaultValue="easy" className="space-y-5">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="easy">Mode Mudah</TabsTrigger>
-          <TabsTrigger value="advanced">Mode Lanjutan</TabsTrigger>
-        </TabsList>
+        <Tabs defaultValue="easy" className="w-full min-w-0 space-y-5 overflow-hidden">
+          <TabsList className="grid w-full grid-cols-2 min-w-0">
+            <TabsTrigger value="easy" className="text-xs sm:text-sm min-w-0 truncate">Mode Mudah</TabsTrigger>
+            <TabsTrigger value="advanced" className="text-xs sm:text-sm min-w-0 truncate">Mode Lanjutan</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="easy" className="space-y-5">
-          <Card className="glass-panel overflow-hidden border-primary/20">
-            <CardHeader>
-              <CardTitle>1. Pilih Paket Internet</CardTitle>
-              <CardDescription>
-                Sistem akan memasangkan paket dengan jenis akun SSH yang benar.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {presetsLoading ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {[1, 2].map((item) => (
-                    <div key={item} className="h-40 animate-pulse rounded-2xl bg-muted/20" />
-                  ))}
-                </div>
-              ) : presetsError ? (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Trik injek gagal dimuat</AlertTitle>
-                  <AlertDescription className="space-y-3">
-                    <p>
-                      {presetsQueryError instanceof Error
-                        ? presetsQueryError.message
-                        : "Tidak dapat mengambil preset aktif dari server."}
-                    </p>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={presetsFetching}
-                      onClick={() => void refetchPresets()}
-                    >
-                      <RefreshCw className={`h-3.5 w-3.5 ${presetsFetching ? "animate-spin" : ""}`} />
-                      Coba Lagi
-                    </Button>
-                  </AlertDescription>
-                </Alert>
-              ) : easyPresets.length === 0 ? (
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Mode Mudah sementara tidak tersedia</AlertTitle>
-                  <AlertDescription>
-                    Semua trik sedang dinonaktifkan atau diperbarui oleh admin. Coba lagi nanti.
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {easyPresets.map((preset, index) => {
-                    const active = easyPresetId === String(preset.id);
-                    return (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => selectEasyPreset(String(preset.id))}
-                        className={`rounded-2xl border p-5 text-left transition-all ${
-                          active
-                            ? "border-primary bg-primary/15 ring-2 ring-primary/30"
-                            : "border-white/10 bg-background/40 hover:border-primary/40"
-                        }`}
-                      >
-                        <ShieldPlus className={`mb-3 h-8 w-8 ${index % 2 === 0 ? "text-violet-300" : "text-cyan-300"}`} />
-                        <div className="text-lg font-bold">{preset.name}</div>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {preset.description}
-                        </p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <Badge variant="outline">{preset.accountLabel}</Badge>
-                          <Badge variant="outline" className="font-mono text-[10px]">
-                            v{preset.version}
-                          </Badge>
-                          {getActivePurchaseOptions(preset).length > 0 && (
-                            <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-200 text-[10px]">
-                              {getActivePurchaseOptions(preset).length} link beli
-                            </Badge>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {selectedEasyPreset && getActivePurchaseOptions(selectedEasyPreset).length > 0 && (
-            <Card className="glass-panel border-amber-500/20 bg-amber-500/5">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm flex items-center gap-2">🛒 Beli Paket {selectedEasyPreset.name} di MyTelkomsel</CardTitle>
-                <CardDescription className="text-xs">Wajib punya aplikasi MyTelkomsel &amp; nomor Telkomsel aktif. Link buka tab baru.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {getActivePurchaseOptions(selectedEasyPreset).map((opt) => (
-                  <div
-                    key={opt.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-white/5 bg-background/40 p-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-semibold text-sm">
-                        {opt.label} {opt.quotaText && `• ${opt.quotaText}`} {opt.priceText && `- ${opt.priceText}`}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground truncate">{opt.url}</p>
-                    </div>
-                    <Button size="sm" variant="outline" asChild className="shrink-0 gap-1">
-                      <a href={opt.url} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-3.5 w-3.5" /> Beli
-                      </a>
-                    </Button>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {selectedEasyPreset && (
-            <Card className="glass-panel overflow-hidden border-cyan-500/20">
-              <CardHeader>
-                <CardTitle>2. Pilih Akun {selectedEasyPreset.accountLabel}</CardTitle>
-                <CardDescription>
-                  Hanya akun aktif dan cocok untuk {selectedEasyPreset.name} yang ditampilkan.
+          <TabsContent value="easy" className="w-full min-w-0 space-y-5 overflow-hidden">
+            <Card className="w-full min-w-0 glass-panel overflow-hidden border-primary/20">
+              <CardHeader className="min-w-0 overflow-hidden p-4 sm:p-6">
+                <CardTitle className="text-base sm:text-lg break-words">1. Pilih Paket Internet</CardTitle>
+                <CardDescription className="text-xs sm:text-sm break-words">
+                  Sistem akan memasangkan paket dengan jenis akun SSH yang benar.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="min-w-0 overflow-hidden p-4 sm:p-6 pt-0">
+                {presetsLoading ? (
+                  <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+                    {[1, 2].map((item) => (
+                      <div key={item} className="h-40 w-full min-w-0 animate-pulse rounded-2xl bg-muted/20" />
+                    ))}
+                  </div>
+                ) : presetsError ? (
+                  <Alert variant="destructive" className="min-w-0 overflow-hidden">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <AlertTitle className="break-words">Trik injek gagal dimuat</AlertTitle>
+                    <AlertDescription className="space-y-3 min-w-0">
+                      <p className="break-words text-xs sm:text-sm">
+                        {presetsQueryError instanceof Error
+                          ? presetsQueryError.message
+                          : "Tidak dapat mengambil preset aktif dari server."}
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={presetsFetching}
+                        onClick={() => void refetchPresets()}
+                        className="w-full sm:w-auto"
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${presetsFetching ? "animate-spin" : ""}`} />
+                        Coba Lagi
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                ) : easyPresets.length === 0 ? (
+                  <Alert className="min-w-0 overflow-hidden">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <AlertTitle className="break-words">Mode Mudah sementara tidak tersedia</AlertTitle>
+                    <AlertDescription className="break-words text-xs sm:text-sm">
+                      Semua trik sedang dinonaktifkan atau diperbarui oleh admin. Coba lagi nanti.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+                    {easyPresets.map((preset, index) => {
+                      const active = easyPresetId === String(preset.id);
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => selectEasyPreset(String(preset.id))}
+                          className={`flex min-h-[120px] w-full min-w-0 flex-col overflow-hidden rounded-2xl border p-4 sm:p-5 text-left transition-all ${
+                            active
+                              ? "border-primary bg-primary/15 ring-2 ring-primary/30"
+                              : "border-white/10 bg-background/40 hover:border-primary/40"
+                          }`}
+                        >
+                          <ShieldPlus className={`mb-2 sm:mb-3 h-6 w-6 sm:h-8 sm:w-8 shrink-0 ${index % 2 === 0 ? "text-violet-300" : "text-cyan-300"}`} />
+                          <div className="text-sm sm:text-lg font-bold break-words line-clamp-2 min-w-0">{preset.name}</div>
+                          <p className="mt-1 text-xs text-muted-foreground break-words line-clamp-3 min-w-0">
+                            {preset.description}
+                          </p>
+                          <div className="mt-3 flex flex-wrap gap-1.5 sm:gap-2 min-w-0">
+                            <Badge variant="outline" className="text-[10px] max-w-full truncate">{preset.accountLabel}</Badge>
+                            <Badge variant="outline" className="font-mono text-[10px] shrink-0">
+                              v{preset.version}
+                            </Badge>
+                            {getActivePurchaseOptions(preset).length > 0 && (
+                              <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-200 text-[10px] shrink-0">
+                                {getActivePurchaseOptions(preset).length} link beli
+                              </Badge>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {selectedEasyPreset && getActivePurchaseOptions(selectedEasyPreset).length > 0 && (
+              <Card className="w-full min-w-0 overflow-hidden glass-panel border-amber-500/20 bg-amber-500/5">
+                <CardHeader className="pb-3 min-w-0 overflow-hidden p-4 sm:p-6 sm:pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2 break-words min-w-0"><span className="shrink-0">🛒</span><span className="break-words">Beli Paket {selectedEasyPreset.name} di MyTelkomsel</span></CardTitle>
+                  <CardDescription className="text-xs break-words">Wajib punya aplikasi MyTelkomsel &amp; nomor Telkomsel aktif. Link buka tab baru.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2 min-w-0 overflow-hidden p-4 sm:p-6 pt-0">
+                  {getActivePurchaseOptions(selectedEasyPreset).map((opt) => (
+                    <div
+                      key={opt.id}
+                      className="flex w-full min-w-0 flex-col gap-2 overflow-hidden rounded-lg border border-white/5 bg-background/40 p-3"
+                    >
+                      <div className="min-w-0 w-full overflow-hidden">
+                        <p className="font-semibold text-sm break-words line-clamp-2">
+                          {opt.label} {opt.quotaText && `• ${opt.quotaText}`} {opt.priceText && `- ${opt.priceText}`}
+                        </p>
+                      </div>
+                      <Button size="sm" variant="outline" asChild className="w-full gap-1 shrink-0">
+                        <a href={opt.url} target="_blank" rel="noopener noreferrer" className="flex w-full items-center justify-center gap-1">
+                          <ExternalLink className="h-3.5 w-3.5 shrink-0" /> Beli {opt.label}
+                        </a>
+                      </Button>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {selectedEasyPreset && (
+              <Card className="w-full min-w-0 glass-panel overflow-hidden border-cyan-500/20">
+                <CardHeader className="min-w-0 overflow-hidden p-4 sm:p-6">
+                  <CardTitle className="text-base sm:text-lg break-words">2. Pilih Akun {selectedEasyPreset.accountLabel}</CardTitle>
+                  <CardDescription className="text-xs sm:text-sm break-words">
+                    Hanya akun aktif dan cocok untuk {selectedEasyPreset.name} yang ditampilkan.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4 min-w-0 overflow-hidden p-4 sm:p-6 pt-0">
                 {accountsLoading ? (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" /> Memeriksa akun...
@@ -1360,63 +1360,63 @@ export default function ConfigConverter() {
             </Card>
           )}
 
-          {selectedEasyAccount && (
-            <Card className="glass-panel overflow-hidden border-primary/20">
-              <CardHeader>
-                <CardTitle>3. Pilih Aplikasi</CardTitle>
-                <CardDescription>
-                  Gunakan akun yang sama di DarkTunnel atau ikuti panduan HTTP Custom.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <EasyAppSelector
-                  value={easyApp}
-                  preset={selectedEasyPreset!}
-                  onChange={selectEasyApp}
-                />
-              </CardContent>
-            </Card>
-          )}
+            {selectedEasyAccount && (
+              <Card className="w-full min-w-0 glass-panel overflow-hidden border-primary/20">
+                <CardHeader className="min-w-0 overflow-hidden p-4 sm:p-6">
+                  <CardTitle className="text-base sm:text-lg break-words">3. Pilih Aplikasi</CardTitle>
+                  <CardDescription className="text-xs sm:text-sm break-words">
+                    Gunakan akun yang sama di DarkTunnel atau ikuti panduan HTTP Custom.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="min-w-0 overflow-hidden p-4 sm:p-6 pt-0">
+                  <EasyAppSelector
+                    value={easyApp}
+                    preset={selectedEasyPreset!}
+                    onChange={selectEasyApp}
+                  />
+                </CardContent>
+              </Card>
+            )}
 
-          {easyApp === "darktunnel" && selectedEasyAccount && (
-            <Card className="glass-panel overflow-hidden border-emerald-500/25">
-              <CardHeader>
-                <CardTitle>4. Buat Config DarkTunnel</CardTitle>
-                <CardDescription>
-                  Website membuat file .dark menggunakan akun yang sudah dipilih.
-                </CardDescription>
-              </CardHeader>
-              <CardFooter className="border-t border-white/5 bg-primary/5 p-4">
-                <Button
-                  size="lg"
-                  className="w-full gap-2"
-                  onClick={generateEasyConfig}
-                >
-                  <ShieldPlus className="h-4 w-4" />
-                  Buat Config DarkTunnel
-                </Button>
-              </CardFooter>
-            </Card>
-          )}
+            {easyApp === "darktunnel" && selectedEasyAccount && (
+              <Card className="w-full min-w-0 glass-panel overflow-hidden border-emerald-500/25">
+                <CardHeader className="min-w-0 overflow-hidden p-4 sm:p-6">
+                  <CardTitle className="text-base sm:text-lg break-words">4. Buat Config DarkTunnel</CardTitle>
+                  <CardDescription className="text-xs sm:text-sm break-words">
+                    Website membuat file .dark menggunakan akun yang sudah dipilih.
+                  </CardDescription>
+                </CardHeader>
+                <CardFooter className="border-t border-white/5 bg-primary/5 p-4 min-w-0">
+                  <Button
+                    size="lg"
+                    className="w-full gap-2 min-w-0 break-words whitespace-normal h-auto py-3"
+                    onClick={generateEasyConfig}
+                  >
+                    <ShieldPlus className="h-4 w-4 shrink-0" />
+                    <span className="break-words">Buat Config DarkTunnel</span>
+                  </Button>
+                </CardFooter>
+              </Card>
+            )}
 
-          {httpCustomGuide && (
-            <HttpCustomGuideCard
-              guide={httpCustomGuide}
-              copiedField={copiedHttpField}
-              onCopy={copyHttpField}
-            />
-          )}
+            {httpCustomGuide && (
+              <HttpCustomGuideCard
+                guide={httpCustomGuide}
+                copiedField={copiedHttpField}
+                onCopy={copyHttpField}
+              />
+            )}
 
-          {easyApp && (
-            <Card className="border-white/10 bg-background/30">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">
-                  {easyApp === "darktunnel"
-                    ? "Cara Pakai Setelah Config Dibuat"
-                    : "Ringkasan Cara Pakai HTTP Custom"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-3 text-sm sm:grid-cols-3">
+            {easyApp && (
+              <Card className="w-full min-w-0 overflow-hidden border-white/10 bg-background/30">
+                <CardHeader className="pb-3 min-w-0 overflow-hidden p-4 sm:p-6 sm:pb-3">
+                  <CardTitle className="text-sm sm:text-base break-words">
+                    {easyApp === "darktunnel"
+                      ? "Cara Pakai Setelah Config Dibuat"
+                      : "Ringkasan Cara Pakai HTTP Custom"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="grid w-full min-w-0 gap-3 text-sm grid-cols-1 sm:grid-cols-3 p-4 sm:p-6 pt-0">
                 {(easyApp === "darktunnel"
                   ? [
                       ["1", "Download file .dark"],
@@ -1439,27 +1439,27 @@ export default function ConfigConverter() {
           )}
         </TabsContent>
 
-        <TabsContent value="advanced" className="space-y-6">
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Untuk pengguna berpengalaman</AlertTitle>
-            <AlertDescription>
+        <TabsContent value="advanced" className="w-full min-w-0 space-y-6 overflow-hidden">
+          <Alert className="min-w-0 overflow-hidden">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <AlertTitle className="break-words text-sm">Untuk pengguna berpengalaman</AlertTitle>
+            <AlertDescription className="break-words text-xs sm:text-sm">
               Gunakan mode ini hanya jika kamu perlu mengatur preset, host, port, atau config mentah secara manual.
             </AlertDescription>
           </Alert>
 
-          <Card className="relative overflow-hidden border-primary/20 bg-card/40 shadow-xl backdrop-blur-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ShieldPlus className="h-5 w-5 text-primary" /> SSH Injek DarkTunnel
+          <Card className="w-full min-w-0 relative overflow-hidden border-primary/20 bg-card/40 shadow-xl backdrop-blur-md">
+            <CardHeader className="min-w-0 overflow-hidden p-4 sm:p-6">
+              <CardTitle className="flex min-w-0 items-center gap-2 text-base sm:text-lg break-words">
+                <ShieldPlus className="h-5 w-5 text-primary shrink-0" /> <span className="break-words">SSH Injek DarkTunnel</span>
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="break-words text-xs sm:text-sm">
                 Pilih preset admin dan isi data SSH secara manual untuk membuat link DarkTunnel.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="space-y-2">
-                <Label>Preset Injek</Label>
+            <CardContent className="space-y-5 min-w-0 overflow-hidden p-4 sm:p-6">
+              <div className="space-y-2 min-w-0">
+                <Label className="break-words">Preset Injek</Label>
                 <Select
                   value={selectedBugId}
                   disabled={isSshConverting}
@@ -1469,7 +1469,7 @@ export default function ConfigConverter() {
                     if (inject?.proxyPort != null) setSshPort(String(inject.proxyPort));
                   }}
                 >
-                  <SelectTrigger><SelectValue placeholder="Pilih preset injek" /></SelectTrigger>
+                  <SelectTrigger className="min-w-0"><SelectValue placeholder="Pilih preset injek" /></SelectTrigger>
                   <SelectContent>
                     {bugs.filter((bug) => bug.sshInjectConfig && Object.keys(bug.sshInjectConfig).length > 0).map((bug) => (
                       <SelectItem key={bug.id} value={String(bug.id)}>{bug.name} ({bug.bugDomain})</SelectItem>
@@ -1478,8 +1478,8 @@ export default function ConfigConverter() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label>Pilih Akun SSH Aktif</Label>
+              <div className="space-y-2 min-w-0">
+                <Label className="break-words">Pilih Akun SSH Aktif</Label>
                 <Select onValueChange={(value) => {
                   const account = activeSshAccounts.find((item) => String(item.id) === value);
                   if (!account) return;
@@ -1490,65 +1490,65 @@ export default function ConfigConverter() {
                   setSshUsername(account.username || "");
                   setSshPassword(account.password || "");
                 }}>
-                  <SelectTrigger><SelectValue placeholder={activeSshAccounts.length ? "Pilih akun SSH" : "Belum ada akun SSH aktif"} /></SelectTrigger>
+                  <SelectTrigger className="min-w-0"><SelectValue placeholder={activeSshAccounts.length ? "Pilih akun SSH" : "Belum ada akun SSH aktif"} /></SelectTrigger>
                   <SelectContent>
                     {activeSshAccounts.map((account) => (
-                      <SelectItem key={account.id} value={String(account.id)}>
-                        {account.username} @ {account.server?.name ?? "Server"} • {formatExpiry(account.expiresAt)}
+                      <SelectItem key={account.id} value={String(account.id)} className="min-w-0">
+                        <span className="break-all text-xs sm:text-sm">{account.username} @ {account.server?.name ?? "Server"} • {formatExpiry(account.expiresAt)}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2"><Label>SSH Host</Label><Input value={sshHost} onChange={(event) => setSshHost(event.target.value)} className="font-mono" /></div>
-                <div className="space-y-2"><Label>Port</Label><Input type="number" value={sshPort} onChange={(event) => setSshPort(event.target.value)} /></div>
-                <div className="space-y-2"><Label>Username</Label><Input value={sshUsername} onChange={(event) => setSshUsername(event.target.value)} className="font-mono" /></div>
-                <div className="space-y-2"><Label>Password</Label><Input type="password" value={sshPassword} onChange={(event) => setSshPassword(event.target.value)} className="font-mono" /></div>
+              <div className="grid w-full min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2 min-w-0"><Label className="break-words">SSH Host</Label><Input value={sshHost} onChange={(event) => setSshHost(event.target.value)} className="font-mono text-xs sm:text-sm min-w-0" /></div>
+                <div className="space-y-2 min-w-0"><Label>Port</Label><Input type="number" value={sshPort} onChange={(event) => setSshPort(event.target.value)} className="min-w-0" /></div>
+                <div className="space-y-2 min-w-0"><Label>Username</Label><Input value={sshUsername} onChange={(event) => setSshUsername(event.target.value)} className="font-mono text-xs sm:text-sm min-w-0" /></div>
+                <div className="space-y-2 min-w-0"><Label>Password</Label><Input type="password" value={sshPassword} onChange={(event) => setSshPassword(event.target.value)} className="font-mono text-xs sm:text-sm min-w-0" /></div>
               </div>
-              <div className="space-y-2"><Label>Nama Config (opsional)</Label><Input value={sshConfigName} onChange={(event) => setSshConfigName(event.target.value)} /></div>
+              <div className="space-y-2 min-w-0"><Label>Nama Config (opsional)</Label><Input value={sshConfigName} onChange={(event) => setSshConfigName(event.target.value)} className="min-w-0" /></div>
             </CardContent>
-            <CardFooter className="justify-end border-t border-white/5 bg-primary/5 p-4">
-              <Button onClick={handleAdvancedSshConvert} disabled={isSshConverting} className="w-full gap-2 sm:w-auto">
-                {isSshConverting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRightLeft className="h-4 w-4" />}
-                Buat Link DarkTunnel
+            <CardFooter className="justify-end border-t border-white/5 bg-primary/5 p-4 min-w-0">
+              <Button onClick={handleAdvancedSshConvert} disabled={isSshConverting} className="w-full gap-2 min-w-0">
+                {isSshConverting ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <ArrowRightLeft className="h-4 w-4 shrink-0" />}
+                <span className="break-words">Buat Link DarkTunnel</span>
               </Button>
             </CardFooter>
           </Card>
 
-          <Card className="border-primary/20 bg-card/40">
-            <CardHeader>
-              <CardTitle>Config Injector Umum</CardTitle>
-              <CardDescription>Untuk VMess, VLESS, Trojan, Shadowsocks, atau payload mentah.</CardDescription>
+          <Card className="w-full min-w-0 border-primary/20 bg-card/40 overflow-hidden">
+            <CardHeader className="min-w-0 overflow-hidden p-4 sm:p-6">
+              <CardTitle className="break-words text-base sm:text-lg">Config Injector Umum</CardTitle>
+              <CardDescription className="break-words text-xs sm:text-sm">Untuk VMess, VLESS, Trojan, Shadowsocks, atau payload mentah.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="space-y-2">
-                <Label>1. Pilih Preset Bug</Label>
+            <CardContent className="space-y-5 min-w-0 overflow-hidden p-4 sm:p-6">
+              <div className="space-y-2 min-w-0">
+                <Label className="break-words">1. Pilih Preset Bug</Label>
                 <Select value={selectedBugId} onValueChange={setSelectedBugId}>
-                  <SelectTrigger><SelectValue placeholder={bugsLoading ? "Memuat preset..." : "Pilih preset bug"} /></SelectTrigger>
+                  <SelectTrigger className="min-w-0"><SelectValue placeholder={bugsLoading ? "Memuat preset..." : "Pilih preset bug"} /></SelectTrigger>
                   <SelectContent>
                     {bugs.map((bug) => <SelectItem key={bug.id} value={String(bug.id)}>{bug.name} ({bug.bugDomain})</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>2. Config Mentah</Label>
-                <Textarea className="min-h-[120px] font-mono" value={rawConfig} onChange={(event) => setRawConfig(event.target.value)} placeholder="Tempel vmess://, vless://, trojan://, ss://, atau payload di sini" />
+              <div className="space-y-2 min-w-0">
+                <Label className="break-words">2. Config Mentah</Label>
+                <Textarea className="min-h-[120px] font-mono text-xs sm:text-sm min-w-0 w-full" value={rawConfig} onChange={(event) => setRawConfig(event.target.value)} placeholder="Tempel vmess://, vless://, trojan://, ss://, atau payload di sini" />
               </div>
             </CardContent>
-            <CardFooter className="justify-end border-t border-white/5 bg-primary/5 p-4">
-              <Button onClick={handleConvert} className="w-full gap-2 sm:w-auto"><ArrowRightLeft className="h-4 w-4" /> Convert Sekarang</Button>
+            <CardFooter className="justify-end border-t border-white/5 bg-primary/5 p-4 min-w-0">
+              <Button onClick={handleConvert} className="w-full gap-2 min-w-0"><ArrowRightLeft className="h-4 w-4 shrink-0" /> <span className="break-words">Convert Sekarang</span></Button>
             </CardFooter>
           </Card>
 
           {result && (
-            <Card className="border-emerald-500/30 bg-emerald-950/10">
-              <CardHeader><CardTitle className="text-emerald-400">Hasil Convert</CardTitle></CardHeader>
-              <CardContent>
-                <Textarea readOnly value={result} className="min-h-[120px] font-mono" />
-                <Button onClick={() => copyValue(result, "Config tersalin")} className="mt-3 w-full gap-2">
-                  {isCopied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />} Salin Config
+            <Card className="w-full min-w-0 border-emerald-500/30 bg-emerald-950/10 overflow-hidden">
+              <CardHeader className="min-w-0 p-4 sm:p-6"><CardTitle className="text-emerald-400 break-words text-base">Hasil Convert</CardTitle></CardHeader>
+              <CardContent className="min-w-0 overflow-hidden p-4 sm:p-6 pt-0">
+                <Textarea readOnly value={result} className="min-h-[120px] font-mono text-xs sm:text-sm w-full min-w-0 break-all" />
+                <Button onClick={() => copyValue(result, "Config tersalin")} className="mt-3 w-full gap-2 min-w-0">
+                  {isCopied ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <Copy className="h-4 w-4 shrink-0" />} <span className="break-words">Salin Config</span>
                 </Button>
               </CardContent>
             </Card>

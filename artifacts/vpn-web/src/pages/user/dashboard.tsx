@@ -395,11 +395,11 @@ function InjectBeginnerWidget({ activeAccounts }: { activeAccounts: number }) {
 
   if (dismissed) {
     return (
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur px-3 py-2">
-        <span className="text-xs text-muted-foreground">Baru pertama kali inject?</span>
+      <div className="flex w-full min-w-0 items-center justify-between gap-3 overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur px-3 py-2">
+        <span className="text-xs text-muted-foreground break-words min-w-0 flex-1">Baru pertama kali inject?</span>
         <button
           onClick={undismiss}
-          className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-primary/15 text-primary hover:bg-primary/25 border border-primary/20 transition-colors"
+          className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-primary/15 text-primary hover:bg-primary/25 border border-primary/20 transition-colors"
         >
           Tampilkan panduan
         </button>
@@ -408,34 +408,34 @@ function InjectBeginnerWidget({ activeAccounts }: { activeAccounts: number }) {
   }
 
   return (
-    <div className="relative overflow-hidden glass-panel rounded-xl border border-primary/20 p-4">
-      <div className="absolute -right-10 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
+    <div className="relative w-full min-w-0 overflow-hidden glass-panel rounded-xl border border-primary/20 p-3 sm:p-4">
+      <div className="absolute -right-10 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl pointer-events-none" />
       <button
         onClick={dismiss}
         aria-label="Tutup panduan"
-        className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground transition-colors rounded-md p-1 hover:bg-white/10"
+        className="absolute right-2 top-2 text-muted-foreground hover:text-foreground transition-colors rounded-md p-1.5 hover:bg-white/10 shrink-0"
       >
         <X className="h-3.5 w-3.5" />
       </button>
-      <div className="relative">
-        <div className="flex items-center gap-1.5 mb-1">
-          <Sparkles className="h-3.5 w-3.5 text-primary" />
-          <p className="text-sm font-bold">Baru pertama kali inject paket?</p>
+      <div className="relative min-w-0 w-full overflow-hidden pr-6">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 mb-1">
+          <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+          <p className="text-sm font-bold break-words min-w-0">Baru pertama kali inject paket?</p>
           {activeAccounts < 2 && (
-            <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-primary/30 text-primary">Beginner</Badge>
+            <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-primary/30 text-primary shrink-0">Beginner</Badge>
           )}
         </div>
-        <p className="text-xs text-muted-foreground leading-snug max-w-[90%]">
+        <p className="text-xs text-muted-foreground leading-snug break-words min-w-0 max-w-full sm:max-w-[90%]">
           Pilih paket GameMax atau Ilmupedia dulu, beli paketnya di MyTelkomsel, lalu buat akun SSH.
         </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Link href="/converter?preset=gamemax" className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+        <div className="mt-3 flex w-full min-w-0 flex-col sm:flex-row sm:flex-wrap gap-2">
+          <Link href="/converter?preset=gamemax" className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 text-xs font-bold px-3 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors min-w-0">
             🎮 GameMax
           </Link>
-          <Link href="/converter?preset=ilmupedia" className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-white/10 bg-white/[0.04] hover:border-primary/40 hover:bg-white/10 text-white transition-all">
+          <Link href="/converter?preset=ilmupedia" className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 text-xs font-bold px-3 py-2.5 rounded-lg border border-white/10 bg-white/[0.04] hover:border-primary/40 hover:bg-white/10 text-white transition-all min-w-0">
             📚 Ilmupedia
           </Link>
-          <Link href="/converter" className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-2 rounded-lg text-muted-foreground hover:text-primary transition-colors">
+          <Link href="/converter" className="inline-flex w-full sm:w-auto items-center justify-center gap-1 text-[11px] font-medium px-2.5 py-2.5 rounded-lg text-muted-foreground hover:text-primary transition-colors border border-transparent hover:border-white/10 min-w-0">
             Buka Converter →
           </Link>
         </div>

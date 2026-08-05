@@ -13,10 +13,10 @@ export default function DynamicOrderPage() {
   const d = data as any;
 
   return (
-    <div className="space-y-4 pb-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Order VPN</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
+    <div className="w-full min-w-0 space-y-4 pb-8 overflow-hidden px-1 sm:px-0">
+      <div className="min-w-0">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight break-words">Order VPN</h1>
+        <p className="text-sm text-muted-foreground mt-0.5 break-words">
           Pilih server premium, lalu atur jenis VPN dan durasi sesuai kebutuhanmu.
         </p>
       </div>
@@ -24,18 +24,18 @@ export default function DynamicOrderPage() {
       <SuccessBanner paidOrderId={state.paidOrderId} />
 
       {d.paketKind && (
-        <Card className={`border ${d.paketKind === "cloudfront" ? "border-violet-500/30 bg-violet-500/5" : "border-blue-500/30 bg-blue-500/5"}`}>
-          <CardContent className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm">
-            <div className="flex items-start gap-2">
-              <Info className="h-4 w-4 mt-0.5" />
-              <div>
-                <p className="font-semibold">{d.paketKind === "cloudfront" ? `Kamu memilih ${d.presetSlug ?? "Ilmupedia"} - butuh SSH CloudFront` : `Kamu memilih ${d.presetSlug ?? "GameMax"} - SSH Biasa`}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{d.paketKind === "cloudfront" ? "Pilih server dengan badge CLOUDFRONT seperti SSH CLOUDFRONT REGULER / PREMIUM. Sudah diurutkan di atas." : "Semua server bisa dipakai. SSH biasa cocok untuk GameMax."} {d.recommendedCount ? `Ditemukan ${d.recommendedCount} server ${d.paketKind}.` : ""}</p>
+        <Card className={`w-full min-w-0 overflow-hidden border ${d.paketKind === "cloudfront" ? "border-violet-500/30 bg-violet-500/5" : "border-blue-500/30 bg-blue-500/5"}`}>
+          <CardContent className="py-3 flex w-full min-w-0 flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm overflow-hidden">
+            <div className="flex min-w-0 flex-1 items-start gap-2 overflow-hidden">
+              <Info className="h-4 w-4 mt-0.5 shrink-0" />
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <p className="font-semibold break-words text-sm">{d.paketKind === "cloudfront" ? `Kamu memilih ${d.presetSlug ?? "Ilmupedia"} - butuh SSH CloudFront` : `Kamu memilih ${d.presetSlug ?? "GameMax"} - SSH Biasa`}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 break-words">{d.paketKind === "cloudfront" ? "Pilih server dengan badge CLOUDFRONT seperti SSH CLOUDFRONT REGULER / PREMIUM. Sudah diurutkan di atas." : "Semua server bisa dipakai. SSH biasa cocok untuk GameMax."} {d.recommendedCount ? `Ditemukan ${d.recommendedCount} server ${d.paketKind}.` : ""}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Button variant="outline" size="sm" asChild><Link href="/converter">← Panduan Inject</Link></Button>
-              <Button variant="ghost" size="sm" onClick={() => setLocation("/order-vpn")}>Hapus Filter</Button>
+            <div className="flex w-full sm:w-auto items-center gap-2 shrink-0">
+              <Button variant="outline" size="sm" asChild className="flex-1 sm:flex-none text-xs"><Link href="/converter">← Panduan</Link></Button>
+              <Button variant="ghost" size="sm" onClick={() => setLocation("/order-vpn")} className="flex-1 sm:flex-none text-xs">Hapus Filter</Button>
             </div>
           </CardContent>
         </Card>
