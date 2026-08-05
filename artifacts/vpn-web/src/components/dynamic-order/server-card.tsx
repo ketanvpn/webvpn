@@ -28,21 +28,16 @@ export function ServerCard({ server, onSelect }: ServerCardProps) {
 
   const isCloudfront = Boolean(server.isCloudfrontCapable);
   return (
-    <div className={`relative flex flex-col rounded-xl overflow-hidden transition-all duration-300 border glass-card ${isCloudfront ? "border-violet-500/30 hover:border-violet-400/50" : "border-white/5 hover:border-primary/30"}`}>
-      {isCloudfront && (
-        <div className="absolute top-2 right-2 z-10">
-          <Badge className="bg-violet-600 text-white text-[9px] px-1.5 py-0.5">CLOUDFRONT</Badge>
-        </div>
-      )}
+    <div className={`relative flex min-w-0 w-full flex-col rounded-xl overflow-hidden transition-all duration-300 border glass-card ${isCloudfront ? "border-violet-500/20 hover:border-violet-400/40" : "border-white/5 hover:border-primary/30"}`}>
       <button
         type="button"
         onClick={onSelect}
         disabled={!selectability.isSelectable}
-        className="p-4 text-left w-full disabled:opacity-50 disabled:cursor-not-allowed"
+        className="p-3 sm:p-4 text-left w-full min-w-0 disabled:opacity-50 disabled:cursor-not-allowed"
         aria-label={`Pilih server ${server.displayName}${!selectability.isSelectable ? " (Tidak tersedia)" : ""}`}
       >
-        <div className="flex gap-3">
-          <div className="flex flex-col items-center gap-1.5 w-16 shrink-0">
+        <div className="flex w-full min-w-0 gap-2 sm:gap-3">
+          <div className="flex flex-col items-center gap-1.5 w-14 sm:w-16 shrink-0">
             <ServerCountryMark location={server.location} showLabel />
             {selectability.isSelectable ? (
               <span className="text-[8px] sm:text-[9px] font-bold bg-primary/10 text-primary px-1 py-0.5 rounded w-full text-center border border-primary/20 flex items-center justify-center gap-0.5">
@@ -55,11 +50,18 @@ export function ServerCard({ server, onSelect }: ServerCardProps) {
             )}
           </div>
 
-          <div className="flex-1 min-w-0">
-            <h3 className="break-words text-sm font-semibold leading-snug text-foreground sm:text-base">
-              {server.displayName}
-            </h3>
-            <div className="flex flex-wrap gap-1.5 mt-1.5">
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <div className="flex min-w-0 flex-wrap items-start gap-1.5">
+              <h3 className="min-w-0 flex-1 break-words text-sm font-semibold leading-snug text-foreground sm:text-base">
+                {server.displayName}
+              </h3>
+              {isCloudfront && (
+                <Badge className="shrink-0 bg-violet-500/15 text-violet-300 border border-violet-500/30 text-[8px] sm:text-[9px] px-1.5 py-0 font-bold tracking-wide">
+                  CLOUDFRONT
+                </Badge>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-1 sm:gap-1.5 mt-1.5 min-w-0">
               {server.provider === "local_panel" ? (
                 <Badge variant="outline" className="border-white/10 bg-white/5 text-[9px]">
                   {server.maxConnections > 0 ? `MAX ${server.maxConnections} IP` : "UNLIMITED IP"}
