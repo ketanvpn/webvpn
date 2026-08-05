@@ -6,7 +6,7 @@ import {
   getGetAccountQueryKey,
 } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { formatRupiah } from "@/lib/format";
+import { formatRupiah, formatExpiryLabel, getExpiryColorClass } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -289,8 +289,8 @@ export default function OrderDetail() {
                     <div className="space-y-0.5">
                       <p className="text-xs text-muted-foreground font-semibold uppercase">Kedaluwarsa</p>
                       <p className="font-medium">{format(new Date(vpnAccount.expiresAt), "d MMM yyyy", { locale: idLocale })}</p>
-                      <p className={`text-xs font-medium ${daysLeft <= 3 ? "text-destructive" : daysLeft <= 7 ? "text-yellow-600" : "text-green-600"}`}>
-                        {daysLeft > 0 ? `${daysLeft} hari lagi` : "Kedaluwarsa hari ini"}
+                      <p className={`text-xs font-medium ${getExpiryColorClass(daysLeft, vpnAccount?.isActive ?? true)}`}>
+                        {formatExpiryLabel(daysLeft, vpnAccount?.isActive ?? true)}
                       </p>
                     </div>
                     <div className="space-y-0.5">

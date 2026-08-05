@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
-import { formatRupiah } from "@/lib/format";
+import { formatRupiah, formatExpiryLabel, getExpiryColorClass } from "@/lib/format";
 import { useState } from "react";
 import { getApiError } from "@/lib/utils";
 import {
@@ -397,10 +397,10 @@ export default function AccountDetail() {
           </Link>
         </Button>
         <Badge
-          variant={account.isActive ? "default" : "destructive"}
+          variant={!account.isActive || daysLeft < 0 ? "destructive" : "default"}
           className="text-sm px-3 py-1"
         >
-          {account.isActive ? "Aktif" : "Kedaluwarsa"}
+          {!account.isActive || daysLeft < 0 ? "Kedaluwarsa" : "Aktif"}
         </Badge>
       </div>
 
@@ -430,11 +430,9 @@ export default function AccountDetail() {
                     <Clock className="h-4 w-4 text-primary" />
                     {format(new Date(account.expiresAt), "d MMM yyyy", { locale: idLocale })}
                   </div>
-                  {account.isActive && (
-                    <div className={`text-xs font-medium ${daysLeft <= 3 ? "text-destructive" : daysLeft <= 7 ? "text-yellow-600" : "text-green-600"}`}>
-                      {daysLeft > 0 ? `${daysLeft} hari lagi` : "Kedaluwarsa hari ini"}
-                    </div>
-                  )}
+                  <div className={`text-xs font-medium ${getExpiryColorClass(daysLeft, account.isActive)}`}>
+                    {formatExpiryLabel(daysLeft, account.isActive)}
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <div className="text-xs text-muted-foreground uppercase font-semibold">Kuota</div>

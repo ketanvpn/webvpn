@@ -5,6 +5,7 @@ import { differenceInCalendarDays } from "date-fns";
 import { Link } from "wouter";
 import { Server, ChevronRight, ShieldOff, Clock } from "lucide-react";
 import { useState, useMemo } from "react";
+import { formatExpiryLabel, getExpiryColorClass } from "@/lib/format";
 
 const PROTOCOL_COLORS: Record<string, string> = {
   ssh: "bg-orange-500/10 text-orange-400 border-orange-500/30",
@@ -25,11 +26,12 @@ function ExpiryBadge({ expiresAt, isActive }: { expiresAt: string; isActive: boo
     );
   }
 
-  const color = days > 7 ? "text-green-600" : days > 3 ? "text-amber-600" : "text-red-500";
+  const color = getExpiryColorClass(days, isActive);
+  const label = formatExpiryLabel(days, isActive, "short");
   return (
     <span className={`flex items-center gap-1 text-[11px] font-medium ${color}`}>
       <Clock className="h-3 w-3" />
-      {days === 0 ? "Habis hari ini" : `${days} hari lagi`}
+      {label}
     </span>
   );
 }
