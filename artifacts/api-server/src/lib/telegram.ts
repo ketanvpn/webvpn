@@ -1,7 +1,12 @@
 import { db } from "@workspace/db";
 import { usersTable, topupsTable, settingsTable } from "@workspace/db";
 import { eq, count } from "drizzle-orm";
+import { randomBytes } from "crypto";
 import { logger } from "./logger";
+
+export function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
 
 // In-memory map: Telegram message_id → ticket_id
 // Allows native Telegram reply (swipe) to be linked back to a ticket
@@ -109,11 +114,47 @@ export async function answerCallbackQuery(callbackQueryId: string, text?: string
   });
 }
 
+async function getSettingValue(key: string): Promise<string | null> {
+  const [row] = await db
+    .select({ value: settingsTable.value })
+    .from(settingsTable)
+    .where(eq(settingsTable.key, key))
+    .limit(1);
+  return row?.value ?? null;
+}
+
+async function setSettingValue(key: string, value: string): Promise<void> {
+  const [existing] = await db
+    .select({ key: settingsTable.key })
+    .from(settingsTable)
+    .where(eq(settingsTable.key, key))
+    .limit(1);
+  if (existing) {
+    await db.update(settingsTable).set({ value }).where(eq(settingsTable.key, key));
+  } else {
+    await db.insert(settingsTable).values({ key, value });
+  }
+}
+
+export async function getWebhookSecret(): Promise<string> {
+  let secret = await getSettingValue("telegramWebhookSecret");
+  if (!secret) {
+    secret = randomBytes(32).toString("hex");
+    await setSettingValue("telegramWebhookSecret", secret);
+    logger.info("Generated new telegramWebhookSecret");
+  }
+  return secret;
+}
+
 export async function registerWebhook(webhookUrl: string) {
   const { token } = await getTelegramConfig();
   if (!token) return;
-  const result = await callTelegramApi(token, "setWebhook", { url: webhookUrl });
-  logger.info({ result }, "Telegram webhook registered");
+  const secret = await getWebhookSecret();
+  const result = await callTelegramApi(token, "setWebhook", {
+    url: webhookUrl,
+    secret_token: secret,
+  });
+  logger.info({ result }, "Telegram webhook registered with secret_token");
 }
 
 export async function deleteWebhook() {
@@ -264,7 +305,7 @@ export async function notifyUserVpnAccountCreated(opts: {
     `👤 Username: <code>${opts.username}</code>\n`;
 
   if (opts.password) {
-    text += `🔑 Password: <code>${opts.password}</code>\n`;
+    text += `🔑 Password: <i>(lihat di halaman akun VPN)</i>\n`;
   }
 
   text += `📅 Aktif sampai: <b>${expiry}</b>\n`;
@@ -329,7 +370,7 @@ export async function notifyUserDynamicVpnAccountCreated(opts: {
     `🔌 Protokol: <b>${opts.protocol.toUpperCase()}</b>\n` +
     `👤 Username: <code>${opts.username}</code>\n`;
 
-  if (opts.password) text += `🔑 Password: <code>${opts.password}</code>\n`;
+  if (opts.password) text += `🔑 Password: <i>(lihat di halaman akun VPN)</i>\n`;
   if (opts.host) text += `🌐 Host/IP: <code>${opts.host}</code>\n`;
   text += `📅 Aktif sampai: <b>${expiry}</b>\n`;
   if (opts.configLink) text += `\n🔗 <b>Config Link:</b>\n<code>${opts.configLink}</code>\n`;
@@ -417,7 +458,7 @@ export async function broadcastMessage(message: string): Promise<{ sent: number;
 
   for (const user of linked) {
     try {
-      await sendMessage(user.telegramId!, `📢 <b>Pesan dari Admin:</b>\n\n${message}`);
+      await sendMessage(user.telegramId!, message);
       sent++;
     } catch {
       failed++;
@@ -460,7 +501,7 @@ export async function notifyAdminTicketReply(ticketId: number, username: string,
   const { token, adminChatId } = await getTelegramConfig();
   if (!token || !adminChatId) return;
 
-  const preview = message.length > 120 ? message.slice(0, 120) + "…" : message;
+  const preview = escapeHtml(message.length > 120 ? message.slice(0, 120) + "…" : message);
   const siteUrl = process.env.SITE_URL ?? "";
 
   const text =

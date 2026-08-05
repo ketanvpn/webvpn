@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import { usersTable, topupsTable, settingsTable, ticketsTable, ticketMessagesTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../lib/auth";
-import { randomBytes } from "crypto";
+import { randomBytes, timingSafeEqual } from "crypto";
 import {
   callTelegramApi,
   sendMessage,
@@ -14,6 +14,8 @@ import {
   registerWebhook,
   lookupTicketByMessage,
   broadcastMessage,
+  getWebhookSecret,
+  escapeHtml,
 } from "../lib/telegram";
 import { showAdminMenu, handleAdminCallback, handleCekUser, handleGiftSaldo, handleExtendServer } from "../lib/telegram-admin";
 import { logger } from "../lib/logger";
@@ -40,38 +42,38 @@ const broadcastTemplates: Record<string, {
   announcement: {
     name: "Pengumuman Umum",
     fields: ["Judul pengumuman", "Isi pengumuman"],
-    build: ([title, body]) => `📣 <b>${title}</b>\n\n${body}\n\n— Tim KETANTECH VPN`,
+    build: ([title, body]) => `📣 <b>${escapeHtml(title)}</b>\n\n${escapeHtml(body)}\n\n— Tim KETANTECH VPN`,
   },
   info: {
     name: "Informasi",
     fields: ["Judul informasi", "Detail informasi"],
-    build: ([title, body]) => `ℹ️ <b>${title}</b>\n\n${body}\n\n— Tim KETANTECH VPN`,
+    build: ([title, body]) => `ℹ️ <b>${escapeHtml(title)}</b>\n\n${escapeHtml(body)}\n\n— Tim KETANTECH VPN`,
   },
   down: {
     name: "Server Down",
     fields: ["Nama server", "Estimasi normal (contoh: 30 menit)", "Catatan tambahan (opsional, isi '-' jika kosong)"],
     build: ([server, eta, note]) =>
-      `🚨 <b>Gangguan Server ${server}</b>\n\nSaat ini server sedang mengalami gangguan. Tim kami sedang melakukan penanganan.\nEstimasi normal: <b>${eta}</b>.` +
-      `${note && note !== "-" ? `\nCatatan: ${note}` : ""}` +
+      `🚨 <b>Gangguan Server ${escapeHtml(server)}</b>\n\nSaat ini server sedang mengalami gangguan. Tim kami sedang melakukan penanganan.\nEstimasi normal: <b>${escapeHtml(eta)}</b>.` +
+      `${note && note !== "-" ? `\nCatatan: ${escapeHtml(note)}` : ""}` +
       `\n\nMohon maaf atas ketidaknyamanannya 🙏\n\n— Tim KETANTECH VPN`,
   },
   up: {
     name: "Server Pulih",
     fields: ["Nama server", "Waktu pulih (contoh: 14:35 WIB)"],
     build: ([server, time]) =>
-      `✅ <b>Server ${server} Sudah Normal</b>\n\nLayanan telah kembali stabil per <b>${time}</b>. Silakan dicoba kembali.\n\nTerima kasih atas kesabarannya 🙌\n\n— Tim KETANTECH VPN`,
+      `✅ <b>Server ${escapeHtml(server)} Sudah Normal</b>\n\nLayanan telah kembali stabil per <b>${escapeHtml(time)}</b>. Silakan dicoba kembali.\n\nTerima kasih atas kesabarannya 🙌\n\n— Tim KETANTECH VPN`,
   },
   maintenance: {
     name: "Maintenance",
     fields: ["Nama server/layanan", "Waktu mulai", "Estimasi durasi"],
     build: ([target, start, duration]) =>
-      `🛠️ <b>Maintenance Terjadwal</b>\n\nTarget: <b>${target}</b>\nMulai: <b>${start}</b>\nEstimasi durasi: <b>${duration}</b>.\n\nTerima kasih atas pengertiannya 🙏\n\n— Tim KETANTECH VPN`,
+      `🛠️ <b>Maintenance Terjadwal</b>\n\nTarget: <b>${escapeHtml(target)}</b>\nMulai: <b>${escapeHtml(start)}</b>\nEstimasi durasi: <b>${escapeHtml(duration)}</b>.\n\nTerima kasih atas pengertiannya 🙏\n\n— Tim KETANTECH VPN`,
   },
   fixed: {
     name: "Perbaikan Selesai",
     fields: ["Nama server/layanan", "Ringkasan perbaikan"],
     build: ([target, summary]) =>
-      `🎉 <b>Perbaikan Selesai</b>\n\nTarget: <b>${target}</b>\n${summary}\n\nLayanan sudah kembali normal. Terima kasih atas kesabarannya 🙌\n\n— Tim KETANTECH VPN`,
+      `🎉 <b>Perbaikan Selesai</b>\n\nTarget: <b>${escapeHtml(target)}</b>\n${escapeHtml(summary)}\n\nLayanan sudah kembali normal. Terima kasih atas kesabarannya 🙌\n\n— Tim KETANTECH VPN`,
   },
 };
 
@@ -122,6 +124,19 @@ router.post("/admin/telegram/register-webhook", requireAdmin, async (req, res) =
 // ─── Telegram Webhook Handler ─────────────────────────────────────────────────
 
 router.post("/telegram/webhook", async (req, res) => {
+  // Verify Telegram's secret_token header (set via setWebhook)
+  const expectedSecret = await getWebhookSecret();
+  const providedSecret = String(req.header("x-telegram-bot-api-secret-token") || "");
+  if (
+    !providedSecret ||
+    expectedSecret.length !== providedSecret.length ||
+    !timingSafeEqual(Buffer.from(expectedSecret), Buffer.from(providedSecret))
+  ) {
+    logger.warn("Webhook rejected: invalid or missing secret_token");
+    res.sendStatus(401);
+    return;
+  }
+
   res.sendStatus(200);
 
   const update = req.body;
@@ -269,10 +284,11 @@ async function handleMessage(message: any) {
         }
         cleanupPendingBroadcasts();
         const token = randomBytes(10).toString("hex");
-        pendingBroadcasts.set(token, { chatId, message: `${content}\n\n— Tim KETANTECH VPN`, createdAt: Date.now() });
+        const escaped = escapeHtml(content);
+        pendingBroadcasts.set(token, { chatId, message: `📢 <b>Pesan dari Admin:</b>\n\n${escaped}\n\n— Tim KETANTECH VPN`, createdAt: Date.now() });
         await sendMessageWithButtons(
           chatId,
-          `📢 <b>Konfirmasi Broadcast (Custom)</b>\n\n${content}\n\nLanjut kirim?`,
+          `📢 <b>Konfirmasi Broadcast (Custom)</b>\n\n${escaped}\n\nLanjut kirim?`,
           [[
             { text: "✅ Ya, kirim", callback_data: `broadcast_confirm_${token}` },
             { text: "❌ Batal", callback_data: `broadcast_cancel_${token}` },
@@ -346,11 +362,12 @@ async function handleMessage(message: any) {
 
     cleanupPendingBroadcasts();
     const token = randomBytes(10).toString("hex");
-    pendingBroadcasts.set(token, { chatId, message, createdAt: Date.now() });
+    const escaped = escapeHtml(message);
+    pendingBroadcasts.set(token, { chatId, message: `📢 <b>Pesan dari Admin:</b>\n\n${escaped}\n\n— Tim KETANTECH VPN`, createdAt: Date.now() });
 
     await sendMessageWithButtons(
       chatId,
-      `📢 <b>Konfirmasi Broadcast</b>\n\nPesan berikut akan dikirim ke semua user Telegram terhubung:\n\n${message}\n\nLanjut kirim?`,
+      `📢 <b>Konfirmasi Broadcast</b>\n\nPesan berikut akan dikirim ke semua user Telegram terhubung:\n\n${escaped}\n\nLanjut kirim?`,
       [[
         { text: "✅ Ya, kirim", callback_data: `broadcast_confirm_${token}` },
         { text: "❌ Batal", callback_data: `broadcast_cancel_${token}` },
@@ -474,33 +491,34 @@ async function handleReplyTicket(ticketId: number, replyText: string, chatId: nu
 }
 
 async function handleLinkToken(token: string, telegramId: number, chatId: number) {
-  const [user] = await db
-    .select({ id: usersTable.id, username: usersTable.username, updatedAt: usersTable.updatedAt })
-    .from(usersTable)
-    .where(eq(usersTable.telegramLinkToken, token))
-    .limit(1);
+  const TOKEN_TTL_MS = 30 * 60 * 1000;
+  const cutoff = new Date(Date.now() - TOKEN_TTL_MS);
 
-  if (!user) {
+  // Atomic: only link if token exists AND was generated within TTL
+  const [updated] = await db
+    .update(usersTable)
+    .set({ telegramId, telegramLinkToken: null, updatedAt: new Date() })
+    .where(
+      and(
+        eq(usersTable.telegramLinkToken, token),
+        sql`${usersTable.updatedAt} >= ${cutoff}`,
+      ),
+    )
+    .returning({ id: usersTable.id, username: usersTable.username });
+
+  if (!updated) {
+    // Clear expired token if it still exists
+    await db
+      .update(usersTable)
+      .set({ telegramLinkToken: null })
+      .where(eq(usersTable.telegramLinkToken, token));
     await sendMessage(chatId, "❌ Link tidak valid atau sudah kedaluwarsa. Minta link baru dari halaman profil.");
     return;
   }
 
-  // Token expire setelah 30 menit sejak dibuat (updatedAt diset saat generate token)
-  const TOKEN_TTL_MS = 30 * 60 * 1000;
-  if (user.updatedAt && Date.now() - new Date(user.updatedAt).getTime() > TOKEN_TTL_MS) {
-    await db.update(usersTable).set({ telegramLinkToken: null }).where(eq(usersTable.id, user.id));
-    await sendMessage(chatId, "❌ Link sudah kedaluwarsa (>30 menit). Minta link baru dari halaman profil.");
-    return;
-  }
-
-  await db
-    .update(usersTable)
-    .set({ telegramId, telegramLinkToken: null, updatedAt: new Date() })
-    .where(eq(usersTable.id, user.id));
-
   await sendMessage(
     chatId,
-    `✅ <b>Berhasil terhubung!</b>\n\nAkun <b>${user.username}</b> sudah dihubungkan dengan Telegram kamu.\n\nKamu akan menerima notifikasi topup dan info terbaru dari kami.`,
+    `✅ <b>Berhasil terhubung!</b>\n\nAkun <b>${updated.username}</b> sudah dihubungkan dengan Telegram kamu.\n\nKamu akan menerima notifikasi topup dan info terbaru dari kami.`,
   );
 }
 
@@ -545,10 +563,12 @@ async function handleCallbackQuery(callbackQuery: any) {
     }
 
     pendingBroadcasts.delete(token);
+    const { message } = pending;
+
     await answerCallbackQuery(callbackId, "Broadcast diproses...");
     await editMessageReplyMarkup(chatId, messageId, null);
     await sendMessage(chatId, "⏳ Sedang mengirim broadcast...");
-    const { sent, failed } = await broadcastMessage(pending.message);
+    const { sent, failed } = await broadcastMessage(message);
     await sendMessage(chatId, `✅ <b>Broadcast Selesai</b>\n\nBerhasil terkirim: ${sent}\nGagal: ${failed}`);
     return;
   }

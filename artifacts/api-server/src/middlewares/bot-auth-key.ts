@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
+import { createHmac, timingSafeEqual } from "crypto";
 import { logger } from "../lib/logger";
 
 /**
@@ -46,14 +47,12 @@ export function requireBotApiKey(
 }
 
 /**
- * Comparison string panjang sama tanpa kebocoran timing.
- * Tidak pakai `crypto.timingSafeEqual` langsung supaya beda panjang tidak crash.
+ * Constant-time comparison via HMAC: hash both sides with a fixed key,
+ * then compare the digests. This avoids early-return length leaks.
  */
 function safeCompare(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let mismatch = 0;
-  for (let i = 0; i < a.length; i++) {
-    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return mismatch === 0;
+  const key = "bot-api-key-compare";
+  const ha = createHmac("sha256", key).update(a).digest();
+  const hb = createHmac("sha256", key).update(b).digest();
+  return timingSafeEqual(ha, hb);
 }

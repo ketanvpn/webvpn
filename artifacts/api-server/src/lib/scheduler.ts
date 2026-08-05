@@ -614,20 +614,17 @@ export function startScheduler(): void {
 
 // ─── Laporan Harian Otomatis ─────────────────────────────────────────────────
 
-let lastDailyReportDate = "";
-
 async function sendDailyReport(): Promise<void> {
   try {
     const nowWIB = new Date(Date.now() + 7 * 60 * 60 * 1000);
     const hourWIB = nowWIB.getUTCHours();
 
-    // Kirim jam 8 pagi WIB saja
     if (hourWIB !== 8) return;
 
-    // Cegah kirim ganda di jam yang sama
     const todayKey = nowWIB.toISOString().slice(0, 10);
-    if (lastDailyReportDate === todayKey) return;
-    lastDailyReportDate = todayKey;
+    const lastSent = await getSchedulerFlag("lastDailyReportDate");
+    if (lastSent === todayKey) return;
+    await setSchedulerFlag("lastDailyReportDate", todayKey);
 
     const [adminChatRow] = await db
       .select({ value: settingsTable.value })
@@ -724,20 +721,19 @@ async function sendDailyReport(): Promise<void> {
 
 // ─── Low Margin Alert (Harian) ───────────────────────────────────────────────
 
-let lastMarginCheckDate = "";
-const LOW_MARGIN_THRESHOLD = 10; // persen
+const LOW_MARGIN_THRESHOLD = 10;
 
 async function checkLowMarginServers(): Promise<void> {
   try {
     const nowWIB = new Date(Date.now() + 7 * 60 * 60 * 1000);
     const hourWIB = nowWIB.getUTCHours();
 
-    // Cek hanya jam 8 pagi WIB (bareng daily report)
     if (hourWIB !== 8) return;
 
     const todayKey = nowWIB.toISOString().slice(0, 10);
-    if (lastMarginCheckDate === todayKey) return;
-    lastMarginCheckDate = todayKey;
+    const lastChecked = await getSchedulerFlag("lastMarginCheckDate");
+    if (lastChecked === todayKey) return;
+    await setSchedulerFlag("lastMarginCheckDate", todayKey);
 
     // Hitung profit bulan ini
     const now = new Date();
@@ -816,6 +812,27 @@ import os from "os";
 import { exec as execCb } from "child_process";
 import { checkPanelHealth } from "./vpn-panel";
 
+const FONNTE_TIMEOUT_MS = 8_000;
+
+async function getSchedulerFlag(key: string): Promise<string | null> {
+  const [row] = await db
+    .select({ value: settingsTable.value })
+    .from(settingsTable)
+    .where(eq(settingsTable.key, key))
+    .limit(1);
+  return row?.value ?? null;
+}
+
+async function setSchedulerFlag(key: string, value: string): Promise<void> {
+  await db
+    .insert(settingsTable)
+    .values({ key, value })
+    .onConflictDoUpdate({
+      target: settingsTable.key,
+      set: { value, updatedAt: new Date() },
+    });
+}
+
 // Cooldown: jangan spam alert yang sama berulang kali
 const alertCooldowns = new Map<string, number>();
 const ALERT_COOLDOWN_MS = 30 * 60 * 1000; // 30 menit cooldown per alert
@@ -889,6 +906,7 @@ async function runProactiveAlerts(): Promise<void> {
         const resp = await fetch("https://api.fonnte.com/device", {
           method: "POST",
           headers: { Authorization: fonnteToken },
+          signal: AbortSignal.timeout(FONNTE_TIMEOUT_MS),
         });
         const data = await resp.json() as { status?: boolean; device_status?: string };
         if (data.device_status === "disconnect" && shouldAlert("fonnte_disconnect")) {

@@ -7,8 +7,8 @@ import { getSocketIp } from "../lib/request-ip";
  * langsung (tanpa melewati reverse proxy Nginx/Cloudflare).
  *
  * Cara kerja:
- * 1. Jika request masuk melalui Nginx → header `X-Forwarded-For` ada → loloskan semua.
- * 2. Jika request masuk langsung (tanpa proxy) → hanya izinkan path webhook.
+ * 1. Jika request masuk dari loopback (127.0.0.1/::1) → berarti lewat Nginx → loloskan semua.
+ * 2. Jika request masuk langsung (IP bukan loopback) → hanya izinkan path webhook.
  *    Ini mencegah bypass Nginx untuk endpoint sensitif (auth, admin, dsb.).
  *
  * Webhook path yang diizinkan:
@@ -36,28 +36,27 @@ export function webhookGuard(
   res: Response,
   next: NextFunction,
 ): void {
-  // Jika request melalui reverse proxy (Nginx), X-Forwarded-For pasti ada
-  // karena konfigurasi Nginx kita selalu set header ini.
-  const forwardedFor = req.headers["x-forwarded-for"];
-  const hasProxy = Boolean(forwardedFor);
+  // Cek apakah request datang dari loopback (Nginx proxy di server yang sama).
+  // TIDAK mengandalkan header X-Forwarded-For karena bisa di-spoof oleh attacker.
+  const socketIp = getSocketIp(req);
+  const isLoopback =
+    socketIp === "127.0.0.1" ||
+    socketIp === "::1" ||
+    socketIp === "::ffff:127.0.0.1";
 
-  if (hasProxy) {
-    // Request melalui Nginx → aman, loloskan semua
+  if (isLoopback) {
+    // Request melalui Nginx di localhost → aman, loloskan semua
     next();
     return;
   }
 
-  // Request langsung (tanpa proxy) → cek apakah path diizinkan
-  const path = req.path.toLowerCase().replace(/\/+$/, ""); // normalize trailing slash
+  const path = req.path.toLowerCase().replace(/\/+$/, "");
 
   if (ALLOWED_DIRECT_PATHS.has(path)) {
-    // Webhook endpoint → izinkan
     next();
     return;
   }
 
-  // Non-webhook endpoint diakses langsung → tolak
-  const socketIp = getSocketIp(req);
   logger.warn(
     { ip: socketIp, method: req.method, path: req.path },
     "webhookGuard: blocked direct access to non-webhook endpoint (bypassing Nginx)",

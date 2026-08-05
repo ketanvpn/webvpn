@@ -23,9 +23,14 @@ import { performBackup } from "./backup";
 import { renewPanelAccount, checkPanelHealth } from "./vpn-panel";
 import { logger } from "./logger";
 import os from "os";
-import { exec } from "child_process";
+import { exec, execFile } from "child_process";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const MAX_GIFT_AMOUNT = 10_000_000;
+const MAX_EXTEND_DAYS = 365;
+const MAX_EXTEND_DELAY_SEC = 30;
+const FONNTE_TIMEOUT_MS = 8_000;
 
 function formatRupiah(n: number) {
   return "Rp " + n.toLocaleString("id-ID");
@@ -482,6 +487,11 @@ export async function handleGiftSaldo(chatId: number, username: string, amount: 
     return;
   }
 
+  if (amount > MAX_GIFT_AMOUNT) {
+    await sendMessage(chatId, `❌ Nominal maksimal ${formatRupiah(MAX_GIFT_AMOUNT)}.`);
+    return;
+  }
+
   const [user] = await db.select().from(usersTable).where(eq(usersTable.username, username)).limit(1);
 
   if (!user) {
@@ -489,28 +499,29 @@ export async function handleGiftSaldo(chatId: number, username: string, amount: 
     return;
   }
 
-  const newBalance = Number(user.balance) + amount;
+  const balanceBefore = Number(user.balance);
 
   await db.transaction(async (tx: any) => {
-    // 1. Update user balance
-    await tx.update(usersTable)
-      .set({ balance: newBalance.toString() })
-      .where(eq(usersTable.id, user.id));
+    const [updated] = await tx.update(usersTable)
+      .set({ balance: sql`${usersTable.balance} + ${amount}` })
+      .where(eq(usersTable.id, user.id))
+      .returning({ balance: usersTable.balance });
 
-    // 2. Insert to balance_logs
+    const balanceAfter = Number(updated.balance);
+
     await tx.insert(balanceLogsTable).values({
       userId: user.id,
       amount: amount.toString(),
       type: "compensation",
       description: `Kompensasi saldo dari Admin`,
-      balanceBefore: user.balance ? user.balance.toString() : "0",
-      balanceAfter: newBalance.toString(),
+      balanceBefore: balanceBefore.toString(),
+      balanceAfter: balanceAfter.toString(),
     });
   });
 
+  const newBalance = balanceBefore + amount;
   await sendMessage(chatId, `✅ <b>Kompensasi Berhasil</b>\n\nSaldo sebesar <b>${formatRupiah(amount)}</b> telah ditambahkan ke akun <b>${username}</b>.\nSaldo saat ini: <b>${formatRupiah(newBalance)}</b>`);
 
-  // Kirim notifikasi ke user (jika telegramnya terhubung)
   if (user.telegramId) {
     const userMsg = `🎁 <b>Kompensasi Saldo Masuk!</b>\n\nMohon maaf atas ketidaknyamanannya. Admin telah memberikan kompensasi saldo sebesar <b>${formatRupiah(amount)}</b> ke akun kamu.\n\nSaldo kamu sekarang: <b>${formatRupiah(newBalance)}</b>\n\nTerima kasih telah menggunakan layanan KETANTECH VPN!`;
     await sendMessage(Number(user.telegramId), userMsg).catch(() => {});
@@ -522,6 +533,13 @@ export async function handleExtendServer(chatId: number, serverId: number, days:
     await sendMessage(chatId, `❌ Jumlah hari perpanjangan harus lebih dari 0.`);
     return;
   }
+
+  if (days > MAX_EXTEND_DAYS) {
+    await sendMessage(chatId, `❌ Maksimal perpanjangan ${MAX_EXTEND_DAYS} hari.`);
+    return;
+  }
+
+  const boundedDelay = Math.min(Math.max(delaySec, 1), MAX_EXTEND_DELAY_SEC);
 
   const [server] = await db.select().from(serversTable).where(eq(serversTable.id, serverId)).limit(1);
   if (!server) {
@@ -546,7 +564,7 @@ export async function handleExtendServer(chatId: number, serverId: number, days:
     return;
   }
 
-  await sendMessage(chatId, `⏳ <b>Memulai Kompensasi Massal</b>\n\nDitemukan <b>${activeAccounts.length}</b> akun aktif di server <b>${server.name}</b>.\nSistem akan memproses penambahan <b>${days} hari</b> dengan jeda <b>${delaySec} detik</b> per akun agar tidak terblokir (Anti-Spam).\n\n<i>Mohon tunggu, laporan akhir akan dikirim otomatis setelah selesai.</i>`);
+  await sendMessage(chatId, `⏳ <b>Memulai Kompensasi Massal</b>\n\nDitemukan <b>${activeAccounts.length}</b> akun aktif di server <b>${server.name}</b>.\nSistem akan memproses penambahan <b>${days} hari</b> dengan jeda <b>${boundedDelay} detik</b> per akun agar tidak terblokir (Anti-Spam).\n\n<i>Mohon tunggu, laporan akhir akan dikirim otomatis setelah selesai.</i>`);
 
   let successCount = 0;
   let failedCount = 0;
@@ -582,7 +600,7 @@ export async function handleExtendServer(chatId: number, serverId: number, days:
 
     // Jeda delaySec detik sebelum lanjut ke akun berikutnya (kecuali akun terakhir)
     if (i < activeAccounts.length - 1) {
-      await delay(delaySec * 1000);
+      await delay(boundedDelay * 1000);
     }
   }
 
@@ -681,6 +699,7 @@ async function testWhatsappFonnte(): Promise<DiagnosticResult> {
     const resp = await fetch("https://api.fonnte.com/device", {
       method: "POST",
       headers: { Authorization: token },
+      signal: AbortSignal.timeout(FONNTE_TIMEOUT_MS),
     });
     const data = await resp.json() as {
       status?: boolean;
@@ -1028,7 +1047,15 @@ async function getStatusNowReport(): Promise<string> {
 async function getRecentErrorDigest(): Promise<string> {
   try {
     const appName = process.env.PM2_APP_NAME || "ketantech-api";
-    const raw = await execShell(`pm2 logs ${appName} --lines 250 --nostream`, 12000);
+    if (!/^[\w-]+$/.test(appName)) {
+      return `🧯 <b>Error Terakhir</b>\n\n⚠️ PM2_APP_NAME tidak valid.`;
+    }
+    const raw = await new Promise<string>((resolve, reject) => {
+      execFile("pm2", ["logs", appName, "--lines", "250", "--nostream"], { timeout: 12000 }, (err, stdout, stderr) => {
+        if (err) { reject(err); return; }
+        resolve((stdout || stderr || "").toString());
+      });
+    });
     const lines = raw
       .split(/\r?\n/)
       .map((l) => l.trim())

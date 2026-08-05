@@ -90,6 +90,28 @@ type PaymentKey = (typeof PAYMENT_KEYS)[number];
 type LegacyPaymentGateway = (typeof LEGACY_PAYMENT_GATEWAYS)[number];
 type SettingsMap = Record<string, string | null | undefined>;
 
+// ─── Secret Masking ──────────────────────────────────────────────────────────
+// Keys whose values must never be sent to the frontend in cleartext.
+const SECRET_KEYS = new Set<string>([
+  "autoGopaySecretKey",
+  "autoGopayCallbackToken",
+  "ketantechPayWebhookSecret",
+  "telegramBotToken",
+  "fonnteToken",
+]);
+
+/** Mask a secret value for safe display: "sk_live_abc123" → "sk_l***3123" (first 4 + *** + last 4). */
+function maskSecret(value: string | null | undefined): string | null {
+  if (!value) return null;
+  if (value.length <= 8) return "***";
+  return `${value.slice(0, 4)}***${value.slice(-4)}`;
+}
+
+/** Returns true if the raw value is a masked placeholder that should be skipped on PUT. */
+function isMaskedPlaceholder(value: unknown): boolean {
+  return typeof value === "string" && value.startsWith("***");
+}
+
 async function getSettingValue(key: string): Promise<string | null> {
   const [row] = await db
     .select({ value: settingsTable.value })
@@ -282,8 +304,8 @@ function buildPaymentSettingsResponse(map: SettingsMap) {
       : parseBoolean(map["autoGopayEnabled"]) || activeGateway === "autogopay",
     autoGopayApiUrl: map["autoGopayApiUrl"] ?? null,
     autoGopayMerchantId: map["autoGopayMerchantId"] ?? null,
-    autoGopaySecretKey: map["autoGopaySecretKey"] ?? null,
-    autoGopayCallbackToken: map["autoGopayCallbackToken"] ?? null,
+    autoGopaySecretKey: maskSecret(map["autoGopaySecretKey"]),
+    autoGopayCallbackToken: maskSecret(map["autoGopayCallbackToken"]),
     autoGopayGopayEnabled,
     autoGopayShopeePayEnabled,
     autoGopayShopeePayQrisStatic: map["autoGopayShopeePayQrisStatic"] ?? null,
@@ -292,7 +314,7 @@ function buildPaymentSettingsResponse(map: SettingsMap) {
       map["ketantechPayEnabled"] != null
         ? parseBoolean(map["ketantechPayEnabled"])
         : activeGateway === "ketantechpay",
-    ketantechPayWebhookSecret: map["ketantechPayWebhookSecret"] ?? null,
+    ketantechPayWebhookSecret: maskSecret(map["ketantechPayWebhookSecret"]),
     ketantechPayBaseUrl: map["ketantechPayBaseUrl"] ?? null,
     ketantechPayClientKey: map["ketantechPayClientKey"] ?? null,
   };
@@ -324,11 +346,13 @@ router.put("/admin/settings/payment", requireAdmin, async (req, res) => {
     existingRows.map((row) => [row.key, row.value]),
   );
   const existingSettings = buildPaymentSettingsResponse(existingMap);
+  const existingRawMap = existingMap;
   const updates: Partial<Record<PaymentKey, string | null>> = {};
 
   for (const key of PAYMENT_KEYS) {
     if (!(key in body)) continue;
     const raw = body[key];
+    if (isMaskedPlaceholder(raw)) continue;
     if (raw === null || raw === undefined) {
       updates[key] = null;
     } else if (key === "paymentChannelOrder") {
@@ -402,9 +426,9 @@ router.put("/admin/settings/payment", requireAdmin, async (req, res) => {
       : existingSettings.autoGopayShopeePayEnabled;
   const effectiveString = (
     key: PaymentKey,
-    existingValue: string | null,
+    _existingValue: string | null,
   ): string | null =>
-    key in updates ? updates[key] ?? null : existingValue;
+    key in updates ? updates[key] ?? null : (existingRawMap[key] as string | null) ?? null;
   const usabilityError = paymentSettingsUsabilityError({
     ketantechPayEnabled,
     ketantechPayBaseUrl: effectiveString(
@@ -470,7 +494,7 @@ export async function getPaymentSettingsMap(): Promise<Record<string, string | n
 
 function buildTelegramSettingsResponse(map: Record<string, string | null>) {
   return {
-    telegramBotToken: map["telegramBotToken"] ?? null,
+    telegramBotToken: maskSecret(map["telegramBotToken"]),
     telegramAdminChatId: map["telegramAdminChatId"] ?? null,
     telegramEnabled: parseBoolean(map["telegramEnabled"] ?? "false"),
     telegramBotUsername: map["telegramBotUsername"] ?? null,
@@ -489,6 +513,7 @@ router.put("/admin/settings/telegram", requireAdmin, async (req, res) => {
   for (const key of TELEGRAM_KEYS) {
     if (key in body) {
       const raw = body[key];
+      if (isMaskedPlaceholder(raw)) continue;
       const value = raw === null || raw === undefined ? null : String(raw);
       await setSettingValue(key, value);
     }
@@ -503,7 +528,7 @@ router.put("/admin/settings/telegram", requireAdmin, async (req, res) => {
 
 function buildWhatsappSettingsResponse(map: Record<string, string | null>) {
   return {
-    fonnteToken: map["fonnteToken"] ?? null,
+    fonnteToken: maskSecret(map["fonnteToken"]),
     fonnteWhatsappNumber: map["fonnteWhatsappNumber"] ?? null,
     whatsappOtpEnabled: parseBoolean(map["whatsappOtpEnabled"] ?? "true"),
   };
@@ -521,6 +546,7 @@ router.put("/admin/settings/whatsapp", requireAdmin, async (req, res) => {
   for (const key of WHATSAPP_KEYS) {
     if (key in body) {
       const raw = body[key];
+      if (isMaskedPlaceholder(raw)) continue;
       const value = raw === null || raw === undefined ? null : String(raw);
       await setSettingValue(key, value);
     }

@@ -1,11 +1,26 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { usersTable, balanceLogsTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { randomBytes } from "crypto";
+import rateLimit from "express-rate-limit";
 import { requireAuth } from "../lib/auth";
 import { requireBotApiKey } from "../middlewares/bot-auth-key";
+import { getClientIp } from "../lib/request-ip";
 import { logger } from "../lib/logger";
+
+const TOKEN_TTL_MS = 30 * 60 * 1000;
+const MAX_CREDIT_AMOUNT = Number(process.env.BOT_MAX_CREDIT || 10_000_000);
+const MAX_DESCRIPTION_LEN = 255;
+const REF_ID_REGEX = /^[a-zA-Z0-9_-]{1,64}$/;
+
+const botApiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  keyGenerator: (req) => getClientIp(req),
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 /**
  * Endpoint khusus untuk Bot Telegram VPN (BotVPN repo / @panelketan_bot).
@@ -85,7 +100,7 @@ router.delete("/telegram/vpn-link", requireAuth, async (req, res) => {
 // POST /telegram/verify-link-token
 // Body: { token: string, telegramId: number }
 // Response: { ok: true, user: { id, username, email, balance, fullName, role } }
-router.post("/telegram/verify-link-token", requireBotApiKey, async (req, res) => {
+router.post("/telegram/verify-link-token", requireBotApiKey, botApiLimiter, async (req, res) => {
   const tokenRaw = String(req.body?.token || "").trim();
   const telegramIdRaw = Number(req.body?.telegramId || 0);
 
@@ -98,7 +113,6 @@ router.post("/telegram/verify-link-token", requireBotApiKey, async (req, res) =>
     return;
   }
 
-  // Cari user web by vpnTelegramLinkToken (token sekali pakai untuk Bot VPN).
   const [foundUser] = await db
     .select({
       id: usersTable.id,
@@ -109,6 +123,7 @@ router.post("/telegram/verify-link-token", requireBotApiKey, async (req, res) =>
       role: usersTable.role,
       isActive: usersTable.isActive,
       vpnTelegramId: usersTable.vpnTelegramId,
+      updatedAt: usersTable.updatedAt,
     })
     .from(usersTable)
     .where(eq(usersTable.vpnTelegramLinkToken, tokenRaw))
@@ -123,7 +138,16 @@ router.post("/telegram/verify-link-token", requireBotApiKey, async (req, res) =>
     return;
   }
 
-  // Konflik 1: user ini sudah link ke vpnTelegramId yang BEDA.
+  // TTL check: token expires 30 minutes after generation
+  if (foundUser.updatedAt && Date.now() - new Date(foundUser.updatedAt).getTime() > TOKEN_TTL_MS) {
+    await db
+      .update(usersTable)
+      .set({ vpnTelegramLinkToken: null })
+      .where(eq(usersTable.id, foundUser.id));
+    res.status(410).json({ error: "Token kedaluwarsa (>30 menit). Buat token baru dari web." });
+    return;
+  }
+
   if (foundUser.vpnTelegramId && Number(foundUser.vpnTelegramId) !== telegramIdRaw) {
     logger.warn(
       { webUserId: foundUser.id, oldTgId: foundUser.vpnTelegramId, newTgId: telegramIdRaw },
@@ -131,8 +155,6 @@ router.post("/telegram/verify-link-token", requireBotApiKey, async (req, res) =>
     );
   }
 
-  // Konflik 2: vpnTelegramId yang dikirim bot, sudah linked ke user web LAIN.
-  // Putus link lama dulu, baru link ke user baru. 1 vpnTelegramId = 1 user web.
   const [conflict] = await db
     .select({ id: usersTable.id, username: usersTable.username })
     .from(usersTable)
@@ -150,7 +172,8 @@ router.post("/telegram/verify-link-token", requireBotApiKey, async (req, res) =>
     );
   }
 
-  // Set vpnTelegramId, clear token (sekali pakai).
+  // Atomic update with TTL guard
+  const cutoff = new Date(Date.now() - TOKEN_TTL_MS);
   const [updated] = await db
     .update(usersTable)
     .set({
@@ -158,7 +181,13 @@ router.post("/telegram/verify-link-token", requireBotApiKey, async (req, res) =>
       vpnTelegramLinkToken: null,
       updatedAt: new Date(),
     })
-    .where(eq(usersTable.id, foundUser.id))
+    .where(
+      and(
+        eq(usersTable.id, foundUser.id),
+        eq(usersTable.vpnTelegramLinkToken, tokenRaw),
+        sql`${usersTable.updatedAt} >= ${cutoff}`,
+      ),
+    )
     .returning({
       id: usersTable.id,
       username: usersTable.username,
@@ -169,7 +198,7 @@ router.post("/telegram/verify-link-token", requireBotApiKey, async (req, res) =>
     });
 
   if (!updated) {
-    res.status(500).json({ error: "Gagal menyimpan link akun" });
+    res.status(409).json({ error: "Token sudah dipakai atau kedaluwarsa" });
     return;
   }
 
@@ -193,7 +222,7 @@ router.post("/telegram/verify-link-token", requireBotApiKey, async (req, res) =>
 
 // GET /telegram/user-by-tgid/:telegramId
 // Cari user web by vpnTelegramId (bukan telegramId yang dipakai Bot Notifikasi).
-router.get("/telegram/user-by-tgid/:telegramId", requireBotApiKey, async (req, res) => {
+router.get("/telegram/user-by-tgid/:telegramId", requireBotApiKey, botApiLimiter, async (req, res) => {
   const tgId = Number(req.params.telegramId);
   if (!tgId || !Number.isFinite(tgId)) {
     res.status(400).json({ error: "telegramId tidak valid" });
@@ -235,7 +264,7 @@ router.get("/telegram/user-by-tgid/:telegramId", requireBotApiKey, async (req, r
 
 // GET /telegram/balance/:telegramId
 // Versi ringkas: cuma balance + pendingTopup.
-router.get("/telegram/balance/:telegramId", requireBotApiKey, async (req, res) => {
+router.get("/telegram/balance/:telegramId", requireBotApiKey, botApiLimiter, async (req, res) => {
   const tgId = Number(req.params.telegramId);
   if (!tgId || !Number.isFinite(tgId)) {
     res.status(400).json({ error: "telegramId tidak valid" });
@@ -268,10 +297,11 @@ router.get("/telegram/balance/:telegramId", requireBotApiKey, async (req, res) =
 // dipakai sebelumnya, request akan di-skip dan respons.applied=false.
 // Response: { ok: true, applied: boolean, newBalance: number }
 // ============================================================================
-router.post("/telegram/credit", requireBotApiKey, async (req, res) => {
+router.post("/telegram/credit", requireBotApiKey, botApiLimiter, async (req, res) => {
   const tgId = Number(req.body?.telegramId || 0);
   const amount = Number(req.body?.amount || 0);
-  const description = String(req.body?.description || "").trim() || "Credit dari Bot VPN";
+  const rawDesc = String(req.body?.description || "").trim();
+  const description = rawDesc.replace(/\[refId:/gi, "").slice(0, MAX_DESCRIPTION_LEN) || "Credit dari Bot VPN";
   const refId = req.body?.refId ? String(req.body.refId).trim() : null;
 
   if (!tgId || !Number.isFinite(tgId)) {
@@ -282,11 +312,17 @@ router.post("/telegram/credit", requireBotApiKey, async (req, res) => {
     res.status(400).json({ error: "amount harus > 0" });
     return;
   }
+  if (amount > MAX_CREDIT_AMOUNT) {
+    res.status(400).json({ error: `amount melebihi batas maksimal (${MAX_CREDIT_AMOUNT})` });
+    return;
+  }
+  if (refId && !REF_ID_REGEX.test(refId)) {
+    res.status(400).json({ error: "refId tidak valid (alphanumeric, dash, underscore, 1-64 chars)" });
+    return;
+  }
 
   try {
     const result = await db.transaction(async (tx) => {
-      // Cari user by vpnTelegramId. Lock baris dengan FOR UPDATE supaya update
-      // saldo aman dari race condition concurrent debit/credit.
       const [user] = await tx
         .select({
           id: usersTable.id,
@@ -301,15 +337,16 @@ router.post("/telegram/credit", requireBotApiKey, async (req, res) => {
         return { error: "User tidak ditemukan untuk telegramId ini", status: 404 };
       }
 
-      // Idempotency check: kalau refId sudah ada di balance_logs, skip.
-      // (description LIKE 'refId:<refId>' dipakai sebagai marker — kita simpan
-      // refId di description supaya tidak butuh kolom baru di balance_logs).
       if (refId) {
-        const marker = `[refId:${refId}]`;
         const [existing] = await tx
           .select({ id: balanceLogsTable.id })
           .from(balanceLogsTable)
-          .where(sql`${balanceLogsTable.userId} = ${user.id} AND ${balanceLogsTable.description} LIKE ${"%" + marker + "%"}`)
+          .where(
+            and(
+              eq(balanceLogsTable.userId, user.id),
+              eq(balanceLogsTable.refId, refId),
+            ),
+          )
           .limit(1);
         if (existing) {
           return { ok: true, applied: false, newBalance: Number(user.balance), reason: "duplicate refId" };
@@ -317,18 +354,16 @@ router.post("/telegram/credit", requireBotApiKey, async (req, res) => {
       }
 
       const balanceBefore = Number(user.balance);
-      const balanceAfter = balanceBefore + amount;
-      const fullDescription = refId
-        ? `${description} [refId:${refId}]`
-        : description;
 
       await tx
         .update(usersTable)
         .set({
-          balance: balanceAfter.toFixed(2),
+          balance: sql`${usersTable.balance} + ${amount}`,
           updatedAt: new Date(),
         })
         .where(eq(usersTable.id, user.id));
+
+      const balanceAfter = balanceBefore + amount;
 
       await tx.insert(balanceLogsTable).values({
         userId: user.id,
@@ -336,7 +371,8 @@ router.post("/telegram/credit", requireBotApiKey, async (req, res) => {
         amount: amount.toFixed(2),
         balanceBefore: balanceBefore.toFixed(2),
         balanceAfter: balanceAfter.toFixed(2),
-        description: fullDescription,
+        description,
+        refId: refId ?? undefined,
       });
 
       return { ok: true, applied: true, newBalance: balanceAfter };
@@ -351,7 +387,11 @@ router.post("/telegram/credit", requireBotApiKey, async (req, res) => {
       "telegram/credit",
     );
     res.json(result);
-  } catch (e) {
+  } catch (e: any) {
+    if (e.code === "23505") {
+      res.json({ ok: true, applied: false, reason: "duplicate refId (constraint)" });
+      return;
+    }
     logger.error({ err: e, tgId, amount }, "telegram/credit error");
     res.status(500).json({ error: "Gagal credit saldo" });
   }
@@ -364,10 +404,11 @@ router.post("/telegram/credit", requireBotApiKey, async (req, res) => {
 // Tolak (400) kalau saldo kurang.
 // Response: { ok: true, applied: boolean, newBalance: number }
 // ============================================================================
-router.post("/telegram/debit", requireBotApiKey, async (req, res) => {
+router.post("/telegram/debit", requireBotApiKey, botApiLimiter, async (req, res) => {
   const tgId = Number(req.body?.telegramId || 0);
   const amount = Number(req.body?.amount || 0);
-  const description = String(req.body?.description || "").trim() || "Debit dari Bot VPN";
+  const rawDesc = String(req.body?.description || "").trim();
+  const description = rawDesc.replace(/\[refId:/gi, "").slice(0, MAX_DESCRIPTION_LEN) || "Debit dari Bot VPN";
   const refId = req.body?.refId ? String(req.body.refId).trim() : null;
 
   if (!tgId || !Number.isFinite(tgId)) {
@@ -376,6 +417,14 @@ router.post("/telegram/debit", requireBotApiKey, async (req, res) => {
   }
   if (!Number.isFinite(amount) || amount <= 0) {
     res.status(400).json({ error: "amount harus > 0" });
+    return;
+  }
+  if (amount > MAX_CREDIT_AMOUNT) {
+    res.status(400).json({ error: `amount melebihi batas maksimal (${MAX_CREDIT_AMOUNT})` });
+    return;
+  }
+  if (refId && !REF_ID_REGEX.test(refId)) {
+    res.status(400).json({ error: "refId tidak valid (alphanumeric, dash, underscore, 1-64 chars)" });
     return;
   }
 
@@ -396,11 +445,15 @@ router.post("/telegram/debit", requireBotApiKey, async (req, res) => {
       }
 
       if (refId) {
-        const marker = `[refId:${refId}]`;
         const [existing] = await tx
           .select({ id: balanceLogsTable.id })
           .from(balanceLogsTable)
-          .where(sql`${balanceLogsTable.userId} = ${user.id} AND ${balanceLogsTable.description} LIKE ${"%" + marker + "%"}`)
+          .where(
+            and(
+              eq(balanceLogsTable.userId, user.id),
+              eq(balanceLogsTable.refId, refId),
+            ),
+          )
           .limit(1);
         if (existing) {
           return { ok: true, applied: false, newBalance: Number(user.balance), reason: "duplicate refId" };
@@ -411,18 +464,16 @@ router.post("/telegram/debit", requireBotApiKey, async (req, res) => {
       if (balanceBefore < amount) {
         return { error: "Saldo tidak cukup", status: 400, newBalance: balanceBefore };
       }
-      const balanceAfter = balanceBefore - amount;
-      const fullDescription = refId
-        ? `${description} [refId:${refId}]`
-        : description;
 
       await tx
         .update(usersTable)
         .set({
-          balance: balanceAfter.toFixed(2),
+          balance: sql`${usersTable.balance} - ${amount}`,
           updatedAt: new Date(),
         })
         .where(eq(usersTable.id, user.id));
+
+      const balanceAfter = balanceBefore - amount;
 
       await tx.insert(balanceLogsTable).values({
         userId: user.id,
@@ -430,7 +481,8 @@ router.post("/telegram/debit", requireBotApiKey, async (req, res) => {
         amount: amount.toFixed(2),
         balanceBefore: balanceBefore.toFixed(2),
         balanceAfter: balanceAfter.toFixed(2),
-        description: fullDescription,
+        description,
+        refId: refId ?? undefined,
       });
 
       return { ok: true, applied: true, newBalance: balanceAfter };
@@ -450,7 +502,11 @@ router.post("/telegram/debit", requireBotApiKey, async (req, res) => {
       "telegram/debit",
     );
     res.json(result);
-  } catch (e) {
+  } catch (e: any) {
+    if (e.code === "23505") {
+      res.json({ ok: true, applied: false, reason: "duplicate refId (constraint)" });
+      return;
+    }
     logger.error({ err: e, tgId, amount }, "telegram/debit error");
     res.status(500).json({ error: "Gagal debit saldo" });
   }
@@ -459,7 +515,7 @@ router.post("/telegram/debit", requireBotApiKey, async (req, res) => {
 // POST /telegram/unlink
 // Body: { telegramId: number }
 // Cuma clear vpnTelegramId — kolom telegramId (Bot Notifikasi) tidak disentuh.
-router.post("/telegram/unlink", requireBotApiKey, async (req, res) => {
+router.post("/telegram/unlink", requireBotApiKey, botApiLimiter, async (req, res) => {
   const tgId = Number(req.body?.telegramId || 0);
   if (!tgId || !Number.isFinite(tgId)) {
     res.status(400).json({ error: "telegramId tidak valid" });
