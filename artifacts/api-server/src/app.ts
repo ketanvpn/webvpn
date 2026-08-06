@@ -2,6 +2,7 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
+import path from "path";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { getClientIp } from "./lib/request-ip";
@@ -79,6 +80,10 @@ if (process.env.NODE_ENV === "production") {
   app.use(webhookGuard);
   logger.info("Webhook guard enabled (production mode)");
 }
+
+// ─── Static file serving (uploads) ────────────────────────────────────────────
+// Serve uploaded files at /api/uploads so Nginx proxies them correctly
+app.use("/api/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 app.use("/api", router);
 

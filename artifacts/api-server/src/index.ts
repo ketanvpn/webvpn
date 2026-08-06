@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { seedDefaultAdmin, seedEasyInjectPresets } from "./lib/seed";
+import { seedDefaultAdmin, seedEasyInjectPresets, seedTutorials } from "./lib/seed";
 import { startScheduler } from "./lib/scheduler";
 
 // ─── Validasi konfigurasi kritis saat startup ────────────────────────────────
@@ -72,6 +72,7 @@ validateEnv();
 async function startServer() {
   await seedDefaultAdmin();
   await seedEasyInjectPresets();
+  await seedTutorials();
 
   app.listen(port, (err) => {
     if (err) {

@@ -56,6 +56,7 @@ import AdminVouchers from "@/pages/admin/vouchers";
 import AdminBugPresets from "@/pages/admin/bug-presets";
 import AdminInjectPresets from "@/pages/admin/inject-presets";
 import AdminAuditLogs from "@/pages/admin/audit-logs";
+import AdminTutorials from "./pages/admin/tutorials";
 
 // Redirect component for legacy routes
 function Redirect({ to }: { to: string }) {
@@ -211,6 +212,9 @@ function Router() {
       </Route>
       <Route path="/admin/inject-presets">
         <Layout requireAdmin><AdminInjectPresets /></Layout>
+      </Route>
+      <Route path="/admin/tutorials">
+        <Layout requireAdmin><AdminTutorials /></Layout>
       </Route>
       <Route path="/admin/audit-logs">
         <Layout requireAdmin><AdminAuditLogs /></Layout>

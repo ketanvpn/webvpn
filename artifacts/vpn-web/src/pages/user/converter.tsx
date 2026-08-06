@@ -204,19 +204,17 @@ function HttpCustomGuideCard({
   copiedField,
   onCopy,
 }: HttpCustomGuideCardProps) {
-  const steps = [
-    "Pilih mode SSH di HTTP Custom, lalu tempel SSH Login.",
-    "Ketuk ikon tiga garis (☰) di kiri atas, lalu pilih menu Payload.",
-    guide.usePayload
-      ? "Di kolom Payload, tempel Payload. Di kolom tepat di bawahnya, tempel Remote Proxy, lalu pilih Apply."
-      : "Biarkan kolom Payload kosong. Tempel Remote Proxy pada kolom yang tersedia, lalu pilih Apply.",
-    guide.usePayload
-      ? "Aktifkan Use Payload."
-      : "Biarkan Use Payload nonaktif sesuai pengaturan preset.",
-    guide.ssl
-      ? "Ketuk ikon tiga garis (☰) lagi, pilih menu SNI yang berada di bawah Payload, tempel Server Name Indication, lalu aktifkan SSL."
-      : "Biarkan SSL mati dan SNI kosong sesuai pengaturan preset.",
-    "Tekan CONNECT. Jika gagal, buka tab LOG dan kirim screenshot error ke admin.",
+  const { data: tutorial } = useQuery({
+    queryKey: ["tutorial", "http-custom"],
+    queryFn: () => apiClient.get<{ steps: Array<{ id: string; stepNumber: number; title: string; description: string; imageUrl: string | null }> }>("/api/tutorials/http-custom"),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const steps = tutorial?.steps ?? [
+    { stepNumber: 1, title: "Buka HTTP Custom", description: "Buka aplikasi HTTP Custom versi terbaru." },
+    { stepNumber: 2, title: "Pilih SSH", description: "Ketuk chip SSH di halaman Beranda." },
+    { stepNumber: 3, title: "Isi Pengaturan", description: "Aktifkan payload, pilih metode, dan isi field yang sesuai dari data di atas." },
+    { stepNumber: 4, title: "Hubungkan", description: "Ketuk tombol ▶ untuk connect." },
   ];
 
   return (
@@ -316,16 +314,26 @@ function HttpCustomGuideCard({
 
         <section className="space-y-3 w-full min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-background/30 p-3 sm:p-4">
           <h3 className="font-semibold text-sm sm:text-base break-words">B. Langkah di aplikasi</h3>
-          <ol className="space-y-3 text-sm min-w-0 w-full">
-            {steps.map((step, index) => (
-              <li key={step} className="flex w-full min-w-0 items-start gap-3">
-                <span className="flex h-6 w-6 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] sm:text-xs font-bold text-primary-foreground">
-                  {index + 1}
-                </span>
-                <span className="pt-0.5 sm:pt-1 break-words min-w-0 flex-1 text-xs sm:text-sm">{step}</span>
-              </li>
+          <div className="space-y-3 text-sm min-w-0 w-full">
+            {steps.map((step, i) => (
+              <div key={("id" in step && step.id) ? step.id : i} className="flex gap-3">
+                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold">
+                  {step.stepNumber}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-foreground">{step.title}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{step.description}</p>
+                  {("imageUrl" in step && step.imageUrl) ? (
+                    <img
+                      src={step.imageUrl}
+                      alt={step.title}
+                      className="mt-2 rounded-lg border border-border max-w-full max-h-48 object-contain"
+                    />
+                  ) : null}
+                </div>
+              </div>
             ))}
-          </ol>
+          </div>
         </section>
 
         <section className="space-y-3 min-w-0 w-full overflow-hidden">

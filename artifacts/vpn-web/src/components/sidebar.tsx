@@ -35,6 +35,7 @@ import {
   ShieldPlus,
   Network,
   Crown,
+  BookOpen,
 } from "lucide-react";
 import {
   Sheet,
@@ -118,6 +119,7 @@ const adminNavGroups: AdminNavGroup[] = [
       { title: "NadiaVPN", href: "/admin/nadiavpn", icon: Cloud },
       { title: "Preset Inject Paket", href: "/admin/inject-presets", icon: Network },
       { title: "Manajemen Bug", href: "/admin/bug-presets", icon: Bug },
+      { title: "Tutorial Aplikasi", href: "/admin/tutorials", icon: BookOpen },
       { title: "Payment Gateway", href: "/admin/settings/payment", icon: QrCode },
       { title: "Notifikasi Telegram", href: "/admin/settings/telegram", icon: Bell },
       { title: "WhatsApp OTP", href: "/admin/settings/whatsapp", icon: Smartphone },

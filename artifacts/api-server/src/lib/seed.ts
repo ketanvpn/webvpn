@@ -3,13 +3,14 @@ import {
   easyInjectPresetRevisionsTable,
   easyInjectPresetsTable,
   usersTable,
+  appTutorialsTable,
   type EasyInjectPreset,
   type EasyInjectPresetSnapshot,
   type InsertEasyInjectPreset,
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
-import { randomBytes } from "crypto";
+import { randomBytes, randomUUID } from "crypto";
 import { logger } from "./logger";
 
 const EASY_INJECT_PAYLOAD =
@@ -182,5 +183,85 @@ export async function seedEasyInjectPresets() {
 
   if (insertedCount > 0) {
     logger.info({ insertedCount }, "Default Easy Inject presets created");
+  }
+}
+
+export async function seedTutorials() {
+  try {
+    const [created] = await db
+      .insert(appTutorialsTable)
+      .values({
+        appSlug: "http-custom",
+        appName: "HTTP Custom",
+        description: "Panduan pengaturan HTTP Custom v7.9.17+ untuk koneksi SSH",
+        isActive: true,
+        sortOrder: 0,
+        steps: [
+          {
+            id: randomUUID(),
+            stepNumber: 1,
+            title: "Buka HTTP Custom",
+            description:
+              "Buka aplikasi **HTTP Custom**. Pastikan kamu menggunakan versi terbaru (v7.9.17+).",
+            imageUrl: null,
+          },
+          {
+            id: randomUUID(),
+            stepNumber: 2,
+            title: "Pilih Protokol SSH",
+            description:
+              'Di halaman **Beranda**, ketuk chip **SSH** pada daftar protokol yang tersedia.',
+            imageUrl: null,
+          },
+          {
+            id: randomUUID(),
+            stepNumber: 3,
+            title: "Aktifkan Payload",
+            description:
+              'Aktifkan toggle **"Gunakan payload"** untuk membuka pengaturan payload.',
+            imageUrl: null,
+          },
+          {
+            id: randomUUID(),
+            stepNumber: 4,
+            title: "Pilih Metode Koneksi",
+            description:
+              "Pilih metode yang sesuai dengan preset kamu:\n- **Enhanced** — untuk koneksi standar\n- **TLS** — untuk koneksi SSL/TLS (SNI akan muncul)\n- **SlowDNS** — untuk jaringan yang memblokir port",
+            imageUrl: null,
+          },
+          {
+            id: randomUUID(),
+            stepNumber: 5,
+            title: "Isi Pengaturan Payload",
+            description:
+              "Tempel **Custom Payload** dan **Remote Proxy** dari data di atas ke field yang sesuai di kartu Payload.\n\nJika menggunakan metode **TLS**, tempel juga **SNI** ke field Server Name Indication.",
+            imageUrl: null,
+          },
+          {
+            id: randomUUID(),
+            stepNumber: 6,
+            title: "Isi Akun SSH",
+            description:
+              "Di kartu **Akun**, isi:\n- **SSH Host:Port** — alamat server\n- **Username** — username SSH\n- **Password** — password SSH\n\nAtau tempel langsung format `host:port@username:password` dari field SSH Login di atas.",
+            imageUrl: null,
+          },
+          {
+            id: randomUUID(),
+            stepNumber: 7,
+            title: "Hubungkan",
+            description:
+              "Kembali ke halaman **Beranda** dan ketuk tombol **▶** (Play) di pojok kanan bawah untuk memulai koneksi.",
+            imageUrl: null,
+          },
+        ],
+      })
+      .onConflictDoNothing({ target: appTutorialsTable.appSlug })
+      .returning();
+
+    if (created) {
+      logger.info("Default HTTP Custom tutorial created");
+    }
+  } catch (err) {
+    logger.error({ err }, "Gagal membuat tutorial default");
   }
 }
