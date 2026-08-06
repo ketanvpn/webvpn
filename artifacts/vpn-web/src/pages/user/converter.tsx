@@ -315,9 +315,11 @@ function HttpCustomGuideCard({
         id: "step-payload",
         stepNumber: steps.length + 1,
         shortLabel: "Payload",
-        title: `3. Atur Metode & Salin Payload`,
-        badge: `Metode: ${recommendedMethod}`,
-        description: `Aktifkan payload, pilih metode ${recommendedMethod}, lalu tempel Payload & Remote Proxy.`,
+        title: isTls ? "3. Pilih Metode TLS & Isi Payload" : "3. Aktifkan Payload & Remote Proxy",
+        badge: isTls ? "Metode: TLS" : "Gunakan Payload",
+        description: isTls
+          ? "Aktifkan payload, pilih metode TLS, lalu tempel Payload & Remote Proxy."
+          : "Aktifkan toggle 'Gunakan payload', metode biarkan default, lalu tempel Payload & Remote Proxy.",
         imageUrl: tutorialImages.get(3) ?? tutorialImages.get(4) ?? null,
         instructions: (
           <div className="space-y-3 text-xs sm:text-sm text-foreground/90">
@@ -327,12 +329,18 @@ function HttpCustomGuideCard({
               </div>
               <ul className="list-disc list-inside space-y-1 text-cyan-100/90 pl-1">
                 <li>
-                  Nyalakan toggle <strong>Gunakan payload</strong> (aktifkan/ON).
+                  Nyalakan toggle <strong>Gunakan payload</strong> (posisi ON).
                 </li>
-                <li>
-                  Pilih kartu metode <strong>{recommendedMethod}</strong>.
-                </li>
-                <li>Salin dan tempel data berikut ke field yang sesuai di bawahnya.</li>
+                {isTls ? (
+                  <li>
+                    Pilih kartu metode <strong>TLS</strong> (untuk membuka kolom SNI).
+                  </li>
+                ) : (
+                  <li>
+                    Bagian <strong>Metode</strong> biarkan default (<strong>tidak perlu centang Enhanced atau TLS</strong>).
+                  </li>
+                )}
+                <li>Salin dan tempel data Payload & Remote Proxy di bawah ini:</li>
               </ul>
             </div>
           </div>
@@ -541,7 +549,10 @@ function HttpCustomGuideCard({
                 </Badge>
               </CardTitle>
               <CardDescription className="text-xs mt-0.5">
-                Target Preset: <strong className="text-foreground">{guide.targetLabel}</strong> • Metode: <strong className="text-cyan-300">{recommendedMethod}</strong>
+                Target Preset: <strong className="text-foreground">{guide.targetLabel}</strong> • Metode:{" "}
+                <strong className="text-cyan-300">
+                  {isTls ? "TLS (SSL)" : guide.usePayload ? "Payload Standar" : "SSH Direct"}
+                </strong>
               </CardDescription>
             </div>
           </div>
@@ -709,7 +720,15 @@ function HttpCustomGuideCard({
               <Sparkles className="h-4 w-4 text-cyan-300 shrink-0" />
               <AlertTitle className="text-sm font-semibold text-cyan-300">Mode Cepat (Semua Data)</AlertTitle>
               <AlertDescription className="text-xs text-muted-foreground mt-0.5">
-                Salin seluruh parameter yang dibutuhkan di bawah ini satu per satu. Pastikan memilih metode <strong>{recommendedMethod}</strong> di aplikasi HTTP Custom.
+                {isTls ? (
+                  <>
+                    Salin parameter di bawah ini. Pastikan memilih metode <strong>TLS</strong> di HTTP Custom untuk membuka kolom SNI.
+                  </>
+                ) : (
+                  <>
+                    Salin parameter di bawah ini. Cukup aktifkan toggle <strong>Gunakan payload</strong> (metode biarkan default).
+                  </>
+                )}
               </AlertDescription>
             </Alert>
 
@@ -717,8 +736,8 @@ function HttpCustomGuideCard({
               <Badge className={`shrink-0 text-[11px] ${guide.usePayload ? "bg-emerald-600" : "bg-slate-600"}`}>
                 Gunakan Payload: {guide.usePayload ? "ON" : "OFF"}
               </Badge>
-              <Badge className={`shrink-0 text-[11px] ${guide.ssl ? "bg-emerald-600" : "bg-slate-600"}`}>
-                Metode: {recommendedMethod}
+              <Badge className={`shrink-0 text-[11px] ${isTls ? "bg-cyan-600" : "bg-slate-600"}`}>
+                Metode: {isTls ? "TLS" : "Default / Standar"}
               </Badge>
               <Badge variant="outline" className="shrink-0 text-[10px]">
                 Mode: {guide.mode}
