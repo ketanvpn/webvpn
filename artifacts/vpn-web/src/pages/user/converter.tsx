@@ -227,7 +227,7 @@ function HttpCustomGuideCard({
 }: HttpCustomGuideCardProps) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [viewMode, setViewMode] = useState<"wizard" | "all">("wizard");
-  const [sshAccountFormat, setSshAccountFormat] = useState<"instant" | "separate">("instant");
+  const [sshAccountFormat, setSshAccountFormat] = useState<"standard" | "instant">("standard");
 
   const { data: tutorial } = useQuery({
     queryKey: ["tutorial", "http-custom"],
@@ -423,20 +423,33 @@ function HttpCustomGuideCard({
       });
     }
 
+    const sshHostPort = `${guide.ssh.host}:${guide.ssh.port}`;
+
     steps.push({
       id: "step-account",
       stepNumber: steps.length + 1,
       shortLabel: "Akun SSH",
       title: `${steps.length + 1}. Masukkan Akun SSH`,
       badge: "Kredensial Akun",
-      description: "Scroll ke bagian Akun SSH lalu masukkan data akunmu.",
+      description: "Scroll ke bagian Akun pada menu SSH di HTTP Custom.",
       imageUrl: tutorialImages.get(6) ?? null,
       instructions: (
         <div className="space-y-3 text-xs sm:text-sm text-foreground/90">
           <p>
-            Scroll ke bawah hingga menemukan bagian <strong>Akun</strong> pada menu SSH. Kamu bisa memilih cara pengisian:
+            Scroll ke bawah hingga menemukan kartu <strong>Akun</strong> pada menu SSH. Salin kredensial sesuai urutan berikut:
           </p>
           <div className="flex rounded-lg border border-white/10 p-1 bg-black/20 gap-1 w-full max-w-sm">
+            <button
+              type="button"
+              onClick={() => setSshAccountFormat("standard")}
+              className={`flex-1 py-1.5 px-3 text-xs rounded-md font-medium transition-all ${
+                sshAccountFormat === "standard"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-white"
+              }`}
+            >
+              📋 Format Standar v7 (Utama)
+            </button>
             <button
               type="button"
               onClick={() => setSshAccountFormat("instant")}
@@ -446,52 +459,52 @@ function HttpCustomGuideCard({
                   : "text-muted-foreground hover:text-white"
               }`}
             >
-              ⚡ Format Cepat (1x Salin)
-            </button>
-            <button
-              type="button"
-              onClick={() => setSshAccountFormat("separate")}
-              className={`flex-1 py-1.5 px-3 text-xs rounded-md font-medium transition-all ${
-                sshAccountFormat === "separate"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-white"
-              }`}
-            >
-              📝 Field Terpisah
+              ⚡ 1x Salin (Gabungan)
             </button>
           </div>
         </div>
       ),
       actions: (
         <div className="pt-2">
-          {sshAccountFormat === "instant" ? (
+          {sshAccountFormat === "standard" ? (
+            <div className="space-y-3">
+              <CopyableGuideField
+                id="ssh-host-port"
+                label="1. SSH Host:Port"
+                value={sshHostPort}
+                hint="Tempel ke kolom pertama (SSH Host:Port)"
+                copied={copiedField === "ssh-host-port"}
+                onCopy={onCopy}
+              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <CopyableGuideField
+                  id="ssh-username"
+                  label="2. Nama Pengguna SSH"
+                  value={guide.ssh.username}
+                  hint="Tempel ke kolom Nama Pengguna"
+                  copied={copiedField === "ssh-username"}
+                  onCopy={onCopy}
+                />
+                <CopyableGuideField
+                  id="ssh-password"
+                  label="3. Kata Sandi SSH"
+                  value={guide.ssh.password}
+                  hint="Tempel ke kolom Kata Sandi"
+                  copied={copiedField === "ssh-password"}
+                  onCopy={onCopy}
+                />
+              </div>
+            </div>
+          ) : (
             <CopyableGuideField
               id="ssh-login"
-              label="SSH Login (Format Instan)"
+              label="SSH Login Gabungan (ip:port@user:pass)"
               value={guide.ssh.login}
-              hint="Format ip:port@username:password — tempelkan langsung ke kolom utama akun."
+              hint="Format ip:port@username:password jika aplikasimu mendukung 1x tempel."
               multiline
               copied={copiedField === "ssh-login"}
               onCopy={onCopy}
             />
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {[
-                ["ssh-host", "SSH Host", guide.ssh.host],
-                ["ssh-port", "SSH Port", String(guide.ssh.port)],
-                ["ssh-username", "Username", guide.ssh.username],
-                ["ssh-password", "Password", guide.ssh.password],
-              ].map(([id, label, value]) => (
-                <CopyableGuideField
-                  key={id}
-                  id={id}
-                  label={label}
-                  value={value}
-                  copied={copiedField === id}
-                  onCopy={onCopy}
-                />
-              ))}
-            </div>
           )}
         </div>
       ),
@@ -746,22 +759,13 @@ function HttpCustomGuideCard({
 
             <section className="space-y-3 min-w-0 w-full overflow-hidden">
               <div className="min-w-0">
-                <h4 className="font-semibold text-sm sm:text-base break-words">A. Parameter Koneksi</h4>
+                <h4 className="font-semibold text-sm sm:text-base break-words">A. Parameter Payload & Proxy</h4>
                 <p className="text-xs text-muted-foreground break-words">
-                  Salin nilai ke masing-masing kolom pada aplikasi HTTP Custom.
+                  Salin ke menu Payload pada aplikasi HTTP Custom.
                 </p>
               </div>
 
               <div className="grid w-full min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
-                <CopyableGuideField
-                  id="ssh-login"
-                  label="SSH Login (Format Instan)"
-                  value={guide.ssh.login}
-                  hint="Tempel ke field ip:port@user:pass di bagian Akun."
-                  multiline
-                  copied={copiedField === "ssh-login"}
-                  onCopy={onCopy}
-                />
                 {guide.usePayload && (
                   <CopyableGuideField
                     id="payload"
@@ -796,27 +800,48 @@ function HttpCustomGuideCard({
 
             <section className="space-y-3 min-w-0 w-full overflow-hidden rounded-2xl border border-white/10 bg-background/30 p-4">
               <div className="min-w-0">
-                <h4 className="font-semibold text-sm break-words">B. Field Akun Terpisah (Alternatif)</h4>
+                <h4 className="font-semibold text-sm break-words">B. Kredensial Akun SSH (Format v7)</h4>
                 <p className="text-xs text-muted-foreground break-words">
-                  Gunakan jika aplikasimu meminta input Host, Port, User, dan Password secara terpisah.
+                  Masukkan data akun sesuai urutan kolom pada kartu Akun di aplikasi HTTP Custom.
                 </p>
               </div>
-              <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
-                {[
-                  ["ssh-host", "SSH Host", guide.ssh.host],
-                  ["ssh-port", "SSH Port", String(guide.ssh.port)],
-                  ["ssh-username", "Username", guide.ssh.username],
-                  ["ssh-password", "Password", guide.ssh.password],
-                ].map(([id, label, value]) => (
+              <div className="space-y-3">
+                <CopyableGuideField
+                  id="ssh-host-port-fast"
+                  label="1. SSH Host:Port"
+                  value={`${guide.ssh.host}:${guide.ssh.port}`}
+                  hint="Tempel ke kolom pertama (SSH Host:Port)"
+                  copied={copiedField === "ssh-host-port-fast"}
+                  onCopy={onCopy}
+                />
+                <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
                   <CopyableGuideField
-                    key={id}
-                    id={id}
-                    label={label}
-                    value={value}
-                    copied={copiedField === id}
+                    id="ssh-username-fast"
+                    label="2. Nama Pengguna SSH"
+                    value={guide.ssh.username}
+                    hint="Tempel ke kolom Nama Pengguna"
+                    copied={copiedField === "ssh-username-fast"}
                     onCopy={onCopy}
                   />
-                ))}
+                  <CopyableGuideField
+                    id="ssh-password-fast"
+                    label="3. Kata Sandi SSH"
+                    value={guide.ssh.password}
+                    hint="Tempel ke kolom Kata Sandi"
+                    copied={copiedField === "ssh-password-fast"}
+                    onCopy={onCopy}
+                  />
+                </div>
+                <div className="pt-2 border-t border-white/5">
+                  <CopyableGuideField
+                    id="ssh-login-fast"
+                    label="Format Alternatif (1x Salin Gabungan)"
+                    value={guide.ssh.login}
+                    hint="Format ip:port@user:pass jika diperlukan."
+                    copied={copiedField === "ssh-login-fast"}
+                    onCopy={onCopy}
+                  />
+                </div>
               </div>
             </section>
           </div>
