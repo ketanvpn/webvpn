@@ -188,72 +188,72 @@ export async function seedEasyInjectPresets() {
 
 export async function seedTutorials() {
   try {
+    const defaultHttpCustomSteps = [
+      {
+        id: randomUUID(),
+        stepNumber: 1,
+        title: "Buka Aplikasi HTTP Custom",
+        description:
+          "Buka aplikasi HTTP Custom dan pastikan kamu berada di halaman utama (Beranda). Pastikan aplikasi sudah versi terbaru.",
+        imageUrl: null,
+        actionType: "playstore" as const,
+      },
+      {
+        id: randomUUID(),
+        stepNumber: 2,
+        title: "Masuk ke Menu SSH",
+        description:
+          "Di halaman Beranda, ketuk chip atau tombol bertuliskan SSH untuk membuka menu konfigurasi SSH.",
+        imageUrl: null,
+        actionType: "none" as const,
+      },
+      {
+        id: randomUUID(),
+        stepNumber: 3,
+        title: "Aktifkan Payload & Remote Proxy",
+        description:
+          "Nyalakan toggle Gunakan payload (ON). Untuk paket SSL/TLS pilih metode TLS, sedangkan paket standar biarkan metode default. Salin dan tempel Custom Payload & Remote Proxy.",
+        imageUrl: null,
+        actionType: "payload_proxy" as const,
+      },
+      {
+        id: randomUUID(),
+        stepNumber: 4,
+        title: "Isi Server Name Indication (SNI)",
+        description:
+          "Khusus paket yang menggunakan metode TLS/SSL, kolom Server Name Indication (SNI) akan muncul di kartu Payload. Tempelkan domain bug berikut.",
+        imageUrl: null,
+        actionType: "sni" as const,
+      },
+      {
+        id: randomUUID(),
+        stepNumber: 5,
+        title: "Masukkan Akun SSH",
+        description:
+          "Scroll ke bagian Akun pada menu SSH. Masukkan kredensial akun secara berurutan: 1. SSH Host:Port, 2. Nama Pengguna, 3. Kata Sandi.",
+        imageUrl: null,
+        actionType: "ssh_account" as const,
+      },
+      {
+        id: randomUUID(),
+        stepNumber: 6,
+        title: "Hubungkan Koneksi",
+        description:
+          "Kembali ke halaman Beranda HTTP Custom, lalu ketuk tombol bulat besar bertanda ▶ (Connect) di pojok kanan bawah. Tunggu hingga status terhubung.",
+        imageUrl: null,
+        actionType: "connect" as const,
+      },
+    ];
+
     const [created] = await db
       .insert(appTutorialsTable)
       .values({
         appSlug: "http-custom",
         appName: "HTTP Custom",
-        description: "Panduan pengaturan HTTP Custom v7.9.17+ untuk koneksi SSH",
+        description: "Panduan pengaturan HTTP Custom v7+ untuk koneksi SSH",
         isActive: true,
         sortOrder: 0,
-        steps: [
-          {
-            id: randomUUID(),
-            stepNumber: 1,
-            title: "Buka HTTP Custom",
-            description:
-              "Buka aplikasi **HTTP Custom**. Pastikan kamu menggunakan versi terbaru (v7.9.17+).",
-            imageUrl: null,
-          },
-          {
-            id: randomUUID(),
-            stepNumber: 2,
-            title: "Pilih Protokol SSH",
-            description:
-              'Di halaman **Beranda**, ketuk chip **SSH** pada daftar protokol yang tersedia.',
-            imageUrl: null,
-          },
-          {
-            id: randomUUID(),
-            stepNumber: 3,
-            title: "Aktifkan Payload",
-            description:
-              'Aktifkan toggle **"Gunakan payload"** untuk membuka pengaturan payload.',
-            imageUrl: null,
-          },
-          {
-            id: randomUUID(),
-            stepNumber: 4,
-            title: "Pilih Metode Koneksi",
-            description:
-              "Pilih metode yang sesuai dengan preset kamu:\n- **Enhanced** — untuk koneksi standar\n- **TLS** — untuk koneksi SSL/TLS (SNI akan muncul)\n- **SlowDNS** — untuk jaringan yang memblokir port",
-            imageUrl: null,
-          },
-          {
-            id: randomUUID(),
-            stepNumber: 5,
-            title: "Isi Pengaturan Payload",
-            description:
-              "Tempel **Custom Payload** dan **Remote Proxy** dari data di atas ke field yang sesuai di kartu Payload.\n\nJika menggunakan metode **TLS**, tempel juga **SNI** ke field Server Name Indication.",
-            imageUrl: null,
-          },
-          {
-            id: randomUUID(),
-            stepNumber: 6,
-            title: "Isi Akun SSH",
-            description:
-              "Di kartu **Akun**, isi:\n- **SSH Host:Port** — alamat server\n- **Username** — username SSH\n- **Password** — password SSH\n\nAtau tempel langsung format `host:port@username:password` dari field SSH Login di atas.",
-            imageUrl: null,
-          },
-          {
-            id: randomUUID(),
-            stepNumber: 7,
-            title: "Hubungkan",
-            description:
-              "Kembali ke halaman **Beranda** dan ketuk tombol **▶** (Play) di pojok kanan bawah untuk memulai koneksi.",
-            imageUrl: null,
-          },
-        ],
+        steps: defaultHttpCustomSteps,
       })
       .onConflictDoNothing({ target: appTutorialsTable.appSlug })
       .returning();

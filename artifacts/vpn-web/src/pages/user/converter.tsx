@@ -246,176 +246,150 @@ function HttpCustomGuideCard({
           title: string;
           description: string;
           imageUrl: string | null;
+          actionType?: "none" | "playstore" | "payload_proxy" | "sni" | "ssh_account" | "connect";
         }>;
       }>("/api/tutorials/http-custom"),
     staleTime: 5 * 60 * 1000,
   });
 
-  const tutorialImages = useMemo(() => {
-    const map = new Map<number, string | null>();
-    if (tutorial?.steps) {
-      for (const s of tutorial.steps) {
-        if (s.imageUrl) {
-          map.set(s.stepNumber, s.imageUrl);
-        }
-      }
-    }
-    return map;
-  }, [tutorial]);
-
-  // Dynamically build adaptive steps tailored to the active preset
   const wizardSteps: WizardStepItem[] = useMemo(() => {
     const isTls = guide.ssl || !!guide.sni;
-    const recommendedMethod = isTls ? "TLS" : "Enhanced";
-    const steps: WizardStepItem[] = [];
+    const sshHostPort = `${guide.ssh.host}:${guide.ssh.port}`;
 
-    steps.push({
-      id: "step-open",
-      stepNumber: 1,
-      shortLabel: "Buka App",
-      title: "1. Buka Aplikasi HTTP Custom",
-      description: "Pastikan aplikasi HTTP Custom versi terbaru (v7 ke atas) sudah terbuka di HP kamu.",
-      imageUrl: tutorialImages.get(1) ?? null,
-      instructions: (
-        <div className="space-y-3 text-xs sm:text-sm text-foreground/90">
-          <p>
-            Buka aplikasi <strong>HTTP Custom</strong> dan pastikan kamu berada di halaman utama (<strong>Beranda</strong>).
-          </p>
+    const rawSteps =
+      tutorial?.steps && tutorial.steps.length > 0
+        ? tutorial.steps
+        : [
+            {
+              id: "step-1",
+              stepNumber: 1,
+              title: "Buka Aplikasi HTTP Custom",
+              description:
+                "Buka aplikasi HTTP Custom dan pastikan kamu berada di halaman utama (Beranda). Pastikan aplikasi sudah versi terbaru.",
+              imageUrl: null,
+              actionType: "playstore" as const,
+            },
+            {
+              id: "step-2",
+              stepNumber: 2,
+              title: "Masuk ke Menu SSH",
+              description:
+                "Di halaman Beranda, ketuk chip atau tombol bertuliskan SSH untuk membuka menu konfigurasi SSH.",
+              imageUrl: null,
+              actionType: "none" as const,
+            },
+            {
+              id: "step-3",
+              stepNumber: 3,
+              title: "Aktifkan Payload & Remote Proxy",
+              description:
+                "Nyalakan toggle Gunakan payload (ON). Untuk paket SSL/TLS pilih metode TLS, sedangkan paket standar biarkan metode default.",
+              imageUrl: null,
+              actionType: "payload_proxy" as const,
+            },
+            {
+              id: "step-4",
+              stepNumber: 4,
+              title: "Isi Server Name Indication (SNI)",
+              description:
+                "Khusus paket yang menggunakan metode TLS/SSL, kolom Server Name Indication (SNI) akan muncul di kartu Payload. Tempelkan domain bug berikut.",
+              imageUrl: null,
+              actionType: "sni" as const,
+            },
+            {
+              id: "step-5",
+              stepNumber: 5,
+              title: "Masukkan Akun SSH",
+              description:
+                "Scroll ke bagian Akun pada menu SSH. Masukkan kredensial akun secara berurutan: 1. SSH Host:Port, 2. Nama Pengguna, 3. Kata Sandi.",
+              imageUrl: null,
+              actionType: "ssh_account" as const,
+            },
+            {
+              id: "step-6",
+              stepNumber: 6,
+              title: "Hubungkan Koneksi",
+              description:
+                "Kembali ke halaman Beranda HTTP Custom, lalu ketuk tombol bulat besar bertanda ▶ (Connect) di pojok kanan bawah. Tunggu hingga status terhubung.",
+              imageUrl: null,
+              actionType: "connect" as const,
+            },
+          ];
+
+    const result: WizardStepItem[] = [];
+
+    rawSteps.forEach((rawStep) => {
+      const action = rawStep.actionType ?? "none";
+
+      if (action === "sni" && !isTls) {
+        return;
+      }
+
+      const stepIndex = result.length + 1;
+      let badge: string | undefined;
+      let actions: React.ReactNode | undefined;
+      let instructions: React.ReactNode = (
+        <p className="text-xs sm:text-sm text-foreground/90 whitespace-pre-line leading-relaxed">
+          {rawStep.description}
+        </p>
+      );
+
+      if (action === "playstore") {
+        badge = "Persiapan";
+        actions = (
           <div className="rounded-xl border border-white/10 bg-black/20 p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <span className="text-xs text-muted-foreground">Belum punya aplikasinya atau versi lama?</span>
+            <span className="text-xs text-muted-foreground">Belum punya aplikasi HTTP Custom atau versi lama?</span>
             <Button size="sm" variant="outline" className="gap-1.5 text-xs h-8 shrink-0" asChild>
               <a
                 href="https://play.google.com/store/apps/details?id=xyz.easypro.httpcustom"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <ExternalLink size={13} /> Play Store
+                <ExternalLink size={13} /> Buka di Play Store
               </a>
             </Button>
           </div>
-        </div>
-      ),
-    });
-
-    steps.push({
-      id: "step-menu",
-      stepNumber: 2,
-      shortLabel: "Menu SSH",
-      title: "2. Masuk ke Menu SSH",
-      badge: "Halaman Utama",
-      description: "Pilih protokol SSH pada barisan chip di Beranda.",
-      imageUrl: tutorialImages.get(2) ?? null,
-      instructions: (
-        <div className="space-y-2 text-xs sm:text-sm text-foreground/90">
-          <p>
-            Di halaman <strong>Beranda</strong>, ketuk chip atau tombol bertuliskan <strong className="text-cyan-300">SSH</strong>.
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Aplikasi akan membuka halaman konfigurasi khusus SSH yang berisi toggle payload, pemilihan metode, dan akun.
-          </p>
-        </div>
-      ),
-    });
-
-    if (guide.usePayload) {
-      steps.push({
-        id: "step-payload",
-        stepNumber: steps.length + 1,
-        shortLabel: "Payload",
-        title: isTls ? "3. Pilih Metode TLS & Isi Payload" : "3. Aktifkan Payload & Remote Proxy",
-        badge: isTls ? "Metode: TLS" : "Gunakan Payload",
-        description: isTls
-          ? "Aktifkan payload, pilih metode TLS, lalu tempel Payload & Remote Proxy."
-          : "Aktifkan toggle 'Gunakan payload', metode biarkan default, lalu tempel Payload & Remote Proxy.",
-        imageUrl: tutorialImages.get(3) ?? tutorialImages.get(4) ?? null,
-        instructions: (
-          <div className="space-y-3 text-xs sm:text-sm text-foreground/90">
-            <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-3 space-y-1.5 text-xs">
-              <div className="flex items-center gap-2 font-semibold text-cyan-300">
-                <Sparkles size={14} /> Aturan untuk paket ini:
-              </div>
-              <ul className="list-disc list-inside space-y-1 text-cyan-100/90 pl-1">
-                <li>
-                  Nyalakan toggle <strong>Gunakan payload</strong> (posisi ON).
-                </li>
-                {isTls ? (
-                  <li>
-                    Pilih kartu metode <strong>TLS</strong> (untuk membuka kolom SNI).
-                  </li>
-                ) : (
-                  <li>
-                    Bagian <strong>Metode</strong> biarkan default (<strong>tidak perlu centang Enhanced atau TLS</strong>).
-                  </li>
-                )}
-                <li>Salin dan tempel data Payload & Remote Proxy di bawah ini:</li>
-              </ul>
+        );
+      } else if (action === "payload_proxy") {
+        badge = isTls ? "Metode: TLS" : "Payload ON";
+        if (guide.usePayload) {
+          actions = (
+            <div className="space-y-3 pt-2">
+              <CopyableGuideField
+                id="payload"
+                label="Custom Payload"
+                value={guide.payload}
+                hint="Tempel persis ke kolom Custom Payload. Jangan ubah kode [host] / [crlf]."
+                multiline
+                copied={copiedField === "payload"}
+                onCopy={onCopy}
+              />
+              <CopyableGuideField
+                id="remote-proxy"
+                label="Remote Proxy"
+                value={guide.proxy.address}
+                hint="Tempel ke kolom Remote Proxy tepat di bawah kolom Payload."
+                copied={copiedField === "remote-proxy"}
+                onCopy={onCopy}
+              />
             </div>
-          </div>
-        ),
-        actions: (
-          <div className="space-y-3 pt-2">
-            <CopyableGuideField
-              id="payload"
-              label="Custom Payload"
-              value={guide.payload}
-              hint="Tempel persis ke kolom Custom Payload. Jangan ubah kode [host] / [crlf]."
-              multiline
-              copied={copiedField === "payload"}
-              onCopy={onCopy}
-            />
-            <CopyableGuideField
-              id="remote-proxy"
-              label="Remote Proxy"
-              value={guide.proxy.address}
-              hint="Tempel ke kolom Remote Proxy tepat di bawah kolom Payload."
-              copied={copiedField === "remote-proxy"}
-              onCopy={onCopy}
-            />
-          </div>
-        ),
-      });
-    } else {
-      steps.push({
-        id: "step-no-payload",
-        stepNumber: steps.length + 1,
-        shortLabel: "Payload",
-        title: `3. Pengaturan Payload`,
-        badge: "Tanpa Payload",
-        description: "Paket ini tidak membutuhkan payload khusus.",
-        imageUrl: tutorialImages.get(3) ?? null,
-        instructions: (
-          <div className="space-y-2 text-xs sm:text-sm text-foreground/90">
-            <p>
-              Pastikan toggle <strong>Gunakan payload</strong> dalam posisi <strong className="text-amber-300">NONAKTIF (OFF)</strong>.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Metode koneksi ini langsung menggunakan handshake SSL/Direct tanpa modifikasi header HTTP.
-            </p>
-          </div>
-        ),
-      });
-    }
-
-    if (guide.sni || guide.ssl) {
-      steps.push({
-        id: "step-sni",
-        stepNumber: steps.length + 1,
-        shortLabel: "SNI (SSL)",
-        title: `${steps.length + 1}. Isi Server Name Indication (SNI)`,
-        badge: "Khusus TLS",
-        description: "Tempel domain SNI bug pada kolom Server Name Indication.",
-        imageUrl: tutorialImages.get(5) ?? null,
-        instructions: (
-          <div className="space-y-2 text-xs sm:text-sm text-foreground/90">
-            <p>
-              Karena menggunakan metode <strong>TLS</strong>, kolom <strong>Server Name Indication (SNI)</strong> akan muncul di dalam kartu Payload.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Salin bug domain di bawah ini lalu tempelkan ke kolom <strong>Server Name Indication</strong>:
-            </p>
-          </div>
-        ),
-        actions: (
+          );
+        } else {
+          badge = "Tanpa Payload";
+          instructions = (
+            <div className="space-y-2 text-xs sm:text-sm text-foreground/90">
+              <p>
+                Pastikan toggle <strong>Gunakan payload</strong> dalam posisi <strong className="text-amber-300">NONAKTIF (OFF)</strong>.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Paket ini langsung menggunakan handshake SSL/Direct tanpa payload HTTP.
+              </p>
+            </div>
+          );
+        }
+      } else if (action === "sni") {
+        badge = "Khusus TLS";
+        actions = (
           <div className="pt-2">
             <CopyableGuideField
               id="sni"
@@ -426,124 +400,107 @@ function HttpCustomGuideCard({
               onCopy={onCopy}
             />
           </div>
-        ),
-      });
-    }
+        );
+      } else if (action === "ssh_account") {
+        badge = "Kredensial Akun";
+        actions = (
+          <div className="space-y-3 pt-2">
+            <div className="flex rounded-lg border border-white/10 p-1 bg-black/20 gap-1 w-full max-w-sm">
+              <button
+                type="button"
+                onClick={() => setSshAccountFormat("standard")}
+                className={`flex-1 py-1.5 px-3 text-xs rounded-md font-medium transition-all ${
+                  sshAccountFormat === "standard"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-white"
+                }`}
+              >
+                📋 Format Standar v7 (Utama)
+              </button>
+              <button
+                type="button"
+                onClick={() => setSshAccountFormat("instant")}
+                className={`flex-1 py-1.5 px-3 text-xs rounded-md font-medium transition-all ${
+                  sshAccountFormat === "instant"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-white"
+                }`}
+              >
+                ⚡ 1x Salin (Gabungan)
+              </button>
+            </div>
 
-    const sshHostPort = `${guide.ssh.host}:${guide.ssh.port}`;
-
-    steps.push({
-      id: "step-account",
-      stepNumber: steps.length + 1,
-      shortLabel: "Akun SSH",
-      title: `${steps.length + 1}. Masukkan Akun SSH`,
-      badge: "Kredensial Akun",
-      description: "Scroll ke bagian Akun pada menu SSH di HTTP Custom.",
-      imageUrl: tutorialImages.get(6) ?? null,
-      instructions: (
-        <div className="space-y-3 text-xs sm:text-sm text-foreground/90">
-          <p>
-            Scroll ke bawah hingga menemukan kartu <strong>Akun</strong> pada menu SSH. Salin kredensial sesuai urutan berikut:
-          </p>
-          <div className="flex rounded-lg border border-white/10 p-1 bg-black/20 gap-1 w-full max-w-sm">
-            <button
-              type="button"
-              onClick={() => setSshAccountFormat("standard")}
-              className={`flex-1 py-1.5 px-3 text-xs rounded-md font-medium transition-all ${
-                sshAccountFormat === "standard"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-white"
-              }`}
-            >
-              📋 Format Standar v7 (Utama)
-            </button>
-            <button
-              type="button"
-              onClick={() => setSshAccountFormat("instant")}
-              className={`flex-1 py-1.5 px-3 text-xs rounded-md font-medium transition-all ${
-                sshAccountFormat === "instant"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-white"
-              }`}
-            >
-              ⚡ 1x Salin (Gabungan)
-            </button>
-          </div>
-        </div>
-      ),
-      actions: (
-        <div className="pt-2">
-          {sshAccountFormat === "standard" ? (
-            <div className="space-y-3">
+            {sshAccountFormat === "standard" ? (
+              <div className="space-y-3">
+                <CopyableGuideField
+                  id="ssh-host-port"
+                  label="1. SSH Host:Port"
+                  value={sshHostPort}
+                  hint="Tempel ke kolom pertama (SSH Host:Port)"
+                  copied={copiedField === "ssh-host-port"}
+                  onCopy={onCopy}
+                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <CopyableGuideField
+                    id="ssh-username"
+                    label="2. Nama Pengguna SSH"
+                    value={guide.ssh.username}
+                    hint="Tempel ke kolom Nama Pengguna"
+                    copied={copiedField === "ssh-username"}
+                    onCopy={onCopy}
+                  />
+                  <CopyableGuideField
+                    id="ssh-password"
+                    label="3. Kata Sandi SSH"
+                    value={guide.ssh.password}
+                    hint="Tempel ke kolom Kata Sandi"
+                    copied={copiedField === "ssh-password"}
+                    onCopy={onCopy}
+                  />
+                </div>
+              </div>
+            ) : (
               <CopyableGuideField
-                id="ssh-host-port"
-                label="1. SSH Host:Port"
-                value={sshHostPort}
-                hint="Tempel ke kolom pertama (SSH Host:Port)"
-                copied={copiedField === "ssh-host-port"}
+                id="ssh-login"
+                label="SSH Login Gabungan (ip:port@user:pass)"
+                value={guide.ssh.login}
+                hint="Format ip:port@username:password jika aplikasimu mendukung 1x tempel."
+                multiline
+                copied={copiedField === "ssh-login"}
                 onCopy={onCopy}
               />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <CopyableGuideField
-                  id="ssh-username"
-                  label="2. Nama Pengguna SSH"
-                  value={guide.ssh.username}
-                  hint="Tempel ke kolom Nama Pengguna"
-                  copied={copiedField === "ssh-username"}
-                  onCopy={onCopy}
-                />
-                <CopyableGuideField
-                  id="ssh-password"
-                  label="3. Kata Sandi SSH"
-                  value={guide.ssh.password}
-                  hint="Tempel ke kolom Kata Sandi"
-                  copied={copiedField === "ssh-password"}
-                  onCopy={onCopy}
-                />
-              </div>
-            </div>
-          ) : (
-            <CopyableGuideField
-              id="ssh-login"
-              label="SSH Login Gabungan (ip:port@user:pass)"
-              value={guide.ssh.login}
-              hint="Format ip:port@username:password jika aplikasimu mendukung 1x tempel."
-              multiline
-              copied={copiedField === "ssh-login"}
-              onCopy={onCopy}
-            />
-          )}
-        </div>
-      ),
-    });
-
-    steps.push({
-      id: "step-connect",
-      stepNumber: steps.length + 1,
-      shortLabel: "Hubungkan",
-      title: `${steps.length + 1}. Hubungkan Koneksi`,
-      badge: "Selesai",
-      description: "Kembali ke Beranda dan ketuk tombol Connect.",
-      imageUrl: tutorialImages.get(7) ?? null,
-      instructions: (
-        <div className="space-y-3 text-xs sm:text-sm text-foreground/90">
-          <p>
-            Kembali ke halaman <strong>Beranda</strong> HTTP Custom, lalu ketuk tombol bulat besar bertanda <strong className="text-emerald-400">▶ (Connect)</strong> di pojok kanan bawah.
-          </p>
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/20 p-3.5 space-y-1.5">
+            )}
+          </div>
+        );
+      } else if (action === "connect") {
+        badge = "Selesai";
+        actions = (
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/20 p-3.5 space-y-1.5 mt-2">
             <div className="flex items-center gap-2 font-semibold text-emerald-300 text-xs sm:text-sm">
               <CheckCircle2 size={16} /> Status Terhubung:
             </div>
             <p className="text-xs text-emerald-100/80">
-              Tunggu 3-5 detik sampai status di layar berubah menjadi <strong>&ldquo;HTTP Custom: Connected&rdquo;</strong> dan muncul ikon kunci VPN di status bar HP kamu.
+              Tunggu 3-5 detik sampai status berubah menjadi <strong>&ldquo;HTTP Custom: Connected&rdquo;</strong> dan muncul ikon kunci VPN di status bar HP kamu.
             </p>
           </div>
-        </div>
-      ),
+        );
+      }
+
+      result.push({
+        id: String(rawStep.id || stepIndex),
+        stepNumber: stepIndex,
+        shortLabel: rawStep.title.replace(/^[0-9]+\.\s*/, "").slice(0, 14),
+        title: `${stepIndex}. ${rawStep.title.replace(/^[0-9]+\.\s*/, "")}`,
+        badge,
+        description: rawStep.description.slice(0, 120),
+        instructions,
+        imageUrl: rawStep.imageUrl,
+        actions,
+      });
     });
 
-    return steps;
-  }, [guide, copiedField, onCopy, sshAccountFormat, tutorialImages]);
+    return result;
+  }, [guide, tutorial, copiedField, onCopy, sshAccountFormat]);
 
   const safeStepIndex = Math.min(Math.max(currentStepIndex, 0), wizardSteps.length - 1);
   const currentStep = wizardSteps[safeStepIndex] ?? wizardSteps[0];

@@ -14,6 +14,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -52,12 +59,21 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
+type TutorialStepActionType =
+  | "none"
+  | "playstore"
+  | "payload_proxy"
+  | "sni"
+  | "ssh_account"
+  | "connect";
+
 type TutorialStep = {
   id: string;
   stepNumber: number;
   title: string;
   description: string;
   imageUrl: string | null;
+  actionType?: TutorialStepActionType;
 };
 
 type AppTutorial = {
@@ -101,6 +117,7 @@ function newStep(stepNumber: number): TutorialStep {
     title: "",
     description: "",
     imageUrl: null,
+    actionType: "none",
   };
 }
 
@@ -622,7 +639,7 @@ export default function AdminTutorials() {
                             className="h-8 text-sm"
                           />
                         </div>
-                        <div className="space-y-1.5 sm:row-span-2">
+                        <div className="space-y-1.5 sm:row-span-3">
                           <Label className="text-xs">Gambar</Label>
                           <StepImageUpload
                             imageUrl={step.imageUrl}
@@ -633,6 +650,27 @@ export default function AdminTutorials() {
                               updateStep(idx, { imageUrl: null })
                             }
                           />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Aksi / Data Interaktif Otomatis</Label>
+                          <Select
+                            value={step.actionType ?? "none"}
+                            onValueChange={(val: TutorialStepActionType) =>
+                              updateStep(idx, { actionType: val })
+                            }
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="Pilih aksi" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Tidak ada (Hanya Teks &amp; Gambar)</SelectItem>
+                              <SelectItem value="playstore">Tombol Unduh / Play Store</SelectItem>
+                              <SelectItem value="payload_proxy">Kotak Salin Payload &amp; Remote Proxy</SelectItem>
+                              <SelectItem value="sni">Kotak Salin SNI (Hanya jika SSL/TLS)</SelectItem>
+                              <SelectItem value="ssh_account">Kotak Kredensial Akun SSH (Host:Port, User, Pass)</SelectItem>
+                              <SelectItem value="connect">Petunjuk &amp; Status Terhubung</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-1.5">
                           <Label className="text-xs">Deskripsi</Label>

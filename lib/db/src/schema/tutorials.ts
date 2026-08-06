@@ -13,12 +13,21 @@ import { z } from "zod/v4";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export type TutorialStepActionType =
+  | "none"
+  | "playstore"
+  | "payload_proxy"
+  | "sni"
+  | "ssh_account"
+  | "connect";
+
 export interface TutorialStep {
   id: string;
   stepNumber: number;
   title: string;
   description: string;
   imageUrl: string | null;
+  actionType?: TutorialStepActionType;
 }
 
 // ─── Table ────────────────────────────────────────────────────────────────────
@@ -68,6 +77,10 @@ export const tutorialStepSchema = z
     title: trimmedNonempty(200),
     description: trimmedNonempty(2000),
     imageUrl: z.string().min(1).nullish().transform((v) => v ?? null),
+    actionType: z
+      .enum(["none", "playstore", "payload_proxy", "sni", "ssh_account", "connect"])
+      .optional()
+      .default("none"),
   })
   .strict();
 
