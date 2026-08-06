@@ -26,15 +26,24 @@ import { useToast } from "@/hooks/use-toast";
 import { apiClient } from "@/lib/api-client";
 import {
   AlertCircle,
+  ArrowRight,
   ArrowRightLeft,
+  BookOpenCheck,
+  Check,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   Download,
   ExternalLink,
+  Layers,
   Loader2,
+  PlayCircle,
   RefreshCw,
   ShieldPlus,
+  SlidersHorizontal,
   Smartphone,
+  Sparkles,
 } from "lucide-react";
 import {
   Dialog,
@@ -199,168 +208,600 @@ type HttpCustomGuideCardProps = {
   onCopy: (id: string, value: string, label: string) => void;
 };
 
+type WizardStepItem = {
+  id: string;
+  stepNumber: number;
+  title: string;
+  shortLabel: string;
+  badge?: string;
+  description: string;
+  instructions: React.ReactNode;
+  imageUrl?: string | null;
+  actions?: React.ReactNode;
+};
+
 function HttpCustomGuideCard({
   guide,
   copiedField,
   onCopy,
 }: HttpCustomGuideCardProps) {
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [viewMode, setViewMode] = useState<"wizard" | "all">("wizard");
+  const [sshAccountFormat, setSshAccountFormat] = useState<"instant" | "separate">("instant");
+
   const { data: tutorial } = useQuery({
     queryKey: ["tutorial", "http-custom"],
-    queryFn: () => apiClient.get<{ steps: Array<{ id: string; stepNumber: number; title: string; description: string; imageUrl: string | null }> }>("/api/tutorials/http-custom"),
+    queryFn: () =>
+      apiClient.get<{
+        steps: Array<{
+          id: string;
+          stepNumber: number;
+          title: string;
+          description: string;
+          imageUrl: string | null;
+        }>;
+      }>("/api/tutorials/http-custom"),
     staleTime: 5 * 60 * 1000,
   });
 
-  const steps = tutorial?.steps ?? [
-    { stepNumber: 1, title: "Buka HTTP Custom", description: "Buka aplikasi HTTP Custom versi terbaru." },
-    { stepNumber: 2, title: "Pilih SSH", description: "Ketuk chip SSH di halaman Beranda." },
-    { stepNumber: 3, title: "Isi Pengaturan", description: "Aktifkan payload, pilih metode, dan isi field yang sesuai dari data di atas." },
-    { stepNumber: 4, title: "Hubungkan", description: "Ketuk tombol ▶ untuk connect." },
-  ];
+  const tutorialImages = useMemo(() => {
+    const map = new Map<number, string | null>();
+    if (tutorial?.steps) {
+      for (const s of tutorial.steps) {
+        if (s.imageUrl) {
+          map.set(s.stepNumber, s.imageUrl);
+        }
+      }
+    }
+    return map;
+  }, [tutorial]);
 
-  return (
-    <Card className="w-full min-w-0 glass-panel overflow-hidden border-cyan-500/25">
-      <CardHeader className="min-w-0 overflow-hidden p-4 sm:p-6">
-        <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2">
-          <CardTitle className="flex min-w-0 items-center gap-2 text-base sm:text-lg break-words">
-            <Smartphone className="h-5 w-5 text-cyan-300 shrink-0" />
-            <span className="break-words">4. Panduan HTTP Custom</span>
-          </CardTitle>
-          <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-200 shrink-0 text-[10px]">
-            Beta
-          </Badge>
-        </div>
-        <CardDescription className="break-words text-xs sm:text-sm">
-          Salin nilai satu per satu ke field yang sama di HTTP Custom. Posisi menu dapat sedikit berbeda menurut versi aplikasi.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6 min-w-0 overflow-hidden p-4 sm:p-6">
-        <Alert className="min-w-0 overflow-hidden">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <AlertTitle className="break-words text-sm">Belum berupa file import</AlertTitle>
-          <AlertDescription className="break-words text-xs sm:text-sm">
-            Panduan ini menyiapkan data dari akunmu. Jangan ubah teks [host], [ua], atau [crlf] di dalam payload.
-          </AlertDescription>
-        </Alert>
+  // Dynamically build adaptive steps tailored to the active preset
+  const wizardSteps: WizardStepItem[] = useMemo(() => {
+    const isTls = guide.ssl || !!guide.sni;
+    const recommendedMethod = isTls ? "TLS" : "Enhanced";
+    const steps: WizardStepItem[] = [];
 
-        <Button variant="outline" className="w-full gap-2 min-w-0 break-words whitespace-normal h-auto py-3 text-xs sm:text-sm" asChild>
-          <a
-            href="https://play.google.com/store/apps/details?id=xyz.easypro.httpcustom"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full min-w-0"
-          >
-            <ExternalLink className="h-4 w-4 shrink-0" /> <span className="break-words">Install / Buka HTTP Custom</span>
-          </a>
-        </Button>
-
-        <div className="flex flex-wrap gap-2 min-w-0">
-          <Badge className={`shrink-0 text-[11px] ${guide.usePayload ? "bg-emerald-600" : "bg-slate-600"}`}>
-            Use Payload: {guide.usePayload ? "ON" : "OFF"}
-          </Badge>
-          <Badge className={`shrink-0 text-[11px] ${guide.ssl ? "bg-emerald-600" : "bg-slate-600"}`}>
-            SSL: {guide.ssl ? "ON" : "OFF"}
-          </Badge>
-          <Badge variant="outline" className="shrink-0 text-[10px]">Mode: {guide.mode}</Badge>
-        </div>
-
-        <section className="space-y-3 min-w-0 w-full overflow-hidden">
-          <div className="min-w-0">
-            <h3 className="font-semibold text-sm sm:text-base break-words">A. Data utama</h3>
-            <p className="text-xs text-muted-foreground break-words">
-              Tampilan standar HTTP Custom memakai format ip:port@user:pass.
-            </p>
+    steps.push({
+      id: "step-open",
+      stepNumber: 1,
+      shortLabel: "Buka App",
+      title: "1. Buka Aplikasi HTTP Custom",
+      description: "Pastikan aplikasi HTTP Custom versi terbaru (v7 ke atas) sudah terbuka di HP kamu.",
+      imageUrl: tutorialImages.get(1) ?? null,
+      instructions: (
+        <div className="space-y-3 text-xs sm:text-sm text-foreground/90">
+          <p>
+            Buka aplikasi <strong>HTTP Custom</strong> dan pastikan kamu berada di halaman utama (<strong>Beranda</strong>).
+          </p>
+          <div className="rounded-xl border border-white/10 bg-black/20 p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <span className="text-xs text-muted-foreground">Belum punya aplikasinya atau versi lama?</span>
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs h-8 shrink-0" asChild>
+              <a
+                href="https://play.google.com/store/apps/details?id=xyz.easypro.httpcustom"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <ExternalLink size={13} /> Play Store
+              </a>
+            </Button>
           </div>
-          <div className="grid w-full min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+        </div>
+      ),
+    });
+
+    steps.push({
+      id: "step-menu",
+      stepNumber: 2,
+      shortLabel: "Menu SSH",
+      title: "2. Masuk ke Menu SSH",
+      badge: "Halaman Utama",
+      description: "Pilih protokol SSH pada barisan chip di Beranda.",
+      imageUrl: tutorialImages.get(2) ?? null,
+      instructions: (
+        <div className="space-y-2 text-xs sm:text-sm text-foreground/90">
+          <p>
+            Di halaman <strong>Beranda</strong>, ketuk chip atau tombol bertuliskan <strong className="text-cyan-300">SSH</strong>.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Aplikasi akan membuka halaman konfigurasi khusus SSH yang berisi toggle payload, pemilihan metode, dan akun.
+          </p>
+        </div>
+      ),
+    });
+
+    if (guide.usePayload) {
+      steps.push({
+        id: "step-payload",
+        stepNumber: steps.length + 1,
+        shortLabel: "Payload",
+        title: `3. Atur Metode & Salin Payload`,
+        badge: `Metode: ${recommendedMethod}`,
+        description: `Aktifkan payload, pilih metode ${recommendedMethod}, lalu tempel Payload & Remote Proxy.`,
+        imageUrl: tutorialImages.get(3) ?? tutorialImages.get(4) ?? null,
+        instructions: (
+          <div className="space-y-3 text-xs sm:text-sm text-foreground/90">
+            <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-3 space-y-1.5 text-xs">
+              <div className="flex items-center gap-2 font-semibold text-cyan-300">
+                <Sparkles size={14} /> Aturan untuk paket ini:
+              </div>
+              <ul className="list-disc list-inside space-y-1 text-cyan-100/90 pl-1">
+                <li>
+                  Nyalakan toggle <strong>Gunakan payload</strong> (aktifkan/ON).
+                </li>
+                <li>
+                  Pilih kartu metode <strong>{recommendedMethod}</strong>.
+                </li>
+                <li>Salin dan tempel data berikut ke field yang sesuai di bawahnya.</li>
+              </ul>
+            </div>
+          </div>
+        ),
+        actions: (
+          <div className="space-y-3 pt-2">
             <CopyableGuideField
-              id="ssh-login"
-              label="SSH Login"
-              value={guide.ssh.login}
-              hint="Tempel ke field ip:port@user:pass"
+              id="payload"
+              label="Custom Payload"
+              value={guide.payload}
+              hint="Tempel persis ke kolom Custom Payload. Jangan ubah kode [host] / [crlf]."
               multiline
-              copied={copiedField === "ssh-login"}
+              copied={copiedField === "payload"}
               onCopy={onCopy}
             />
-            {guide.usePayload && (
-              <CopyableGuideField
-                id="payload"
-                label="Payload"
-                value={guide.payload}
-                hint="☰ kiri atas → Payload → kolom Payload. Tempel persis; jangan ganti placeholder."
-                multiline
-                copied={copiedField === "payload"}
-                onCopy={onCopy}
-              />
-            )}
             <CopyableGuideField
               id="remote-proxy"
               label="Remote Proxy"
               value={guide.proxy.address}
-              hint="Di menu Payload, tempel pada kolom Remote Proxy tepat di bawah kolom Payload."
+              hint="Tempel ke kolom Remote Proxy tepat di bawah kolom Payload."
               copied={copiedField === "remote-proxy"}
               onCopy={onCopy}
             />
-            {guide.sni && (
-              <CopyableGuideField
-                id="sni"
-                label="SNI / Server Name Indication"
-                value={guide.sni}
-                hint="☰ kiri atas → SNI (di bawah menu Payload); tempel lalu aktifkan SSL."
-                copied={copiedField === "sni"}
-                onCopy={onCopy}
-              />
-            )}
           </div>
-        </section>
-
-        <section className="space-y-3 w-full min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-background/30 p-3 sm:p-4">
-          <h3 className="font-semibold text-sm sm:text-base break-words">B. Langkah di aplikasi</h3>
-          <div className="space-y-3 text-sm min-w-0 w-full">
-            {steps.map((step, i) => (
-              <div key={("id" in step && step.id) ? step.id : i} className="flex gap-3">
-                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold">
-                  {step.stepNumber}
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm text-foreground">{step.title}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{step.description}</p>
-                  {("imageUrl" in step && step.imageUrl) ? (
-                    <img
-                      src={step.imageUrl}
-                      alt={step.title}
-                      className="mt-2 rounded-lg border border-border max-w-full max-h-48 object-contain"
-                    />
-                  ) : null}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="space-y-3 min-w-0 w-full overflow-hidden">
-          <div className="min-w-0">
-            <h3 className="font-semibold text-sm sm:text-base break-words">C. Jika versi aplikasi meminta field terpisah</h3>
-            <p className="text-xs text-muted-foreground break-words">
-              Gunakan data berikut, bukan SSH Login gabungan.
+        ),
+      });
+    } else {
+      steps.push({
+        id: "step-no-payload",
+        stepNumber: steps.length + 1,
+        shortLabel: "Payload",
+        title: `3. Pengaturan Payload`,
+        badge: "Tanpa Payload",
+        description: "Paket ini tidak membutuhkan payload khusus.",
+        imageUrl: tutorialImages.get(3) ?? null,
+        instructions: (
+          <div className="space-y-2 text-xs sm:text-sm text-foreground/90">
+            <p>
+              Pastikan toggle <strong>Gunakan payload</strong> dalam posisi <strong className="text-amber-300">NONAKTIF (OFF)</strong>.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Metode koneksi ini langsung menggunakan handshake SSL/Direct tanpa modifikasi header HTTP.
             </p>
           </div>
-          <div className="grid w-full min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
-            {[
-              ["ssh-host", "SSH Host", guide.ssh.host],
-              ["ssh-port", "SSH Port", String(guide.ssh.port)],
-              ["ssh-username", "Username", guide.ssh.username],
-              ["ssh-password", "Password", guide.ssh.password],
-            ].map(([id, label, value]) => (
-              <CopyableGuideField
-                key={id}
-                id={id}
-                label={label}
-                value={value}
-                copied={copiedField === id}
-                onCopy={onCopy}
-              />
-            ))}
+        ),
+      });
+    }
+
+    if (guide.sni || guide.ssl) {
+      steps.push({
+        id: "step-sni",
+        stepNumber: steps.length + 1,
+        shortLabel: "SNI (SSL)",
+        title: `${steps.length + 1}. Isi Server Name Indication (SNI)`,
+        badge: "Khusus TLS",
+        description: "Tempel domain SNI bug pada kolom Server Name Indication.",
+        imageUrl: tutorialImages.get(5) ?? null,
+        instructions: (
+          <div className="space-y-2 text-xs sm:text-sm text-foreground/90">
+            <p>
+              Karena menggunakan metode <strong>TLS</strong>, kolom <strong>Server Name Indication (SNI)</strong> akan muncul di dalam kartu Payload.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Salin bug domain di bawah ini lalu tempelkan ke kolom <strong>Server Name Indication</strong>:
+            </p>
           </div>
-        </section>
+        ),
+        actions: (
+          <div className="pt-2">
+            <CopyableGuideField
+              id="sni"
+              label="SNI / Server Name Indication"
+              value={guide.sni || ""}
+              hint="Tempel pada kolom Server Name Indication (SNI)."
+              copied={copiedField === "sni"}
+              onCopy={onCopy}
+            />
+          </div>
+        ),
+      });
+    }
+
+    steps.push({
+      id: "step-account",
+      stepNumber: steps.length + 1,
+      shortLabel: "Akun SSH",
+      title: `${steps.length + 1}. Masukkan Akun SSH`,
+      badge: "Kredensial Akun",
+      description: "Scroll ke bagian Akun SSH lalu masukkan data akunmu.",
+      imageUrl: tutorialImages.get(6) ?? null,
+      instructions: (
+        <div className="space-y-3 text-xs sm:text-sm text-foreground/90">
+          <p>
+            Scroll ke bawah hingga menemukan bagian <strong>Akun</strong> pada menu SSH. Kamu bisa memilih cara pengisian:
+          </p>
+          <div className="flex rounded-lg border border-white/10 p-1 bg-black/20 gap-1 w-full max-w-sm">
+            <button
+              type="button"
+              onClick={() => setSshAccountFormat("instant")}
+              className={`flex-1 py-1.5 px-3 text-xs rounded-md font-medium transition-all ${
+                sshAccountFormat === "instant"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-white"
+              }`}
+            >
+              ⚡ Format Cepat (1x Salin)
+            </button>
+            <button
+              type="button"
+              onClick={() => setSshAccountFormat("separate")}
+              className={`flex-1 py-1.5 px-3 text-xs rounded-md font-medium transition-all ${
+                sshAccountFormat === "separate"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-white"
+              }`}
+            >
+              📝 Field Terpisah
+            </button>
+          </div>
+        </div>
+      ),
+      actions: (
+        <div className="pt-2">
+          {sshAccountFormat === "instant" ? (
+            <CopyableGuideField
+              id="ssh-login"
+              label="SSH Login (Format Instan)"
+              value={guide.ssh.login}
+              hint="Format ip:port@username:password — tempelkan langsung ke kolom utama akun."
+              multiline
+              copied={copiedField === "ssh-login"}
+              onCopy={onCopy}
+            />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                ["ssh-host", "SSH Host", guide.ssh.host],
+                ["ssh-port", "SSH Port", String(guide.ssh.port)],
+                ["ssh-username", "Username", guide.ssh.username],
+                ["ssh-password", "Password", guide.ssh.password],
+              ].map(([id, label, value]) => (
+                <CopyableGuideField
+                  key={id}
+                  id={id}
+                  label={label}
+                  value={value}
+                  copied={copiedField === id}
+                  onCopy={onCopy}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      ),
+    });
+
+    steps.push({
+      id: "step-connect",
+      stepNumber: steps.length + 1,
+      shortLabel: "Hubungkan",
+      title: `${steps.length + 1}. Hubungkan Koneksi`,
+      badge: "Selesai",
+      description: "Kembali ke Beranda dan ketuk tombol Connect.",
+      imageUrl: tutorialImages.get(7) ?? null,
+      instructions: (
+        <div className="space-y-3 text-xs sm:text-sm text-foreground/90">
+          <p>
+            Kembali ke halaman <strong>Beranda</strong> HTTP Custom, lalu ketuk tombol bulat besar bertanda <strong className="text-emerald-400">▶ (Connect)</strong> di pojok kanan bawah.
+          </p>
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/20 p-3.5 space-y-1.5">
+            <div className="flex items-center gap-2 font-semibold text-emerald-300 text-xs sm:text-sm">
+              <CheckCircle2 size={16} /> Status Terhubung:
+            </div>
+            <p className="text-xs text-emerald-100/80">
+              Tunggu 3-5 detik sampai status di layar berubah menjadi <strong>&ldquo;HTTP Custom: Connected&rdquo;</strong> dan muncul ikon kunci VPN di status bar HP kamu.
+            </p>
+          </div>
+        </div>
+      ),
+    });
+
+    return steps;
+  }, [guide, copiedField, onCopy, sshAccountFormat, tutorialImages]);
+
+  const safeStepIndex = Math.min(Math.max(currentStepIndex, 0), wizardSteps.length - 1);
+  const currentStep = wizardSteps[safeStepIndex] ?? wizardSteps[0];
+  const isFirstStep = safeStepIndex === 0;
+  const isLastStep = safeStepIndex === wizardSteps.length - 1;
+
+  const isTls = guide.ssl || !!guide.sni;
+  const recommendedMethod = isTls ? "TLS" : "Enhanced";
+
+  return (
+    <Card className="w-full min-w-0 glass-panel overflow-hidden border-cyan-500/25 shadow-lg shadow-cyan-950/10">
+      <CardHeader className="min-w-0 overflow-hidden p-4 sm:p-6 pb-3 sm:pb-4 border-b border-white/5 bg-white/[0.02]">
+        <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 shrink-0">
+              <Smartphone className="h-5 w-5" />
+            </div>
+            <div>
+              <CardTitle className="text-base sm:text-lg font-bold break-words flex items-center gap-2">
+                <span>Panduan HTTP Custom</span>
+                <Badge variant="outline" className="border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-[10px] py-0 px-2 h-5">
+                  v7+
+                </Badge>
+              </CardTitle>
+              <CardDescription className="text-xs mt-0.5">
+                Target Preset: <strong className="text-foreground">{guide.targetLabel}</strong> • Metode: <strong className="text-cyan-300">{recommendedMethod}</strong>
+              </CardDescription>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 rounded-xl border border-white/10 p-1 bg-black/30 shrink-0">
+            <button
+              type="button"
+              onClick={() => setViewMode("wizard")}
+              className={`flex items-center gap-1.5 py-1 px-2.5 text-xs rounded-lg font-medium transition-all ${
+                viewMode === "wizard"
+                  ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm"
+                  : "text-muted-foreground hover:text-white"
+              }`}
+            >
+              <BookOpenCheck size={13} />
+              <span>Step-by-Step</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("all")}
+              className={`flex items-center gap-1.5 py-1 px-2.5 text-xs rounded-lg font-medium transition-all ${
+                viewMode === "all"
+                  ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm"
+                  : "text-muted-foreground hover:text-white"
+              }`}
+            >
+              <Layers size={13} />
+              <span>Semua Data</span>
+            </button>
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="p-4 sm:p-6 space-y-5 min-w-0 overflow-hidden">
+        {viewMode === "wizard" ? (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span className="font-semibold text-cyan-300">
+                  Langkah {safeStepIndex + 1} dari {wizardSteps.length}
+                </span>
+                <span className="text-[11px] truncate max-w-[200px] text-right">
+                  {currentStep.shortLabel}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5 sm:gap-2">
+                {wizardSteps.map((s, idx) => {
+                  const isCompleted = idx < safeStepIndex;
+                  const isCurrent = idx === safeStepIndex;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setCurrentStepIndex(idx)}
+                      className={`group relative flex flex-col items-center py-2 px-1.5 rounded-xl border transition-all text-center min-w-0 ${
+                        isCurrent
+                          ? "border-cyan-400/50 bg-cyan-500/15 shadow-sm shadow-cyan-500/20"
+                          : isCompleted
+                          ? "border-emerald-500/30 bg-emerald-950/20 hover:border-emerald-500/50"
+                          : "border-white/5 bg-white/[0.02] hover:border-white/10 opacity-60"
+                      }`}
+                    >
+                      <div className="flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold mb-1 transition-all">
+                        {isCompleted ? (
+                          <Check size={12} className="text-emerald-400" />
+                        ) : (
+                          <span className={isCurrent ? "text-cyan-300 font-extrabold" : "text-muted-foreground"}>
+                            {idx + 1}
+                          </span>
+                        )}
+                      </div>
+                      <span
+                        className={`text-[10px] leading-tight truncate w-full px-0.5 ${
+                          isCurrent
+                            ? "text-cyan-200 font-semibold"
+                            : isCompleted
+                            ? "text-emerald-300/80"
+                            : "text-muted-foreground/70"
+                        }`}
+                      >
+                        {s.shortLabel}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-background/50 p-4 sm:p-6 space-y-4 shadow-inner min-w-0">
+              <div className="flex flex-wrap items-start justify-between gap-2 pb-3 border-b border-white/5">
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-base sm:text-lg font-bold text-white">
+                      {currentStep.title}
+                    </h3>
+                    {currentStep.badge && (
+                      <Badge variant="outline" className="border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-[10px]">
+                        {currentStep.badge}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {currentStep.description}
+                  </p>
+                </div>
+              </div>
+
+              {currentStep.imageUrl && (
+                <div className="rounded-xl overflow-hidden border border-white/10 bg-black/40 p-2 flex justify-center max-h-56">
+                  <img
+                    src={currentStep.imageUrl}
+                    alt={currentStep.title}
+                    className="rounded-lg object-contain max-h-52 w-auto border border-white/5"
+                  />
+                </div>
+              )}
+
+              <div className="min-w-0">{currentStep.instructions}</div>
+
+              {currentStep.actions && (
+                <div className="pt-2 min-w-0">{currentStep.actions}</div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between gap-3 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isFirstStep}
+                onClick={() => setCurrentStepIndex((prev) => Math.max(prev - 1, 0))}
+                className="gap-1.5 h-10 px-4 text-xs sm:text-sm min-w-0"
+              >
+                <ChevronLeft size={16} />
+                <span>Sebelumnya</span>
+              </Button>
+
+              {isLastStep ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => setCurrentStepIndex(0)}
+                  className="gap-1.5 h-10 px-5 text-xs sm:text-sm bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-black font-bold shadow-md shadow-emerald-500/20"
+                >
+                  <CheckCircle2 size={16} />
+                  <span>Ulangi Panduan</span>
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => setCurrentStepIndex((prev) => Math.min(prev + 1, wizardSteps.length - 1))}
+                  className="gap-1.5 h-10 px-5 text-xs sm:text-sm bg-cyan-500 hover:bg-cyan-600 text-black font-semibold shadow-md shadow-cyan-500/20"
+                >
+                  <span>Langkah Selanjutnya</span>
+                  <ChevronRight size={16} />
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <Alert className="min-w-0 overflow-hidden bg-cyan-950/20 border-cyan-500/30">
+              <Sparkles className="h-4 w-4 text-cyan-300 shrink-0" />
+              <AlertTitle className="text-sm font-semibold text-cyan-300">Mode Cepat (Semua Data)</AlertTitle>
+              <AlertDescription className="text-xs text-muted-foreground mt-0.5">
+                Salin seluruh parameter yang dibutuhkan di bawah ini satu per satu. Pastikan memilih metode <strong>{recommendedMethod}</strong> di aplikasi HTTP Custom.
+              </AlertDescription>
+            </Alert>
+
+            <div className="flex flex-wrap gap-2 min-w-0">
+              <Badge className={`shrink-0 text-[11px] ${guide.usePayload ? "bg-emerald-600" : "bg-slate-600"}`}>
+                Gunakan Payload: {guide.usePayload ? "ON" : "OFF"}
+              </Badge>
+              <Badge className={`shrink-0 text-[11px] ${guide.ssl ? "bg-emerald-600" : "bg-slate-600"}`}>
+                Metode: {recommendedMethod}
+              </Badge>
+              <Badge variant="outline" className="shrink-0 text-[10px]">
+                Mode: {guide.mode}
+              </Badge>
+            </div>
+
+            <section className="space-y-3 min-w-0 w-full overflow-hidden">
+              <div className="min-w-0">
+                <h4 className="font-semibold text-sm sm:text-base break-words">A. Parameter Koneksi</h4>
+                <p className="text-xs text-muted-foreground break-words">
+                  Salin nilai ke masing-masing kolom pada aplikasi HTTP Custom.
+                </p>
+              </div>
+
+              <div className="grid w-full min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+                <CopyableGuideField
+                  id="ssh-login"
+                  label="SSH Login (Format Instan)"
+                  value={guide.ssh.login}
+                  hint="Tempel ke field ip:port@user:pass di bagian Akun."
+                  multiline
+                  copied={copiedField === "ssh-login"}
+                  onCopy={onCopy}
+                />
+                {guide.usePayload && (
+                  <CopyableGuideField
+                    id="payload"
+                    label="Custom Payload"
+                    value={guide.payload}
+                    hint="Tempel ke kolom Custom Payload. Jangan ubah placeholder."
+                    multiline
+                    copied={copiedField === "payload"}
+                    onCopy={onCopy}
+                  />
+                )}
+                <CopyableGuideField
+                  id="remote-proxy"
+                  label="Remote Proxy"
+                  value={guide.proxy.address}
+                  hint="Tempel pada kolom Remote Proxy tepat di bawah kolom Payload."
+                  copied={copiedField === "remote-proxy"}
+                  onCopy={onCopy}
+                />
+                {guide.sni && (
+                  <CopyableGuideField
+                    id="sni"
+                    label="SNI / Server Name Indication"
+                    value={guide.sni}
+                    hint="Tempel pada kolom Server Name Indication di kartu Payload (Metode TLS)."
+                    copied={copiedField === "sni"}
+                    onCopy={onCopy}
+                  />
+                )}
+              </div>
+            </section>
+
+            <section className="space-y-3 min-w-0 w-full overflow-hidden rounded-2xl border border-white/10 bg-background/30 p-4">
+              <div className="min-w-0">
+                <h4 className="font-semibold text-sm break-words">B. Field Akun Terpisah (Alternatif)</h4>
+                <p className="text-xs text-muted-foreground break-words">
+                  Gunakan jika aplikasimu meminta input Host, Port, User, dan Password secara terpisah.
+                </p>
+              </div>
+              <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+                {[
+                  ["ssh-host", "SSH Host", guide.ssh.host],
+                  ["ssh-port", "SSH Port", String(guide.ssh.port)],
+                  ["ssh-username", "Username", guide.ssh.username],
+                  ["ssh-password", "Password", guide.ssh.password],
+                ].map(([id, label, value]) => (
+                  <CopyableGuideField
+                    key={id}
+                    id={id}
+                    label={label}
+                    value={value}
+                    copied={copiedField === id}
+                    onCopy={onCopy}
+                  />
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
