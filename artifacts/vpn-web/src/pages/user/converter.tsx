@@ -220,6 +220,16 @@ type WizardStepItem = {
   actions?: React.ReactNode;
 };
 
+function parseBoldText(text: string): React.ReactNode[] {
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={i} className="text-white">{part.slice(2, -2)}</strong>;
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
 function HttpCustomGuideCard({
   guide,
   copiedField,
@@ -330,7 +340,7 @@ function HttpCustomGuideCard({
       let actions: React.ReactNode | undefined;
       let instructions: React.ReactNode = (
         <p className="text-xs sm:text-sm text-foreground/90 whitespace-pre-line leading-relaxed">
-          {rawStep.description}
+          {parseBoldText(rawStep.description)}
         </p>
       );
 
@@ -632,9 +642,6 @@ function HttpCustomGuideCard({
                       </Badge>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {currentStep.description}
-                  </p>
                 </div>
               </div>
 
