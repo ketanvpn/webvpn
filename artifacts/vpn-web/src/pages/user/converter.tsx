@@ -1197,6 +1197,7 @@ export default function ConfigConverter() {
   const [easyApp, setEasyApp] = useState<EasyApp | null>(null);
   const [easyResult, setEasyResult] = useState<DarkTunnelBuildResult | null>(null);
   const [showEasyResult, setShowEasyResult] = useState(false);
+  const [showHttpModal, setShowHttpModal] = useState(false);
   const [isEasyCopied, setIsEasyCopied] = useState(false);
   const [copiedHttpField, setCopiedHttpField] = useState<string | null>(null);
 
@@ -1375,6 +1376,7 @@ export default function ConfigConverter() {
     setEasyApp(null);
     setEasyResult(null);
     setShowEasyResult(false);
+    setShowHttpModal(false);
     setIsEasyCopied(false);
     setCopiedHttpField(null);
   }
@@ -1398,10 +1400,30 @@ export default function ConfigConverter() {
 
   function selectEasyApp(app: EasyApp) {
     setEasyApp(app);
-    setEasyResult(null);
-    setShowEasyResult(false);
     setIsEasyCopied(false);
     setCopiedHttpField(null);
+
+    if (app === "http-custom") {
+      setShowHttpModal(true);
+    } else if (app === "darktunnel") {
+      if (selectedEasyPreset && easyAccountId) {
+        const account = compatibleAccounts.find(
+          (item) => String(item.id) === easyAccountId,
+        );
+        if (account) {
+          try {
+            const generated = buildDarkTunnelConfig({
+              account,
+              preset: selectedEasyPreset,
+            });
+            setEasyResult(generated);
+            setShowEasyResult(true);
+          } catch {
+            setEasyResult(null);
+          }
+        }
+      }
+    }
   }
 
   function generateEasyConfig() {
@@ -1858,78 +1880,44 @@ export default function ConfigConverter() {
                 <CardHeader className="min-w-0 overflow-hidden p-4 sm:p-6">
                   <CardTitle className="text-base sm:text-lg break-words">3. Pilih Aplikasi</CardTitle>
                   <CardDescription className="text-xs sm:text-sm break-words">
-                    Gunakan akun yang sama di DarkTunnel atau ikuti panduan HTTP Custom.
+                    Pilih aplikasi yang ingin kamu gunakan. Panduan atau config akan muncul dalam jendela pop-up.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="min-w-0 overflow-hidden p-4 sm:p-6 pt-0">
+                <CardContent className="space-y-4 min-w-0 overflow-hidden p-4 sm:p-6 pt-0">
                   <EasyAppSelector
                     value={easyApp}
                     preset={selectedEasyPreset!}
                     onChange={selectEasyApp}
                   />
+
+                  {easyApp === "http-custom" && httpCustomGuide && (
+                    <div className="pt-2">
+                      <Button
+                        size="lg"
+                        className="w-full gap-2 min-w-0 break-words whitespace-normal h-auto py-3 bg-cyan-500 hover:bg-cyan-600 text-black font-bold shadow-lg shadow-cyan-500/20"
+                        onClick={() => setShowHttpModal(true)}
+                      >
+                        <Smartphone className="h-4 w-4 shrink-0" />
+                        <span className="break-words">Buka Panduan HTTP Custom (v7) →</span>
+                      </Button>
+                    </div>
+                  )}
+
+                  {easyApp === "darktunnel" && (
+                    <div className="pt-2">
+                      <Button
+                        size="lg"
+                        className="w-full gap-2 min-w-0 break-words whitespace-normal h-auto py-3 bg-emerald-500 hover:bg-emerald-600 text-black font-bold shadow-lg shadow-emerald-500/20"
+                        onClick={generateEasyConfig}
+                      >
+                        <ShieldPlus className="h-4 w-4 shrink-0" />
+                        <span className="break-words">Buka / Download Config DarkTunnel →</span>
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
-
-            {easyApp === "darktunnel" && selectedEasyAccount && (
-              <Card className="w-full min-w-0 glass-panel overflow-hidden border-emerald-500/25">
-                <CardHeader className="min-w-0 overflow-hidden p-4 sm:p-6">
-                  <CardTitle className="text-base sm:text-lg break-words">4. Buat Config DarkTunnel</CardTitle>
-                  <CardDescription className="text-xs sm:text-sm break-words">
-                    Website membuat file .dark menggunakan akun yang sudah dipilih.
-                  </CardDescription>
-                </CardHeader>
-                <CardFooter className="border-t border-white/5 bg-primary/5 p-4 min-w-0">
-                  <Button
-                    size="lg"
-                    className="w-full gap-2 min-w-0 break-words whitespace-normal h-auto py-3"
-                    onClick={generateEasyConfig}
-                  >
-                    <ShieldPlus className="h-4 w-4 shrink-0" />
-                    <span className="break-words">Buat Config DarkTunnel</span>
-                  </Button>
-                </CardFooter>
-              </Card>
-            )}
-
-            {httpCustomGuide && (
-              <HttpCustomGuideCard
-                guide={httpCustomGuide}
-                copiedField={copiedHttpField}
-                onCopy={copyHttpField}
-              />
-            )}
-
-            {easyApp && (
-              <Card className="w-full min-w-0 overflow-hidden border-white/10 bg-background/30">
-                <CardHeader className="pb-3 min-w-0 overflow-hidden p-4 sm:p-6 sm:pb-3">
-                  <CardTitle className="text-sm sm:text-base break-words">
-                    {easyApp === "darktunnel"
-                      ? "Cara Pakai Setelah Config Dibuat"
-                      : "Ringkasan Cara Pakai HTTP Custom"}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid w-full min-w-0 gap-3 text-sm grid-cols-1 sm:grid-cols-3 p-4 sm:p-6 pt-0">
-                {(easyApp === "darktunnel"
-                  ? [
-                      ["1", "Download file .dark"],
-                      ["2", "Buka file dengan DarkTunnel"],
-                      ["3", "Pilih config lalu Connect"],
-                    ]
-                  : [
-                      ["1", "Salin data sesuai label"],
-                      ["2", "Tempel di menu HTTP Custom"],
-                      ["3", "CONNECT lalu periksa LOG"],
-                    ]
-                ).map(([number, text]) => (
-                  <div key={number} className="flex items-center gap-3 rounded-xl border border-white/5 p-3">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary font-bold text-primary-foreground">{number}</span>
-                    <span>{text}</span>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
         </TabsContent>
 
         <TabsContent value="advanced" className="w-full min-w-0 space-y-6 overflow-hidden">
@@ -2049,22 +2037,43 @@ export default function ConfigConverter() {
         </TabsContent>
       </Tabs>
 
+      {/* Dialog Panduan HTTP Custom (Smart Interactive Wizard) */}
+      <Dialog open={showHttpModal} onOpenChange={setShowHttpModal}>
+        <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto p-2 sm:p-6 glass-panel border-cyan-500/30">
+          {httpCustomGuide ? (
+            <HttpCustomGuideCard
+              guide={httpCustomGuide}
+              copiedField={copiedHttpField}
+              onCopy={copyHttpField}
+            />
+          ) : (
+            <div className="p-6 text-center text-sm text-muted-foreground">
+              Pilih paket dan akun terlebih dahulu untuk melihat panduan.
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Hasil Config DarkTunnel */}
       <Dialog open={showEasyResult} onOpenChange={setShowEasyResult}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg glass-panel border-emerald-500/30">
           <DialogHeader>
-            <DialogTitle className="text-emerald-400">Config DarkTunnel Siap</DialogTitle>
+            <DialogTitle className="text-emerald-400 flex items-center gap-2">
+              <ShieldPlus className="h-5 w-5" /> Config DarkTunnel Siap
+            </DialogTitle>
             <DialogDescription>
-              Download file adalah cara paling mudah. Jika tidak terbuka otomatis, import file dari aplikasi DarkTunnel.
+              Unduh file .dark lalu buka atau import di aplikasi DarkTunnel.
             </DialogDescription>
           </DialogHeader>
           {easyResult && (
-            <>
-              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm">
-                <div className="font-semibold">{easyResult.config.name}</div>
-                <div className="mt-1 text-xs text-muted-foreground">File: {easyResult.filename}</div>
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm space-y-1">
+                <div className="font-semibold text-white">{easyResult.config.name}</div>
+                <div className="text-xs text-muted-foreground font-mono">File: {easyResult.filename}</div>
               </div>
+
               <div className="grid gap-2">
-                <Button size="lg" className="gap-2" onClick={downloadEasyConfig}>
+                <Button size="lg" className="gap-2 bg-emerald-500 hover:bg-emerald-600 text-black font-bold shadow-lg shadow-emerald-500/20" onClick={downloadEasyConfig}>
                   <Download className="h-4 w-4" /> Download File .dark
                 </Button>
                 <Button variant="outline" className="gap-2" onClick={openDarkTunnel}>
@@ -2072,10 +2081,19 @@ export default function ConfigConverter() {
                 </Button>
                 <Button variant="outline" className="gap-2" onClick={copyEasyLink}>
                   {isEasyCopied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  {isEasyCopied ? "Link Tersalin" : "Salin Link"}
+                  {isEasyCopied ? "Link Tersalin" : "Salin Link Config"}
                 </Button>
               </div>
-            </>
+
+              <div className="rounded-xl border border-white/5 bg-background/30 p-3 space-y-2 text-xs">
+                <p className="font-semibold text-white">3 Langkah Cepat Pakai:</p>
+                <div className="space-y-1 text-muted-foreground">
+                  <p>1. Ketuk tombol <strong>Download File .dark</strong> di atas.</p>
+                  <p>2. Buka aplikasi DarkTunnel, pilih <strong>Import Config</strong> lalu pilih file yang diunduh.</p>
+                  <p>3. Ketuk tombol <strong>Connect</strong> di DarkTunnel.</p>
+                </div>
+              </div>
+            </div>
           )}
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowEasyResult(false)}>Tutup</Button>
