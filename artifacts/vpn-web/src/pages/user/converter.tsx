@@ -490,7 +490,7 @@ function HttpCustomGuideCard({
               <CheckCircle2 size={16} /> Status Terhubung:
             </div>
             <p className="text-xs text-emerald-100/80">
-              Tunggu 3-5 detik sampai status berubah menjadi <strong>&ldquo;HTTP Custom: Connected&rdquo;</strong> dan muncul ikon kunci VPN di status bar HP kamu.
+              Tunggu 3-5 detik sampai status di aplikasi menampilkan pesan <strong>&ldquo;Selamat berselancar&rdquo;</strong> dan muncul ikon kunci VPN di status bar HP kamu.
             </p>
           </div>
         );
