@@ -67,7 +67,7 @@ export const tutorialStepSchema = z
     stepNumber: z.int().min(1),
     title: trimmedNonempty(200),
     description: trimmedNonempty(2000),
-    imageUrl: z.string().url().nullish().transform((v) => v ?? null),
+    imageUrl: z.string().min(1).nullish().transform((v) => v ?? null),
   })
   .strict();
 
