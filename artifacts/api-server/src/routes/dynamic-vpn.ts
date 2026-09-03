@@ -8,7 +8,7 @@ import {
   vouchersTable,
   vpnAccountsTable,
 } from "@workspace/db";
-import { and, asc, count, desc, eq, gt, gte, inArray, lt, sql, sum } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, inArray, lt, notInArray, sql, sum } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { requireAdmin, requireAuth } from "../lib/auth";
 import { createNadiaVpnOrder, getNadiaVpnAccountDetails, getNadiaVpnServers } from "../lib/nadiavpn";
@@ -718,6 +718,38 @@ export async function syncNadiaVpnServersFromProvider() {
       ? await db.update(dynamicProviderServersTable).set(values).where(eq(dynamicProviderServersTable.id, existing.id)).returning()
       : await db.insert(dynamicProviderServersTable).values({ provider: "nadiavpn", providerServerId, ...values }).returning();
     synced.push(formatServer(row, true));
+  }
+
+  const upstreamServerIds = servers.map((s: any) => String(s.server_id)).filter(Boolean);
+  if (upstreamServerIds.length > 0) {
+    const staleServers = await db
+      .select({ id: dynamicProviderServersTable.id, displayName: dynamicProviderServersTable.displayName })
+      .from(dynamicProviderServersTable)
+      .where(
+        and(
+          eq(dynamicProviderServersTable.provider, "nadiavpn"),
+          notInArray(dynamicProviderServersTable.providerServerId, upstreamServerIds)
+        )
+      );
+
+    for (const stale of staleServers) {
+      const [hasOrders] = await db
+        .select({ id: dynamicVpnOrdersTable.id })
+        .from(dynamicVpnOrdersTable)
+        .where(eq(dynamicVpnOrdersTable.dynamicServerId, stale.id))
+        .limit(1);
+
+      if (hasOrders) {
+        await db
+          .update(dynamicProviderServersTable)
+          .set({ isActive: false, capacityIsFull: true, updatedAt: now })
+          .where(eq(dynamicProviderServersTable.id, stale.id));
+      } else {
+        await db
+          .delete(dynamicProviderServersTable)
+          .where(eq(dynamicProviderServersTable.id, stale.id));
+      }
+    }
   }
 
   // Kirim notifikasi Telegram jika ada perubahan harga
