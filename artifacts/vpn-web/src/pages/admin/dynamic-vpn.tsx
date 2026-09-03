@@ -206,7 +206,18 @@ export default function AdminDynamicVpn() {
                     <Switch checked={!!s.isActive} onCheckedChange={(v) => setDraft(server.id, { isActive: v })} />
                   </div>
 
-                  <div className="grid gap-2"><Label>Nama tampil ke user</Label><Input value={s.displayName} onChange={(e) => setDraft(server.id, { displayName: e.target.value })} /></div>
+                  <div className="grid gap-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Nama tampil ke user</Label>
+                      {isNadia && <span className="text-[11px] text-cyan-400 font-medium">Auto-sync dari NadiaVPN</span>}
+                    </div>
+                    <Input
+                      value={s.displayName}
+                      onChange={(e) => setDraft(server.id, { displayName: e.target.value })}
+                      disabled={isNadia}
+                      className={isNadia ? "opacity-75 cursor-not-allowed bg-muted/30" : ""}
+                    />
+                  </div>
 
                   <div className="grid gap-2">
                     <Label>Protocol dijual</Label>

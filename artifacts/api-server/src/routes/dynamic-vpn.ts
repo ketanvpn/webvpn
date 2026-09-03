@@ -608,7 +608,7 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
   }).catch((err) => logger.error({ err, orderId }, "notifyAdminDynamicOrderFulfilled failed"));
 }
 
-async function syncNadiaVpnServersFromProvider() {
+export async function syncNadiaVpnServersFromProvider() {
   const response: any = await getNadiaVpnServers();
   const servers = response?.data?.servers ?? [];
   const now = new Date();
@@ -662,9 +662,11 @@ async function syncNadiaVpnServersFromProvider() {
       sellMonth = existing?.sellPricePerMonth ?? String(Math.max(costMonth, 10000));
     }
 
+    const serverName = String(srv.name ?? providerServerId);
+
     const values = {
-      providerName: String(srv.name ?? providerServerId),
-      displayName: existing?.displayName ?? String(srv.name ?? providerServerId),
+      providerName: serverName,
+      displayName: serverName,
       location: srv.location ? String(srv.location) : null,
       supportedProtocols,
       enabledProtocols: existing?.enabledProtocols?.length ? existing.enabledProtocols.filter((p: string) => supportedProtocols.includes(p)) : supportedProtocols,
@@ -856,7 +858,12 @@ router.patch("/admin/dynamic-vpn/servers/:id", requireAdmin, async (req, res) =>
   const body = req.body ?? {};
   const update: Record<string, unknown> = { updatedAt: new Date() };
 
-  if (body.displayName !== undefined) update.displayName = String(body.displayName).trim();
+  const [existingServer] = await db.select({ provider: dynamicProviderServersTable.provider }).from(dynamicProviderServersTable).where(eq(dynamicProviderServersTable.id, id)).limit(1);
+  if (!existingServer) return sendError(res, 404, "Server tidak ditemukan");
+
+  if (body.displayName !== undefined && existingServer.provider !== "nadiavpn") {
+    update.displayName = String(body.displayName).trim();
+  }
   if (body.isActive !== undefined) update.isActive = !!body.isActive;
   if (body.trialEnabled !== undefined) update.trialEnabled = !!body.trialEnabled;
   if (Array.isArray(body.enabledProtocols)) {

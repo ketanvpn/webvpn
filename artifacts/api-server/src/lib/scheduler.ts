@@ -7,6 +7,7 @@ import { sendWhatsapp } from "./fonnte";
 import { sendMessage } from "./telegram";
 import { notifyAdminLowMarginServers } from "./telegram";
 import { getDynamicCost } from "./dynamic-duration";
+import { syncNadiaVpnServersFromProvider } from "../routes/dynamic-vpn";
 import {
   reconcileAutoGoPayGoPay,
   reconcileBeforePaymentExpiry,
@@ -535,6 +536,11 @@ export function startScheduler(): void {
     runSafely("runProactiveAlerts", runProactiveAlerts);
   }, FIFTEEN_MIN);
 
+  setTimeout(() => runSafely("initial-syncNadiaVpnServers", async () => { await syncNadiaVpnServersFromProvider(); }), 30 * 1000);
+  setInterval(() => {
+    runSafely("syncNadiaVpnServers", async () => { await syncNadiaVpnServersFromProvider(); });
+  }, FIFTEEN_MIN);
+
   // Stuck orders health check setiap 1 jam
   runSafely("initial-checkStuckOrders", checkStuckOrders);
   setInterval(() => {
@@ -578,13 +584,17 @@ export function startScheduler(): void {
         logger.error("Auto-backup gagal setelah semua retry. Mengirim alert ke admin...");
         try {
           const errMsg = err instanceof Error ? err.message : String(err);
-          await sendMessage(
-            `⚠️ *AUTO-BACKUP GAGAL*\n\n` +
-            `Backup otomatis gagal setelah ${MAX_RETRIES}x percobaan.\n` +
-            `Error terakhir: \`${errMsg.substring(0, 200)}\`\n\n` +
-            `Segera cek server dan jalankan backup manual.`,
-            { parse_mode: "Markdown" }
-          );
+          const adminChatId = await getAdminChatIdForAlert();
+          if (adminChatId) {
+            await sendMessage(
+              adminChatId,
+              `⚠️ *AUTO-BACKUP GAGAL*\n\n` +
+              `Backup otomatis gagal setelah ${MAX_RETRIES}x percobaan.\n` +
+              `Error terakhir: \`${errMsg.substring(0, 200)}\`\n\n` +
+              `Segera cek server dan jalankan backup manual.`,
+              { parse_mode: "Markdown" }
+            );
+          }
         } catch (alertErr) {
           logger.error({ alertErr }, "Gagal mengirim alert backup failure ke Telegram");
         }
