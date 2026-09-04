@@ -147,9 +147,9 @@ router.post("/points/redeem", requireAuth, async (req, res) => {
       await tx.insert(balanceLogsTable).values({
         userId,
         type: "redeem",
-        amount: balanceCredit,
-        balanceBefore,
-        balanceAfter,
+        amount: String(balanceCredit),
+        balanceBefore: String(balanceBefore),
+        balanceAfter: String(balanceAfter),
         description: `Penukaran ${amount} poin`,
       });
 
