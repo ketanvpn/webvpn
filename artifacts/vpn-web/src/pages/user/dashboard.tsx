@@ -1,9 +1,8 @@
 import { useGetDashboardSummary } from "@workspace/api-client-react";
-import { formatRupiah } from "@/lib/format";
+import { formatRupiah, safeFormatDate } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { Wallet, Server, ShoppingCart, AlertCircle, ChevronRight, Sparkles, X, Zap, CheckCircle2, Info, Megaphone, AlertTriangle, ShieldPlus, Crown, TrendingUp, Target, Calendar, RefreshCw, Trophy, Flame } from "lucide-react";
-import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
 import { useState, useEffect } from "react";
@@ -624,7 +623,7 @@ export default function Dashboard() {
                         )}
                       </div>
                       <div className="text-[11px] text-muted-foreground">
-                        {format(new Date(order.createdAt), "d MMM yyyy")}
+                        {safeFormatDate(order.createdAt, "d MMM yyyy")}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -659,7 +658,7 @@ export default function Dashboard() {
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs text-destructive font-medium">
-                        {format(new Date(account.expiresAt), "d MMM")}
+                        {safeFormatDate(account.expiresAt, "d MMM")}
                       </span>
                       <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                     </div>

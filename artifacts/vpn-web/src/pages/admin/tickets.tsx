@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TicketCheck, ChevronRight, User, Clock } from "lucide-react";
-import { format } from "date-fns";
+import { safeFormatDate } from "@/lib/format";
 import { apiClient } from "@/lib/api-client";
 
 type Ticket = { id: number; userId: number; username: string; subject: string; status: string; priority: string; createdAt: string; updatedAt: string };
@@ -83,7 +83,7 @@ export default function AdminTickets() {
                       </div>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         <div className="flex items-center gap-1"><User size={11} /> {t.username}</div>
-                        <div className="flex items-center gap-1"><Clock size={11} /> {format(new Date(t.updatedAt), "dd MMM yyyy HH:mm")}</div>
+                        <div className="flex items-center gap-1"><Clock size={11} /> {safeFormatDate(t.updatedAt, "dd MMM yyyy HH:mm")}</div>
                       </div>
                     </div>
                     <ChevronRight size={16} className="text-muted-foreground shrink-0" />

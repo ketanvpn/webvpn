@@ -9,8 +9,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatRupiah } from "@/lib/format";
-import { format } from "date-fns";
+import { formatRupiah, safeFormatDate } from "@/lib/format";
 import { CreditCard, Check, X, CheckCircle, XCircle, Clock, QrCode, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -154,7 +153,7 @@ export default function AdminTopups() {
                           </Badge>
                         </div>
                         <div className="text-sm text-muted-foreground mt-0.5">
-                          {format(new Date(topup.createdAt), "d MMM yyyy HH:mm")}
+                          {safeFormatDate(topup.createdAt, "d MMM yyyy HH:mm")}
                         </div>
                         {topup.status === "rejected" && topup.rejectionNote && (
                           <div className="text-xs text-red-600/80 mt-1 italic">

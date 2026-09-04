@@ -17,10 +17,9 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { formatRupiah } from "@/lib/format";
+import { formatRupiah, safeFormatDate } from "@/lib/format";
 import {
   Select,
   SelectContent,
@@ -204,7 +203,7 @@ export default function AdminUserDetail() {
                   <div className="text-muted-foreground flex items-center gap-1 mb-1">
                     <Calendar className="h-3.5 w-3.5" /> Bergabung
                   </div>
-                  <div className="font-medium">{format(new Date(user.createdAt), "d MMM yyyy")}</div>
+                  <div className="font-medium">{safeFormatDate(user.createdAt, "d MMM yyyy")}</div>
                 </div>
                 <div>
                   <div className="text-muted-foreground mb-1">Kode Referral</div>
@@ -285,7 +284,7 @@ export default function AdminUserDetail() {
                           <div>
                             <div className="font-medium text-sm">{order.product?.name ?? `Produk #${order.productId}`}</div>
                             <div className="text-xs text-muted-foreground mt-0.5">
-                              {format(new Date(order.createdAt), "d MMM yyyy HH:mm")} &bull; {order.paymentMethod}
+                              {safeFormatDate(order.createdAt, "d MMM yyyy HH:mm")} &bull; {order.paymentMethod}
                             </div>
                           </div>
                           <div className="text-right">
@@ -318,7 +317,7 @@ export default function AdminUserDetail() {
                               <span className="font-mono">{acc.username}</span>
                             </div>
                             <div className="text-xs text-muted-foreground mt-1">
-                              Server: {acc.server?.name ?? "-"} &bull; Kedaluarsa: {format(new Date(acc.expiresAt), "d MMM yyyy")}
+                              Server: {acc.server?.name ?? "-"} &bull; Kedaluarsa: {safeFormatDate(acc.expiresAt, "d MMM yyyy")}
                             </div>
                           </div>
                           <Badge
@@ -348,7 +347,7 @@ export default function AdminUserDetail() {
                           <div>
                             <div className="font-medium text-sm">{formatRupiah(t.amount)}</div>
                             <div className="text-xs text-muted-foreground mt-0.5">
-                              {format(new Date(t.createdAt), "d MMM yyyy HH:mm")}
+                              {safeFormatDate(t.createdAt, "d MMM yyyy HH:mm")}
                             </div>
                           </div>
                           <Badge
@@ -381,7 +380,7 @@ export default function AdminUserDetail() {
                     <div className="divide-y divide-white/5">
                       {balanceLogsData.data.map((log) => {
                         const isPositive = log.amount >= 0;
-                        const lowerDescription = log.description.toLowerCase();
+                        const lowerDescription = (log.description ?? "").toLowerCase();
                         const typeInfo = log.type === "topup"
                           ? { label: "Topup", color: "bg-green-500/10 text-green-700 border-green-200", icon: <ArrowDownLeft className="h-3.5 w-3.5 text-green-600" /> }
                           : log.type === "order" && lowerDescription.includes("renew")
@@ -400,7 +399,7 @@ export default function AdminUserDetail() {
                                 <Badge className={`text-[10px] ${typeInfo.color}`} variant="outline">{typeInfo.label}</Badge>
                               </div>
                               <div className="text-xs text-muted-foreground mt-0.5">
-                                {format(new Date(log.createdAt), "d MMM yyyy, HH:mm")} &bull;{" "}
+                                {safeFormatDate(log.createdAt, "d MMM yyyy, HH:mm")} &bull;{" "}
                                 <span className="opacity-70">{formatRupiah(log.balanceBefore)} → {formatRupiah(log.balanceAfter)}</span>
                               </div>
                             </div>

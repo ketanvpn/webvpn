@@ -1,8 +1,7 @@
 import { useListOrders } from "@workspace/api-client-react";
-import { formatRupiah } from "@/lib/format";
+import { formatRupiah, safeFormatDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format } from "date-fns";
 import { Link } from "wouter";
 import { ChevronRight, ShoppingBag } from "lucide-react";
 import { DynamicOrderStatusBadge } from "@/components/dynamic-order-status-badge";
@@ -49,7 +48,7 @@ export default function Orders() {
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[11px] text-muted-foreground">
-                      {format(new Date(order.createdAt), "d MMM yyyy, HH:mm")}
+                      {safeFormatDate(order.createdAt, "d MMM yyyy, HH:mm")}
                     </span>
                     {order.paymentMethod && (
                       <span className="text-[10px] text-muted-foreground">

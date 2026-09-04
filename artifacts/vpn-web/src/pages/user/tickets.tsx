@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useToast } from "@/hooks/use-toast";
 import { apiClient } from "@/lib/api-client";
 import { TicketCheck, Plus, ChevronRight, Clock } from "lucide-react";
-import { format } from "date-fns";
+import { safeFormatDate } from "@/lib/format";
 
 type Ticket = { id: number; subject: string; status: string; priority: string; createdAt: string; updatedAt: string };
 
@@ -112,7 +112,7 @@ export default function UserTickets() {
                       </div>
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Clock size={11} />
-                        <span>Diperbarui {format(new Date(t.updatedAt), "dd MMM yyyy HH:mm")}</span>
+                        <span>Diperbarui {safeFormatDate(t.updatedAt, "dd MMM yyyy HH:mm")}</span>
                         {unread && <span className="text-green-400 font-medium ml-1">· Ada balasan baru</span>}
                       </div>
                     </div>

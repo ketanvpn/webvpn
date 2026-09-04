@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { safeFormatDate } from "@/lib/format";
 import { id as localeId } from "date-fns/locale/id";
 import { UserCircle, Mail, Phone, Calendar, LogOut, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -64,17 +64,7 @@ export default function Profile() {
     }
   };
 
-  const formattedJoinDate = (() => {
-    try {
-      return format(new Date(user.createdAt), "d MMMM yyyy", { locale: localeId });
-    } catch {
-      try {
-        return format(new Date(user.createdAt), "d MMMM yyyy");
-      } catch {
-        return String(user.createdAt);
-      }
-    }
-  })();
+  const formattedJoinDate = safeFormatDate(user.createdAt, "d MMMM yyyy", { locale: localeId }) || String(user.createdAt);
 
   return (
     <div className="max-w-lg mx-auto pb-6 space-y-4">

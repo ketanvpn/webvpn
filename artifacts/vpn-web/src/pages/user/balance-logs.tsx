@@ -4,9 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowDownLeft, ArrowUpRight, Settings2, History } from "lucide-react";
-import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
-import { formatRupiah } from "@/lib/format";
+import { formatRupiah, safeFormatDate } from "@/lib/format";
 import { useState } from "react";
 
 const LIMIT = 30;
@@ -90,7 +89,7 @@ export default function BalanceLogs() {
                         <Badge className={`text-[10px] ${color}`} variant="outline">{label}</Badge>
                       </div>
                       <div className="text-xs text-muted-foreground mt-1 flex items-center gap-3 flex-wrap">
-                        <span>{format(new Date(log.createdAt), "d MMM yyyy, HH:mm", { locale: idLocale })}</span>
+                        <span>{safeFormatDate(log.createdAt, "d MMM yyyy, HH:mm", { locale: idLocale })}</span>
                         <span className="text-muted-foreground/60">
                           Saldo: {formatRupiah(log.balanceBefore)} → {formatRupiah(log.balanceAfter)}
                         </span>

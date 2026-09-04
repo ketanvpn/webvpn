@@ -7,8 +7,7 @@ import { Link, useParams } from "wouter";
 import { dynamicDurationUnit } from "@/lib/dynamic-duration";
 import { DynamicOrderStatusBadge, DynamicOrderStatusPanel, type OrderStatus } from "@/components/dynamic-order-status-badge";
 import { Badge } from "@/components/ui/badge";
-import { formatRupiah } from "@/lib/format";
-import { format } from "date-fns";
+import { formatRupiah, safeFormatDate } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 
@@ -141,7 +140,7 @@ export default function DynamicOrderDetail() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Detail Order #{order.id}</h1>
           <p className="text-sm text-muted-foreground">
-            Dibuat: {format(new Date(order.createdAt), "d MMM yyyy, HH:mm")}
+            Dibuat: {safeFormatDate(order.createdAt, "d MMM yyyy, HH:mm")}
           </p>
         </div>
       </div>

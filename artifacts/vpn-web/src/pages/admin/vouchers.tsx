@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Tag, Percent, BadgeDollarSign, Infinity } from "lucide-react";
-import { format } from "date-fns";
+import { safeFormatDate } from "@/lib/format";
 import { apiClient } from "@/lib/api-client";
 
 type Voucher = {
@@ -187,7 +187,7 @@ export default function AdminVouchers() {
                         {v.expiresAt && (
                           <>
                             <span className="text-white/20">·</span>
-                            <span>Berlaku hingga {format(new Date(v.expiresAt), "d MMM yyyy")}</span>
+                            <span>Berlaku hingga {safeFormatDate(v.expiresAt, "d MMM yyyy")}</span>
                           </>
                         )}
                       </div>

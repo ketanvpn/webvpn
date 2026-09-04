@@ -7,8 +7,7 @@ import { Link } from "wouter";
 import { dynamicDurationUnit } from "@/lib/dynamic-duration";
 import { DynamicOrderStatusBadge, type OrderStatus } from "@/components/dynamic-order-status-badge";
 import { Badge } from "@/components/ui/badge";
-import { formatRupiah } from "@/lib/format";
-import { format } from "date-fns";
+import { formatRupiah, safeFormatDate } from "@/lib/format";
 
 type DynamicOrder = {
   id: number;
@@ -94,7 +93,7 @@ export default function DynamicOrderHistory() {
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                        <span>Dibuat: {format(new Date(order.createdAt), "d MMM yyyy, HH:mm")}</span>
+                        <span>Dibuat: {safeFormatDate(order.createdAt, "d MMM yyyy, HH:mm")}</span>
                         <span>Bayar: {order.paymentMethod === "balance" ? "Saldo" : order.paymentMethod}</span>
                         {order.vpnAccountId && (
                           <span className="text-primary">Akun VPN aktif</span>

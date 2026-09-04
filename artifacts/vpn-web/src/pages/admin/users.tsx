@@ -5,8 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { formatRupiah } from "@/lib/format";
-import { format } from "date-fns";
+import { formatRupiah, safeFormatDate } from "@/lib/format";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Users, Search, ShieldAlert, Shield, ChevronLeft, ChevronRight, UserPlus, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -214,7 +213,7 @@ export default function AdminUsers() {
                   <div className="flex items-center gap-6 sm:justify-end">
                     <div className="text-sm text-right hidden sm:block">
                       <div className="font-medium text-primary">{formatRupiah(user.balance)}</div>
-                      <div className="text-xs text-muted-foreground">Bergabung {format(new Date(user.createdAt), "MMM yyyy")}</div>
+                      <div className="text-xs text-muted-foreground">Bergabung {safeFormatDate(user.createdAt, "MMM yyyy")}</div>
                     </div>
                     <div className="flex items-center gap-3">
                       <Badge variant={user.isActive ? "outline" : "destructive"}>

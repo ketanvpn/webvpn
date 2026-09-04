@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Copy, QrCode, Clock, Activity, ShieldCheck, ShieldPlus, ExternalLink, RefreshCw, CheckCircle2, AlertCircle, Tag } from "lucide-react";
-import { format, differenceInCalendarDays } from "date-fns";
+import { differenceInCalendarDays } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
-import { formatRupiah, formatExpiryLabel, getExpiryColorClass } from "@/lib/format";
+import { formatRupiah, formatExpiryLabel, getExpiryColorClass, safeFormatDate } from "@/lib/format";
 import { useState } from "react";
 import { getApiError } from "@/lib/utils";
 import {
@@ -428,7 +428,7 @@ export default function AccountDetail() {
                   <div className="text-xs text-muted-foreground uppercase font-semibold">Tanggal Kedaluwarsa</div>
                   <div className="font-medium flex items-center gap-2">
                     <Clock className="h-4 w-4 text-primary" />
-                    {format(new Date(account.expiresAt), "d MMM yyyy", { locale: idLocale })}
+                    {safeFormatDate(account.expiresAt, "d MMM yyyy", { locale: idLocale })}
                   </div>
                   <div className={`text-xs font-medium ${getExpiryColorClass(daysLeft, account.isActive)}`}>
                     {formatExpiryLabel(daysLeft, account.isActive)}

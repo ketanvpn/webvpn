@@ -1,3 +1,22 @@
+import { format, isValid } from "date-fns";
+import type { FormatOptions } from "date-fns";
+
+/**
+ * Safely format a date value. Returns `fallback` when the input is
+ * null / undefined / an invalid date string instead of throwing.
+ */
+export function safeFormatDate(
+  value: string | number | Date | null | undefined,
+  pattern: string,
+  options?: FormatOptions,
+  fallback = "-",
+): string {
+  if (value == null) return fallback;
+  const date = value instanceof Date ? value : new Date(value);
+  if (!isValid(date)) return fallback;
+  return format(date, pattern, options);
+}
+
 export function formatRupiah(amount: number | null | undefined): string {
   const numericAmount = typeof amount === "number" && !Number.isNaN(amount) ? amount : 0;
   return new Intl.NumberFormat("id-ID", {

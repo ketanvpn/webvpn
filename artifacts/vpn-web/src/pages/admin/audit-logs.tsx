@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiClient } from "@/lib/api-client";
-import { format } from "date-fns";
+import { safeFormatDate } from "@/lib/format";
 
 type AuditLog = {
   id: number;
@@ -134,7 +134,7 @@ export default function AdminAuditLogs() {
                     {logs.map((log) => (
                       <TableRow key={log.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedLog(log)}>
                         <TableCell className="whitespace-nowrap text-xs md:text-sm">
-                          {format(new Date(log.createdAt), "dd MMM yyyy HH:mm")}
+                          {safeFormatDate(log.createdAt, "dd MMM yyyy HH:mm")}
                         </TableCell>
                         <TableCell className="text-sm">{log.adminUsername || `User #${log.adminUserId}`}</TableCell>
                         <TableCell>
@@ -231,7 +231,7 @@ export default function AdminAuditLogs() {
             <DialogTitle>Detail Aksi #{selectedLog?.id}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 text-sm">
-            <div><strong>Waktu:</strong> {selectedLog && format(new Date(selectedLog.createdAt), "dd MMM yyyy HH:mm:ss")}</div>
+            <div><strong>Waktu:</strong> {selectedLog && safeFormatDate(selectedLog.createdAt, "dd MMM yyyy HH:mm:ss")}</div>
             <div><strong>Admin:</strong> {selectedLog?.adminUsername || `User #${selectedLog?.adminUserId}`}</div>
             <div><strong>Aksi:</strong> <Badge>{selectedLog?.action}</Badge></div>
             <div><strong>Target:</strong> {selectedLog?.targetType} {selectedLog?.targetId ? `#${selectedLog?.targetId}` : ''}</div>

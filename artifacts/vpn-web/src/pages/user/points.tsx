@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiClient } from "@/lib/api-client";
 import { Star, TrendingUp, TrendingDown, Gift, ShoppingBag, Wallet, Info } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { format } from "date-fns";
+import { safeFormatDate } from "@/lib/format";
 
 type PointSettings = { enabled: boolean; pointsRateOrder: number; pointsMinOrder: number; pointsRateTopup: number; pointsMinTopup: number; redeemRate: number; minRedeem: number };
 type PointLog = { id: number; type: string; amount: number; pointsBefore: number; pointsAfter: number; description: string; createdAt: string };
@@ -165,7 +165,7 @@ export default function UserPoints() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-white truncate">{log.description}</p>
-                          <p className="text-xs text-muted-foreground">{format(new Date(log.createdAt), "dd MMM yyyy HH:mm")}</p>
+                          <p className="text-xs text-muted-foreground">{safeFormatDate(log.createdAt, "dd MMM yyyy HH:mm")}</p>
                         </div>
                         <div className="text-right shrink-0">
                           <p className={`font-semibold text-sm ${isPositive ? "text-green-400" : "text-red-400"}`}>

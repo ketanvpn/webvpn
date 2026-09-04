@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Shield, Search, ChevronLeft, ChevronRight, Power, CalendarPlus, Trash2, RefreshCw, CheckSquare, Square, Minus } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { format } from "date-fns";
+import { safeFormatDate } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -162,7 +162,7 @@ export default function AdminAccounts() {
         onSuccess: (res) => {
           toast({
             title: "Akun diperpanjang",
-            description: `Expired baru: ${format(new Date(res.expiresAt), "d MMM yyyy")}`,
+            description: `Expired baru: ${safeFormatDate(res.expiresAt, "d MMM yyyy")}`,
           });
           setExtendDialogId(null);
           queryClient.invalidateQueries({ queryKey: getAdminListAccountsQueryKey() });
@@ -320,7 +320,7 @@ export default function AdminAccounts() {
                           <span>Server: {acc.server?.name ?? "-"}</span>
                           <span>
                             Expired:{" "}
-                            {acc.expiresAt ? format(new Date(acc.expiresAt), "d MMM yyyy") : "-"}
+                            {safeFormatDate(acc.expiresAt, "d MMM yyyy")}
                           </span>
                           {acc.quota != null && (
                             <span>
@@ -365,7 +365,7 @@ export default function AdminAccounts() {
                             <DialogTitle>Perpanjang Akun VPN</DialogTitle>
                             <DialogDescription>
                               Akun: <strong className="font-mono">{acc.username}</strong><br />
-                              Expired sekarang: {acc.expiresAt ? format(new Date(acc.expiresAt), "d MMM yyyy") : "-"}
+                              Expired sekarang: {safeFormatDate(acc.expiresAt, "d MMM yyyy")}
                             </DialogDescription>
                           </DialogHeader>
                           <div className="space-y-3 py-2">

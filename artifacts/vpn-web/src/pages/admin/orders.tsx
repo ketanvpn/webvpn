@@ -6,8 +6,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatRupiah } from "@/lib/format";
-import { format } from "date-fns";
+import { formatRupiah, safeFormatDate } from "@/lib/format";
 import { ShoppingCart, FileText, Search, Server, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/common";
@@ -121,7 +120,7 @@ export default function AdminOrders() {
                         </Badge>
                       </div>
                       <div className="text-sm text-muted-foreground mt-1">
-                        {order.product?.name} &bull; {order.paymentMethod} &bull; {format(new Date(order.createdAt), "d MMM, HH:mm")}
+                        {order.product?.name} &bull; {order.paymentMethod} &bull; {safeFormatDate(order.createdAt, "d MMM, HH:mm")}
                       </div>
                       {order.notes && (
                         <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">

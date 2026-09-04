@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from "@/hooks/use-toast";
 import { apiClient } from "@/lib/api-client";
 import { Plus, Pencil, Trash2, Megaphone, Info, AlertTriangle, CheckCircle, XCircle, Calendar } from "lucide-react";
-import { format } from "date-fns";
+import { safeFormatDate } from "@/lib/format";
 
 type Announcement = {
   id: number;
@@ -91,7 +91,7 @@ export default function AdminAnnouncements() {
       try {
         const d = new Date(dateStr);
         if (isNaN(d.getTime())) return "";
-        return format(d, "yyyy-MM-dd'T'HH:mm");
+        return safeFormatDate(d, "yyyy-MM-dd'T'HH:mm", undefined, "");
       } catch {
         return "";
       }
@@ -152,9 +152,9 @@ export default function AdminAnnouncements() {
                       </div>
                       <p className="text-sm text-muted-foreground line-clamp-2">{a.content}</p>
                       <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground/70">
-                        <span>Dibuat: {format(new Date(a.createdAt), "dd MMM yyyy")}</span>
-                        {a.startAt && <span>Mulai: {format(new Date(a.startAt), "dd MMM yyyy HH:mm")}</span>}
-                        {a.endAt && <span>Berakhir: {format(new Date(a.endAt), "dd MMM yyyy HH:mm")}</span>}
+<span>Dibuat: {safeFormatDate(a.createdAt, "dd MMM yyyy")}</span>
+                      {a.startAt && <span>Mulai: {safeFormatDate(a.startAt, "dd MMM yyyy HH:mm")}</span>}
+                      {a.endAt && <span>Berakhir: {safeFormatDate(a.endAt, "dd MMM yyyy HH:mm")}</span>}
                       </div>
                     </div>
                   </div>

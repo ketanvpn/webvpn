@@ -7,7 +7,7 @@ import {
   getListTopupHistoryQueryKey,
   type TopupTransaction,
 } from "@workspace/api-client-react";
-import { formatRupiah } from "@/lib/format";
+import { formatRupiah, safeFormatDate } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +17,6 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Wallet, ArrowUpRight, History, Clock, XCircle, Zap, Timer, QrCode, Landmark, TrendingUp, CreditCard, Smartphone, Info, ArrowUpCircle, ChevronDown, Lightbulb, CheckCircle, AlertTriangle, Gift, PlusCircle } from "lucide-react";
-import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -455,7 +454,7 @@ export default function Balance() {
                           <div>
                             <div className="font-semibold text-sm">{formatRupiah(tx.payableAmount ?? tx.amount)}</div>
                             <div className="text-[11px] text-muted-foreground">
-                              {getPaymentChannelName(tx.paymentChannel, tx.paymentProvider, tx.gateway)} · {format(new Date(tx.createdAt), "d MMM yyyy HH:mm")}
+                              {getPaymentChannelName(tx.paymentChannel, tx.paymentProvider, tx.gateway)} · {safeFormatDate(tx.createdAt, "d MMM yyyy HH:mm")}
                             </div>
                           </div>
                         </div>

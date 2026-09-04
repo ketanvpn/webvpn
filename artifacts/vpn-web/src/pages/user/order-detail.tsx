@@ -6,7 +6,7 @@ import {
   getGetAccountQueryKey,
 } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { formatRupiah, formatExpiryLabel, getExpiryColorClass } from "@/lib/format";
+import { formatRupiah, formatExpiryLabel, getExpiryColorClass, safeFormatDate } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Clock, CreditCard, ShoppingBag, AlertCircle, CheckCircle2, Copy, QrCode, Shield, Loader2, ScanLine, Timer } from "lucide-react";
-import { format, formatDistanceToNow, differenceInCalendarDays } from "date-fns";
+import { formatDistanceToNow, differenceInCalendarDays } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -197,7 +197,7 @@ export default function OrderDetail() {
               </CardTitle>
               <div className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
                 <Clock className="h-3 w-3" />
-                {format(new Date(order.createdAt), "d MMMM yyyy, HH:mm", { locale: idLocale })}
+                {safeFormatDate(order.createdAt, "d MMMM yyyy, HH:mm", { locale: idLocale })}
               </div>
             </div>
             <Badge variant="outline" className={`text-base px-3 py-1 ${statusColors[order.status]}`}>
@@ -288,7 +288,7 @@ export default function OrderDetail() {
                     </div>
                     <div className="space-y-0.5">
                       <p className="text-xs text-muted-foreground font-semibold uppercase">Kedaluwarsa</p>
-                      <p className="font-medium">{format(new Date(vpnAccount.expiresAt), "d MMM yyyy", { locale: idLocale })}</p>
+                      <p className="font-medium">{safeFormatDate(vpnAccount.expiresAt, "d MMM yyyy", { locale: idLocale })}</p>
                       <p className={`text-xs font-medium ${getExpiryColorClass(daysLeft, vpnAccount?.isActive ?? true)}`}>
                         {formatExpiryLabel(daysLeft, vpnAccount?.isActive ?? true)}
                       </p>
@@ -500,7 +500,7 @@ export default function OrderDetail() {
                           Berlaku hingga
                         </span>
                         <span className={`font-medium text-right ${new Date(order.expiresAt).getTime() - now.getTime() < 5 * 60 * 1000 ? "text-destructive" : ""}`}>
-                          {format(new Date(order.expiresAt), "HH:mm:ss", { locale: idLocale })}
+                          {safeFormatDate(order.expiresAt, "HH:mm:ss", { locale: idLocale })}
                           <span className="text-xs text-muted-foreground ml-1">
                             ({formatDistanceToNow(new Date(order.expiresAt), { locale: idLocale, addSuffix: true })})
                           </span>

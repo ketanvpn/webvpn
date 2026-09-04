@@ -9,7 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from "@/hooks/use-toast";
 import { apiClient } from "@/lib/api-client";
 import { ArrowLeft, Send, XCircle, User, ShieldCheck, BellRing } from "lucide-react";
-import { format } from "date-fns";
+import { safeFormatDate } from "@/lib/format";
 
 type Message = { id: number; isAdmin: boolean; message: string; createdAt: string };
 type TicketDetail = { id: number; subject: string; status: string; priority: string; createdAt: string; messages: Message[] };
@@ -109,7 +109,7 @@ export default function TicketDetail() {
             <h1 className="text-lg font-bold text-white">#{ticket.id} — {ticket.subject}</h1>
             <Badge variant="outline" className={`text-xs ${status.className}`}>{status.label}</Badge>
           </div>
-          <p className="text-xs text-muted-foreground">Dibuat {format(new Date(ticket.createdAt), "dd MMM yyyy HH:mm")}</p>
+          <p className="text-xs text-muted-foreground">Dibuat {safeFormatDate(ticket.createdAt, "dd MMM yyyy HH:mm")}</p>
         </div>
         {!isClosed && (
           <AlertDialog>
@@ -140,7 +140,7 @@ export default function TicketDetail() {
                 ) : (
                   <div className="flex items-center gap-1 text-xs text-muted-foreground"><User size={12} /> Kamu</div>
                 )}
-                <span className="text-xs text-muted-foreground/60">{format(new Date(msg.createdAt), "HH:mm")}</span>
+                <span className="text-xs text-muted-foreground/60">{safeFormatDate(msg.createdAt, "HH:mm")}</span>
               </div>
               <p className="text-sm text-white whitespace-pre-wrap">{msg.message}</p>
             </div>

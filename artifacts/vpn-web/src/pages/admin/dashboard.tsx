@@ -1,9 +1,8 @@
 import { useGetAdminDashboard, getGetAdminDashboardQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatRupiah } from "@/lib/format";
+import { formatRupiah, safeFormatDate } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, ShoppingCart, Wallet, Server, Activity, ArrowUpRight, TrendingUp, BarChart2, Inbox } from "lucide-react";
-import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
@@ -30,6 +29,21 @@ interface ChartDay {
   orders: number;
 }
 
+// Backend returns recentAuditLogs but the generated type doesn't include it yet
+type AuditLogEntry = {
+  id: number;
+  adminUserId: number;
+  adminUsername?: string;
+  action: string;
+  targetType: string;
+  targetId?: number | null;
+  createdAt: string;
+};
+
+type DashboardWithAuditLogs = {
+  recentAuditLogs?: AuditLogEntry[];
+};
+
 const statusLabel: Record<string, string> = {
   pending: "Menunggu",
   paid: "Lunas",
@@ -39,7 +53,7 @@ const statusLabel: Record<string, string> = {
 
 function formatShortDate(dateStr: string) {
   const d = new Date(dateStr + "T00:00:00");
-  return format(d, "d MMM", { locale: idLocale });
+  return safeFormatDate(d, "d MMM", { locale: idLocale });
 }
 
 function ChartTooltip({
@@ -312,7 +326,7 @@ export default function AdminDashboard() {
                           )}
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
-                          {format(new Date(order.createdAt), "d MMM, HH:mm")}
+                          {safeFormatDate(order.createdAt, "d MMM, HH:mm")}
                         </div>
                       </div>
                       <div className="text-right">
@@ -348,7 +362,7 @@ export default function AdminDashboard() {
                       <div>
                         <div className="font-medium text-sm">{topup.username}</div>
                         <div className="text-xs text-muted-foreground mt-1">
-                          {format(new Date(topup.createdAt), "d MMM, HH:mm")}
+                          {safeFormatDate(topup.createdAt, "d MMM, HH:mm")}
                         </div>
                       </div>
                     </div>
@@ -376,16 +390,16 @@ export default function AdminDashboard() {
             <Link href="/admin/audit-logs" className="text-xs text-primary hover:underline">Lihat semua →</Link>
           </CardHeader>
           <CardContent>
-            {(summary as any)?.recentAuditLogs && (summary as any).recentAuditLogs.length > 0 ? (
+            {(summary as DashboardWithAuditLogs)?.recentAuditLogs && (summary as DashboardWithAuditLogs).recentAuditLogs!.length > 0 ? (
               <div className="space-y-4">
-                {(summary as any).recentAuditLogs.map((log: any) => (
+                {(summary as DashboardWithAuditLogs).recentAuditLogs!.map((log) => (
                   <div key={log.id} className="flex justify-between items-center border-b border-white/5 pb-4 last:border-0 last:pb-0">
                     <div>
                       <div className="font-medium text-sm">
                         {log.adminUsername || `Admin #${log.adminUserId}`} <span className="text-muted-foreground font-normal">melakukan</span> {log.action}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">
-                        {format(new Date(log.createdAt), "d MMM, HH:mm")}
+                        {safeFormatDate(log.createdAt, "d MMM, HH:mm")}
                       </div>
                     </div>
                     <div className="text-right text-xs">
