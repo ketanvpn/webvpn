@@ -558,10 +558,10 @@ export default function Register() {
                       {usernameStatus !== null && usernameStatus !== "checking" && usernameStatus.available === false && (
                         <div className="space-y-1.5">
                           <p className="text-xs text-red-500 flex items-center gap-1"><X className="h-3 w-3" /> Username sudah dipakai</p>
-                          {usernameStatus.suggestions.length > 0 && (
+                          {(usernameStatus.suggestions?.length ?? 0) > 0 && (
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="text-xs text-muted-foreground">Coba:</span>
-                              {usernameStatus.suggestions.map((s) => (
+                              {(usernameStatus.suggestions || []).map((s) => (
                                 <button
                                   key={s}
                                   type="button"

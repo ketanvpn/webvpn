@@ -182,6 +182,7 @@ function createBlankForm(): PresetForm {
     supportsHttpCustom: true,
     isActive: true,
     sortOrder: "0",
+    purchaseOptions: [],
   };
 }
 
@@ -205,6 +206,7 @@ function presetToForm(preset: EasyInjectPreset): PresetForm {
     supportsHttpCustom: preset.supportsHttpCustom,
     isActive: preset.isActive,
     sortOrder: String(preset.sortOrder),
+    purchaseOptions: preset.purchaseOptions ?? [],
   };
 }
 

@@ -86,10 +86,13 @@ export class ErrorBoundary extends Component<Props, State> {
               </p>
             </div>
 
-            {/* Error details - hanya di development */}
-            {import.meta.env.DEV && error && (
+            {/* Error details - tampilkan juga error message di production agar mudah didiagnosa */}
+            {error && (
               <div className="text-left bg-muted/50 rounded-lg p-4 overflow-auto max-h-40">
-                <p className="text-xs font-mono text-destructive">{error.message}</p>
+                <p className="text-xs font-mono text-destructive font-medium">{error.name}: {error.message}</p>
+                {import.meta.env.DEV && error.stack && (
+                  <pre className="text-[10px] font-mono text-muted-foreground mt-2 whitespace-pre-wrap">{error.stack}</pre>
+                )}
               </div>
             )}
 

@@ -55,8 +55,8 @@ function AnnouncementBanners() {
   return (
     <div className="space-y-2">
       {visible.map((a) => {
-        const style = ANNOUNCE_STYLE[a.type] ?? ANNOUNCE_STYLE.info;
-        const Icon = ANNOUNCE_ICONS[a.type] ?? Info;
+        const style = (a?.type && ANNOUNCE_STYLE[a.type]) ? ANNOUNCE_STYLE[a.type] : ANNOUNCE_STYLE.info;
+        const Icon = (a?.type && ANNOUNCE_ICONS[a.type]) ? ANNOUNCE_ICONS[a.type] : Info;
         return (
           <div key={a.id} className={`relative flex items-start gap-3 rounded-xl border p-4 ${style.bg} ${style.border}`}>
             <Icon size={18} className={`${style.iconColor} mt-0.5 shrink-0`} />
@@ -256,11 +256,13 @@ function ResellerWidget() {
 
   if (!status) return null;
 
-  const progress = status.progressPercent ?? 0;
+  const progress = Number(status.progressPercent ?? 0);
+  const currentSales = Number(status.currentMonthSales ?? 0);
+  const monthlyTarget = Number(status.monthlyTarget ?? 0);
   const daysRemaining = (() => {
     const now = new Date();
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return lastDay.getDate() - now.getDate();
+    return Math.max(0, lastDay.getDate() - now.getDate());
   })();
   const targetMet = progress >= 100;
 
@@ -295,7 +297,7 @@ function ResellerWidget() {
           <div className="space-y-3">
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Penjualan Bulan Ini</span>
-              <span className="font-bold text-white">{formatRupiah(status.currentMonthSales)}</span>
+              <span className="font-bold text-white">{formatRupiah(currentSales)}</span>
             </div>
 
             <div className="relative h-2.5 rounded-full bg-white/10 overflow-hidden">
@@ -311,7 +313,7 @@ function ResellerWidget() {
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-1.5">
                 <Target className="h-3 w-3 text-emerald-400" />
-                <span className="text-muted-foreground">Target: {formatRupiah(status.monthlyTarget)}</span>
+                <span className="text-muted-foreground">Target: {formatRupiah(monthlyTarget)}</span>
               </div>
               {targetMet ? (
                 <span className="flex items-center gap-1 text-emerald-400 font-semibold">
@@ -336,11 +338,11 @@ function ResellerWidget() {
               </div>
             </div>
 
-            {!targetMet && status.monthlyTarget - status.currentMonthSales > 0 && (
+            {!targetMet && monthlyTarget - currentSales > 0 && (
               <div className="flex items-center gap-2 p-2 rounded-lg bg-orange-500/10 border border-orange-500/20">
                 <AlertCircle className="h-3.5 w-3.5 text-orange-400 shrink-0" />
                 <p className="text-[11px] text-orange-300">
-                  Kurang <span className="font-bold">{formatRupiah(status.monthlyTarget - status.currentMonthSales)}</span> untuk mencapai target
+                  Kurang <span className="font-bold">{formatRupiah(monthlyTarget - currentSales)}</span> untuk mencapai target
                 </p>
               </div>
             )}
@@ -545,9 +547,9 @@ export default function Dashboard() {
               <span className="text-xs font-medium text-primary">Saldo</span>
               <Wallet className="h-3.5 w-3.5 text-primary opacity-80" />
             </div>
-            <div className="text-lg font-bold leading-tight text-primary">{formatRupiah(summary.balance)}</div>
+            <div className="text-lg font-bold leading-tight text-primary">{formatRupiah(summary?.balance)}</div>
             <div className="text-[10px] mt-0.5 text-primary/70">
-              {summary.pendingTopup && summary.pendingTopup > 0
+              {summary?.pendingTopup && summary.pendingTopup > 0
                 ? `+${formatRupiah(summary.pendingTopup)} pending`
                 : "Tap untuk topup"}
             </div>
@@ -560,7 +562,7 @@ export default function Dashboard() {
               <span className="text-xs font-medium text-muted-foreground">Akun Aktif</span>
               <Server className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
-            <div className="text-lg font-bold">{summary.activeAccounts}</div>
+            <div className="text-lg font-bold">{summary?.activeAccounts ?? 0}</div>
             <div className="text-[10px] mt-0.5 text-muted-foreground">Tap untuk kelola</div>
           </div>
         </Link>
@@ -571,7 +573,7 @@ export default function Dashboard() {
               <span className="text-xs font-medium text-muted-foreground">Total Order</span>
               <ShoppingCart className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
-            <div className="text-lg font-bold">{summary.totalOrders}</div>
+            <div className="text-lg font-bold">{summary?.totalOrders ?? 0}</div>
             <div className="text-[10px] mt-0.5 text-muted-foreground">Tap untuk riwayat</div>
           </div>
         </Link>
@@ -589,7 +591,7 @@ export default function Dashboard() {
               <AlertCircle className={`h-3.5 w-3.5 ${hasExpiring ? "text-destructive" : "text-muted-foreground"}`} />
             </div>
             <div className={`text-lg font-bold ${hasExpiring ? "text-destructive" : ""}`}>
-              {summary.expiringAccounts?.length || 0}
+              {summary?.expiringAccounts?.length || 0}
             </div>
             <div className="text-[10px] mt-0.5 text-muted-foreground">
               {hasExpiring ? "Segera perpanjang →" : "Semua aman"}

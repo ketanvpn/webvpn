@@ -1,10 +1,11 @@
-export function formatRupiah(amount: number): string {
+export function formatRupiah(amount: number | null | undefined): string {
+  const numericAmount = typeof amount === "number" && !Number.isNaN(amount) ? amount : 0;
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount);
+  }).format(numericAmount);
 }
 
 export type ExpiryLabelVariant = "default" | "short";
