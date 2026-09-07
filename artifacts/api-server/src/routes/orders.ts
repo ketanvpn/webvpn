@@ -78,18 +78,8 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
 
   const amount = Number(order.amount);
 
-  // ── Cek saldo SEBELUM buat akun panel — hindari akun "hantu" di server ──────
-  if (opts.deductBalance) {
-    const [userCheck] = await db
-      .select({ balance: usersTable.balance })
-      .from(usersTable)
-      .where(eq(usersTable.id, order.userId))
-      .limit(1);
-
-    if (!userCheck || Number(userCheck.balance) < amount) {
-      throw new Error("INSUFFICIENT_BALANCE");
-    }
-  }
+  // SECURITY: balance check lives inside the DB transaction (atomic WHERE balance >= amount)
+  // to prevent TOCTOU race conditions on concurrent payments.
 
   const allServers = await db
     .select()
@@ -260,7 +250,7 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
       balanceAfter,
       description: `Pembelian produk: ${product.name} (Order #${order.id})`,
       relatedId: order.id,
-    }).catch(() => {});
+    }).catch((err) => logger.error({ err, orderId: order.id }, "[orders:fulfill] addBalanceLog failed"));
   }
 
   // Kirim notifikasi ke user & admin (fire and forget)
@@ -285,70 +275,75 @@ export async function fulfillOrder(orderId: number, opts: { deductBalance?: bool
     paymentMethod: order.paymentMethod ?? "balance",
   }).catch((err) => logger.error({ err }, "notifyAdminOrderFulfilled failed"));
 
-  // Tambah poin jika sistem poin aktif
-  getPointsSettings().then(async (pts) => {
+  try {
+    const pts = await getPointsSettings();
     if (pts.enabled && amount >= pts.pointsMinOrder && pts.pointsRateOrder > 0) {
       const pointsEarned = Math.floor(amount / pts.pointsRateOrder);
       if (pointsEarned > 0) {
         await addPoints(order.userId, pointsEarned, "order", `Order #${order.id} — ${product.name}`, order.id);
       }
     }
-  }).catch((err) => logger.error({ err }, "[orders] addPoints failed"));
+  } catch (err) {
+    logger.error({ err, orderId: order.id }, "[orders:fulfill] addPoints failed");
+  }
 
-  // Cek bonus referral jika ini order pertama
-  (async () => {
-    try {
-      const referralSettings = await getReferralSettings();
-      if (!referralSettings.enabled) return;
+  await processReferralBonus(order.userId, order.id).catch((err) =>
+    logger.error({ err, orderId: order.id }, "[referral-bonus] fulfillOrder"),
+  );
+}
 
-      const [buyer] = await db
-        .select({
-          referredBy: usersTable.referredBy,
-          referralBonusClaimed: usersTable.referralBonusClaimed,
-        })
-        .from(usersTable)
-        .where(eq(usersTable.id, order.userId))
-        .limit(1);
+async function processReferralBonus(buyerUserId: number, orderId: number): Promise<void> {
+  const referralSettings = await getReferralSettings();
+  if (!referralSettings.enabled) return;
 
-      if (!buyer?.referredBy || buyer.referralBonusClaimed) return;
+  const [buyer] = await db
+    .select({
+      referredBy: usersTable.referredBy,
+      referralBonusClaimed: usersTable.referralBonusClaimed,
+    })
+    .from(usersTable)
+    .where(eq(usersTable.id, buyerUserId))
+    .limit(1);
 
-      const [referrer] = await db
-        .select({ id: usersTable.id, balance: usersTable.balance, username: usersTable.username })
-        .from(usersTable)
-        .where(eq(usersTable.referralCode, buyer.referredBy))
-        .limit(1);
+  if (!buyer?.referredBy || buyer.referralBonusClaimed) return;
 
-      if (!referrer) return;
+  const [referrer] = await db
+    .select({ id: usersTable.id, username: usersTable.username })
+    .from(usersTable)
+    .where(eq(usersTable.referralCode, buyer.referredBy))
+    .limit(1);
 
-      const bonusAmount = referralSettings.bonusAmount;
-      const refBalanceBefore = Number(referrer.balance);
-      const refBalanceAfter = refBalanceBefore + bonusAmount;
+  if (!referrer) return;
 
-      await db.transaction(async (tx) => {
-        await tx
-          .update(usersTable)
-          .set({ balance: String(refBalanceAfter), updatedAt: new Date() })
-          .where(eq(usersTable.id, referrer.id));
+  const bonusAmount = referralSettings.bonusAmount;
 
-        await tx
-          .update(usersTable)
-          .set({ referralBonusClaimed: true, updatedAt: new Date() })
-          .where(eq(usersTable.id, order.userId));
-      });
+  await db.transaction(async (tx) => {
+    const [updatedReferrer] = await tx
+      .update(usersTable)
+      .set({ balance: sql`balance + ${bonusAmount}::numeric`, updatedAt: new Date() })
+      .where(eq(usersTable.id, referrer.id))
+      .returning({ balance: usersTable.balance });
 
-      addBalanceLog({
+    await tx
+      .update(usersTable)
+      .set({ referralBonusClaimed: true, updatedAt: new Date() })
+      .where(eq(usersTable.id, buyerUserId));
+
+    if (updatedReferrer) {
+      const balanceAfter = Number(updatedReferrer.balance);
+      const balanceBefore = balanceAfter - bonusAmount;
+
+      await addBalanceLog({
         userId: referrer.id,
         type: "referral",
         amount: bonusAmount,
-        balanceBefore: refBalanceBefore,
-        balanceAfter: refBalanceAfter,
+        balanceBefore,
+        balanceAfter,
         description: `Bonus referral dari pembelian pertama user`,
-        relatedId: order.id,
-      }).catch(() => {});
-    } catch (err) {
-      logger.error({ err }, "[referral-bonus] fulfillOrder");
+        relatedId: orderId,
+      });
     }
-  })();
+  });
 }
 
 router.get("/orders", requireAuth, async (req, res) => {
