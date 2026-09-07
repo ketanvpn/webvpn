@@ -2,7 +2,7 @@ import { Router } from "express";
 import { asyncHandler } from "../lib/async-handler";
 import { db } from "@workspace/db";
 import { vpnAccountsTable, serversTable, ordersTable, productsTable, usersTable, dynamicVpnOrdersTable, dynamicProviderServersTable } from "@workspace/db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
 import { getResellerSettings } from "./settings";
 import { renewPanelAccount, syncPanelAccount } from "../lib/vpn-panel";
@@ -299,6 +299,102 @@ async function formatAccount(a: typeof vpnAccountsTable.$inferSelect) {
   };
 }
 
+/**
+ * Batch-format multiple accounts with 3 preloaded queries instead of N per account.
+ * Eliminates the N+1 query problem in the accounts list endpoint.
+ */
+async function formatAccounts(accounts: (typeof vpnAccountsTable.$inferSelect)[]) {
+  if (accounts.length === 0) return [];
+
+  const accountIds = accounts.map((a) => a.id);
+  const serverIds = [...new Set(accounts.map((a) => a.serverId).filter(Boolean))];
+  const orderIds = [...new Set(accounts.map((a) => a.orderId).filter((id): id is number => id != null))];
+
+  const servers = serverIds.length > 0
+    ? await db.select().from(serversTable).where(inArray(serversTable.id, serverIds))
+    : [];
+  const serverMap = new Map(servers.map((s) => [s.id, s]));
+
+  const orderProducts = orderIds.length > 0
+    ? await db
+        .select({ orderId: ordersTable.id, productName: productsTable.name })
+        .from(ordersTable)
+        .innerJoin(productsTable, eq(productsTable.id, ordersTable.productId))
+        .where(inArray(ordersTable.id, orderIds))
+    : [];
+  const orderProductMap = new Map(orderProducts.map((r) => [r.orderId, r.productName]));
+
+  const dynamicOrders = await db
+    .select({
+      vpnAccountId: dynamicVpnOrdersTable.vpnAccountId,
+      id: dynamicVpnOrdersTable.id,
+      provider: dynamicVpnOrdersTable.provider,
+      providerServerId: dynamicVpnOrdersTable.providerServerId,
+      serverDisplayName: dynamicVpnOrdersTable.serverDisplayName,
+      providerAccountId: dynamicVpnOrdersTable.providerAccountId,
+      dynamicServerId: dynamicVpnOrdersTable.dynamicServerId,
+      renewEnabled: dynamicProviderServersTable.renewEnabled,
+      supportedTypes: dynamicProviderServersTable.supportedTypes,
+      sellPricePerDay: dynamicProviderServersTable.sellPricePerDay,
+      sellPricePerWeek: dynamicProviderServersTable.sellPricePerWeek,
+      sellPricePerMonth: dynamicProviderServersTable.sellPricePerMonth,
+    })
+    .from(dynamicVpnOrdersTable)
+    .leftJoin(dynamicProviderServersTable, eq(dynamicVpnOrdersTable.dynamicServerId, dynamicProviderServersTable.id))
+    .where(inArray(dynamicVpnOrdersTable.vpnAccountId, accountIds));
+  const dynamicOrderMap = new Map(dynamicOrders.map((d) => [d.vpnAccountId, d]));
+
+  return accounts.map((a) => {
+    const server = serverMap.get(a.serverId);
+    const productName = a.orderId ? (orderProductMap.get(a.orderId) ?? null) : null;
+    const dynamicOrder = dynamicOrderMap.get(a.id) ?? null;
+    const allLinks = (a.allLinks ?? null) as Record<string, string | null | undefined> | null;
+    const dynamicHost = pickDisplayHost(allLinks);
+
+    return {
+      id: a.id,
+      userId: a.userId,
+      orderId: a.orderId,
+      dynamicOrder: dynamicOrder
+        ? {
+            ...dynamicOrder,
+            vpnAccountId: undefined,
+            renewEnabled: dynamicOrder.renewEnabled ?? false,
+            supportedTypes: dynamicOrder.supportedTypes ?? [],
+            sellPricePerDay: Number(dynamicOrder.sellPricePerDay ?? 0),
+            sellPricePerWeek: Number(dynamicOrder.sellPricePerWeek ?? 0),
+            sellPricePerMonth: Number(dynamicOrder.sellPricePerMonth ?? 0),
+          }
+        : null,
+      protocol: a.protocol,
+      username: a.username,
+      password: a.password,
+      uuid: a.uuid,
+      serverId: a.serverId,
+      server: server
+        ? {
+            id: server.id,
+            name: dynamicOrder?.serverDisplayName ?? server.name,
+            host: dynamicHost ?? server.host,
+            location: server.location,
+            flag: server.flag,
+            isActive: server.isActive,
+            originalName: server.name,
+            originalHost: server.host,
+          }
+        : null,
+      configLink: a.configLink,
+      allLinks: a.allLinks ?? null,
+      expiresAt: a.expiresAt,
+      quota: a.quota != null ? Number(a.quota) : null,
+      usedQuota: a.usedQuota != null ? Number(a.usedQuota) : null,
+      productName: productName ?? (dynamicOrder ? "Order VPN Dynamic" : null),
+      isActive: a.isActive,
+      createdAt: a.createdAt,
+    };
+  });
+}
+
 router.get("/accounts", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.user!.userId;
 
@@ -308,7 +404,7 @@ router.get("/accounts", requireAuth, asyncHandler(async (req, res) => {
     .where(eq(vpnAccountsTable.userId, userId))
     .orderBy(desc(vpnAccountsTable.createdAt));
 
-  const formatted = await Promise.all(accounts.map(formatAccount));
+  const formatted = await formatAccounts(accounts);
   res.json(formatted);
 }));
 
@@ -588,5 +684,5 @@ router.post("/accounts/:id/renew", requireAuth, accountActionLimiter, asyncHandl
   res.status(response.status).json(response);
 }));
 
-export { formatAccount };
+export { formatAccount, formatAccounts };
 export default router;

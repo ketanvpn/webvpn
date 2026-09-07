@@ -277,12 +277,17 @@ router.post("/admin/accounts/bulk-delete", requireAdmin, asyncHandler(async (req
   const deletableIds: number[] = [];
   const failed: Array<{ id: number; username: string; reason: string }> = [];
 
+  const serverIds = [...new Set(accounts.map((a) => a.serverId))];
+  const serverRows = serverIds.length > 0
+    ? await db
+        .select({ id: serversTable.id, apiUrl: serversTable.apiUrl, apiToken: serversTable.apiToken })
+        .from(serversTable)
+        .where(inArray(serversTable.id, serverIds))
+    : [];
+  const serverById = new Map(serverRows.map((s) => [s.id, s]));
+
   for (const account of accounts) {
-    const [server] = await db
-      .select({ apiUrl: serversTable.apiUrl, apiToken: serversTable.apiToken })
-      .from(serversTable)
-      .where(eq(serversTable.id, account.serverId))
-      .limit(1);
+    const server = serverById.get(account.serverId);
 
     if (server?.apiUrl && server?.apiToken) {
       try {

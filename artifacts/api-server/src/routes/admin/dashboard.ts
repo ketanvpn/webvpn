@@ -14,7 +14,7 @@ import {
 import { eq, and, desc, asc, sql } from "drizzle-orm";
 import { requireAdmin } from "../../lib/auth";
 import { formatProduct, getActiveCountMap } from "../products";
-import { formatOrder } from "../orders";
+import { formatOrders } from "../../lib/fulfillment/format-order";
 import { formatTopup } from "../balance";
 import { formatFullServer } from "../servers";
 import { formatUser } from "./helpers";
@@ -114,7 +114,7 @@ router.get("/admin/dashboard", requireAdmin, asyncHandler(async (_req, res) => {
   ]);
 
   // Format dan merge recent orders
-  const formattedStaticRecent = await Promise.all(recentStatic.map(formatOrder));
+  const formattedStaticRecent = await formatOrders(recentStatic);
   const formattedDynamicRecent = recentDynamic.map((o) => ({
     id: o.id,
     userId: o.userId,

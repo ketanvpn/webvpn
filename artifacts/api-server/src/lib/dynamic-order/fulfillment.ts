@@ -10,7 +10,8 @@ import {
 import { and, eq, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { createNadiaVpnOrder, getNadiaVpnAccountDetails } from "../nadiavpn";
-import { createPanelAccount, deletePanelAccount } from "../vpn-panel";
+import { createPanelAccount } from "../vpn-panel";
+import { deletePanelAccountWithRetry } from "../fulfillment/retry-utils";
 import { addBalanceLog } from "../../routes/balance-logs";
 import { addPoints, getPointsSettings } from "../../routes/points";
 import { notifyAdminDynamicOrderFulfilled, notifyUserDynamicVpnAccountCreated } from "../telegram";
@@ -140,6 +141,38 @@ async function getKetantechProviderServerId() {
   return created.id;
 }
 
+// ─── Fulfillment Step Tracker ─────────────────────────────────────────────────
+
+type FulfillmentStep =
+  | "order_validated"
+  | "server_validated"
+  | "provider_account_created"
+  | "db_transaction_committed"
+  | "post_commit_started";
+
+interface StepEntry {
+  step: FulfillmentStep;
+  ts: number;
+}
+
+function createStepTracker(orderId: number, userId: number) {
+  const steps: StepEntry[] = [];
+
+  return {
+    mark(step: FulfillmentStep) {
+      steps.push({ step, ts: Date.now() });
+      logger.debug({ orderId, userId, step }, "[dynamic-vpn] fulfillment step");
+    },
+    /** Logs all completed steps on failure for debugging / orphan recovery */
+    logFailure(error: unknown) {
+      logger.error(
+        { orderId, userId, completedSteps: steps.map((s) => s.step), err: error },
+        "[dynamic-vpn] fulfillment failed — completed steps listed for recovery",
+      );
+    },
+  };
+}
+
 // ─── Main fulfillment function ────────────────────────────────────────────────
 
 /**
@@ -163,6 +196,7 @@ async function getKetantechProviderServerId() {
  */
 export async function fulfillDynamicOrder(orderId: number, userId: number) {
   logger.info({ orderId, userId }, "[dynamic-vpn] Starting fulfillDynamicOrder");
+  const tracker = createStepTracker(orderId, userId);
 
   const [order] = await db
     .select()
@@ -172,6 +206,7 @@ export async function fulfillDynamicOrder(orderId: number, userId: number) {
 
   if (!order) throw new Error("Order tidak ditemukan");
   if (order.status !== "processing") throw new Error("Order tidak dalam status processing");
+  tracker.mark("order_validated");
 
   let [server] = await db
     .select()
@@ -182,6 +217,7 @@ export async function fulfillDynamicOrder(orderId: number, userId: number) {
   if (!server || !server.isActive) throw new Error("Server tidak aktif");
   server = await refreshLocalDynamicServerCapacity(server);
   if (server.capacityIsFull) throw new Error("Server penuh atau sedang tidak tersedia");
+  tracker.mark("server_validated");
 
   const amount = Number(order.amount);
   const [buyer] = await db.select({ username: usersTable.username }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
@@ -288,9 +324,12 @@ export async function fulfillDynamicOrder(orderId: number, userId: number) {
       expiresAt = parseNadiaExpireAt(data.expire_at, fallbackExpiry);
     }
   } catch (error) {
+    tracker.logFailure(error);
     logger.error({ err: error, orderId, userId }, "[dynamic-vpn] Provider order creation failed - no balance was deducted");
     throw error;
   }
+
+  tracker.mark("provider_account_created");
 
   logger.info({ orderId, userId, amount, provider: server.provider }, "[dynamic-vpn] Provider creation successful, proceeding to atomic balance + DB commit");
 
@@ -363,24 +402,29 @@ export async function fulfillDynamicOrder(orderId: number, userId: number) {
 
     balanceBefore = result.balanceBefore;
     balanceAfter = result.balanceAfter;
+    tracker.mark("db_transaction_committed");
   } catch (error) {
     // Transaction failed — balance was NOT deducted (atomic rollback).
     // Only need to clean up the provider-side account.
     if (rollbackPanelAccount) {
-      await deletePanelAccount(rollbackPanelAccount).catch((deleteErr) => {
-        logger.error({ err: deleteErr, orderId, username: rollbackPanelAccount?.username }, "[dynamic-vpn] failed to rollback local panel account after DB tx failure");
+      await deletePanelAccountWithRetry(rollbackPanelAccount, {
+        orderId,
+        userId,
+        reason: error instanceof Error ? error.message : "DB transaction failed",
       });
     }
 
     if (error instanceof Error && error.message === "INSUFFICIENT_BALANCE") {
       logger.warn({ orderId, userId, amount }, "[dynamic-vpn] Insufficient balance - rolling back panel account");
     } else {
+      tracker.logFailure(error);
       logger.error({ err: error, orderId, userId, amount }, "[dynamic-vpn] DB transaction failed - balance NOT deducted (atomic rollback), panel account rolled back");
     }
     throw error;
   }
 
   logger.info({ orderId, userId, amount, balanceBefore, balanceAfter }, "[dynamic-vpn] Atomic transaction successful");
+  tracker.mark("post_commit_started");
 
   // ─── Step 3: Post-commit side effects (fire-and-forget) ────────────────
 

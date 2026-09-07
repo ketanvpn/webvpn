@@ -4,8 +4,8 @@ import { db } from "@workspace/db";
 import { ordersTable, vpnAccountsTable, usersTable, topupsTable, dynamicVpnOrdersTable } from "@workspace/db";
 import { eq, and, gt, desc, sql } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
-import { formatOrder } from "./orders";
-import { formatAccount } from "./accounts";
+import { formatOrders } from "../lib/fulfillment/format-order";
+import { formatAccounts } from "./accounts";
 
 const router = Router();
 
@@ -42,7 +42,7 @@ router.get("/dashboard/summary", requireAuth, asyncHandler(async (req, res) => {
     db.select().from(dynamicVpnOrdersTable).where(eq(dynamicVpnOrdersTable.userId, userId)).orderBy(desc(dynamicVpnOrdersTable.createdAt)).limit(5),
   ]);
 
-  const formattedStatic = await Promise.all(recentStatic.map(formatOrder));
+  const formattedStatic = await formatOrders(recentStatic);
   const formattedDynamic = recentDynamic.map((o: any) => ({
     id: o.id,
     userId: o.userId,
@@ -84,7 +84,7 @@ router.get("/dashboard/summary", requireAuth, asyncHandler(async (req, res) => {
     .orderBy(vpnAccountsTable.expiresAt)
     .limit(5);
 
-  const formattedExpiring = await Promise.all(expiringAccounts.map(formatAccount));
+  const formattedExpiring = await formatAccounts(expiringAccounts);
 
   res.json({
     balance: Number(user?.balance ?? 0),

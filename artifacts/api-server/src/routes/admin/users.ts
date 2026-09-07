@@ -17,7 +17,7 @@ import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { requireAdmin } from "../../lib/auth";
 import { logger } from "../../lib/logger";
-import { formatOrder } from "../orders";
+import { formatOrders } from "../../lib/fulfillment/format-order";
 import { formatAccount } from "../accounts";
 import { formatTopup } from "../balance";
 import { addBalanceLog } from "../balance-logs";
@@ -168,7 +168,7 @@ router.get("/admin/users/:id", requireAdmin, asyncHandler(async (req, res) => {
     .orderBy(desc(topupsTable.createdAt))
     .limit(20);
 
-  const formattedOrders = await Promise.all(orders.map(formatOrder));
+  const formattedOrders = await formatOrders(orders);
   const formattedAccounts = await Promise.all(accounts.map(formatAccount));
 
   res.json({

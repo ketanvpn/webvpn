@@ -5,7 +5,7 @@ import {
   serversTable,
   vpnAccountsTable,
 } from "@workspace/db";
-import { and, asc, count, eq, gt, notInArray } from "drizzle-orm";
+import { and, asc, count, eq, gt, inArray, notInArray } from "drizzle-orm";
 import { getNadiaVpnServers } from "../nadiavpn";
 import { notifyAdminPriceChanged } from "../telegram";
 import { logger } from "../logger";
@@ -89,13 +89,18 @@ export async function syncNadiaVpnServersFromProvider() {
 
   const defaultMarkup = await getDefaultMarkupPercent();
 
+  // ── Batch preload: single query instead of N per-server SELECTs ──
+  const allExisting = await db
+    .select()
+    .from(dynamicProviderServersTable)
+    .where(eq(dynamicProviderServersTable.provider, "nadiavpn"));
+  const existingByProviderId = new Map(
+    allExisting.map((row) => [row.providerServerId, row]),
+  );
+
   for (const srv of servers) {
     const providerServerId = String(srv.server_id);
-    const [existing] = await db
-      .select()
-      .from(dynamicProviderServersTable)
-      .where(and(eq(dynamicProviderServersTable.provider, "nadiavpn"), eq(dynamicProviderServersTable.providerServerId, providerServerId)))
-      .limit(1);
+    const existing = existingByProviderId.get(providerServerId) ?? null;
 
     const supportedProtocols = Array.isArray(srv.supported_protocols) ? srv.supported_protocols.map(normalizeProtocol).filter(Boolean) : [];
     const supportedTypes = Array.isArray(srv.supported_types) ? srv.supported_types.map(normalizeDurationType).filter((t: string) => VALID_TYPES.includes(t as DynamicDurationType)) : [];
@@ -228,18 +233,44 @@ export async function syncLocalPanelServers() {
   const now = new Date();
   const synced = [];
 
+  // ── Batch preload: existing records + capacity counts ──
+  const allExisting = await db
+    .select()
+    .from(dynamicProviderServersTable)
+    .where(eq(dynamicProviderServersTable.provider, "local_panel"));
+  const existingByProviderId = new Map(
+    allExisting.map((row) => [row.providerServerId, row]),
+  );
+
+  const serverIds = localServers.map((s) => s.id);
+  const capacityCounts = serverIds.length > 0
+    ? await db
+        .select({
+          serverId: vpnAccountsTable.serverId,
+          activeCount: count(vpnAccountsTable.id),
+        })
+        .from(vpnAccountsTable)
+        .where(
+          and(
+            inArray(vpnAccountsTable.serverId, serverIds),
+            eq(vpnAccountsTable.isActive, true),
+            gt(vpnAccountsTable.expiresAt, new Date()),
+          ),
+        )
+        .groupBy(vpnAccountsTable.serverId)
+    : [];
+  const capacityByServerId = new Map(
+    capacityCounts.map((row) => [row.serverId, Number(row.activeCount)]),
+  );
+
   for (const srv of localServers) {
     const providerServerId = String(srv.id);
-    const [existing] = await db
-      .select()
-      .from(dynamicProviderServersTable)
-      .where(and(eq(dynamicProviderServersTable.provider, "local_panel"), eq(dynamicProviderServersTable.providerServerId, providerServerId)))
-      .limit(1);
+    const existing = existingByProviderId.get(providerServerId) ?? null;
 
     const supportedProtocols = Array.isArray(srv.supportedProtocols)
       ? srv.supportedProtocols.map(normalizeProtocol).filter((p: string) => VALID_PROTOCOLS.includes(p))
       : [];
-    const capacityUsed = await getLocalServerCapacity(srv.id);
+    const capacityUsed = capacityByServerId.get(srv.id) ?? 0;
     const capacityLimit = srv.maxAccounts ?? 0;
     const capacityIsFull = capacityLimit > 0 ? capacityUsed >= capacityLimit : false;
     const values = {

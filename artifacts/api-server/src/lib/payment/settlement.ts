@@ -14,7 +14,7 @@ import {
   notifyAdminTopupAutoConfirmed,
   notifyUserTopupConfirmed,
 } from "../telegram";
-import { fulfillOrder } from "../../routes/orders";
+import { fulfillOrder } from "../fulfillment/static-order-fulfillment";
 import { addPoints, getPointsSettings } from "../../routes/points";
 import {
   creditedTopupAmount,

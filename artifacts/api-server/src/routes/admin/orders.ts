@@ -4,7 +4,7 @@ import { db } from "@workspace/db";
 import { ordersTable, usersTable } from "@workspace/db";
 import { eq, and, ilike, desc, sql } from "drizzle-orm";
 import { requireAdmin } from "../../lib/auth";
-import { formatOrder } from "../orders";
+import { formatOrder } from "../../lib/fulfillment/format-order";
 import { retiredRouteResponse } from "../../lib/retired-route";
 
 const router = Router();
