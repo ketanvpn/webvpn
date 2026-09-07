@@ -1,6 +1,6 @@
 import { Router, type Response } from "express";
-import { db } from "@workspace/db";
 import {
+  db,
   dynamicProviderServersTable,
   dynamicVpnOrdersTable,
   serversTable,
@@ -482,7 +482,9 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
 
   if (!updatedUser) {
     if (rollbackPanelAccount) {
-      await deletePanelAccount(rollbackPanelAccount).catch(() => {});
+      await deletePanelAccount(rollbackPanelAccount).catch((deleteErr) => {
+        logger.error({ err: deleteErr, orderId, username: rollbackPanelAccount?.username }, "[dynamic-vpn] failed to rollback local panel account after insufficient balance");
+      });
     }
     logger.warn({ orderId, userId, amount }, "[dynamic-vpn] Insufficient balance after provider success - refunding not needed as deduction didn't happen, rolling back panel");
     throw new Error("INSUFFICIENT_BALANCE");
@@ -531,7 +533,9 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
   } catch (error) {
     // Refund balance if DB tx fails after deduction
     logger.error({ err: error, orderId, userId, amount }, "[dynamic-vpn] DB transaction failed after balance deduction - attempting refund and panel rollback");
-    await db.update(usersTable).set({ balance: sql`balance + ${amount}` }).where(eq(usersTable.id, userId)).catch(() => {});
+    await db.update(usersTable).set({ balance: sql`balance + ${amount}` }).where(eq(usersTable.id, userId)).catch((refundErr) => {
+      logger.error({ err: refundErr, orderId, userId, amount }, "[dynamic-vpn] CRITICAL: failed to refund balance after DB tx failure");
+    });
     if (rollbackPanelAccount) {
       await deletePanelAccount(rollbackPanelAccount).catch((deleteErr) => {
         logger.error({ err: deleteErr, orderId, username: rollbackPanelAccount?.username }, "[dynamic-vpn] failed to rollback local panel account");
@@ -551,18 +555,16 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
     balanceAfter,
     description: `Dynamic VPN order: ${order.serverDisplayName} ${order.protocol.toUpperCase()} ${order.duration} ${order.durationType}`,
     relatedId: order.id,
-  }).catch(() => {});
+  }).catch((err) => logger.error({ err, orderId: order.id }, "[dynamic-vpn] addBalanceLog failed after dynamic order"));
 
   // Tambah poin jika sistem poin aktif
-  getPointsSettings()
-    .then(async (settings) => {
-      if (
-        !settings.enabled ||
-        amount < settings.pointsMinOrder ||
-        settings.pointsRateOrder <= 0
-      ) {
-        return;
-      }
+  try {
+    const settings = await getPointsSettings();
+    if (
+      settings.enabled &&
+      amount >= settings.pointsMinOrder &&
+      settings.pointsRateOrder > 0
+    ) {
       const points = Math.floor(amount / settings.pointsRateOrder);
       if (points > 0) {
         await addPoints(
@@ -573,10 +575,10 @@ async function fulfillDynamicOrder(orderId: number, userId: number) {
           order.id,
         );
       }
-    })
-    .catch((err) =>
-      logger.error({ err, orderId: order.id }, "addPoints failed after dynamic order"),
-    );
+    }
+  } catch (err) {
+    logger.error({ err, orderId: order.id }, "[dynamic-vpn] addPoints failed after dynamic order");
+  }
 
   if (server.provider === "local_panel") {
     const refreshed = await refreshLocalDynamicServerCapacity(server).catch(() => null);
@@ -837,7 +839,7 @@ router.post("/admin/dynamic-vpn/servers/sync/nadiavpn", requireAdmin, async (req
     targetId: null,
     details: { total: synced.length },
     ipAddress: getClientIp(req as any),
-  }).catch(() => {});
+  }).catch((err) => logger.error({ err }, "[dynamic-vpn] logAdminAction failed for sync_nadiavpn_servers"));
   res.json({ success: true, total: synced.length, servers: synced });
 });
 
@@ -851,7 +853,7 @@ router.post("/admin/dynamic-vpn/servers/sync/local-panel", requireAdmin, async (
     targetId: null,
     details: { total: synced.length },
     ipAddress: getClientIp(req as any),
-  }).catch(() => {});
+  }).catch((err) => logger.error({ err }, "[dynamic-vpn] logAdminAction failed for sync_local_panel_servers"));
   res.json({ success: true, total: synced.length, servers: synced });
 });
 
@@ -944,7 +946,7 @@ router.patch("/admin/dynamic-vpn/servers/:id", requireAdmin, async (req, res) =>
     targetId: id,
     details: { changes: body },
     ipAddress: getClientIp(req as any),
-  }).catch(() => {});
+  }).catch((err) => logger.error({ err, targetId: id }, "[dynamic-vpn] logAdminAction failed for update_dynamic_server"));
 
   res.json(formatServer(row, true));
 });
