@@ -1,8 +1,8 @@
-import { Router } from "express";
+import { Router, type Request, type Response, type NextFunction, type RequestHandler } from "express";
 import bcrypt from "bcryptjs";
-import { db } from "@workspace/db";
+import { db, type User } from "@workspace/db";
 import { usersTable, waVerificationsTable } from "@workspace/db";
-import { eq, or, sql, and, gt } from "drizzle-orm";
+import { eq, sql, and, gt } from "drizzle-orm";
 import { signToken, requireAuth } from "../lib/auth";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
 import { randomBytes } from "crypto";
@@ -16,11 +16,36 @@ import { logger } from "../lib/logger";
 
 const router = Router();
 
-function authRateLimitKey(req: any): string {
+/** Canonical user response shape used across register, login, profile, and me endpoints. */
+function toUserResponse(user: User, opts?: { includeVpnTelegramId?: boolean }) {
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    fullName: user.fullName,
+    role: user.role,
+    balance: Number(user.balance),
+    isActive: user.isActive,
+    isVerified: user.isVerified,
+    whatsapp: user.whatsapp,
+    referralCode: user.referralCode,
+    telegramId: user.telegramId ?? null,
+    ...(opts?.includeVpnTelegramId ? { vpnTelegramId: user.vpnTelegramId ?? null } : {}),
+    createdAt: user.createdAt,
+  };
+}
+
+function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>): RequestHandler {
+  return (req, res, next) => {
+    fn(req, res, next).catch(next);
+  };
+}
+
+function authRateLimitKey(req: Request): string {
   return getClientIp(req);
 }
 
-function loginRateLimitKey(req: any): string {
+function loginRateLimitKey(req: Request): string {
   const ip = getClientIp(req);
   const identifier = typeof req.body?.username === "string"
     ? req.body.username.trim().toLowerCase()
@@ -36,9 +61,9 @@ const profileLimiter = rateLimit({
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req: any) => {
-    const uid = req.user?.userId ?? req.user?.id ?? null;
-    if (uid) return `uid:${uid}`;
+  keyGenerator: (req: Request) => {
+    const uid = req.user?.userId ?? null;
+    if (uid) return `uid:${String(uid)}`;
     return getClientIp(req);
   },
   message: { error: "Terlalu banyak percobaan edit profil. Coba lagi dalam 15 menit." },
@@ -49,9 +74,9 @@ const changePasswordLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req: any) => {
-    const uid = req.user?.userId ?? req.user?.id ?? null;
-    if (uid) return `uid:${uid}`;
+  keyGenerator: (req: Request) => {
+    const uid = req.user?.userId ?? null;
+    if (uid) return `uid:${String(uid)}`;
     return getClientIp(req);
   },
   message: { error: "Terlalu banyak percobaan ganti password. Coba lagi dalam 15 menit." },
@@ -95,7 +120,7 @@ const initiateWaLimiter = rateLimit({
   message: { error: "Terlalu banyak percobaan. Coba lagi dalam 15 menit." },
 });
 
-router.post("/auth/initiate-wa-register", initiateWaLimiter, async (req, res) => {
+router.post("/auth/initiate-wa-register", initiateWaLimiter, asyncHandler(async (req, res) => {
   const { whatsapp } = req.body ?? {};
   if (!whatsapp || typeof whatsapp !== "string") {
     res.status(400).json({ error: "Nomor WhatsApp wajib diisi" });
@@ -104,7 +129,6 @@ router.post("/auth/initiate-wa-register", initiateWaLimiter, async (req, res) =>
 
   const normalized = normalizeWhatsapp(whatsapp);
 
-  // Cek apakah nomor sudah terdaftar
   const existing = await db
     .select({ id: usersTable.id })
     .from(usersTable)
@@ -116,22 +140,18 @@ router.post("/auth/initiate-wa-register", initiateWaLimiter, async (req, res) =>
     return;
   }
 
-  // Ambil nomor WA Fonnte dari settings admin
   const fonnteNumber = await getSettingValue("fonnteWhatsappNumber");
   if (!fonnteNumber) {
-    // Fallback: jika nomor belum diset, gunakan flow lama (send-otp langsung)
     res.status(503).json({ error: "Nomor WhatsApp admin belum dikonfigurasi", fallback: true });
     return;
   }
 
-  // Hapus record lama yang belum selesai untuk nomor ini
   await db.delete(waVerificationsTable).where(
     eq(waVerificationsTable.whatsapp, normalized)
   );
 
-  // Buat record baru dengan token polling
   const token = randomBytes(16).toString("hex");
-  const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 menit
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
   await db.insert(waVerificationsTable).values({
     whatsapp: normalized,
@@ -144,7 +164,7 @@ router.post("/auth/initiate-wa-register", initiateWaLimiter, async (req, res) =>
     waNumber: fonnteNumber,
     message: `Kirim pesan "DAFTAR" ke nomor ${fonnteNumber} via WhatsApp`,
   });
-});
+}));
 
 // ─── User Chat Duluan: Poll Status ────────────────────────────────────────────
 
@@ -157,7 +177,7 @@ const pollStatusLimiter = rateLimit({
   message: { error: "Terlalu banyak permintaan. Coba lagi sebentar." },
 });
 
-router.get("/auth/wa-register-status/:token", pollStatusLimiter, async (req, res) => {
+router.get("/auth/wa-register-status/:token", pollStatusLimiter, asyncHandler(async (req, res) => {
   const { token } = req.params;
   if (!token || typeof token !== "string") {
     res.status(400).json({ error: "Token tidak valid" });
@@ -192,11 +212,11 @@ router.get("/auth/wa-register-status/:token", pollStatusLimiter, async (req, res
   }
 
   res.json({ status: "waiting" });
-});
+}));
 
 // ─── Legacy Send OTP (fallback / simulate mode) ──────────────────────────────
 
-router.post("/auth/send-otp", otpLimiter, async (req, res) => {
+router.post("/auth/send-otp", otpLimiter, asyncHandler(async (req, res) => {
   const { whatsapp } = req.body ?? {};
   if (!whatsapp || typeof whatsapp !== "string") {
     res.status(400).json({ error: "Nomor WhatsApp wajib diisi" });
@@ -226,16 +246,17 @@ router.post("/auth/send-otp", otpLimiter, async (req, res) => {
     return;
   }
 
+  const isProduction = process.env.NODE_ENV === "production";
   res.json({
     message: "OTP dikirim",
     simulateMode: result.simulateMode,
-    ...(result.simulateMode ? { otp: result.otp } : {}),
+    ...(!isProduction && result.simulateMode ? { otp: result.otp } : {}),
   });
-});
+}));
 
 // ─── Verify OTP (for step-by-step registration) ───────────────────────────────
 
-router.post("/auth/verify-otp", otpLimiter, async (req, res) => {
+router.post("/auth/verify-otp", otpLimiter, asyncHandler(async (req, res) => {
   const { whatsapp, otpCode } = req.body ?? {};
   if (!whatsapp || typeof whatsapp !== "string") {
     res.status(400).json({ error: "Nomor WhatsApp wajib diisi" });
@@ -253,22 +274,24 @@ router.post("/auth/verify-otp", otpLimiter, async (req, res) => {
   }
 
   res.json({ success: true, message: "OTP terverifikasi" });
-});
+}));
 
-router.post("/auth/register", registerLimiter, async (req, res) => {
+router.post("/auth/register", registerLimiter, asyncHandler(async (req, res) => {
   const parsed = RegisterBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Data tidak valid" });
     return;
   }
-  const { username, password, email, fullName } = parsed.data;
-  const { whatsapp: rawWhatsapp, otpCode, referralCode: inputReferralCode } = req.body ?? {};
+  const { username, password, email, fullName, whatsapp: rawWhatsapp, otpCode } = parsed.data;
+  const inputReferralCode = typeof req.body?.referralCode === "string"
+    ? req.body.referralCode
+    : undefined;
 
-  if (!rawWhatsapp || typeof rawWhatsapp !== "string") {
+  if (!rawWhatsapp) {
     res.status(400).json({ error: "Nomor WhatsApp wajib diisi" });
     return;
   }
-  if (!otpCode || typeof otpCode !== "string") {
+  if (!otpCode) {
     res.status(400).json({ error: "Kode OTP wajib diisi" });
     return;
   }
@@ -317,7 +340,7 @@ router.post("/auth/register", registerLimiter, async (req, res) => {
   }
 
   let resolvedReferredBy: string | null = null;
-  if (inputReferralCode && typeof inputReferralCode === "string") {
+  if (inputReferralCode) {
     const code = inputReferralCode.trim().toUpperCase();
     const [referrer] = await db
       .select({ id: usersTable.id, referralCode: usersTable.referralCode })
@@ -333,7 +356,7 @@ router.post("/auth/register", registerLimiter, async (req, res) => {
   const passwordHash = await bcrypt.hash(password, 12);
 
   let referralCode: string;
-  let user: any;
+  let user: User | undefined;
   const MAX_REFERRAL_RETRIES = 3;
 
   for (let attempt = 0; attempt <= MAX_REFERRAL_RETRIES; attempt++) {
@@ -354,9 +377,10 @@ router.post("/auth/register", registerLimiter, async (req, res) => {
         })
         .returning();
       break;
-    } catch (dbError: any) {
-      const pgCode = dbError?.code ?? dbError?.cause?.code;
-      const detail: string = (dbError?.detail ?? dbError?.cause?.detail ?? "").toLowerCase();
+    } catch (dbError: unknown) {
+      const err = dbError as Record<string, any>;
+      const pgCode = err?.code ?? err?.cause?.code;
+      const detail: string = (err?.detail ?? err?.cause?.detail ?? "").toLowerCase();
 
       if (pgCode === "23505") {
         if (detail.includes("username")) {
@@ -407,7 +431,9 @@ router.post("/auth/register", registerLimiter, async (req, res) => {
     whatsapp: user.whatsapp ?? null,
     referredBy: user.referredBy ?? null,
     createdAt: user.createdAt,
-  }).catch(() => {});
+  }).catch((err) => {
+    logger.error({ err, username: user.username }, "Failed to send Telegram notification for new user");
+  });
 
   res
     .cookie("token", token, {
@@ -418,23 +444,10 @@ router.post("/auth/register", registerLimiter, async (req, res) => {
     })
     .status(201)
     .json({
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        fullName: user.fullName,
-        role: user.role,
-        balance: Number(user.balance),
-        isActive: user.isActive,
-        isVerified: user.isVerified,
-        whatsapp: user.whatsapp,
-        referralCode: user.referralCode,
-        telegramId: user.telegramId ?? null,
-        createdAt: user.createdAt,
-      },
+      user: toUserResponse(user),
       token,
     });
-});
+}));
 
 const checkUsernameLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -445,7 +458,7 @@ const checkUsernameLimiter = rateLimit({
   message: { error: "Terlalu banyak pengecekan username. Coba lagi sebentar." },
 });
 
-router.get("/auth/check-username", checkUsernameLimiter, async (req, res) => {
+router.get("/auth/check-username", checkUsernameLimiter, asyncHandler(async (req, res) => {
   const username = (req.query.username as string ?? "").trim().toLowerCase();
   if (!username || username.length < 3) {
     res.status(400).json({ error: "Username terlalu pendek" });
@@ -479,9 +492,9 @@ router.get("/auth/check-username", checkUsernameLimiter, async (req, res) => {
   const suggestions = checks.filter((r) => !r.taken).slice(0, 3).map((r) => r.name);
 
   res.json({ available: false, suggestions });
-});
+}));
 
-router.post("/auth/login", loginLimiter, async (req, res) => {
+router.post("/auth/login", loginLimiter, asyncHandler(async (req, res) => {
   const turnstileSecretConfigured = Boolean(process.env.TURNSTILE_SECRET_KEY);
   const turnstileToken = typeof req.body?.turnstileToken === "string"
     ? req.body.turnstileToken.trim()
@@ -560,25 +573,12 @@ router.post("/auth/login", loginLimiter, async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     })
     .json({
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        fullName: user.fullName,
-        role: user.role,
-        balance: Number(user.balance),
-        isActive: user.isActive,
-        isVerified: user.isVerified,
-        whatsapp: user.whatsapp,
-        referralCode: user.referralCode,
-        telegramId: user.telegramId ?? null,
-        createdAt: user.createdAt,
-      },
+      user: toUserResponse(user),
       token,
     });
-});
+}));
 
-router.post("/auth/logout", requireAuth, async (req, res) => {
+router.post("/auth/logout", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.user!.userId;
   await db
     .update(usersTable)
@@ -586,9 +586,9 @@ router.post("/auth/logout", requireAuth, async (req, res) => {
     .where(eq(usersTable.id, userId));
 
   res.clearCookie("token").json({ message: "Logged out" });
-});
+}));
 
-router.patch("/auth/profile", requireAuth, profileLimiter, async (req, res) => {
+router.patch("/auth/profile", requireAuth, profileLimiter, asyncHandler(async (req, res) => {
   const userId = req.user!.userId;
   const { fullName, email } = req.body ?? {};
 
@@ -648,23 +648,10 @@ router.patch("/auth/profile", requireAuth, profileLimiter, async (req, res) => {
     .where(eq(usersTable.id, userId))
     .returning();
 
-  res.json({
-    id: updated.id,
-    username: updated.username,
-    email: updated.email,
-    fullName: updated.fullName,
-    role: updated.role,
-    balance: Number(updated.balance),
-    isActive: updated.isActive,
-    isVerified: updated.isVerified,
-    whatsapp: updated.whatsapp,
-    referralCode: updated.referralCode,
-    telegramId: updated.telegramId ?? null,
-    createdAt: updated.createdAt,
-  });
-});
+  res.json(toUserResponse(updated));
+}));
 
-router.post("/auth/change-password", requireAuth, changePasswordLimiter, async (req, res) => {
+router.post("/auth/change-password", requireAuth, changePasswordLimiter, asyncHandler(async (req, res) => {
   const userId = req.user!.userId;
   const { currentPassword, newPassword } = req.body ?? {};
 
@@ -701,9 +688,9 @@ router.post("/auth/change-password", requireAuth, changePasswordLimiter, async (
     .where(eq(usersTable.id, userId));
 
   res.json({ message: "Password berhasil diubah" });
-});
+}));
 
-router.get("/auth/me", requireAuth, async (req, res) => {
+router.get("/auth/me", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.user!.userId;
   const [user] = await db
     .select()
@@ -716,24 +703,8 @@ router.get("/auth/me", requireAuth, async (req, res) => {
     return;
   }
 
-  res.json({
-    id: user.id,
-    username: user.username,
-    email: user.email,
-    fullName: user.fullName,
-    role: user.role,
-    balance: Number(user.balance),
-    isActive: user.isActive,
-    isVerified: user.isVerified,
-    whatsapp: user.whatsapp,
-    referralCode: user.referralCode,
-    telegramId: user.telegramId ?? null,
-    // vpnTelegramId dipakai UI Profile untuk tampilkan status link Bot VPN
-    // (terpisah dari Bot Notifikasi).
-    vpnTelegramId: user.vpnTelegramId ?? null,
-    createdAt: user.createdAt,
-  });
-});
+  res.json(toUserResponse(user, { includeVpnTelegramId: true }));
+}));
 
 // ─── Forgot Password: Send OTP ────────────────────────────────────────────────
 
@@ -755,7 +726,7 @@ const forgotPasswordResetLimiter = rateLimit({
   message: { error: "Terlalu banyak percobaan reset password. Coba lagi dalam 15 menit." },
 });
 
-router.post("/auth/forgot-password/send-otp", forgotPasswordLimiter, async (req, res) => {
+router.post("/auth/forgot-password/send-otp", forgotPasswordLimiter, asyncHandler(async (req, res) => {
   const { whatsapp } = req.body ?? {};
   if (!whatsapp || typeof whatsapp !== "string") {
     res.status(400).json({ error: "Nomor WhatsApp wajib diisi" });
@@ -785,16 +756,17 @@ router.post("/auth/forgot-password/send-otp", forgotPasswordLimiter, async (req,
     return;
   }
 
+  const isProduction = process.env.NODE_ENV === "production";
   res.json({
     message: "OTP dikirim ke WhatsApp kamu",
     simulateMode: result.simulateMode,
-    ...(result.simulateMode ? { otp: result.otp } : {}),
+    ...(!isProduction && result.simulateMode ? { otp: result.otp } : {}),
   });
-});
+}));
 
 // ─── Forgot Password: Reset with OTP ──────────────────────────────────────────
 
-router.post("/auth/forgot-password/reset", forgotPasswordResetLimiter, async (req, res) => {
+router.post("/auth/forgot-password/reset", forgotPasswordResetLimiter, asyncHandler(async (req, res) => {
   const { whatsapp, otpCode, newPassword } = req.body ?? {};
 
   if (!whatsapp || typeof whatsapp !== "string") {
@@ -835,6 +807,6 @@ router.post("/auth/forgot-password/reset", forgotPasswordResetLimiter, async (re
     .where(eq(usersTable.id, user.id));
 
   res.json({ message: "Password berhasil direset. Silakan login dengan password baru." });
-});
+}));
 
 export default router;
