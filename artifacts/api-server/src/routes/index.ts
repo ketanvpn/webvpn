@@ -7,7 +7,7 @@ import ordersRouter from "./orders";
 import accountsRouter from "./accounts";
 import balanceRouter from "./balance";
 import dashboardRouter from "./dashboard";
-import adminRouter from "./admin";
+import adminRouter from "./admin/index";
 import nadiavpnRouter from "./nadiavpn";
 import dynamicVpnRouter from "./dynamic-vpn";
 import settingsRouter from "./settings";
