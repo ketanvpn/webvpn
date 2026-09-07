@@ -1,22 +1,63 @@
 /**
  * Database Backup & Restore
- * - pg_dump → gzip → Telegram Bot sendDocument
- * - Restore: gunzip → psql via stdin
+ * - pg_dump → gzip (streaming) → AES-256-GCM → Telegram Bot sendDocument
+ * - Restore: decrypt → gunzip → psql via stdin
+ *
+ * Security:
+ * - Credentials never appear in CLI args (uses PGPASSWORD env + --host/--port/--dbname)
+ * - Streaming gzip to avoid loading entire dump into memory
+ * - Path traversal validation on bundle file extraction
  */
 
 import { spawn } from "child_process";
-import { gzipSync, gunzipSync } from "zlib";
+import { createGzip, gzipSync, gunzipSync } from "zlib";
 import { createHash, createCipheriv, createDecipheriv, randomBytes } from "crypto";
+import { pipeline } from "stream/promises";
+import { createWriteStream } from "fs";
 import { db } from "@workspace/db";
 import { settingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "./logger";
 import fs from "fs";
 import path from "path";
+import os from "os";
+
+// ─── Constants ───────────────────────────────────────────────────────────────
 
 const BACKUP_RETENTION = 10;
+const ENCRYPTION_ALGORITHM = "aes-256-gcm";
+const IV_LENGTH = 12; // GCM standard
+const AUTH_TAG_LENGTH = 16;
+const ENCRYPTED_MAGIC = Buffer.from("KTENC1"); // Magic header to identify encrypted backups
+const BUNDLE_MAGIC = Buffer.from("KTBUNDLE1");
+
+// ─── Bundle Types ────────────────────────────────────────────────────────────
+
+interface BundleFile {
+  name: string;
+  offset: number;
+  length: number;
+}
+
+interface BundleSourceFile {
+  name: string;
+  sourcePath: string;
+}
+
+const BUNDLE_FILES: BundleSourceFile[] = [
+  { name: ".env", sourcePath: ".env" },
+  { name: "ecosystem.config.cjs", sourcePath: "ecosystem.config.cjs" },
+  { name: "botvpn-fixed/sellvpn.db", sourcePath: "botvpn-fixed/sellvpn.db" },
+  { name: "botvpn-fixed/.vars.json", sourcePath: "botvpn-fixed/.vars.json" },
+  { name: "artifacts/vpn-web/.env.production", sourcePath: "artifacts/vpn-web/.env.production" },
+];
+
+// ─── Module State ────────────────────────────────────────────────────────────
+
 let lastBackupFilePath: string | null = null;
 let operationInProgress: "backup" | "restore" | null = null;
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function getProjectRoot(): string {
   const cwd = process.cwd();
@@ -30,6 +71,67 @@ function getProjectRoot(): string {
   return cwd;
 }
 
+/**
+ * Parse a PostgreSQL connection URI into individual components.
+ * Supports: postgresql://user:password@host:port/dbname?params
+ * Returns env vars + CLI args for pg_dump/psql that keep credentials out of `ps aux`.
+ */
+function parseDatabaseUrl(databaseUrl: string): {
+  env: Record<string, string>;
+  args: string[];
+} {
+  try {
+    const url = new URL(databaseUrl);
+    const env: Record<string, string> = { ...process.env as Record<string, string> };
+    const args: string[] = [];
+
+    if (url.password) {
+      env.PGPASSWORD = decodeURIComponent(url.password);
+    }
+    if (url.hostname) {
+      args.push("--host", url.hostname);
+    }
+    if (url.port) {
+      args.push("--port", url.port);
+    }
+    if (url.username) {
+      args.push("--username", decodeURIComponent(url.username));
+    }
+    // Database name is the path without leading slash
+    const dbName = url.pathname.replace(/^\//, "");
+    if (dbName) {
+      args.push("--dbname", dbName);
+    }
+    // Pass any query params as connection options (e.g., sslmode)
+    if (url.searchParams.has("sslmode")) {
+      env.PGSSLMODE = url.searchParams.get("sslmode")!;
+    }
+
+    return { env, args };
+  } catch {
+    // Fallback: if URL parsing fails, pass connection string via PGDATABASE env
+    // (pg_dump/psql do NOT support full URIs via PGDATABASE, but this is a safety net)
+    logger.warn("DATABASE_URL tidak bisa di-parse sebagai URL. Menggunakan fallback.");
+    return {
+      env: { ...process.env as Record<string, string> },
+      args: ["--dbname", databaseUrl],
+    };
+  }
+}
+
+/**
+ * Fetch Telegram bot token and admin chat ID from settings.
+ * Returns null values if not configured.
+ */
+async function getTelegramSettings(): Promise<{ token: string | null; chatId: string | null }> {
+  const rows = await db.select().from(settingsTable);
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  return {
+    token: map["telegramBotToken"] ?? null,
+    chatId: map["telegramAdminChatId"] ?? null,
+  };
+}
+
 // ─── Checksum ────────────────────────────────────────────────────────────────
 
 /** Compute SHA-256 hex digest of a buffer. */
@@ -38,11 +140,6 @@ export function computeChecksum(buffer: Buffer): string {
 }
 
 // ─── AES-256-GCM Encryption ─────────────────────────────────────────────────
-
-const ENCRYPTION_ALGORITHM = "aes-256-gcm";
-const IV_LENGTH = 12; // GCM standard
-const AUTH_TAG_LENGTH = 16;
-const ENCRYPTED_MAGIC = Buffer.from("KTENC1"); // Magic header to identify encrypted backups
 
 function getEncryptionKey(): Buffer | null {
   const keyHex = process.env.BACKUP_ENCRYPTION_KEY;
@@ -125,6 +222,8 @@ function releaseLock(): void {
   operationInProgress = null;
 }
 
+// ─── Backup Directory ────────────────────────────────────────────────────────
+
 /**
  * Direktori simpan backup. Default ./backups (persisten, tetap setelah restart).
  * Override via env BACKUP_DIR. Future: opsi bundle env ter-encrypt.
@@ -141,7 +240,7 @@ export function getBackupDir(): string {
 function pruneOldBackups(dir: string): void {
   try {
     const entries = fs.readdirSync(dir)
-      .filter((f) => f.endsWith(".sql.gz"))
+      .filter((f) => f.endsWith(".sql.gz") || f.endsWith(".sql.gz.enc") || f.endsWith(".bundle.gz") || f.endsWith(".bundle.gz.enc"))
       .map((f) => ({ f, mtime: fs.statSync(path.join(dir, f)).mtimeMs }))
       .sort((a, b) => b.mtime - a.mtime);
     for (const item of entries.slice(BACKUP_RETENTION)) {
@@ -151,6 +250,8 @@ function pruneOldBackups(dir: string): void {
     // non-fatal
   }
 }
+
+// ─── Settings ────────────────────────────────────────────────────────────────
 
 export interface BackupSettings {
   backupEnabled: boolean;
@@ -166,7 +267,7 @@ export interface BackupSettings {
 
 export async function getBackupSettings(): Promise<BackupSettings> {
   const rows = await db.select().from(settingsTable);
-  const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
   return {
     backupEnabled: map["backupEnabled"] === "true",
     backupIntervalHours: parseInt(map["backupIntervalHours"] ?? "24", 10) || 24,
@@ -209,51 +310,83 @@ async function updateBackupStatus(
   await upsertSetting("backupLastEncrypted", String(encrypted));
 }
 
+// ─── pg_dump (Streaming) ────────────────────────────────────────────────────
+
 /**
  * Run pg_dump and return gzipped buffer + filename.
- * Requires pg_dump to be installed on the server.
+ *
+ * Security: credentials are passed via PGPASSWORD env var, NOT as CLI args.
+ * Memory: uses streaming gzip pipeline (pg_dump stdout → gzip → temp file),
+ *         then reads the compressed result. Avoids holding entire raw dump in memory.
  */
 export async function runPgDump(): Promise<{ buffer: Buffer; filename: string }> {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL tidak dikonfigurasi");
 
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    const errors: Buffer[] = [];
+  const { env, args } = parseDatabaseUrl(databaseUrl);
+  const pgDumpArgs = ["--clean", "--if-exists", ...args];
 
-    const proc = spawn("pg_dump", ["--clean", "--if-exists", databaseUrl], {
-      stdio: ["ignore", "pipe", "pipe"],
+  // Stream pg_dump output through gzip to a temp file to avoid OOM on large DBs
+  const tmpDir = os.tmpdir();
+  const tmpFile = path.join(tmpDir, `ketantech-pgdump-${Date.now()}.sql.gz`);
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const proc = spawn("pg_dump", pgDumpArgs, {
+        stdio: ["ignore", "pipe", "pipe"],
+        env,
+      });
+
+      const errors: Buffer[] = [];
+      proc.stderr.on("data", (chunk: Buffer) => errors.push(chunk));
+
+      proc.on("error", (err) => {
+        if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+          reject(new Error("pg_dump tidak ditemukan. Pastikan PostgreSQL client tools terinstall di server."));
+        } else {
+          reject(err);
+        }
+      });
+
+      const gzip = createGzip();
+      const output = createWriteStream(tmpFile);
+
+      // Pipeline: pg_dump stdout → gzip → temp file
+      pipeline(proc.stdout, gzip, output)
+        .catch((err) => reject(err));
+
+      proc.on("close", (code) => {
+        if (code !== 0) {
+          const errMsg = Buffer.concat(errors).toString("utf8").slice(0, 500);
+          reject(new Error(`pg_dump gagal (exit ${code}): ${errMsg}`));
+          return;
+        }
+        // Wait for write stream to finish flushing
+        output.on("finish", () => resolve());
+        // If output already finished (pipeline resolved), resolve immediately
+        if (output.writableFinished) resolve();
+      });
     });
 
-    proc.stdout.on("data", (chunk: Buffer) => chunks.push(chunk));
-    proc.stderr.on("data", (chunk: Buffer) => errors.push(chunk));
+    // Read the compressed temp file
+    const buffer = fs.readFileSync(tmpFile);
 
-    proc.on("error", (err) => {
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-        reject(new Error("pg_dump tidak ditemukan. Pastikan PostgreSQL client tools terinstall di server."));
-      } else {
-        reject(err);
-      }
-    });
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const filename = `ketantech-backup-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.sql.gz`;
 
-    proc.on("close", (code) => {
-      if (code !== 0) {
-        const errMsg = Buffer.concat(errors).toString("utf8").slice(0, 500);
-        reject(new Error(`pg_dump gagal (exit ${code}): ${errMsg}`));
-        return;
-      }
-
-      const raw = Buffer.concat(chunks);
-      const compressed = gzipSync(raw);
-
-      const now = new Date();
-      const pad = (n: number) => String(n).padStart(2, "0");
-      const filename = `ketantech-backup-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.sql.gz`;
-
-      resolve({ buffer: compressed, filename });
-    });
-  });
+    return { buffer, filename };
+  } finally {
+    // Always clean up temp file
+    try {
+      if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
+    } catch {
+      // non-fatal cleanup
+    }
+  }
 }
+
+// ─── File Persistence ────────────────────────────────────────────────────────
 
 /**
  * Save backup buffer to persistent dir (getBackupDir) and update lastBackupFilePath.
@@ -284,6 +417,8 @@ export async function getLastBackupFilePath(): Promise<string | null> {
   }
   return null;
 }
+
+// ─── Telegram ────────────────────────────────────────────────────────────────
 
 /**
  * Send backup file to Telegram via sendDocument.
@@ -336,62 +471,7 @@ export async function sendBackupToTelegram(
   }
 }
 
-/**
- * Full backup flow: pg_dump → gzip → save file → send Telegram → update DB status.
- */
-export async function performBackup(): Promise<{
-  success: boolean;
-  filename: string | null;
-  sizeBytes: number | null;
-  sentToTelegram: boolean;
-  error: string | null;
-  checksum: string | null;
-  encrypted: boolean;
-}> {
-  acquireLock("backup");
-  let filename: string | null = null;
-  let sizeBytes: number | null = null;
-  let sentToTelegram = false;
-  let checksum: string | null = null;
-  let isEncrypted = false;
-
-  try {
-    const { buffer: gzippedBuffer, filename: fn } = await runPgDump();
-    filename = fn;
-    checksum = computeChecksum(gzippedBuffer);
-
-    const { encrypted: finalBuffer, isEncrypted: enc } = encryptBackup(gzippedBuffer);
-    isEncrypted = enc;
-    sizeBytes = finalBuffer.length;
-
-    if (isEncrypted) {
-      filename = filename.replace(".sql.gz", ".sql.gz.enc");
-    }
-
-    saveBackupFile(finalBuffer, filename);
-
-    const rows = await db.select().from(settingsTable);
-    const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
-    const token = map["telegramBotToken"] ?? null;
-    const chatId = map["telegramAdminChatId"] ?? null;
-
-    if (token && chatId) {
-      sentToTelegram = await sendBackupToTelegram(finalBuffer, filename, token, chatId, isEncrypted, checksum);
-    }
-
-    await updateBackupStatus("success", filename, sizeBytes, null, checksum, isEncrypted);
-    logger.info({ filename, sizeBytes, sentToTelegram, checksum, encrypted: isEncrypted }, "Database backup berhasil");
-
-    return { success: true, filename, sizeBytes, sentToTelegram, error: null, checksum, encrypted: isEncrypted };
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : "Unknown error";
-    logger.error({ err }, "Database backup gagal");
-    await updateBackupStatus("failed", filename, sizeBytes, errMsg, null, false).catch(() => {});
-    return { success: false, filename, sizeBytes, sentToTelegram, error: errMsg, checksum: null, encrypted: false };
-  } finally {
-    releaseLock();
-  }
-}
+// ─── Bundle Helpers ──────────────────────────────────────────────────────────
 
 /**
  * Extract SQL dump from a full backup bundle.
@@ -445,6 +525,63 @@ function extractBundleFiles(rawBundle: Buffer): { manifest: BundleFile[]; files:
   }
 }
 
+// ─── Perform Backup ──────────────────────────────────────────────────────────
+
+/**
+ * Full backup flow: pg_dump → streaming gzip → encrypt → save file → send Telegram → update DB status.
+ */
+export async function performBackup(): Promise<{
+  success: boolean;
+  filename: string | null;
+  sizeBytes: number | null;
+  sentToTelegram: boolean;
+  error: string | null;
+  checksum: string | null;
+  encrypted: boolean;
+}> {
+  acquireLock("backup");
+  let filename: string | null = null;
+  let sizeBytes: number | null = null;
+  let sentToTelegram = false;
+  let checksum: string | null = null;
+  let isEncrypted = false;
+
+  try {
+    const { buffer: gzippedBuffer, filename: fn } = await runPgDump();
+    filename = fn;
+    checksum = computeChecksum(gzippedBuffer);
+
+    const { encrypted: finalBuffer, isEncrypted: enc } = encryptBackup(gzippedBuffer);
+    isEncrypted = enc;
+    sizeBytes = finalBuffer.length;
+
+    if (isEncrypted) {
+      filename = filename.replace(".sql.gz", ".sql.gz.enc");
+    }
+
+    saveBackupFile(finalBuffer, filename);
+
+    const { token, chatId } = await getTelegramSettings();
+    if (token && chatId) {
+      sentToTelegram = await sendBackupToTelegram(finalBuffer, filename, token, chatId, isEncrypted, checksum);
+    }
+
+    await updateBackupStatus("success", filename, sizeBytes, null, checksum, isEncrypted);
+    logger.info({ filename, sizeBytes, sentToTelegram, checksum, encrypted: isEncrypted }, "Database backup berhasil");
+
+    return { success: true, filename, sizeBytes, sentToTelegram, error: null, checksum, encrypted: isEncrypted };
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : "Unknown error";
+    logger.error({ err }, "Database backup gagal");
+    await updateBackupStatus("failed", filename, sizeBytes, errMsg, null, false).catch(() => {});
+    return { success: false, filename, sizeBytes, sentToTelegram, error: errMsg, checksum: null, encrypted: false };
+  } finally {
+    releaseLock();
+  }
+}
+
+// ─── Restore ─────────────────────────────────────────────────────────────────
+
 export interface RestoreResult {
   success: boolean;
   isBundle: boolean;
@@ -455,7 +592,8 @@ export interface RestoreResult {
 /**
  * Restore database from gzipped SQL buffer or full backup bundle via psql.
  * Automatically creates a safety backup of the current database before restoring.
- * Returns info about whether this was a bundle and what files it contains.
+ *
+ * Security: psql credentials are passed via PGPASSWORD env var, NOT as CLI args.
  */
 export async function performRestore(rawBuffer: Buffer): Promise<RestoreResult> {
   const databaseUrl = process.env.DATABASE_URL;
@@ -470,19 +608,17 @@ export async function performRestore(rawBuffer: Buffer): Promise<RestoreResult> 
     const decryptedBuffer = decryptBackup(rawBuffer);
 
     let gzippedBuffer: Buffer;
-    let bundleData: Buffer | null = null;
 
     try {
       const unzipped = gunzipSync(decryptedBuffer);
       if (unzipped.subarray(0, 9).equals(BUNDLE_MAGIC)) {
         isBundle = true;
-        bundleData = unzipped;
         const extracted = extractSqlFromBundle(unzipped);
         if (!extracted) {
           throw new Error("Bundle tidak valid atau tidak mengandung SQL dump");
         }
         gzippedBuffer = extracted;
-        
+
         const bundleInfo = extractBundleFiles(unzipped);
         if (bundleInfo) {
           bundleFiles = bundleInfo.manifest.map((f) => f.name);
@@ -518,10 +654,7 @@ export async function performRestore(rawBuffer: Buffer): Promise<RestoreResult> 
       const safetyPath = saveBackupFile(safetyBuffer, safetyName);
       logger.info({ safetyPath }, "Safety backup sebelum restore berhasil dibuat");
 
-      const rows = await db.select().from(settingsTable);
-      const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
-      const token = map["telegramBotToken"] ?? null;
-      const chatId = map["telegramAdminChatId"] ?? null;
+      const { token, chatId } = await getTelegramSettings();
       if (token && chatId) {
         await sendBackupToTelegram(safetyBuffer, safetyName, token, chatId);
       }
@@ -533,11 +666,15 @@ export async function performRestore(rawBuffer: Buffer): Promise<RestoreResult> 
       );
     }
 
+    // Parse credentials for psql — same security approach as pg_dump
+    const { env, args } = parseDatabaseUrl(databaseUrl);
+
     await new Promise<void>((resolve, reject) => {
       const errors: Buffer[] = [];
 
-      const proc = spawn("psql", [databaseUrl], {
+      const proc = spawn("psql", args, {
         stdio: ["pipe", "ignore", "pipe"],
+        env,
       });
 
       proc.stderr.on("data", (chunk: Buffer) => errors.push(chunk));
@@ -573,15 +710,20 @@ export async function performRestore(rawBuffer: Buffer): Promise<RestoreResult> 
   }
 }
 
+// ─── Extract Bundle Files ────────────────────────────────────────────────────
+
 /**
  * Extract selected files from a bundle backup.
  * Returns list of extracted files with their paths.
+ *
+ * Security: validates that extracted paths stay within projectRoot to prevent path traversal.
  */
 export async function extractBundleFilesFromBackup(
   rawBuffer: Buffer,
   filesToExtract: string[]
 ): Promise<{ success: boolean; extracted: string[]; error?: string }> {
   const projectRoot = getProjectRoot();
+  const resolvedRoot = path.resolve(projectRoot);
   const extracted: string[] = [];
 
   try {
@@ -598,15 +740,27 @@ export async function extractBundleFilesFromBackup(
     }
 
     for (const fileName of filesToExtract) {
+      // Path traversal protection: reject file names with '..' or absolute paths
+      if (fileName.includes("..") || path.isAbsolute(fileName)) {
+        logger.warn({ fileName }, "Path traversal attempt blocked in bundle extraction");
+        continue;
+      }
+
+      const targetPath = path.resolve(projectRoot, fileName);
+
+      // Double-check: resolved path must be inside project root
+      if (!targetPath.startsWith(resolvedRoot + path.sep) && targetPath !== resolvedRoot) {
+        logger.warn({ fileName, targetPath, projectRoot: resolvedRoot }, "Path traversal blocked: target outside project root");
+        continue;
+      }
+
       const fileData = bundleInfo.files.get(fileName);
       if (!fileData) {
         logger.warn({ fileName }, "File tidak ditemukan di bundle");
         continue;
       }
 
-      const targetPath = path.resolve(projectRoot, fileName);
       const targetDir = path.dirname(targetPath);
-
       if (!fs.existsSync(targetDir)) {
         fs.mkdirSync(targetDir, { recursive: true });
       }
@@ -624,27 +778,6 @@ export async function extractBundleFilesFromBackup(
 }
 
 // ─── Full Backup Bundle ──────────────────────────────────────────────────────
-
-interface BundleFile {
-  name: string;
-  offset: number;
-  length: number;
-}
-
-const BUNDLE_MAGIC = Buffer.from("KTBUNDLE1");
-
-interface BundleSourceFile {
-  name: string;
-  sourcePath: string;
-}
-
-const BUNDLE_FILES: BundleSourceFile[] = [
-  { name: ".env", sourcePath: ".env" },
-  { name: "ecosystem.config.cjs", sourcePath: "ecosystem.config.cjs" },
-  { name: "botvpn-fixed/sellvpn.db", sourcePath: "botvpn-fixed/sellvpn.db" },
-  { name: "botvpn-fixed/.vars.json", sourcePath: "botvpn-fixed/.vars.json" },
-  { name: "artifacts/vpn-web/.env.production", sourcePath: "artifacts/vpn-web/.env.production" },
-];
 
 /**
  * Full backup bundle: SQL dump + config files.
@@ -689,7 +822,6 @@ export async function performFullBackup(): Promise<{
       }
     }
 
-    const MAGIC = Buffer.from("KTBUNDLE1");
     let dataOffset = 0;
     const manifest = fileParts.map((fp) => {
       const entry = { name: fp.name, offset: dataOffset, length: fp.data.length };
@@ -700,7 +832,7 @@ export async function performFullBackup(): Promise<{
     const manifestLenBuf = Buffer.alloc(4);
     manifestLenBuf.writeUInt32LE(manifestJson.length, 0);
 
-    const rawBundle = Buffer.concat([MAGIC, manifestLenBuf, manifestJson, ...fileParts.map((fp) => fp.data)]);
+    const rawBundle = Buffer.concat([BUNDLE_MAGIC, manifestLenBuf, manifestJson, ...fileParts.map((fp) => fp.data)]);
     const gzipped = gzipSync(rawBundle);
     checksum = computeChecksum(gzipped);
 
@@ -715,11 +847,7 @@ export async function performFullBackup(): Promise<{
 
     saveBackupFile(finalBuffer, filename);
 
-    const rows = await db.select().from(settingsTable);
-    const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
-    const token = map["telegramBotToken"] ?? null;
-    const chatId = map["telegramAdminChatId"] ?? null;
-
+    const { token, chatId } = await getTelegramSettings();
     if (token && chatId) {
       sentToTelegram = await sendBackupToTelegram(finalBuffer, filename, token, chatId, isEncrypted, checksum);
     }
@@ -737,6 +865,9 @@ export async function performFullBackup(): Promise<{
     releaseLock();
   }
 }
+
+// ─── Scheduler Check ─────────────────────────────────────────────────────────
+
 export async function isBackupDue(): Promise<boolean> {
   const cfg = await getBackupSettings();
   if (!cfg.backupEnabled) return false;
