@@ -31,6 +31,12 @@ export interface NadiaVpnMigratePayload {
   new_server_id: string;
 }
 
+export interface NadiaVpnChangeProtocolPayload {
+  account_id: string;
+  target_protocol: NadiaVpnProtocol;
+  ssh_password?: string;
+}
+
 export class NadiaVpnConfigError extends Error {
   constructor(message: string) {
     super(message);
@@ -131,6 +137,10 @@ export function renewNadiaVpnAccount(payload: NadiaVpnRenewPayload) {
 
 export function migrateNadiaVpnAccount(payload: NadiaVpnMigratePayload) {
   return requestNadiaVpn("POST", "/vpn/migrate", payload);
+}
+
+export function changeNadiaVpnProtocol(payload: NadiaVpnChangeProtocolPayload) {
+  return requestNadiaVpn("POST", "/vpn/change-protocol", payload);
 }
 
 export function getNadiaVpnAccounts() {

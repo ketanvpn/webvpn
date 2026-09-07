@@ -12,6 +12,7 @@ import {
   getNadiaVpnBalance,
   getNadiaVpnServers,
   migrateNadiaVpnAccount,
+  changeNadiaVpnProtocol,
   NadiaVpnApiError,
   NadiaVpnConfigError,
   renewNadiaVpnAccount,
@@ -180,6 +181,36 @@ router.post("/admin/nadiavpn/migrate", requireAdmin, asyncHandler(async (req, re
     logAdminAction({
       adminUserId: adminId,
       action: "migrate_nadiavpn",
+      targetType: "nadiavpn",
+      targetId: null,
+      details: payload,
+      ipAddress: getClientIp(req as any),
+    }).catch(() => {});
+    res.json(result);
+  } catch (error) {
+    sendNadiaVpnError(res, error);
+  }
+}));
+
+router.post("/admin/nadiavpn/change-protocol", requireAdmin, asyncHandler(async (req, res) => {
+  const payload = parseValidation(res, () => {
+    const p: any = {
+      account_id: requireString(req.body?.account_id, "account_id"),
+      target_protocol: requireString(req.body?.target_protocol, "target_protocol"),
+    };
+    if (typeof req.body?.ssh_password === "string" && req.body.ssh_password.trim() !== "") {
+      p.ssh_password = req.body.ssh_password.trim();
+    }
+    return p;
+  });
+  if (!payload) return;
+
+  try {
+    const result = await changeNadiaVpnProtocol(payload);
+    const adminId = req.user!.userId;
+    logAdminAction({
+      adminUserId: adminId,
+      action: "change_protocol_nadiavpn",
       targetType: "nadiavpn",
       targetId: null,
       details: payload,

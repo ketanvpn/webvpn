@@ -18,6 +18,7 @@ import { notifyAdminDynamicOrderFulfilled, notifyUserDynamicVpnAccountCreated } 
 import { logger } from "../logger";
 import { getDynamicDurationDays, isDynamicDurationType } from "../dynamic-duration";
 import { calculateBaseQuote } from "./pricing";
+import { extractNadiaConnectionDetails, extractProviderAccountId } from "./connection-parser";
 import { refreshLocalDynamicServerCapacity } from "./sync";
 
 // ─── Helper functions ─────────────────────────────────────────────────────────
@@ -38,69 +39,7 @@ function parseNadiaExpireAt(value: unknown, fallback: Date) {
   return Number.isNaN(parsed.getTime()) ? fallback : parsed;
 }
 
-export function extractConnectionDetails(response: any, protocol: string): Record<string, string | null> | null {
-  const data = response?.data ?? {};
-  const config = data.config ?? data.config_data;
-  const rawLinks = config?.link;
-  const serverInfo = data.server && typeof data.server === "object" ? data.server : {};
 
-  if (rawLinks && typeof rawLinks === "object") {
-    const links: Record<string, string | null> = {
-      hostname: stringifyConfigValue(config?.hostname ?? data.hostname),
-      servername: stringifyConfigValue(config?.servername ?? data.servername),
-      host: stringifyConfigValue(config?.host ?? data.host),
-      domain: stringifyConfigValue(serverInfo?.domain ?? config?.domain ?? data.domain),
-      server: stringifyConfigValue(config?.server ?? data.server),
-      sni: stringifyConfigValue(config?.sni ?? data.sni),
-      cloudfront: stringifyConfigValue(config?.cloudfront ?? data.cloudfront),
-    };
-    for (const [key, value] of Object.entries(rawLinks)) {
-      links[key] = typeof value === "string" ? value : null;
-    }
-    return links;
-  }
-
-  if (!config || typeof config !== "object") return null;
-
-  const port = config.port && typeof config.port === "object" ? config.port : {};
-  const payloadws = config.payloadws && typeof config.payloadws === "object" ? config.payloadws : {};
-  const details: Record<string, string | null> = {
-    hostname: stringifyConfigValue(config.hostname ?? data.hostname),
-    servername: stringifyConfigValue(config.servername ?? data.servername),
-    domain: stringifyConfigValue(serverInfo?.domain ?? config.domain ?? data.domain),
-    host: stringifyConfigValue(config.host ?? data.host),
-    cloudfront: stringifyConfigValue(config.cloudfront ?? data.cloudfront),
-    sni: stringifyConfigValue(config.sni ?? data.sni),
-    pubkey: stringifyConfigValue(config.pubkey),
-    isp: stringifyConfigValue(config.ISP),
-    city: stringifyConfigValue(config.CITY),
-    port_tls: stringifyConfigValue(port.tls),
-    port_none: stringifyConfigValue(port.none),
-    port_any: stringifyConfigValue(port.any),
-    openvpn_tcp: stringifyConfigValue(port.ovpntcp),
-    openvpn_udp: stringifyConfigValue(port.ovpnudp),
-    slowdns: stringifyConfigValue(port.slowdns),
-    ssh_ohp: stringifyConfigValue(port.sshohp),
-    ovpn_ohp: stringifyConfigValue(port.ovpnohp),
-    squid: stringifyConfigValue(port.squid),
-    udp_custom: stringifyConfigValue(port.udpcustom),
-    udpgw: stringifyConfigValue(port.udpgw),
-    payload_cdn: stringifyConfigValue(payloadws.payloadcdn),
-    payload_with_path: stringifyConfigValue(payloadws.payloadwithpath),
-  };
-
-  return Object.values(details).some(Boolean) ? details : null;
-}
-
-export function extractProviderAccountId(data: any): string | null {
-  return stringifyConfigValue(
-    data?.account_id ??
-    data?.accountId ??
-    data?.id ??
-    data?.account?.account_id ??
-    data?.account?.id,
-  );
-}
 
 function extractPanelConnectionDetails(result: Awaited<ReturnType<typeof createPanelAccount>>): Record<string, string | null> | null {
   const details: Record<string, string | null> = {};
@@ -314,7 +253,7 @@ export async function fulfillDynamicOrder(orderId: number, userId: number) {
       }
 
       accountProtocol = normalizeProtocol(data.protocol ?? order.protocol);
-      allLinks = extractConnectionDetails(connectionResponse, accountProtocol);
+      allLinks = extractNadiaConnectionDetails(connectionResponse, accountProtocol);
       configLink = accountProtocol === "ssh" ? null : allLinks?.tls ?? Object.values(allLinks ?? {}).find(Boolean) ?? null;
       providerPassword = data.password ?? data.config?.password ?? data.config_data?.password ?? order.password ?? null;
       providerUuid = data.uuid ?? data.config?.uuid ?? data.config_data?.uuid ?? null;

@@ -22,6 +22,7 @@ import {
   getDynamicSellPrice,
   isDynamicDurationType,
 } from "../lib/dynamic-duration";
+import { extractNadiaConnectionDetails } from "../lib/dynamic-order/connection-parser";
 
 const router = Router();
 const renewLocks = new Map<number, number>();
@@ -70,41 +71,7 @@ function parseNadiaExpireAt(value: unknown, fallback: Date) {
   return Number.isNaN(parsed.getTime()) ? fallback : parsed;
 }
 
-function extractNadiaAccountDetails(response: any): Record<string, string | null> | null {
-  const data = response?.data ?? {};
-  const config = data.config_data ?? data.config;
-  if (!config || typeof config !== "object") return null;
 
-  const serverInfo = data.server && typeof data.server === "object" ? data.server : {};
-  const port = config.port && typeof config.port === "object" ? config.port : {};
-  const payloadws = config.payloadws && typeof config.payloadws === "object" ? config.payloadws : {};
-  const details: Record<string, string | null> = {
-    hostname: stringifyConfigValue(config.hostname ?? data.hostname),
-    servername: stringifyConfigValue(config.servername ?? data.servername),
-    domain: stringifyConfigValue(serverInfo.domain ?? config.domain ?? data.domain),
-    host: stringifyConfigValue(config.host ?? data.host),
-    cloudfront: stringifyConfigValue(config.cloudfront ?? data.cloudfront),
-    sni: stringifyConfigValue(config.sni ?? data.sni),
-    pubkey: stringifyConfigValue(config.pubkey),
-    isp: stringifyConfigValue(config.ISP),
-    city: stringifyConfigValue(config.CITY),
-    port_tls: stringifyConfigValue(port.tls),
-    port_none: stringifyConfigValue(port.none),
-    port_any: stringifyConfigValue(port.any),
-    openvpn_tcp: stringifyConfigValue(port.ovpntcp),
-    openvpn_udp: stringifyConfigValue(port.ovpnudp),
-    slowdns: stringifyConfigValue(port.slowdns),
-    ssh_ohp: stringifyConfigValue(port.sshohp),
-    ovpn_ohp: stringifyConfigValue(port.ovpnohp),
-    squid: stringifyConfigValue(port.squid),
-    udp_custom: stringifyConfigValue(port.udpcustom),
-    udpgw: stringifyConfigValue(port.udpgw),
-    payload_cdn: stringifyConfigValue(payloadws.payloadcdn),
-    payload_with_path: stringifyConfigValue(payloadws.payloadwithpath),
-  };
-
-  return Object.values(details).some(Boolean) ? details : null;
-}
 
 function hasProviderDomain(allLinks: unknown) {
   const links = (allLinks ?? {}) as Record<string, string | null | undefined>;
@@ -126,7 +93,7 @@ async function syncNadiaAccountDetails(account: typeof vpnAccountsTable.$inferSe
   }
 
   const detailResponse: any = await getNadiaVpnAccountDetails(dynamicOrder.providerAccountId);
-  const details = extractNadiaAccountDetails(detailResponse);
+  const details = extractNadiaConnectionDetails(detailResponse, account.protocol);
   if (!details) return account;
 
   const data = detailResponse?.data ?? {};
@@ -184,6 +151,9 @@ async function calculateDynamicRenewAmount(params: {
   const [server] = await db.select().from(dynamicProviderServersTable).where(eq(dynamicProviderServersTable.id, dynamicServerId)).limit(1);
   if (!server || !server.isActive) throw new Error("Server dynamic tidak aktif");
   if (server.provider === "nadiavpn" && !server.renewEnabled) throw new Error("Server NadiaVPN ini tidak mendukung renew");
+  if (server.provider === "nadiavpn" && duration !== 1) {
+    throw new Error("Renew server NadiaVPN hanya dapat dibeli untuk durasi 1 periode (1 hari / 1 minggu / 1 bulan).");
+  }
 
   if (!isDynamicDurationType(durationType)) throw new Error("Tipe durasi tidak valid");
   if (!server.supportedTypes.includes(durationType)) throw new Error(`Server ini tidak mendukung renew ${getDynamicDurationUnit(durationType)}`);
@@ -192,7 +162,6 @@ async function calculateDynamicRenewAmount(params: {
   }
   if (durationType === "week") {
     if (server.provider !== "nadiavpn") throw new Error("Renew mingguan hanya tersedia untuk server NadiaVPN");
-    if (duration !== 1) throw new Error("Renew mingguan hanya tersedia untuk tepat 1 minggu");
   }
   if (durationType === "month" && (duration < server.minMonths || duration > server.maxMonths)) {
     throw new Error(`Durasi bulanan harus ${server.minMonths}-${server.maxMonths} bulan`);
@@ -610,7 +579,7 @@ router.post("/accounts/:id/renew-dynamic", requireAuth, asyncHandler(async (req,
 
     let balanceBefore = 0;
     let balanceAfter = 0;
-    await db.transaction(async (tx: any) => {
+    await db.transaction(async (tx) => {
       const [updatedUser] = await tx
         .update(usersTable)
         .set({ balance: sql`balance - ${price.amount}` })

@@ -33,12 +33,15 @@ export function calculateBaseQuote(
     throw new Error(`Server ini tidak mendukung durasi ${labels[durationType]}`);
   }
 
+  if (server.provider === "nadiavpn" && duration !== 1) {
+    throw new Error("Order server NadiaVPN hanya dapat dibeli untuk durasi 1 periode (1 hari / 1 minggu / 1 bulan). Untuk memperpanjang, gunakan menu perpanjang (renew).");
+  }
+
   if (durationType === "day" && (duration < server.minDays || duration > server.maxDays)) {
     throw new Error(`Durasi harian harus ${server.minDays}-${server.maxDays} hari`);
   }
   if (durationType === "week") {
     if (server.provider !== "nadiavpn") throw new Error("Paket mingguan hanya tersedia untuk server NadiaVPN");
-    if (duration !== 1) throw new Error("Paket mingguan hanya tersedia untuk tepat 1 minggu");
   }
   if (durationType === "month" && (duration < server.minMonths || duration > server.maxMonths)) {
     throw new Error(`Durasi bulanan harus ${server.minMonths}-${server.maxMonths} bulan`);
