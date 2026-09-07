@@ -107,6 +107,8 @@ export default function Login() {
         el.innerHTML = "";
         window.turnstile.render(el, {
           sitekey: siteKey,
+          size: "flexible",
+          appearance: "always",
           callback: (token: string) => {
             if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
             form.setValue("turnstileToken", token, { shouldValidate: true });
@@ -289,7 +291,7 @@ export default function Login() {
                   </div>
                 ) : (
                   <>
-                    <div id="turnstile-container" />
+                    <div id="turnstile-container" className="min-h-[65px] w-full" />
                     {turnstileStatus === "loading" && (
                       <p className="text-xs text-muted-foreground mt-2 animate-pulse">Memuat verifikasi keamanan...</p>
                     )}
