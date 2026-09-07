@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { Router } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { logger } from "../lib/logger";
 import {
   settleProviderPayment,
@@ -206,7 +207,7 @@ async function handlePaidTransaction(input: {
   return { success: true };
 }
 
-router.post("/webhooks/ketantechpay", async (req, res) => {
+router.post("/webhooks/ketantechpay", asyncHandler(async (req, res) => {
   const rawBody = typeof (req as any).rawBody === "string"
     ? (req as any).rawBody as string
     : "";
@@ -270,9 +271,9 @@ router.post("/webhooks/ketantechpay", async (req, res) => {
     logger.error({ err }, "KetantechPay webhook settlement failed");
     res.status(500).json({ error: "Temporary settlement failure" });
   }
-});
+}));
 
-router.post("/webhooks/autogopay", async (req, res) => {
+router.post("/webhooks/autogopay", asyncHandler(async (req, res) => {
   const rawBody = typeof (req as any).rawBody === "string"
     ? (req as any).rawBody as string
     : "";
@@ -343,6 +344,6 @@ router.post("/webhooks/autogopay", async (req, res) => {
     logger.error({ err }, "AutoGoPay webhook settlement failed");
     res.status(500).json({ error: "Temporary settlement failure" });
   }
-});
+}));
 
 export default router;

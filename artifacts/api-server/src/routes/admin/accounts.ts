@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../../lib/async-handler";
 import { db } from "@workspace/db";
 import {
   usersTable,
@@ -18,7 +19,7 @@ const router = Router();
 
 // ─── Admin: VPN Accounts ─────────────────────────────────────────────────────
 
-router.get("/admin/accounts", requireAdmin, async (req, res) => {
+router.get("/admin/accounts", requireAdmin, asyncHandler(async (req, res) => {
   const { userId, protocol, isActive, search } = req.query as Record<string, string | undefined>;
   const limit = Math.min(parseInt(String(req.query.limit ?? "20"), 10), 100);
   const offset = parseInt(String(req.query.offset ?? "0"), 10);
@@ -103,9 +104,9 @@ router.get("/admin/accounts", requireAdmin, async (req, res) => {
   }));
 
   res.json({ accounts: formatted, total: total?.count ?? 0 });
-});
+}));
 
-router.post("/admin/accounts/:id/extend", requireAdmin, async (req, res) => {
+router.post("/admin/accounts/:id/extend", requireAdmin, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const days = parseInt(String(req.body?.days ?? "30"), 10);
 
@@ -185,9 +186,9 @@ router.post("/admin/accounts/:id/extend", requireAdmin, async (req, res) => {
   }).catch((err) => logger.error({ err, action: "extend_account" }, "Failed to log admin action"));
 
   res.json({ id: updated.id, expiresAt: updated.expiresAt, isActive: updated.isActive });
-});
+}));
 
-router.delete("/admin/accounts/:id", requireAdmin, async (req, res) => {
+router.delete("/admin/accounts/:id", requireAdmin, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
 
   const [account] = await db
@@ -254,9 +255,9 @@ router.delete("/admin/accounts/:id", requireAdmin, async (req, res) => {
   }).catch((err) => logger.error({ err, action: "delete_account" }, "Failed to log admin action"));
 
   res.json({ success: true });
-});
+}));
 
-router.post("/admin/accounts/bulk-delete", requireAdmin, async (req, res) => {
+router.post("/admin/accounts/bulk-delete", requireAdmin, asyncHandler(async (req, res) => {
   const { ids } = req.body;
   if (!Array.isArray(ids) || ids.length === 0) {
     res.status(400).json({ error: "ids diperlukan" });
@@ -341,9 +342,9 @@ router.post("/admin/accounts/bulk-delete", requireAdmin, async (req, res) => {
     deleted: deletableIds.length,
     failed,
   });
-});
+}));
 
-router.post("/admin/accounts/:id/toggle", requireAdmin, async (req, res) => {
+router.post("/admin/accounts/:id/toggle", requireAdmin, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
 
   const [account] = await db
@@ -429,9 +430,9 @@ router.post("/admin/accounts/:id/toggle", requireAdmin, async (req, res) => {
     isActive: updated.isActive,
     createdAt: updated.createdAt,
   });
-});
+}));
 
-router.post("/admin/accounts/:id/sync", requireAdmin, async (req, res) => {
+router.post("/admin/accounts/:id/sync", requireAdmin, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
 
   const [account] = await db
@@ -493,6 +494,6 @@ router.post("/admin/accounts/:id/sync", requireAdmin, async (req, res) => {
   }).catch((err) => logger.error({ err, action: "sync_account" }, "Failed to log admin action"));
 
   res.json({ success: true, panelInfo: info, account: { id: updated.id, uuid: updated.uuid, configLink: updated.configLink } });
-});
+}));
 
 export default router;

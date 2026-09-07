@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { db } from "@workspace/db";
 import { settingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -320,15 +321,15 @@ function buildPaymentSettingsResponse(map: SettingsMap) {
   };
 }
 
-router.get("/admin/settings/payment", requireAdmin, async (_req, res) => {
+router.get("/admin/settings/payment", requireAdmin, asyncHandler(async (_req, res) => {
   const rows = await db.select().from(settingsTable);
   const map: SettingsMap = Object.fromEntries(
     rows.map((row) => [row.key, row.value]),
   );
   res.json(buildPaymentSettingsResponse(map));
-});
+}));
 
-router.put("/admin/settings/payment", requireAdmin, async (req, res) => {
+router.put("/admin/settings/payment", requireAdmin, asyncHandler(async (req, res) => {
   if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
     res.status(400).json({ error: "Body pengaturan payment harus berupa object" });
     return;
@@ -483,7 +484,7 @@ router.put("/admin/settings/payment", requireAdmin, async (req, res) => {
     rows.map((row) => [row.key, row.value]),
   );
   res.json(buildPaymentSettingsResponse(map));
-});
+}));
 
 export async function getPaymentSettingsMap(): Promise<Record<string, string | null>> {
   const rows = await db.select().from(settingsTable);
@@ -501,13 +502,13 @@ function buildTelegramSettingsResponse(map: Record<string, string | null>) {
   };
 }
 
-router.get("/admin/settings/telegram", requireAdmin, async (_req, res) => {
+router.get("/admin/settings/telegram", requireAdmin, asyncHandler(async (_req, res) => {
   const rows = await db.select().from(settingsTable);
   const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildTelegramSettingsResponse(map));
-});
+}));
 
-router.put("/admin/settings/telegram", requireAdmin, async (req, res) => {
+router.put("/admin/settings/telegram", requireAdmin, asyncHandler(async (req, res) => {
   const body = req.body as Record<string, string | boolean | null>;
 
   for (const key of TELEGRAM_KEYS) {
@@ -522,7 +523,7 @@ router.put("/admin/settings/telegram", requireAdmin, async (req, res) => {
   const rows = await db.select().from(settingsTable);
   const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildTelegramSettingsResponse(map));
-});
+}));
 
 // ─── WhatsApp / Fonnte Settings ────────────────────────────────────────────────
 
@@ -534,13 +535,13 @@ function buildWhatsappSettingsResponse(map: Record<string, string | null>) {
   };
 }
 
-router.get("/admin/settings/whatsapp", requireAdmin, async (_req, res) => {
+router.get("/admin/settings/whatsapp", requireAdmin, asyncHandler(async (_req, res) => {
   const rows = await db.select().from(settingsTable);
   const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildWhatsappSettingsResponse(map));
-});
+}));
 
-router.put("/admin/settings/whatsapp", requireAdmin, async (req, res) => {
+router.put("/admin/settings/whatsapp", requireAdmin, asyncHandler(async (req, res) => {
   const body = req.body as Record<string, string | boolean | null>;
 
   for (const key of WHATSAPP_KEYS) {
@@ -555,9 +556,9 @@ router.put("/admin/settings/whatsapp", requireAdmin, async (req, res) => {
   const rows = await db.select().from(settingsTable);
   const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildWhatsappSettingsResponse(map));
-});
+}));
 
-router.post("/admin/settings/whatsapp/test", requireAdmin, async (req, res) => {
+router.post("/admin/settings/whatsapp/test", requireAdmin, asyncHandler(async (req, res) => {
   const { whatsapp } = req.body as { whatsapp?: string };
   if (!whatsapp || typeof whatsapp !== "string") {
     res.status(400).json({ error: "Nomor WhatsApp diperlukan" });
@@ -573,7 +574,7 @@ router.post("/admin/settings/whatsapp/test", requireAdmin, async (req, res) => {
     return;
   }
   res.json({ success: true });
-});
+}));
 
 // ─── Expiry Notification Settings ────────────────────────────────────────────
 
@@ -594,13 +595,13 @@ function buildExpiryNotifSettingsResponse(map: Record<string, string | null>) {
   };
 }
 
-router.get("/admin/settings/expiry-notif", requireAdmin, async (_req, res) => {
+router.get("/admin/settings/expiry-notif", requireAdmin, asyncHandler(async (_req, res) => {
   const rows = await db.select().from(settingsTable);
   const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildExpiryNotifSettingsResponse(map));
-});
+}));
 
-router.put("/admin/settings/expiry-notif", requireAdmin, async (req, res) => {
+router.put("/admin/settings/expiry-notif", requireAdmin, asyncHandler(async (req, res) => {
   const body = req.body as Record<string, string | boolean | null>;
   for (const key of EXPIRY_NOTIF_KEYS) {
     if (key in body) {
@@ -612,7 +613,7 @@ router.put("/admin/settings/expiry-notif", requireAdmin, async (req, res) => {
   const rows = await db.select().from(settingsTable);
   const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildExpiryNotifSettingsResponse(map));
-});
+}));
 
 // ─── Referral Settings ───────────────────────────────────────────────────────
 
@@ -629,20 +630,20 @@ function buildReferralSettingsResponse(map: Record<string, string | null>) {
   };
 }
 
-router.get("/admin/settings/referral", requireAdmin, async (_req, res) => {
+router.get("/admin/settings/referral", requireAdmin, asyncHandler(async (_req, res) => {
   const rows = await db.select().from(settingsTable);
   const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildReferralSettingsResponse(map));
-});
+}));
 
 // Endpoint publik untuk user cek status referral
-router.get("/referral/status", async (_req, res) => {
+router.get("/referral/status", asyncHandler(async (_req, res) => {
   const rows = await db.select().from(settingsTable);
   const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildReferralSettingsResponse(map));
-});
+}));
 
-router.put("/admin/settings/referral", requireAdmin, async (req, res) => {
+router.put("/admin/settings/referral", requireAdmin, asyncHandler(async (req, res) => {
   const body = req.body as Record<string, string | boolean | null | number>;
 
   for (const key of REFERRAL_KEYS) {
@@ -656,7 +657,7 @@ router.put("/admin/settings/referral", requireAdmin, async (req, res) => {
   const rows = await db.select().from(settingsTable);
   const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildReferralSettingsResponse(map));
-});
+}));
 
 // ─── Reseller Settings ────────────────────────────────────────────────────────
 
@@ -687,13 +688,13 @@ export async function getResellerSettings() {
   return buildResellerSettingsResponse(map);
 }
 
-router.get("/admin/settings/reseller", requireAdmin, async (_req, res) => {
+router.get("/admin/settings/reseller", requireAdmin, asyncHandler(async (_req, res) => {
   const rows = await db.select().from(settingsTable);
   const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildResellerSettingsResponse(map));
-});
+}));
 
-router.put("/admin/settings/reseller", requireAdmin, async (req, res) => {
+router.put("/admin/settings/reseller", requireAdmin, asyncHandler(async (req, res) => {
   const body = req.body ?? {};
   for (const key of RESELLER_KEYS) {
     if (key in body) {
@@ -705,7 +706,7 @@ router.put("/admin/settings/reseller", requireAdmin, async (req, res) => {
   const rows = await db.select().from(settingsTable);
   const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildResellerSettingsResponse(map));
-});
+}));
 
 // ─── Dynamic VPN Settings ────────────────────────────────────────────────────
 
@@ -720,13 +721,13 @@ function buildDynamicVpnSettingsResponse(map: Record<string, string | null>) {
   };
 }
 
-router.get("/admin/settings/dynamic-vpn", requireAdmin, async (_req, res) => {
+router.get("/admin/settings/dynamic-vpn", requireAdmin, asyncHandler(async (_req, res) => {
   const rows = await db.select().from(settingsTable);
   const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildDynamicVpnSettingsResponse(map));
-});
+}));
 
-router.put("/admin/settings/dynamic-vpn", requireAdmin, async (req, res) => {
+router.put("/admin/settings/dynamic-vpn", requireAdmin, asyncHandler(async (req, res) => {
   const body = req.body as Record<string, string | boolean | null | number>;
   for (const key of DYNAMIC_VPN_KEYS) {
     if (key in body) {
@@ -738,7 +739,7 @@ router.put("/admin/settings/dynamic-vpn", requireAdmin, async (req, res) => {
   const rows = await db.select().from(settingsTable);
   const map = Object.fromEntries(rows.map((r: any) => [r.key, r.value]));
   res.json(buildDynamicVpnSettingsResponse(map));
-});
+}));
 
 export { getSettingValue, setSettingValue };
 export default router;

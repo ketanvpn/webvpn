@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../../lib/async-handler";
 import { db } from "@workspace/db";
 import { ordersTable, usersTable } from "@workspace/db";
 import { eq, and, ilike, desc, sql } from "drizzle-orm";
@@ -10,7 +11,7 @@ const router = Router();
 
 // ─── Admin: Orders ────────────────────────────────────────────────────────────
 
-router.get("/admin/orders", requireAdmin, async (req, res) => {
+router.get("/admin/orders", requireAdmin, asyncHandler(async (req, res) => {
   const { status, userId, search } = req.query as Record<string, string | undefined>;
   const limit = Math.min(parseInt(String(req.query.limit ?? "20"), 10), 100);
   const offset = parseInt(String(req.query.offset ?? "0"), 10);
@@ -71,7 +72,7 @@ router.get("/admin/orders", requireAdmin, async (req, res) => {
   );
 
   res.json({ orders: formatted, total: total?.count ?? 0 });
-});
+}));
 
 router.post("/admin/orders/:id/confirm", requireAdmin, (_req, res) => {
   const response = retiredRouteResponse("adminStaticOrderConfirmation");

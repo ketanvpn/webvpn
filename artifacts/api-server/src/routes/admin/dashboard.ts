@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../../lib/async-handler";
 import { db } from "@workspace/db";
 import {
   usersTable,
@@ -22,7 +23,7 @@ const router = Router();
 
 // ─── Admin Dashboard ──────────────────────────────────────────────────────────
 
-router.get("/admin/dashboard", requireAdmin, async (_req, res) => {
+router.get("/admin/dashboard", requireAdmin, asyncHandler(async (_req, res) => {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -194,11 +195,11 @@ router.get("/admin/dashboard", requireAdmin, async (_req, res) => {
     recentTopups: recentTopups.map((t) => formatTopup(t as typeof topupsTable.$inferSelect & { username?: string | null })),
     recentAuditLogs,
   });
-});
+}));
 
 // ─── Admin: Revenue Chart ─────────────────────────────────────────────────────
 
-router.get("/admin/stats/revenue-chart", requireAdmin, async (req, res) => {
+router.get("/admin/stats/revenue-chart", requireAdmin, asyncHandler(async (req, res) => {
   const days = Math.min(parseInt(String(req.query.days ?? "14"), 10), 30);
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days + 1);
@@ -261,6 +262,6 @@ router.get("/admin/stats/revenue-chart", requireAdmin, async (req, res) => {
   }
 
   res.json(result);
-});
+}));
 
 export default router;

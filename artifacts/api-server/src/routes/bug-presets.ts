@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { db } from "@workspace/db";
 import { bugPresetsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
@@ -10,7 +11,7 @@ import { getClientIp } from "../lib/request-ip";
 const router = Router();
 
 // Public: List all active bug presets
-router.get("/bug-presets", async (_req, res) => {
+router.get("/bug-presets", asyncHandler(async (_req, res) => {
   try {
     const presets = await db
       .select()
@@ -22,10 +23,10 @@ router.get("/bug-presets", async (_req, res) => {
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch bug presets" });
   }
-});
+}));
 
 // Admin: List all bug presets
-router.get("/admin/bug-presets", requireAdmin, async (_req, res) => {
+router.get("/admin/bug-presets", requireAdmin, asyncHandler(async (_req, res) => {
   try {
     const presets = await db
       .select()
@@ -36,10 +37,10 @@ router.get("/admin/bug-presets", requireAdmin, async (_req, res) => {
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch bug presets" });
   }
-});
+}));
 
 // Admin: Create bug preset
-router.post("/admin/bug-presets", requireAdmin, async (req, res) => {
+router.post("/admin/bug-presets", requireAdmin, asyncHandler(async (req, res) => {
   const parsed = AdminCreateBugPresetBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid input" });
@@ -73,10 +74,10 @@ router.post("/admin/bug-presets", requireAdmin, async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: "Failed to create bug preset" });
   }
-});
+}));
 
 // Admin: Update bug preset
-router.put("/admin/bug-presets/:id", requireAdmin, async (req, res) => {
+router.put("/admin/bug-presets/:id", requireAdmin, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const parsed = AdminUpdateBugPresetBody.safeParse(req.body);
   
@@ -108,10 +109,10 @@ router.put("/admin/bug-presets/:id", requireAdmin, async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: "Failed to update bug preset" });
   }
-});
+}));
 
 // Admin: Delete bug preset
-router.delete("/admin/bug-presets/:id", requireAdmin, async (req, res) => {
+router.delete("/admin/bug-presets/:id", requireAdmin, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   
   try {
@@ -140,6 +141,6 @@ router.delete("/admin/bug-presets/:id", requireAdmin, async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: "Failed to delete bug preset" });
   }
-});
+}));
 
 export default router;

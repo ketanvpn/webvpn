@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { db } from "@workspace/db";
 import { balanceLogsTable, usersTable } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
@@ -41,7 +42,7 @@ export async function addBalanceLog(params: {
   });
 }
 
-router.get("/balance/logs", requireAuth, async (req, res) => {
+router.get("/balance/logs", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.user!.userId;
   const limit = Math.min(parseInt(String(req.query.limit ?? "30"), 10), 100);
   const offset = parseInt(String(req.query.offset ?? "0"), 10);
@@ -65,9 +66,9 @@ router.get("/balance/logs", requireAuth, async (req, res) => {
     limit,
     offset,
   });
-});
+}));
 
-router.get("/admin/users/:id/balance-logs", requireAdmin, async (req, res) => {
+router.get("/admin/users/:id/balance-logs", requireAdmin, asyncHandler(async (req, res) => {
   const userId = parseInt(req.params.id as string, 10);
   const limit = Math.min(parseInt(String(req.query.limit ?? "30"), 10), 100);
   const offset = parseInt(String(req.query.offset ?? "0"), 10);
@@ -103,6 +104,6 @@ router.get("/admin/users/:id/balance-logs", requireAdmin, async (req, res) => {
     limit,
     offset,
   });
-});
+}));
 
 export default router;

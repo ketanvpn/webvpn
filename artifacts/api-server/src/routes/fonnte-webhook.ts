@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { db } from "@workspace/db";
 import { waVerificationsTable } from "@workspace/db";
 import { eq, and, gt } from "drizzle-orm";
@@ -35,7 +36,7 @@ router.get("/webhooks/fonnte", (_req, res) => {
  *   token: "fonnte_device_token"
  *   (dan field lain yang tidak kita pakai)
  */
-router.post("/webhooks/fonnte", async (req, res) => {
+router.post("/webhooks/fonnte", asyncHandler(async (req, res) => {
   try {
     const body = req.body ?? {};
 
@@ -136,6 +137,6 @@ router.post("/webhooks/fonnte", async (req, res) => {
     // Selalu return 200 agar Fonnte tidak retry terus-menerus
     res.json({ status: true });
   }
-});
+}));
 
 export default router;

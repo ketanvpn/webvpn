@@ -1,4 +1,5 @@
-import { Router, type Request, type Response, type NextFunction, type RequestHandler } from "express";
+import { Router, type Request } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import bcrypt from "bcryptjs";
 import { db, type User } from "@workspace/db";
 import { usersTable, waVerificationsTable } from "@workspace/db";
@@ -35,11 +36,7 @@ function toUserResponse(user: User, opts?: { includeVpnTelegramId?: boolean }) {
   };
 }
 
-function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>): RequestHandler {
-  return (req, res, next) => {
-    fn(req, res, next).catch(next);
-  };
-}
+
 
 function authRateLimitKey(req: Request): string {
   return getClientIp(req);

@@ -1,4 +1,5 @@
 import { Router, type Request } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { and, asc, desc, eq } from "drizzle-orm";
 import {
   adminAuditLogsTable,
@@ -195,7 +196,7 @@ function getAdminContext(req: Request) {
   };
 }
 
-router.get("/easy-inject-presets", requireAuth, async (_req, res) => {
+router.get("/easy-inject-presets", requireAuth, asyncHandler(async (_req, res) => {
   try {
     res.set("Cache-Control", "private, no-store");
     const presets = await db
@@ -213,9 +214,9 @@ router.get("/easy-inject-presets", requireAuth, async (_req, res) => {
     logger.error({ err: error }, "Failed to list active Easy Inject presets");
     res.status(500).json({ error: "Failed to fetch Easy Inject presets" });
   }
-});
+}));
 
-router.get("/admin/easy-inject-presets", requireAdmin, async (_req, res) => {
+router.get("/admin/easy-inject-presets", requireAdmin, asyncHandler(async (_req, res) => {
   try {
     const presets = await db
       .select()
@@ -231,9 +232,9 @@ router.get("/admin/easy-inject-presets", requireAdmin, async (_req, res) => {
     logger.error({ err: error }, "Failed to list Easy Inject presets for admin");
     res.status(500).json({ error: "Failed to fetch Easy Inject presets" });
   }
-});
+}));
 
-router.post("/admin/easy-inject-presets", requireAdmin, async (req, res) => {
+router.post("/admin/easy-inject-presets", requireAdmin, asyncHandler(async (req, res) => {
   const parsed = createEasyInjectPresetSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json(validationError(parsed.error));
@@ -289,9 +290,9 @@ router.post("/admin/easy-inject-presets", requireAdmin, async (req, res) => {
     logger.error({ err: error, adminUserId }, "Failed to create Easy Inject preset");
     res.status(500).json({ error: "Failed to create Easy Inject preset" });
   }
-});
+}));
 
-router.patch("/admin/easy-inject-presets/:id", requireAdmin, async (req, res) => {
+router.patch("/admin/easy-inject-presets/:id", requireAdmin, asyncHandler(async (req, res) => {
   const id = parsePositiveId(req.params.id);
   if (id === null) {
     res.status(400).json({ error: "Invalid preset id" });
@@ -416,9 +417,9 @@ router.patch("/admin/easy-inject-presets/:id", requireAdmin, async (req, res) =>
     logger.error({ err: error, presetId: id, adminUserId }, "Failed to update Easy Inject preset");
     res.status(500).json({ error: "Failed to update Easy Inject preset" });
   }
-});
+}));
 
-router.delete("/admin/easy-inject-presets/:id", requireAdmin, async (req, res) => {
+router.delete("/admin/easy-inject-presets/:id", requireAdmin, asyncHandler(async (req, res) => {
   const id = parsePositiveId(req.params.id);
   if (id === null) {
     res.status(400).json({ error: "Invalid preset id" });
@@ -475,7 +476,7 @@ router.delete("/admin/easy-inject-presets/:id", requireAdmin, async (req, res) =
     logger.error({ err: error, presetId: id, adminUserId }, "Failed to delete Easy Inject preset");
     res.status(500).json({ error: "Failed to delete Easy Inject preset" });
   }
-});
+}));
 
 router.get(
   "/admin/easy-inject-presets/:id/revisions",

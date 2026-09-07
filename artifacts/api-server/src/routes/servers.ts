@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { db } from "@workspace/db";
 import { serversTable } from "@workspace/db";
 import { eq, asc } from "drizzle-orm";
@@ -32,7 +33,7 @@ function formatFullServer(s: typeof serversTable.$inferSelect) {
   };
 }
 
-router.get("/servers", async (_req, res) => {
+router.get("/servers", asyncHandler(async (_req, res) => {
   const servers = await db
     .select()
     .from(serversTable)
@@ -40,7 +41,7 @@ router.get("/servers", async (_req, res) => {
     .orderBy(asc(serversTable.sortOrder), asc(serversTable.id));
 
   res.json(servers.map(formatPublicServer));
-});
+}));
 
 export { formatPublicServer, formatFullServer };
 export default router;

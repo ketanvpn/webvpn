@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { db } from "@workspace/db";
 import { usersTable, pointLogsTable, balanceLogsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
@@ -75,14 +76,14 @@ export async function getPointsSettings(): Promise<{ enabled: boolean; pointsRat
 
 // ─── User routes ──────────────────────────────────────────────────────────────
 
-router.get("/points", requireAuth, async (req, res) => {
+router.get("/points", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.user!.userId;
   const [user] = await db.select({ points: usersTable.points }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
   const settings = await getPointsSettings();
   res.json({ points: user?.points ?? 0, settings });
-});
+}));
 
-router.get("/points/logs", requireAuth, async (req, res) => {
+router.get("/points/logs", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.user!.userId;
   const logs = await db
     .select()
@@ -91,9 +92,9 @@ router.get("/points/logs", requireAuth, async (req, res) => {
     .orderBy(desc(pointLogsTable.createdAt))
     .limit(50);
   res.json(logs);
-});
+}));
 
-router.post("/points/redeem", requireAuth, async (req, res) => {
+router.post("/points/redeem", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.user!.userId;
   const amount = parseInt(req.body?.amount, 10);
   if (!amount || amount <= 0) {
@@ -169,15 +170,15 @@ router.post("/points/redeem", requireAuth, async (req, res) => {
     logger.error({ err, userId, amount }, "[points redeem] Transaction failed");
     res.status(500).json({ error: "Terjadi kesalahan saat memproses penukaran poin" });
   }
-});
+}));
 
 // ─── Admin: Settings ──────────────────────────────────────────────────────────
 
-router.get("/admin/settings/points", requireAdmin, async (_req, res) => {
+router.get("/admin/settings/points", requireAdmin, asyncHandler(async (_req, res) => {
   res.json(await getPointsSettings());
-});
+}));
 
-router.put("/admin/settings/points", requireAdmin, async (req, res) => {
+router.put("/admin/settings/points", requireAdmin, asyncHandler(async (req, res) => {
   const { enabled, pointsRateOrder, pointsMinOrder, pointsRateTopup, pointsMinTopup, redeemRate, minRedeem } = req.body ?? {};
   await Promise.all([
     setSettingValue("pointsEnabled", String(!!enabled)),
@@ -189,6 +190,6 @@ router.put("/admin/settings/points", requireAdmin, async (req, res) => {
     setSettingValue("pointsMinRedeem", String(parseInt(minRedeem ?? "100") || 100)),
   ]);
   res.json({ message: "Pengaturan poin disimpan" });
-});
+}));
 
 export default router;

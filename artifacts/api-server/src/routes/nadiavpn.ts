@@ -1,4 +1,5 @@
 import { Router, type Response } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { requireAdmin } from "../lib/auth";
 import { logAdminAction } from "./admin-audit";
 import { getClientIp } from "../lib/request-ip";
@@ -69,23 +70,23 @@ function parseValidation<T>(res: Response, fn: () => T): T | undefined {
   }
 }
 
-router.get("/admin/nadiavpn/balance", requireAdmin, async (_req, res) => {
+router.get("/admin/nadiavpn/balance", requireAdmin, asyncHandler(async (_req, res) => {
   try {
     res.json(await getNadiaVpnBalance());
   } catch (error) {
     sendNadiaVpnError(res, error);
   }
-});
+}));
 
-router.get("/admin/nadiavpn/servers", requireAdmin, async (_req, res) => {
+router.get("/admin/nadiavpn/servers", requireAdmin, asyncHandler(async (_req, res) => {
   try {
     res.json(await getNadiaVpnServers());
   } catch (error) {
     sendNadiaVpnError(res, error);
   }
-});
+}));
 
-router.post("/admin/nadiavpn/trial", requireAdmin, async (req, res) => {
+router.post("/admin/nadiavpn/trial", requireAdmin, asyncHandler(async (req, res) => {
   const payload = parseValidation(res, () => ({
     server_id: requireString(req.body?.server_id, "server_id"),
     protocol: requireString(req.body?.protocol, "protocol"),
@@ -112,9 +113,9 @@ router.post("/admin/nadiavpn/trial", requireAdmin, async (req, res) => {
   } catch (error) {
     sendNadiaVpnError(res, error);
   }
-});
+}));
 
-router.post("/admin/nadiavpn/order", requireAdmin, async (req, res) => {
+router.post("/admin/nadiavpn/order", requireAdmin, asyncHandler(async (req, res) => {
   const payload = parseValidation(res, () => ({
     server_id: requireString(req.body?.server_id, "server_id"),
     protocol: requireString(req.body?.protocol, "protocol"),
@@ -139,9 +140,9 @@ router.post("/admin/nadiavpn/order", requireAdmin, async (req, res) => {
   } catch (error) {
     sendNadiaVpnError(res, error);
   }
-});
+}));
 
-router.post("/admin/nadiavpn/renew", requireAdmin, async (req, res) => {
+router.post("/admin/nadiavpn/renew", requireAdmin, asyncHandler(async (req, res) => {
   const payload = parseValidation(res, () => ({
     account_id: requireString(req.body?.account_id, "account_id"),
     type: requireDurationType(req.body?.type),
@@ -164,9 +165,9 @@ router.post("/admin/nadiavpn/renew", requireAdmin, async (req, res) => {
   } catch (error) {
     sendNadiaVpnError(res, error);
   }
-});
+}));
 
-router.post("/admin/nadiavpn/migrate", requireAdmin, async (req, res) => {
+router.post("/admin/nadiavpn/migrate", requireAdmin, asyncHandler(async (req, res) => {
   const payload = parseValidation(res, () => ({
     account_id: requireString(req.body?.account_id, "account_id"),
     new_server_id: requireString(req.body?.new_server_id, "new_server_id"),
@@ -188,17 +189,17 @@ router.post("/admin/nadiavpn/migrate", requireAdmin, async (req, res) => {
   } catch (error) {
     sendNadiaVpnError(res, error);
   }
-});
+}));
 
-router.get("/admin/nadiavpn/accounts", requireAdmin, async (_req, res) => {
+router.get("/admin/nadiavpn/accounts", requireAdmin, asyncHandler(async (_req, res) => {
   try {
     res.json(await getNadiaVpnAccounts());
   } catch (error) {
     sendNadiaVpnError(res, error);
   }
-});
+}));
 
-router.post("/admin/nadiavpn/account/details", requireAdmin, async (req, res) => {
+router.post("/admin/nadiavpn/account/details", requireAdmin, asyncHandler(async (req, res) => {
   const accountId = parseValidation(res, () => requireString(req.body?.account_id, "account_id"));
   if (!accountId) return;
 
@@ -217,9 +218,9 @@ router.post("/admin/nadiavpn/account/details", requireAdmin, async (req, res) =>
   } catch (error) {
     sendNadiaVpnError(res, error);
   }
-});
+}));
 
-router.post("/admin/nadiavpn/account/sync", requireAdmin, async (req, res) => {
+router.post("/admin/nadiavpn/account/sync", requireAdmin, asyncHandler(async (req, res) => {
   const accountId = parseValidation(res, () => requireString(req.body?.account_id, "account_id"));
   if (!accountId) return;
 
@@ -238,9 +239,9 @@ router.post("/admin/nadiavpn/account/sync", requireAdmin, async (req, res) => {
   } catch (error) {
     sendNadiaVpnError(res, error);
   }
-});
+}));
 
-router.delete("/admin/nadiavpn/account/delete", requireAdmin, async (req, res) => {
+router.delete("/admin/nadiavpn/account/delete", requireAdmin, asyncHandler(async (req, res) => {
   const accountId = parseValidation(res, () => requireString(req.body?.account_id, "account_id"));
   if (!accountId) return;
 
@@ -259,6 +260,6 @@ router.delete("/admin/nadiavpn/account/delete", requireAdmin, async (req, res) =
   } catch (error) {
     sendNadiaVpnError(res, error);
   }
-});
+}));
 
 export default router;

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { db } from "@workspace/db";
 import { usersTable, topupsTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
@@ -36,7 +37,7 @@ function formatTopup(t: typeof topupsTable.$inferSelect & { username?: string | 
   };
 }
 
-router.get("/balance", requireAuth, async (req, res) => {
+router.get("/balance", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.user!.userId;
 
   res.setHeader("Cache-Control", "no-store");
@@ -58,9 +59,9 @@ router.get("/balance", requireAuth, async (req, res) => {
     balance: Number(user?.balance ?? 0),
     pendingTopup: pendingAmount,
   });
-});
+}));
 
-router.post("/balance/topup", requireAuth, topupLimiter, async (req, res) => {
+router.post("/balance/topup", requireAuth, topupLimiter, asyncHandler(async (req, res) => {
   const parsed = TopupBalanceBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid input. Minimum topup is Rp 10,000" });
@@ -169,9 +170,9 @@ router.post("/balance/topup", requireAuth, topupLimiter, async (req, res) => {
     ...formatTopup(updatedTopup ?? topup),
     gateway: updatedTopup?.paymentProvider ?? activeGateway,
   });
-});
+}));
 
-router.get("/balance/topup/history", requireAuth, async (req, res) => {
+router.get("/balance/topup/history", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.user!.userId;
   const limit = Math.min(parseInt(String(req.query.limit ?? "20"), 10), 100);
   const offset = parseInt(String(req.query.offset ?? "0"), 10);
@@ -185,7 +186,7 @@ router.get("/balance/topup/history", requireAuth, async (req, res) => {
     .offset(offset);
 
   res.json(topups.map((t: any) => formatTopup(t)));
-});
+}));
 
 export { formatTopup };
 export default router;

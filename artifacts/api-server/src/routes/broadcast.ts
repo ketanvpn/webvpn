@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { requireAdmin } from "../lib/auth";
 import { broadcastMessage } from "../lib/telegram";
 import { logAdminAction } from "./admin-audit";
@@ -6,7 +7,7 @@ import { getClientIp } from "../lib/request-ip";
 
 const router = Router();
 
-router.post("/admin/broadcast", requireAdmin, async (req, res) => {
+router.post("/admin/broadcast", requireAdmin, asyncHandler(async (req, res) => {
   const { message } = req.body as { message?: string };
 
   if (!message || message.trim().length === 0) {
@@ -33,6 +34,6 @@ router.post("/admin/broadcast", requireAdmin, async (req, res) => {
   }).catch(() => {});
 
   res.json({ success: true, sent, failed });
-});
+}));
 
 export default router;

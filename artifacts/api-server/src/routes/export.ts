@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { db } from "@workspace/db";
 import { topupsTable, ordersTable, usersTable, productsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
@@ -11,7 +12,7 @@ function toCsvRow(fields: unknown[]): string {
   return fields.map(escapeCsvCell).join(",");
 }
 
-router.get("/admin/export/topups", requireAdmin, async (_req, res) => {
+router.get("/admin/export/topups", requireAdmin, asyncHandler(async (_req, res) => {
   const rows = await db
     .select({
       id: topupsTable.id,
@@ -62,9 +63,9 @@ router.get("/admin/export/topups", requireAdmin, async (_req, res) => {
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
   res.send("\uFEFF" + csv);
-});
+}));
 
-router.get("/admin/export/orders", requireAdmin, async (_req, res) => {
+router.get("/admin/export/orders", requireAdmin, asyncHandler(async (_req, res) => {
   const rows = await db
     .select({
       id: ordersTable.id,
@@ -122,6 +123,6 @@ router.get("/admin/export/orders", requireAdmin, async (_req, res) => {
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
   res.send("\uFEFF" + csv);
-});
+}));
 
 export default router;

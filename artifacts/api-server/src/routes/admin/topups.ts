@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../../lib/async-handler";
 import { db } from "@workspace/db";
 import { usersTable, topupsTable, balanceLogsTable } from "@workspace/db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -17,7 +18,7 @@ const router = Router();
 
 // ─── Admin: Topups ────────────────────────────────────────────────────────────
 
-router.get("/admin/topups", requireAdmin, async (req, res) => {
+router.get("/admin/topups", requireAdmin, asyncHandler(async (req, res) => {
   const { status } = req.query as Record<string, string | undefined>;
   const limit = Math.min(parseInt(String(req.query.limit ?? "20"), 10), 100);
   const offset = parseInt(String(req.query.offset ?? "0"), 10);
@@ -49,9 +50,9 @@ router.get("/admin/topups", requireAdmin, async (req, res) => {
     .offset(offset);
 
   res.json(topups.map((t) => formatTopup(t as typeof topupsTable.$inferSelect & { username?: string | null })));
-});
+}));
 
-router.post("/admin/topups/:id/confirm", requireAdmin, async (req, res) => {
+router.post("/admin/topups/:id/confirm", requireAdmin, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const adminId = getAdminId(req);
 
@@ -155,9 +156,9 @@ router.post("/admin/topups/:id/confirm", requireAdmin, async (req, res) => {
   }
 
   res.json(formatTopup(confirmed));
-});
+}));
 
-router.post("/admin/topups/:id/reject", requireAdmin, async (req, res) => {
+router.post("/admin/topups/:id/reject", requireAdmin, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const adminId = getAdminId(req);
   const rejectionNote = req.body?.rejectionNote ? String(req.body.rejectionNote).slice(0, 200) : null;
@@ -199,6 +200,6 @@ router.post("/admin/topups/:id/reject", requireAdmin, async (req, res) => {
     .catch((err) => logger.error({ err }, "Failed to send topup rejection notification"));
 
   res.json(formatTopup(updated));
-});
+}));
 
 export default router;

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../../lib/async-handler";
 import { db } from "@workspace/db";
 import { serversTable, vpnAccountsTable } from "@workspace/db";
 import { eq, and, asc, sql } from "drizzle-orm";
@@ -15,7 +16,7 @@ const router = Router();
 
 // ─── Admin: Servers ───────────────────────────────────────────────────────────
 
-router.get("/admin/servers", requireAdmin, async (_req, res) => {
+router.get("/admin/servers", requireAdmin, asyncHandler(async (_req, res) => {
   const servers = await db
     .select()
     .from(serversTable)
@@ -32,9 +33,9 @@ router.get("/admin/servers", requireAdmin, async (_req, res) => {
   );
 
   res.json(result);
-});
+}));
 
-router.post("/admin/servers", requireAdmin, async (req, res) => {
+router.post("/admin/servers", requireAdmin, asyncHandler(async (req, res) => {
   const parsed = AdminCreateServerBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid input" });
@@ -68,9 +69,9 @@ router.post("/admin/servers", requireAdmin, async (req, res) => {
   }).catch((err) => logger.error({ err, action: "create_server" }, "Failed to log admin action"));
 
   res.status(201).json(formatFullServer(server));
-});
+}));
 
-router.patch("/admin/servers/:id", requireAdmin, async (req, res) => {
+router.patch("/admin/servers/:id", requireAdmin, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const parsed = AdminUpdateServerBody.safeParse(req.body);
 
@@ -114,9 +115,9 @@ router.patch("/admin/servers/:id", requireAdmin, async (req, res) => {
   }).catch((err) => logger.error({ err, action: "update_server" }, "Failed to log admin action"));
 
   res.json(formatFullServer(server));
-});
+}));
 
-router.delete("/admin/servers/:id", requireAdmin, async (req, res) => {
+router.delete("/admin/servers/:id", requireAdmin, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const [server] = await db.select({ name: serversTable.name, location: serversTable.location }).from(serversTable).where(eq(serversTable.id, id)).limit(1);
 
@@ -134,9 +135,9 @@ router.delete("/admin/servers/:id", requireAdmin, async (req, res) => {
   }).catch((err) => logger.error({ err, action: "delete_server" }, "Failed to log admin action"));
 
   res.json({ message: "Server deleted" });
-});
+}));
 
-router.get("/admin/servers/health", requireAdmin, async (_req, res) => {
+router.get("/admin/servers/health", requireAdmin, asyncHandler(async (_req, res) => {
   const servers = await db.select().from(serversTable).orderBy(asc(serversTable.sortOrder), asc(serversTable.id));
 
   const result = await Promise.all(
@@ -170,9 +171,9 @@ router.get("/admin/servers/health", requireAdmin, async (_req, res) => {
   );
 
   res.json(result);
-});
+}));
 
-router.get("/admin/servers/:id/health", requireAdmin, async (req, res) => {
+router.get("/admin/servers/:id/health", requireAdmin, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
 
   const [server] = await db
@@ -193,6 +194,6 @@ router.get("/admin/servers/:id/health", requireAdmin, async (req, res) => {
 
   const result = await checkPanelHealth({ apiUrl: server.apiUrl, apiToken: server.apiToken });
   res.json(result);
-});
+}));
 
 export default router;

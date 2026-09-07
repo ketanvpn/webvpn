@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { db } from "@workspace/db";
 import { usersTable, topupsTable, settingsTable, ticketsTable, ticketMessagesTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
@@ -79,7 +80,7 @@ const broadcastTemplates: Record<string, {
 
 // ─── User: Generate Telegram Link Token ──────────────────────────────────────
 
-router.get("/telegram/link", requireAuth, async (req, res) => {
+router.get("/telegram/link", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.user!.userId;
 
   const token = randomBytes(24).toString("hex");
@@ -94,11 +95,11 @@ router.get("/telegram/link", requireAuth, async (req, res) => {
   const url = botUsername ? `https://t.me/${botUsername}?start=link_${token}` : null;
 
   res.json({ token, botUsername, url });
-});
+}));
 
 // ─── User: Unlink Telegram ────────────────────────────────────────────────────
 
-router.delete("/telegram/link", requireAuth, async (req, res) => {
+router.delete("/telegram/link", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.user!.userId;
 
   await db
@@ -107,11 +108,11 @@ router.delete("/telegram/link", requireAuth, async (req, res) => {
     .where(eq(usersTable.id, userId));
 
   res.json({ success: true });
-});
+}));
 
 // ─── Admin: Register Webhook ──────────────────────────────────────────────────
 
-router.post("/admin/telegram/register-webhook", requireAdmin, async (req, res) => {
+router.post("/admin/telegram/register-webhook", requireAdmin, asyncHandler(async (req, res) => {
   const { url } = req.body as { url?: string };
   if (!url) {
     res.status(400).json({ error: "url is required" });
@@ -119,11 +120,11 @@ router.post("/admin/telegram/register-webhook", requireAdmin, async (req, res) =
   }
   await registerWebhook(url);
   res.json({ success: true });
-});
+}));
 
 // ─── Telegram Webhook Handler ─────────────────────────────────────────────────
 
-router.post("/telegram/webhook", async (req, res) => {
+router.post("/telegram/webhook", asyncHandler(async (req, res) => {
   // Verify Telegram's secret_token header (set via setWebhook)
   const expectedSecret = await getWebhookSecret();
   const providedSecret = String(req.header("x-telegram-bot-api-secret-token") || "");
@@ -156,7 +157,7 @@ router.post("/telegram/webhook", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[telegram-webhook] error processing update");
   }
-});
+}));
 
 // ─── Handlers ────────────────────────────────────────────────────────────────
 

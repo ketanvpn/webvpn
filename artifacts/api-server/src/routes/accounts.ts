@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { db } from "@workspace/db";
 import { vpnAccountsTable, serversTable, ordersTable, productsTable, usersTable, dynamicVpnOrdersTable, dynamicProviderServersTable } from "@workspace/db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -298,7 +299,7 @@ async function formatAccount(a: typeof vpnAccountsTable.$inferSelect) {
   };
 }
 
-router.get("/accounts", requireAuth, async (req, res) => {
+router.get("/accounts", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.user!.userId;
 
   const accounts = await db
@@ -309,9 +310,9 @@ router.get("/accounts", requireAuth, async (req, res) => {
 
   const formatted = await Promise.all(accounts.map(formatAccount));
   res.json(formatted);
-});
+}));
 
-router.get("/accounts/:id", requireAuth, async (req, res) => {
+router.get("/accounts/:id", requireAuth, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const userId = req.user!.userId;
 
@@ -328,9 +329,9 @@ router.get("/accounts/:id", requireAuth, async (req, res) => {
 
   const syncedAccount = await maybeAutoSyncProviderDetails(account);
   res.json(await formatAccount(syncedAccount));
-});
+}));
 
-router.post("/accounts/:id/sync-provider", requireAuth, async (req, res) => {
+router.post("/accounts/:id/sync-provider", requireAuth, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const userId = req.user!.userId;
 
@@ -363,9 +364,9 @@ router.post("/accounts/:id/sync-provider", requireAuth, async (req, res) => {
 
   const updated = await syncNadiaAccountDetails(account);
   res.json(await formatAccount(updated));
-});
+}));
 
-router.post("/accounts/:id/renew-dynamic/quote", requireAuth, async (req, res) => {
+router.post("/accounts/:id/renew-dynamic/quote", requireAuth, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const userId = req.user!.userId;
   const durationType = String(req.body?.durationType ?? "").trim().toLowerCase();
@@ -409,9 +410,9 @@ router.post("/accounts/:id/renew-dynamic/quote", requireAuth, async (req, res) =
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Quote renew gagal" });
   }
-});
+}));
 
-router.post("/accounts/:id/renew-dynamic", requireAuth, async (req, res) => {
+router.post("/accounts/:id/renew-dynamic", requireAuth, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const userId = req.user!.userId;
   const durationType = String(req.body?.durationType ?? "").trim().toLowerCase();
@@ -580,12 +581,12 @@ router.post("/accounts/:id/renew-dynamic", requireAuth, async (req, res) => {
   } finally {
     releaseRenewLock(id);
   }
-});
+}));
 
-router.post("/accounts/:id/renew", requireAuth, accountActionLimiter, async (_req, res) => {
+router.post("/accounts/:id/renew", requireAuth, accountActionLimiter, asyncHandler(async (_req, res) => {
   const response = retiredRouteResponse("staticRenew");
   res.status(response.status).json(response);
-});
+}));
 
 export { formatAccount };
 export default router;

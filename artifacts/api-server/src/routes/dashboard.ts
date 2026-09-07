@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { db } from "@workspace/db";
 import { ordersTable, vpnAccountsTable, usersTable, topupsTable, dynamicVpnOrdersTable } from "@workspace/db";
 import { eq, and, gt, desc, sql } from "drizzle-orm";
@@ -8,7 +9,7 @@ import { formatAccount } from "./accounts";
 
 const router = Router();
 
-router.get("/dashboard/summary", requireAuth, async (req, res) => {
+router.get("/dashboard/summary", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.user!.userId;
   const now = new Date();
   const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
@@ -93,6 +94,6 @@ router.get("/dashboard/summary", requireAuth, async (req, res) => {
     recentOrders: mergedRecent,
     expiringAccounts: formattedExpiring,
   });
-});
+}));
 
 export default router;

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { db } from "@workspace/db";
 import { ticketsTable, ticketMessagesTable, usersTable } from "@workspace/db";
 import { eq, desc, and, inArray } from "drizzle-orm";
@@ -23,7 +24,7 @@ function formatTicket(t: typeof ticketsTable.$inferSelect, messageCount?: number
 
 // ─── User routes ──────────────────────────────────────────────────────────────
 
-router.get("/tickets", requireAuth, async (req, res) => {
+router.get("/tickets", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as any).user.userId;
   const rows = await db
     .select()
@@ -31,9 +32,9 @@ router.get("/tickets", requireAuth, async (req, res) => {
     .where(eq(ticketsTable.userId, userId))
     .orderBy(desc(ticketsTable.updatedAt));
   res.json(rows.map((t: any) => formatTicket(t)));
-});
+}));
 
-router.post("/tickets", requireAuth, async (req, res) => {
+router.post("/tickets", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as any).user.userId;
   const { subject, message, priority } = req.body ?? {};
   if (!subject || typeof subject !== "string" || subject.trim().length < 5) {
@@ -62,9 +63,9 @@ router.post("/tickets", requireAuth, async (req, res) => {
   notifyAdminNewTicket(ticket.id, user?.username ?? "unknown", subject.trim(), validPriority).catch(() => {});
 
   res.status(201).json(formatTicket(ticket));
-});
+}));
 
-router.get("/tickets/:id", requireAuth, async (req, res) => {
+router.get("/tickets/:id", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as any).user.userId;
   const ticketId = parseInt(req.params.id as string, 10);
 
@@ -86,9 +87,9 @@ router.get("/tickets/:id", requireAuth, async (req, res) => {
     .orderBy(ticketMessagesTable.createdAt);
 
   res.json({ ...formatTicket(ticket, messages.length), messages });
-});
+}));
 
-router.post("/tickets/:id/reply", requireAuth, async (req, res) => {
+router.post("/tickets/:id/reply", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as any).user.userId;
   const ticketId = parseInt(req.params.id as string, 10);
   const message = req.body?.message;
@@ -126,9 +127,9 @@ router.post("/tickets/:id/reply", requireAuth, async (req, res) => {
   notifyAdminTicketReply(ticketId, user?.username ?? "user", ticket.subject, message.trim()).catch(() => {});
 
   res.status(201).json(msg);
-});
+}));
 
-router.post("/tickets/:id/close", requireAuth, async (req, res) => {
+router.post("/tickets/:id/close", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as any).user.userId;
   const ticketId = parseInt(req.params.id as string, 10);
 
@@ -150,11 +151,11 @@ router.post("/tickets/:id/close", requireAuth, async (req, res) => {
     .returning();
 
   res.json(formatTicket(updated));
-});
+}));
 
 // ─── Admin routes ─────────────────────────────────────────────────────────────
 
-router.get("/admin/tickets/pending-count", requireAdmin, async (_req, res) => {
+router.get("/admin/tickets/pending-count", requireAdmin, asyncHandler(async (_req, res) => {
   const openTickets = await db
     .select({ id: ticketsTable.id })
     .from(ticketsTable)
@@ -179,9 +180,9 @@ router.get("/admin/tickets/pending-count", requireAdmin, async (_req, res) => {
 
   const pendingCount = openTicketIds.filter((id) => latestByTicket.get(id) === false).length;
   res.json({ count: pendingCount });
-});
+}));
 
-router.get("/admin/tickets", requireAdmin, async (req, res) => {
+router.get("/admin/tickets", requireAdmin, asyncHandler(async (req, res) => {
   const status = req.query.status as string | undefined;
 
   const rows = await db
@@ -201,9 +202,9 @@ router.get("/admin/tickets", requireAdmin, async (req, res) => {
       username: r.username,
     })),
   );
-});
+}));
 
-router.get("/admin/tickets/:id", requireAdmin, async (req, res) => {
+router.get("/admin/tickets/:id", requireAdmin, asyncHandler(async (req, res) => {
   const ticketId = parseInt(req.params.id as string, 10);
 
   const [row] = await db
@@ -233,9 +234,9 @@ router.get("/admin/tickets/:id", requireAdmin, async (req, res) => {
     username: row.username,
     messages: messages.map((m: any) => ({ ...m.msg, username: m.username })),
   });
-});
+}));
 
-router.post("/admin/tickets/:id/reply", requireAdmin, async (req, res) => {
+router.post("/admin/tickets/:id/reply", requireAdmin, asyncHandler(async (req, res) => {
   const adminId = (req as any).user.userId;
   const ticketId = parseInt(req.params.id as string, 10);
   const message = req.body?.message;
@@ -265,9 +266,9 @@ router.post("/admin/tickets/:id/reply", requireAdmin, async (req, res) => {
     .where(eq(ticketsTable.id, ticketId));
 
   res.status(201).json(msg);
-});
+}));
 
-router.post("/admin/tickets/:id/close", requireAdmin, async (req, res) => {
+router.post("/admin/tickets/:id/close", requireAdmin, asyncHandler(async (req, res) => {
   const ticketId = parseInt(req.params.id as string, 10);
   const [ticket] = await db.select().from(ticketsTable).where(eq(ticketsTable.id, ticketId)).limit(1);
   if (!ticket) {
@@ -280,6 +281,6 @@ router.post("/admin/tickets/:id/close", requireAdmin, async (req, res) => {
     .where(eq(ticketsTable.id, ticketId))
     .returning();
   res.json(formatTicket(updated));
-});
+}));
 
 export default router;

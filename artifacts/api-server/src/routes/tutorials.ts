@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { db } from "@workspace/db";
 import {
   appTutorialsTable,
@@ -64,15 +65,15 @@ async function cleanupTutorialImages(steps: TutorialStep[]): Promise<void> {
 
 // ─── Admin: CRUD ──────────────────────────────────────────────────────────────
 
-router.get("/admin/tutorials", requireAdmin, async (_req, res) => {
+router.get("/admin/tutorials", requireAdmin, asyncHandler(async (_req, res) => {
   const rows = await db
     .select()
     .from(appTutorialsTable)
     .orderBy(asc(appTutorialsTable.sortOrder), asc(appTutorialsTable.id));
   res.json(rows);
-});
+}));
 
-router.get("/admin/tutorials/:id", requireAdmin, async (req, res) => {
+router.get("/admin/tutorials/:id", requireAdmin, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const [row] = await db
     .select()
@@ -83,9 +84,9 @@ router.get("/admin/tutorials/:id", requireAdmin, async (req, res) => {
     return;
   }
   res.json(row);
-});
+}));
 
-router.post("/admin/tutorials", requireAdmin, async (req, res) => {
+router.post("/admin/tutorials", requireAdmin, asyncHandler(async (req, res) => {
   const parsed = createTutorialSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Data tidak valid", details: parsed.error.issues });
@@ -107,9 +108,9 @@ router.post("/admin/tutorials", requireAdmin, async (req, res) => {
   }).catch(() => {});
 
   res.status(201).json(row);
-});
+}));
 
-router.put("/admin/tutorials/:id", requireAdmin, async (req, res) => {
+router.put("/admin/tutorials/:id", requireAdmin, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const parsed = updateTutorialSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -161,9 +162,9 @@ router.put("/admin/tutorials/:id", requireAdmin, async (req, res) => {
   }).catch(() => {});
 
   res.json(row);
-});
+}));
 
-router.delete("/admin/tutorials/:id", requireAdmin, async (req, res) => {
+router.delete("/admin/tutorials/:id", requireAdmin, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const [deleted] = await db
     .delete(appTutorialsTable)
@@ -187,7 +188,7 @@ router.delete("/admin/tutorials/:id", requireAdmin, async (req, res) => {
   }).catch(() => {});
 
   res.json({ message: "Tutorial berhasil dihapus" });
-});
+}));
 
 // ─── Admin: Image Upload ──────────────────────────────────────────────────────
 
@@ -215,7 +216,7 @@ router.post(
   },
 );
 
-router.delete("/admin/tutorials/delete-image", requireAdmin, async (req, res) => {
+router.delete("/admin/tutorials/delete-image", requireAdmin, asyncHandler(async (req, res) => {
   const { url } = req.body ?? {};
   if (!url || typeof url !== "string") {
     res.status(400).json({ error: "URL gambar wajib diisi" });
@@ -233,20 +234,20 @@ router.delete("/admin/tutorials/delete-image", requireAdmin, async (req, res) =>
   }).catch(() => {});
 
   res.json({ message: "Gambar berhasil dihapus" });
-});
+}));
 
 // ─── User: Public endpoints ───────────────────────────────────────────────────
 
-router.get("/tutorials", requireAuth, async (_req, res) => {
+router.get("/tutorials", requireAuth, asyncHandler(async (_req, res) => {
   const rows = await db
     .select()
     .from(appTutorialsTable)
     .where(eq(appTutorialsTable.isActive, true))
     .orderBy(asc(appTutorialsTable.sortOrder), asc(appTutorialsTable.id));
   res.json(rows);
-});
+}));
 
-router.get("/tutorials/:slug", requireAuth, async (req, res) => {
+router.get("/tutorials/:slug", requireAuth, asyncHandler(async (req, res) => {
   const slug = req.params.slug as string;
   const [row] = await db
     .select()
@@ -258,6 +259,6 @@ router.get("/tutorials/:slug", requireAuth, async (req, res) => {
     return;
   }
   res.json(row);
-});
+}));
 
 export default router;

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { db } from "@workspace/db";
 import { ordersTable, usersTable, dynamicVpnOrdersTable } from "@workspace/db/schema";
 import { and, eq, gte, lt, sum } from "drizzle-orm";
@@ -10,7 +11,7 @@ import { getSettingValue } from "./settings";
 const router = Router();
 
 // ── GET /reseller/status — untuk reseller: lihat progres penjualan bulan ini
-router.get("/reseller/status", requireAuth, async (req, res) => {
+router.get("/reseller/status", requireAuth, asyncHandler(async (req, res) => {
   if (req.user!.role !== "reseller") {
     res.status(403).json({ error: "Hanya reseller yang bisa mengakses ini." });
     return;
@@ -62,10 +63,10 @@ router.get("/reseller/status", requireAuth, async (req, res) => {
     progressPercent,
     currentMonth: `${now.toLocaleString("id-ID", { month: "long" })} ${now.getFullYear()}`,
   });
-});
+}));
 
 // ── GET /reseller/promo — info promosi untuk user biasa (bukan reseller)
-router.get("/reseller/promo", requireAuth, async (req, res) => {
+router.get("/reseller/promo", requireAuth, asyncHandler(async (req, res) => {
   const settings = await getResellerSettings();
   res.json({
     promoEnabled: settings.resellerPromoEnabled,
@@ -78,10 +79,10 @@ router.get("/reseller/promo", requireAuth, async (req, res) => {
     targetEnabled: settings.resellerTargetEnabled,
     monthlyTarget: settings.resellerMonthlyTarget,
   });
-});
+}));
 
 // ── POST /reseller/request — user biasa ajukan permintaan jadi reseller
-router.post("/reseller/request", requireAuth, async (req, res) => {
+router.post("/reseller/request", requireAuth, asyncHandler(async (req, res) => {
   if (req.user!.role !== "user") {
     res.status(400).json({ error: "Kamu sudah reseller atau admin." });
     return;
@@ -110,6 +111,6 @@ router.post("/reseller/request", requireAuth, async (req, res) => {
   }
 
   res.json({ success: true, message: "Permintaan kamu sudah dikirim ke admin. Tunggu konfirmasi ya!" });
-});
+}));
 
 export default router;

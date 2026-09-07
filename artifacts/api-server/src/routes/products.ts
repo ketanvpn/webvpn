@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { db } from "@workspace/db";
 import { productsTable, ordersTable, vpnAccountsTable, serversTable, usersTable } from "@workspace/db";
 import { eq, and, asc, count, gt, inArray, or, isNull } from "drizzle-orm";
@@ -51,7 +52,7 @@ async function getActiveCountMap(productIds: number[]): Promise<Map<number, numb
   return new Map(rows.map((r: any) => [r.productId, Number(r.cnt)]));
 }
 
-router.get("/products", optionalAuth, async (req, res) => {
+router.get("/products", optionalAuth, asyncHandler(async (req, res) => {
   const { protocol, category } = req.query as Record<string, string | undefined>;
   let userRole = (req as any).user?.role ?? "user";
   const userId = (req as any).user?.userId;
@@ -84,9 +85,9 @@ router.get("/products", optionalAuth, async (req, res) => {
     if (settings.resellerEnabled) resellerDiscount = settings.resellerDiscountPercent;
   }
   res.json(rows.map((r: any) => formatProduct(r.product, countMap.get(r.product.id) ?? 0, resellerDiscount, r.serverName ?? null)));
-});
+}));
 
-router.get("/products/:id", optionalAuth, async (req, res) => {
+router.get("/products/:id", optionalAuth, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   let userRole = (req as any).user?.role ?? "user";
   const userId = (req as any).user?.userId;
@@ -121,7 +122,7 @@ router.get("/products/:id", optionalAuth, async (req, res) => {
     if (settings.resellerEnabled) resellerDiscount = settings.resellerDiscountPercent;
   }
   res.json(formatProduct(product, countMap.get(product.id) ?? 0, resellerDiscount, serverName ?? null));
-});
+}));
 
 export { getActiveCountMap };
 export default router;

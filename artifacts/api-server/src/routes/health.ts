@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { pool } from "@workspace/db";
 import { HealthCheckResponse } from "@workspace/api-zod";
 import { logger } from "../lib/logger";
@@ -19,7 +20,7 @@ router.get("/healthz", (_req, res) => {
  * Returns 200 only if the app is ready to serve traffic (DB reachable, etc).
  * Useful for Kubernetes / advanced PM2 setups or manual checks.
  */
-router.get("/readyz", async (_req, res) => {
+router.get("/readyz", asyncHandler(async (_req, res) => {
   const checks: Record<string, unknown> = {
     database: "unknown",
     timestamp: new Date().toISOString(),
@@ -46,6 +47,6 @@ router.get("/readyz", async (_req, res) => {
     ...data,
     checks,
   });
-});
+}));
 
 export default router;

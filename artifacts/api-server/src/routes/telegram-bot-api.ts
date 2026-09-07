@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { db } from "@workspace/db";
 import { usersTable, balanceLogsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
@@ -61,7 +62,7 @@ function getBotVpnUsername(): string {
 // Body: (kosong)
 // Generate token unik, simpan ke vpn_telegram_link_token, return URL Bot VPN.
 // Response: { token, botUsername, url }
-router.post("/telegram/vpn-link", requireAuth, async (req, res) => {
+router.post("/telegram/vpn-link", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as Request & { user: { userId: number } }).user!.userId;
   const token = randomBytes(24).toString("hex");
 
@@ -74,11 +75,11 @@ router.post("/telegram/vpn-link", requireAuth, async (req, res) => {
   const url = `https://t.me/${botUsername}?start=link_${token}`;
 
   res.json({ token, botUsername, url });
-});
+}));
 
 // DELETE /telegram/vpn-link
 // Putus link akun web ke Bot VPN dari sisi web (user pencet tombol di profile).
-router.delete("/telegram/vpn-link", requireAuth, async (req, res) => {
+router.delete("/telegram/vpn-link", requireAuth, asyncHandler(async (req, res) => {
   const userId = (req as Request & { user: { userId: number } }).user!.userId;
 
   await db
@@ -91,7 +92,7 @@ router.delete("/telegram/vpn-link", requireAuth, async (req, res) => {
     .where(eq(usersTable.id, userId));
 
   res.json({ ok: true });
-});
+}));
 
 // ============================================================================
 // GROUP B: BOT-FACING (auth X-Bot-API-Key)
@@ -100,7 +101,7 @@ router.delete("/telegram/vpn-link", requireAuth, async (req, res) => {
 // POST /telegram/verify-link-token
 // Body: { token: string, telegramId: number }
 // Response: { ok: true, user: { id, username, email, balance, fullName, role } }
-router.post("/telegram/verify-link-token", requireBotApiKey, botApiLimiter, async (req, res) => {
+router.post("/telegram/verify-link-token", requireBotApiKey, botApiLimiter, asyncHandler(async (req, res) => {
   const tokenRaw = String(req.body?.token || "").trim();
   const telegramIdRaw = Number(req.body?.telegramId || 0);
 
@@ -218,11 +219,11 @@ router.post("/telegram/verify-link-token", requireBotApiKey, botApiLimiter, asyn
       role: updated.role,
     },
   });
-});
+}));
 
 // GET /telegram/user-by-tgid/:telegramId
 // Cari user web by vpnTelegramId (bukan telegramId yang dipakai Bot Notifikasi).
-router.get("/telegram/user-by-tgid/:telegramId", requireBotApiKey, botApiLimiter, async (req, res) => {
+router.get("/telegram/user-by-tgid/:telegramId", requireBotApiKey, botApiLimiter, asyncHandler(async (req, res) => {
   const tgId = Number(req.params.telegramId);
   if (!tgId || !Number.isFinite(tgId)) {
     res.status(400).json({ error: "telegramId tidak valid" });
@@ -260,11 +261,11 @@ router.get("/telegram/user-by-tgid/:telegramId", requireBotApiKey, botApiLimiter
       isActive: user.isActive,
     },
   });
-});
+}));
 
 // GET /telegram/balance/:telegramId
 // Versi ringkas: cuma balance + pendingTopup.
-router.get("/telegram/balance/:telegramId", requireBotApiKey, botApiLimiter, async (req, res) => {
+router.get("/telegram/balance/:telegramId", requireBotApiKey, botApiLimiter, asyncHandler(async (req, res) => {
   const tgId = Number(req.params.telegramId);
   if (!tgId || !Number.isFinite(tgId)) {
     res.status(400).json({ error: "telegramId tidak valid" });
@@ -287,7 +288,7 @@ router.get("/telegram/balance/:telegramId", requireBotApiKey, botApiLimiter, asy
     balance: Number(user.balance ?? 0),
     pendingTopup: 0,
   });
-});
+}));
 
 // ============================================================================
 // POST /telegram/credit
@@ -297,7 +298,7 @@ router.get("/telegram/balance/:telegramId", requireBotApiKey, botApiLimiter, asy
 // dipakai sebelumnya, request akan di-skip dan respons.applied=false.
 // Response: { ok: true, applied: boolean, newBalance: number }
 // ============================================================================
-router.post("/telegram/credit", requireBotApiKey, botApiLimiter, async (req, res) => {
+router.post("/telegram/credit", requireBotApiKey, botApiLimiter, asyncHandler(async (req, res) => {
   const tgId = Number(req.body?.telegramId || 0);
   const amount = Number(req.body?.amount || 0);
   const rawDesc = String(req.body?.description || "").trim();
@@ -395,7 +396,7 @@ router.post("/telegram/credit", requireBotApiKey, botApiLimiter, async (req, res
     logger.error({ err: e, tgId, amount }, "telegram/credit error");
     res.status(500).json({ error: "Gagal credit saldo" });
   }
-});
+}));
 
 // ============================================================================
 // POST /telegram/debit
@@ -404,7 +405,7 @@ router.post("/telegram/credit", requireBotApiKey, botApiLimiter, async (req, res
 // Tolak (400) kalau saldo kurang.
 // Response: { ok: true, applied: boolean, newBalance: number }
 // ============================================================================
-router.post("/telegram/debit", requireBotApiKey, botApiLimiter, async (req, res) => {
+router.post("/telegram/debit", requireBotApiKey, botApiLimiter, asyncHandler(async (req, res) => {
   const tgId = Number(req.body?.telegramId || 0);
   const amount = Number(req.body?.amount || 0);
   const rawDesc = String(req.body?.description || "").trim();
@@ -510,12 +511,12 @@ router.post("/telegram/debit", requireBotApiKey, botApiLimiter, async (req, res)
     logger.error({ err: e, tgId, amount }, "telegram/debit error");
     res.status(500).json({ error: "Gagal debit saldo" });
   }
-});
+}));
 
 // POST /telegram/unlink
 // Body: { telegramId: number }
 // Cuma clear vpnTelegramId — kolom telegramId (Bot Notifikasi) tidak disentuh.
-router.post("/telegram/unlink", requireBotApiKey, botApiLimiter, async (req, res) => {
+router.post("/telegram/unlink", requireBotApiKey, botApiLimiter, asyncHandler(async (req, res) => {
   const tgId = Number(req.body?.telegramId || 0);
   if (!tgId || !Number.isFinite(tgId)) {
     res.status(400).json({ error: "telegramId tidak valid" });
@@ -543,7 +544,7 @@ router.post("/telegram/unlink", requireBotApiKey, botApiLimiter, async (req, res
   );
 
   res.json({ ok: true });
-});
+}));
 
 // Helper type untuk req.user (sama pattern dengan auth.ts).
 type Request = import("express").Request;

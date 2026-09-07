@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../../lib/async-handler";
 import { db } from "@workspace/db";
 import {
   usersTable,
@@ -29,7 +30,7 @@ const router = Router();
 
 // ─── Admin: Users ─────────────────────────────────────────────────────────────
 
-router.get("/admin/users", requireAdmin, async (req, res) => {
+router.get("/admin/users", requireAdmin, asyncHandler(async (req, res) => {
   const { search, role } = req.query as Record<string, string | undefined>;
   const limit = Math.min(parseInt(String(req.query.limit ?? "20"), 10), 100);
   const offset = parseInt(String(req.query.offset ?? "0"), 10);
@@ -59,9 +60,9 @@ router.get("/admin/users", requireAdmin, async (req, res) => {
     users: users.map(formatUser),
     total: total?.count ?? 0,
   });
-});
+}));
 
-router.post("/admin/users", requireAdmin, async (req, res) => {
+router.post("/admin/users", requireAdmin, asyncHandler(async (req, res) => {
   const { username, password, email, fullName, whatsapp, role } = req.body ?? {};
 
   if (!username || typeof username !== "string" || username.trim().length < 3) {
@@ -130,9 +131,9 @@ router.post("/admin/users", requireAdmin, async (req, res) => {
   }).catch((err) => logger.error({ err, action: "create_user" }, "Failed to log admin action"));
 
   res.status(201).json(formatUser(user));
-});
+}));
 
-router.get("/admin/users/:id", requireAdmin, async (req, res) => {
+router.get("/admin/users/:id", requireAdmin, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
 
   const [user] = await db
@@ -176,9 +177,9 @@ router.get("/admin/users/:id", requireAdmin, async (req, res) => {
     accounts: formattedAccounts,
     topupHistory: topupHistory.map((t) => formatTopup(t)),
   });
-});
+}));
 
-router.patch("/admin/users/:id", requireAdmin, async (req, res) => {
+router.patch("/admin/users/:id", requireAdmin, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const parsed = AdminUpdateUserBody.safeParse(req.body);
 
@@ -251,9 +252,9 @@ router.patch("/admin/users/:id", requireAdmin, async (req, res) => {
   }).catch((err) => logger.error({ err, action: "update_user" }, "Failed to log admin action"));
 
   res.json(formatUser(updated));
-});
+}));
 
-router.delete("/admin/users/:id", requireAdmin, async (req, res) => {
+router.delete("/admin/users/:id", requireAdmin, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const currentUserId = getAdminId(req);
 
@@ -325,9 +326,9 @@ router.delete("/admin/users/:id", requireAdmin, async (req, res) => {
   }).catch((err) => logger.error({ err, action: "delete_user" }, "Failed to log admin action"));
 
   res.json({ success: true });
-});
+}));
 
-router.post("/admin/users/:id/reset-password", requireAdmin, async (req, res) => {
+router.post("/admin/users/:id/reset-password", requireAdmin, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const { newPassword } = req.body ?? {};
 
@@ -360,6 +361,6 @@ router.post("/admin/users/:id/reset-password", requireAdmin, async (req, res) =>
     .where(eq(usersTable.id, id));
 
   res.json({ success: true });
-});
+}));
 
 export default router;

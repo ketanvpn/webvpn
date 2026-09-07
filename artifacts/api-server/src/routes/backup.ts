@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import express from "express";
 import { requireAdmin } from "../lib/auth";
 import {
@@ -18,13 +19,13 @@ import path from "path";
 const router = Router();
 
 // GET /api/admin/backup/settings
-router.get("/admin/backup/settings", requireAdmin, async (_req, res) => {
+router.get("/admin/backup/settings", requireAdmin, asyncHandler(async (_req, res) => {
   const settings = await getBackupSettings();
   res.json(settings);
-});
+}));
 
 // PUT /api/admin/backup/settings
-router.put("/admin/backup/settings", requireAdmin, async (req, res) => {
+router.put("/admin/backup/settings", requireAdmin, asyncHandler(async (req, res) => {
   const { backupEnabled, backupIntervalHours } = req.body as {
     backupEnabled?: unknown;
     backupIntervalHours?: unknown;
@@ -40,10 +41,10 @@ router.put("/admin/backup/settings", requireAdmin, async (req, res) => {
   }
   await saveBackupSettings(backupEnabled, interval);
   res.json({ success: true });
-});
+}));
 
 // POST /api/admin/backup/now — trigger manual backup
-router.post("/admin/backup/now", requireAdmin, async (_req, res) => {
+router.post("/admin/backup/now", requireAdmin, asyncHandler(async (_req, res) => {
   const lock = isOperationLocked();
   if (lock) {
     res.status(409).json({ error: `Operasi ${lock} sedang berjalan. Tunggu hingga selesai.` });
@@ -62,10 +63,10 @@ router.post("/admin/backup/now", requireAdmin, async (_req, res) => {
     checksum: result.checksum,
     encrypted: result.encrypted,
   });
-});
+}));
 
 // POST /api/admin/backup/full — full backup bundle (SQL + env + config files)
-router.post("/admin/backup/full", requireAdmin, async (_req, res) => {
+router.post("/admin/backup/full", requireAdmin, asyncHandler(async (_req, res) => {
   const lock = isOperationLocked();
   if (lock) {
     res.status(409).json({ error: `Operasi ${lock} sedang berjalan. Tunggu hingga selesai.` });
@@ -85,10 +86,10 @@ router.post("/admin/backup/full", requireAdmin, async (_req, res) => {
     encrypted: result.encrypted,
     includedFiles: result.includedFiles,
   });
-});
+}));
 
 // GET /api/admin/backup/download — download last backup file
-router.get("/admin/backup/download", requireAdmin, async (_req, res) => {
+router.get("/admin/backup/download", requireAdmin, asyncHandler(async (_req, res) => {
   let filePath = await getLastBackupFilePath();
 
   // Fallback: coba rekonstruksi dari nama file yang tersimpan di database
@@ -110,7 +111,7 @@ router.get("/admin/backup/download", requireAdmin, async (_req, res) => {
   res.setHeader("Content-Type", "application/gzip");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
   fs.createReadStream(filePath).pipe(res);
-});
+}));
 
 // POST /api/admin/backup/restore — restore from uploaded .sql.gz or .bundle.gz file
 router.post(

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { db } from "@workspace/db";
 import { ordersTable, productsTable, usersTable, vpnAccountsTable, serversTable, vouchersTable, dynamicVpnOrdersTable } from "@workspace/db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -346,7 +347,7 @@ async function processReferralBonus(buyerUserId: number, orderId: number): Promi
   });
 }
 
-router.get("/orders", requireAuth, async (req, res) => {
+router.get("/orders", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.user!.userId;
   const { status } = req.query as Record<string, string | undefined>;
   const limit = Math.min(parseInt(String(req.query.limit ?? "20"), 10), 100);
@@ -397,14 +398,14 @@ router.get("/orders", requireAuth, async (req, res) => {
     orders: merged,
     total: (staticTotalResult[0]?.count ?? 0) + (dynamicTotalResult[0]?.count ?? 0),
   });
-});
+}));
 
-router.post("/orders", requireAuth, createOrderLimiter, async (_req, res) => {
+router.post("/orders", requireAuth, createOrderLimiter, asyncHandler(async (_req, res) => {
   const response = retiredRouteResponse("staticOrder");
   res.status(response.status).json(response);
-});
+}));
 
-router.get("/orders/:id", requireAuth, async (req, res) => {
+router.get("/orders/:id", requireAuth, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const userId = req.user!.userId;
 
@@ -420,12 +421,12 @@ router.get("/orders/:id", requireAuth, async (req, res) => {
   }
 
   res.json(await formatOrder(order));
-});
+}));
 
-router.post("/orders/:id/pay", requireAuth, createOrderLimiter, async (_req, res) => {
+router.post("/orders/:id/pay", requireAuth, createOrderLimiter, asyncHandler(async (_req, res) => {
   const response = retiredRouteResponse("staticOrderPayment");
   res.status(response.status).json(response);
-});
+}));
 
 export { formatOrder };
 export default router;

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../../lib/async-handler";
 import { db } from "@workspace/db";
 import { usersTable, adminAuditLogsTable } from "@workspace/db";
 import { eq, and, or, ilike, desc, sql } from "drizzle-orm";
@@ -7,7 +8,7 @@ import { requireAdmin } from "../../lib/auth";
 const router = Router();
 
 // --- Admin Audit Logs (view history of admin actions) ---
-router.get("/admin/audit-logs", requireAdmin, async (req, res) => {
+router.get("/admin/audit-logs", requireAdmin, asyncHandler(async (req, res) => {
   const limit = Math.min(parseInt(String(req.query.limit ?? "50"), 10), 200);
   const offset = parseInt(String(req.query.offset ?? "0"), 10);
 
@@ -62,6 +63,6 @@ router.get("/admin/audit-logs", requireAdmin, async (req, res) => {
     limit,
     offset,
   });
-});
+}));
 
 export default router;

@@ -1,6 +1,6 @@
 import { logger } from "../logger";
 import { sendMessage } from "../telegram";
-import { syncNadiaVpnServersFromProvider } from "../../routes/dynamic-vpn";
+import { syncNadiaVpnServersFromProvider } from "../dynamic-order/sync";
 import {
   reconcileAutoGoPayGoPay,
   reconcileBeforePaymentExpiry,

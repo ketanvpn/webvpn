@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { asyncHandler } from "../lib/async-handler";
 import { db } from "@workspace/db";
 import { vouchersTable, productsTable, usersTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
@@ -12,15 +13,15 @@ const router = Router();
 
 // ─── Admin: Vouchers ───────────────────────────────────────────────────────
 
-router.get("/admin/vouchers", requireAdmin, async (_req, res) => {
+router.get("/admin/vouchers", requireAdmin, asyncHandler(async (_req, res) => {
   const vouchers = await db
     .select()
     .from(vouchersTable)
     .orderBy(desc(vouchersTable.createdAt));
   res.json(vouchers);
-});
+}));
 
-router.post("/admin/vouchers", requireAdmin, async (req, res) => {
+router.post("/admin/vouchers", requireAdmin, asyncHandler(async (req, res) => {
   const parsed = CreateVoucherBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid input" });
@@ -60,9 +61,9 @@ router.post("/admin/vouchers", requireAdmin, async (req, res) => {
   }).catch(() => {});
 
   res.status(201).json(voucher);
-});
+}));
 
-router.put("/admin/vouchers/:id", requireAdmin, async (req, res) => {
+router.put("/admin/vouchers/:id", requireAdmin, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const parsed = UpdateVoucherBody.safeParse(req.body);
 
@@ -113,9 +114,9 @@ router.put("/admin/vouchers/:id", requireAdmin, async (req, res) => {
   }).catch(() => {});
 
   res.json(voucher);
-});
+}));
 
-router.delete("/admin/vouchers/:id", requireAdmin, async (req, res) => {
+router.delete("/admin/vouchers/:id", requireAdmin, asyncHandler(async (req, res) => {
   const id = parseInt(req.params.id as string, 10);
   const [deleted] = await db.delete(vouchersTable).where(eq(vouchersTable.id, id)).returning();
   
@@ -136,11 +137,11 @@ router.delete("/admin/vouchers/:id", requireAdmin, async (req, res) => {
   }).catch(() => {});
   
   res.json({ message: "Voucher berhasil dihapus" });
-});
+}));
 
 // ─── User: Validate Voucher ────────────────────────────────────────────────
 
-router.post("/vouchers/validate", requireAuth, async (req, res) => {
+router.post("/vouchers/validate", requireAuth, asyncHandler(async (req, res) => {
   const parsed = ValidateVoucherBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid input" });
@@ -206,6 +207,6 @@ router.post("/vouchers/validate", requireAuth, async (req, res) => {
     finalPrice,
     message: "Voucher berhasil diaplikasikan",
   });
-});
+}));
 
 export default router;
