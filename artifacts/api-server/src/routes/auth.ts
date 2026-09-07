@@ -331,22 +331,66 @@ router.post("/auth/register", registerLimiter, async (req, res) => {
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
-  const referralCode = randomBytes(4).toString("hex").toUpperCase();
 
-  const [user] = await db
-    .insert(usersTable)
-    .values({
-      username,
-      email: email ?? null,
-      passwordHash,
-      fullName: fullName ?? null,
-      whatsapp: normalized,
-      isVerified: true,
-      role: "user",
-      referralCode,
-      referredBy: resolvedReferredBy,
-    })
-    .returning();
+  let referralCode: string;
+  let user: any;
+  const MAX_REFERRAL_RETRIES = 3;
+
+  for (let attempt = 0; attempt <= MAX_REFERRAL_RETRIES; attempt++) {
+    referralCode = randomBytes(4).toString("hex").toUpperCase();
+    try {
+      [user] = await db
+        .insert(usersTable)
+        .values({
+          username,
+          email: email ?? null,
+          passwordHash,
+          fullName: fullName ?? null,
+          whatsapp: normalized,
+          isVerified: true,
+          role: "user",
+          referralCode,
+          referredBy: resolvedReferredBy,
+        })
+        .returning();
+      break;
+    } catch (dbError: any) {
+      const pgCode = dbError?.code ?? dbError?.cause?.code;
+      const detail: string = (dbError?.detail ?? dbError?.cause?.detail ?? "").toLowerCase();
+
+      if (pgCode === "23505") {
+        if (detail.includes("username")) {
+          res.status(409).json({ error: "Username sudah digunakan" });
+          return;
+        }
+        if (detail.includes("email")) {
+          res.status(409).json({ error: "Email sudah digunakan" });
+          return;
+        }
+        if (detail.includes("whatsapp")) {
+          res.status(409).json({ error: "Nomor WhatsApp sudah terdaftar" });
+          return;
+        }
+        if (detail.includes("referral_code") || detail.includes("referralcode")) {
+          if (attempt < MAX_REFERRAL_RETRIES) {
+            logger.warn({ attempt, referralCode }, "referralCode collision, retrying");
+            continue;
+          }
+          logger.error({ referralCode }, "referralCode collision exhausted retries");
+        }
+      }
+
+      logger.error({ err: dbError, username, whatsapp: normalized }, "Registration DB insert failed");
+      res.status(500).json({ error: "Gagal membuat akun. Silakan coba lagi." });
+      return;
+    }
+  }
+
+  if (!user) {
+    logger.error({ username }, "Registration failed: user not created after retries");
+    res.status(500).json({ error: "Gagal membuat akun. Silakan coba lagi." });
+    return;
+  }
 
   const token = signToken({
     userId: user.id,

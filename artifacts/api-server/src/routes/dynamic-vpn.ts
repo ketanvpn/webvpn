@@ -11,8 +11,9 @@ import {
 import { and, asc, count, desc, eq, gt, gte, inArray, lt, notInArray, sql, sum } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { requireAdmin, requireAuth } from "../lib/auth";
-import { createNadiaVpnOrder, getNadiaVpnAccountDetails, getNadiaVpnServers } from "../lib/nadiavpn";
+import { createNadiaVpnOrder, getNadiaVpnAccountDetails, getNadiaVpnServers, NadiaVpnApiError } from "../lib/nadiavpn";
 import { createPanelAccount, deletePanelAccount } from "../lib/vpn-panel";
+import { AxiosError } from "axios";
 import { addBalanceLog } from "./balance-logs";
 import { addPoints, getPointsSettings } from "./points";
 import { getResellerSettings, getSettingValue } from "./settings";
@@ -1189,6 +1190,40 @@ router.post("/dynamic-vpn/orders/:id/pay", requireAuth, dynamicOrderLimiter, asy
       logger.warn({ orderId: id, userId }, "Dynamic order pay failed due to insufficient balance (should have been caught earlier)");
       return sendError(res, 400, "Saldo tidak cukup");
     }
+
+    if (error instanceof NadiaVpnApiError) {
+      const upstream = String(error.upstreamData ?? error.message).toLowerCase();
+      logger.error({ err: error, orderId: id, userId, upstream }, "[dynamic-vpn] pay failed - NadiaVPN API error");
+      if (upstream.includes("saldo") || upstream.includes("balance") || upstream.includes("insufficient")) {
+        return sendError(res, 503, "Provider VPN sedang tidak tersedia (saldo provider habis). Silakan coba lagi nanti atau hubungi bantuan.");
+      }
+      if (upstream.includes("username") && (upstream.includes("exist") || upstream.includes("duplicate") || upstream.includes("already"))) {
+        return sendError(res, 409, "Username sudah digunakan di server ini. Silakan buat order baru dengan username berbeda.");
+      }
+      if (upstream.includes("server") && (upstream.includes("full") || upstream.includes("penuh") || upstream.includes("capacity"))) {
+        return sendError(res, 503, "Server VPN sedang penuh. Silakan pilih server lain atau coba lagi nanti.");
+      }
+      return sendError(res, 502, "Gagal membuat akun di provider VPN. Anda dapat mencoba lagi atau hubungi bantuan.");
+    }
+
+    if (error instanceof AxiosError) {
+      logger.error({ err: error, orderId: id, userId, code: error.code }, "[dynamic-vpn] pay failed - network/panel error");
+      if (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT") {
+        return sendError(res, 504, "Server VPN tidak merespons (timeout). Silakan coba lagi dalam beberapa menit.");
+      }
+      if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
+        return sendError(res, 503, "Server VPN tidak dapat dihubungi. Silakan coba lagi nanti atau hubungi bantuan.");
+      }
+      return sendError(res, 502, "Gagal menghubungi server VPN. Anda dapat mencoba lagi atau hubungi bantuan.");
+    }
+
+    if (msg === "Server penuh atau sedang tidak tersedia") {
+      return sendError(res, 503, "Server VPN sedang penuh. Silakan pilih server lain atau coba lagi nanti.");
+    }
+    if (msg === "Server tidak aktif") {
+      return sendError(res, 503, "Server VPN sedang tidak aktif. Silakan pilih server lain.");
+    }
+
     logger.error({ err: error, orderId: id, userId }, "[dynamic-vpn] pay failed - order marked failed, any necessary refunds handled inside fulfill");
     return sendError(res, 500, "Gagal memproses order. Anda dapat mencoba pembayaran lagi atau hubungi bantuan jika masalah berlanjut.");
   }
