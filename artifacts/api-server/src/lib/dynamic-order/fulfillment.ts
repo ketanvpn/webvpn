@@ -20,12 +20,9 @@ import { getDynamicDurationDays, isDynamicDurationType } from "../dynamic-durati
 import { calculateBaseQuote } from "./pricing";
 import { extractNadiaConnectionDetails, extractProviderAccountId } from "./connection-parser";
 import { refreshLocalDynamicServerCapacity } from "./sync";
+import { normalizeProtocol } from "./utils";
 
 // ─── Helper functions ─────────────────────────────────────────────────────────
-
-function normalizeProtocol(protocol: unknown) {
-  return String(protocol ?? "").trim().toLowerCase();
-}
 
 function parseNadiaExpireAt(value: unknown, fallback: Date) {
   if (typeof value !== "string" || !value.trim()) return fallback;

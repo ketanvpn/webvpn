@@ -10,6 +10,7 @@ import { getNadiaVpnServers } from "../nadiavpn";
 import { notifyAdminPriceChanged } from "../telegram";
 import { logger } from "../logger";
 import { applyMarkup, getDefaultMarkupPercent } from "./pricing";
+import { normalizeProtocol, normalizeDurationType } from "./utils";
 import type { DynamicDurationType } from "../dynamic-duration";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -24,16 +25,6 @@ const SYNC_THROTTLE_MS = 5 * 60 * 1000; // 5 minutes
 
 let lastNadiaSyncAt = 0;
 let lastLocalSyncAt = 0;
-
-// ─── Normalizers ──────────────────────────────────────────────────────────────
-
-function normalizeProtocol(protocol: unknown) {
-  return String(protocol ?? "").trim().toLowerCase();
-}
-
-function normalizeDurationType(type: unknown) {
-  return String(type ?? "").trim().toLowerCase();
-}
 
 // ─── Local server capacity ────────────────────────────────────────────────────
 

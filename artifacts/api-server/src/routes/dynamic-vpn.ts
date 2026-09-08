@@ -39,6 +39,7 @@ import {
   refreshLocalDynamicServerCapacity,
 } from "../lib/dynamic-order/sync";
 import { fulfillDynamicOrder } from "../lib/dynamic-order/fulfillment";
+import { normalizeProtocol, normalizeDurationType } from "../lib/dynamic-order/utils";
 
 const router = Router();
 const VALID_PROTOCOLS = ["ssh", "vmess", "vless", "trojan"];
@@ -49,14 +50,6 @@ const DYNAMIC_ORDER_CREATION_LOCK_NAMESPACE = 1_904_231;
 
 function sendError(res: Response, status: number, message: string) {
   res.status(status).json({ error: message });
-}
-
-function normalizeProtocol(protocol: unknown) {
-  return String(protocol ?? "").trim().toLowerCase();
-}
-
-function normalizeDurationType(type: unknown) {
-  return String(type ?? "").trim().toLowerCase();
 }
 
 function sanitizeUsername(raw: unknown) {
