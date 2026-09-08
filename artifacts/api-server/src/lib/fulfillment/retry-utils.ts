@@ -8,6 +8,7 @@
  */
 
 import { deletePanelAccount } from "../vpn-panel";
+import { deleteNadiaVpnAccount } from "../nadiavpn";
 import { logger } from "../logger";
 
 const MAX_RETRIES = 3;
@@ -66,6 +67,60 @@ export async function deletePanelAccountWithRetry(
       retriesExhausted: MAX_RETRIES,
     },
     "[fulfillment-rollback] CRITICAL: Failed to delete orphaned panel account after all retries. Manual cleanup required.",
+  );
+
+  return false;
+}
+
+// ─── NadiaVPN rollback ────────────────────────────────────────────────────────
+
+interface NadiaRollbackContext {
+  orderId: number;
+  userId?: number;
+  reason: string;
+}
+
+/**
+ * Attempt to delete a NadiaVPN account with exponential backoff retries.
+ *
+ * Mirrors `deletePanelAccountWithRetry` but calls the NadiaVPN API.
+ * Returns `true` if the account was successfully deleted, `false` if all
+ * retries were exhausted (CRITICAL log emitted for manual cleanup).
+ */
+export async function deleteNadiaVpnAccountWithRetry(
+  providerAccountId: string,
+  context: NadiaRollbackContext,
+): Promise<boolean> {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      await deleteNadiaVpnAccount(providerAccountId);
+      logger.info(
+        { orderId: context.orderId, providerAccountId, attempt },
+        `[fulfillment-rollback] NadiaVPN account deleted successfully on attempt ${attempt}`,
+      );
+      return true;
+    } catch (err) {
+      logger.warn(
+        { err, orderId: context.orderId, providerAccountId, attempt, maxRetries: MAX_RETRIES },
+        `[fulfillment-rollback] NadiaVPN delete attempt ${attempt}/${MAX_RETRIES} failed`,
+      );
+
+      if (attempt < MAX_RETRIES) {
+        const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  logger.error(
+    {
+      orderId: context.orderId,
+      userId: context.userId,
+      reason: context.reason,
+      providerAccountId,
+      retriesExhausted: MAX_RETRIES,
+    },
+    "[fulfillment-rollback] CRITICAL: Failed to delete orphaned NadiaVPN account after all retries. Manual cleanup required.",
   );
 
   return false;

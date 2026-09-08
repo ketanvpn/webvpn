@@ -11,7 +11,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { createNadiaVpnOrder, getNadiaVpnAccountDetails } from "../nadiavpn";
 import { createPanelAccount } from "../vpn-panel";
-import { deletePanelAccountWithRetry } from "../fulfillment/retry-utils";
+import { deletePanelAccountWithRetry, deleteNadiaVpnAccountWithRetry } from "../fulfillment/retry-utils";
 import { addBalanceLog } from "../../routes/balance-logs";
 import { addPoints, getPointsSettings } from "../../routes/points";
 import { notifyAdminDynamicOrderFulfilled, notifyUserDynamicVpnAccountCreated } from "../telegram";
@@ -25,11 +25,6 @@ import { refreshLocalDynamicServerCapacity } from "./sync";
 
 function normalizeProtocol(protocol: unknown) {
   return String(protocol ?? "").trim().toLowerCase();
-}
-
-function stringifyConfigValue(value: unknown): string | null {
-  if (value === undefined || value === null || value === "") return null;
-  return String(value);
 }
 
 function parseNadiaExpireAt(value: unknown, fallback: Date) {
@@ -345,11 +340,21 @@ export async function fulfillDynamicOrder(orderId: number, userId: number) {
   } catch (error) {
     // Transaction failed — balance was NOT deducted (atomic rollback).
     // Only need to clean up the provider-side account.
+    const rollbackReason = error instanceof Error ? error.message : "DB transaction failed";
+
     if (rollbackPanelAccount) {
       await deletePanelAccountWithRetry(rollbackPanelAccount, {
         orderId,
         userId,
-        reason: error instanceof Error ? error.message : "DB transaction failed",
+        reason: rollbackReason,
+      });
+    }
+
+    if (server.provider === "nadiavpn" && providerAccountId) {
+      await deleteNadiaVpnAccountWithRetry(providerAccountId, {
+        orderId,
+        userId,
+        reason: rollbackReason,
       });
     }
 
