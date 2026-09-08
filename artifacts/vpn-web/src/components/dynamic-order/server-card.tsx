@@ -40,7 +40,7 @@ export function ServerCard({ server, onSelect }: ServerCardProps) {
         onClick={onSelect}
         disabled={!selectability.isSelectable}
         className="p-3 sm:p-4 text-left w-full min-w-0 disabled:opacity-50 disabled:cursor-not-allowed"
-        aria-label={`Pilih server ${server.displayName}${!selectability.isSelectable ? " (Tidak tersedia)" : ""}`}
+        aria-label={`Order VPN ${server.displayName}${!selectability.isSelectable ? " (Tidak tersedia)" : ""}`}
       >
         <div className="flex w-full min-w-0 gap-2 sm:gap-3">
           <div className="flex flex-col items-center gap-1.5 w-14 sm:w-16 shrink-0">
@@ -100,7 +100,7 @@ export function ServerCard({ server, onSelect }: ServerCardProps) {
               : "bg-muted text-muted-foreground"
           }`}
         >
-          {selectability.isSelectable ? "Pilih Server" : "Tidak tersedia"}
+          {selectability.isSelectable ? "Order VPN" : "Tidak tersedia"}
         </div>
       </button>
 

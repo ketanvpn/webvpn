@@ -114,7 +114,8 @@ export function useDynamicOrderCheckout() {
   const openOrder = (server: DynamicServer) => {
     setSelectedServer(server); setProtocol(server.enabledProtocols?.[0] ?? "");
     const defaultType: DynamicDurationType = server.supportedTypes.includes("month") ? "month" : server.supportedTypes.includes("week") ? "week" : "day";
-    setDurationType(defaultType); setDuration("1"); setUsername(""); setPassword(""); setVoucherInput(""); setAppliedVoucher(""); setVoucherError(""); setPaidOrderId(null);
+    const defaultMin = defaultType === "day" ? server.minDays : defaultType === "week" ? server.minWeeks : server.minMonths;
+    setDurationType(defaultType); setDuration(String(defaultMin)); setUsername(""); setPassword(""); setVoucherInput(""); setAppliedVoucher(""); setVoucherError(""); setPaidOrderId(null);
   };
 
   const closeOrder = () => setSelectedServer(null);

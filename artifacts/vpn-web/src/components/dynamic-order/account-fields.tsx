@@ -1,4 +1,4 @@
-import { Eye, EyeOff, UserRound } from "lucide-react";
+import { Eye, EyeOff, UserRound, CalendarDays } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { DynamicDurationType } from "@/lib/dynamic-duration";
@@ -12,12 +12,51 @@ type DurationFieldProps = {
   readonly server: DynamicServer;
 };
 
+function getDurationRange(server: DynamicServer, durationType: DynamicDurationType) {
+  switch (durationType) {
+    case "day":
+      return { min: server.minDays, max: server.maxDays };
+    case "week":
+      return { min: server.minWeeks, max: server.maxWeeks };
+    case "month":
+      return { min: server.minMonths, max: server.maxMonths };
+  }
+}
+
+function getFixedDurationLabel(durationType: DynamicDurationType, value: number): string {
+  switch (durationType) {
+    case "day":
+      return `${value} Hari`;
+    case "week":
+      return `${value} Minggu (${value * 7} Hari)`;
+    case "month":
+      return `${value} Bulan (${value * 30} Hari)`;
+  }
+}
+
 export function DurationField({ durationType, duration, onDurationChange, server }: DurationFieldProps) {
+  const range = getDurationRange(server, durationType);
+  const isFixed = range.min === range.max;
+
+  if (isFixed) {
+    return (
+      <div className="grid gap-2">
+        <Label>Durasi</Label>
+        <div className="flex items-center gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2 h-10">
+          <CalendarDays className="h-4 w-4 text-primary shrink-0" />
+          <span className="text-sm font-semibold text-foreground">
+            {getFixedDurationLabel(durationType, range.min)}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   const helpText = durationType === "day"
-    ? `Batas ${server.minDays}-${server.maxDays} hari`
+    ? `Batas ${range.min}-${range.max} hari`
     : durationType === "week"
-      ? `Batas ${server.minWeeks}-${server.maxWeeks} minggu`
-      : `Batas ${server.minMonths}-${server.maxMonths} bulan`;
+      ? `Batas ${range.min}-${range.max} minggu`
+      : `Batas ${range.min}-${range.max} bulan`;
 
   return (
     <div className="grid gap-2">
@@ -27,7 +66,8 @@ export function DurationField({ durationType, duration, onDurationChange, server
       <Input
         id="duration"
         type="number"
-        min={1}
+        min={range.min}
+        max={range.max}
         value={duration}
         onChange={(e) => onDurationChange(e.target.value)}
         aria-describedby="duration-help"

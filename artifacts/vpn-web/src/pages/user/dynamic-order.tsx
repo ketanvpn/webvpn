@@ -57,7 +57,10 @@ export default function DynamicOrderPage() {
               durationType={state.durationType}
               onDurationTypeChange={(v) => {
                 actions.setDurationType(v);
-                if (v === "week") actions.setDuration("1");
+                const minVal = v === "day" ? state.selectedServer!.minDays
+                  : v === "week" ? state.selectedServer!.minWeeks
+                  : state.selectedServer!.minMonths;
+                actions.setDuration(String(minVal));
               }}
               duration={state.duration}
               onDurationChange={actions.setDuration}
