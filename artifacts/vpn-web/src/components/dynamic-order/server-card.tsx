@@ -1,4 +1,4 @@
-import { Server, Zap } from "lucide-react";
+import { Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { DynamicServer } from "./types";
 import {
@@ -15,6 +15,24 @@ function formatRupiah(value: number) {
     currency: "IDR",
     maximumFractionDigits: 0,
   }).format(value || 0);
+}
+
+function getSlotInfo(server: DynamicServer) {
+  const limit = server.capacityLimit ? parseInt(server.capacityLimit, 10) : null;
+  if (limit === null || isNaN(limit) || limit <= 0) {
+    return { label: "Slot: Unlimited", color: "text-emerald-300 bg-emerald-500/10 border-emerald-500/20" };
+  }
+  const remaining = Math.max(0, limit - server.capacityUsed);
+  const pct = remaining / limit;
+
+  const color =
+    remaining <= 3 || pct < 0.1
+      ? "text-red-300 bg-red-500/10 border-red-500/20"
+      : pct < 0.5
+        ? "text-yellow-300 bg-yellow-500/10 border-yellow-500/20"
+        : "text-emerald-300 bg-emerald-500/10 border-emerald-500/20";
+
+  return { label: `Slot: ${remaining} tersisa`, color };
 }
 
 type ServerCardProps = {
@@ -86,9 +104,14 @@ export function ServerCard({ server, onSelect }: ServerCardProps) {
                   {protocol}
                 </span>
               ))}
-              <span className="text-[9px] sm:text-[10px] bg-emerald-500/10 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
-                <Server className="w-2.5 h-2.5" /> {server.capacityUsed}/{server.capacityLimit ?? "∞"}
-              </span>
+              {(() => {
+                const slot = getSlotInfo(server);
+                return (
+                  <span className={`text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded border flex items-center gap-1 ${slot.color}`}>
+                    {slot.label}
+                  </span>
+                );
+              })()}
             </div>
           </div>
         </div>
