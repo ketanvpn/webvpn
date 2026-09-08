@@ -22,6 +22,7 @@ export function useDynamicOrderCheckout() {
   const serversQuery = useQuery<{ servers: DynamicServer[] }>({
     queryKey: ["dynamic-vpn-servers"],
     queryFn: () => apiClient.get("/api/dynamic-vpn/servers"),
+    refetchInterval: 30_000,
   });
   const serversRaw = serversQuery.data?.servers ?? [];
 
