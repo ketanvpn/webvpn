@@ -28,6 +28,8 @@ export const dynamicProviderServersTable = pgTable("dynamic_provider_servers", {
   sellPricePerMonth: numeric("sell_price_per_month", { precision: 12, scale: 2 }).default("0"),
   minDays: integer("min_days").notNull().default(1),
   maxDays: integer("max_days").notNull().default(30),
+  minWeeks: integer("min_weeks").notNull().default(1),
+  maxWeeks: integer("max_weeks").notNull().default(4),
   minMonths: integer("min_months").notNull().default(1),
   maxMonths: integer("max_months").notNull().default(12),
   capacityLimit: text("capacity_limit"),

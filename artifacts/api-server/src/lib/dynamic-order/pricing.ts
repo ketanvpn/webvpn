@@ -40,8 +40,8 @@ export function calculateBaseQuote(
   if (durationType === "day" && (duration < server.minDays || duration > server.maxDays)) {
     throw new Error(`Durasi harian harus ${server.minDays}-${server.maxDays} hari`);
   }
-  if (durationType === "week") {
-    if (server.provider !== "nadiavpn") throw new Error("Paket mingguan hanya tersedia untuk server NadiaVPN");
+  if (durationType === "week" && (duration < server.minWeeks || duration > server.maxWeeks)) {
+    throw new Error(`Durasi mingguan harus ${server.minWeeks}-${server.maxWeeks} minggu`);
   }
   if (durationType === "month" && (duration < server.minMonths || duration > server.maxMonths)) {
     throw new Error(`Durasi bulanan harus ${server.minMonths}-${server.maxMonths} bulan`);

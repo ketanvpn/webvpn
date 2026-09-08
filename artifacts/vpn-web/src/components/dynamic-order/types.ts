@@ -12,6 +12,8 @@ export type DynamicServer = {
   readonly sellPricePerMonth: number;
   readonly minDays: number;
   readonly maxDays: number;
+  readonly minWeeks: number;
+  readonly maxWeeks: number;
   readonly minMonths: number;
   readonly maxMonths: number;
   readonly capacityLimit: string | null;

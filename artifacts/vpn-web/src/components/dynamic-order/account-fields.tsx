@@ -16,7 +16,7 @@ export function DurationField({ durationType, duration, onDurationChange, server
   const helpText = durationType === "day"
     ? `Batas ${server.minDays}-${server.maxDays} hari`
     : durationType === "week"
-      ? "Paket berlaku tepat 1 minggu"
+      ? `Batas ${server.minWeeks}-${server.maxWeeks} minggu`
       : `Batas ${server.minMonths}-${server.maxMonths} bulan`;
 
   return (
@@ -29,7 +29,6 @@ export function DurationField({ durationType, duration, onDurationChange, server
         type="number"
         min={1}
         value={duration}
-        disabled={durationType === "week"}
         onChange={(e) => onDurationChange(e.target.value)}
         aria-describedby="duration-help"
         aria-required="true"
