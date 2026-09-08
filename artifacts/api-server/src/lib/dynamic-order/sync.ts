@@ -19,7 +19,7 @@ const VALID_PROTOCOLS = ["ssh", "vmess", "vless", "trojan"];
 const VALID_TYPES: readonly string[] = ["day", "week", "month"];
 
 /** Minimum interval (ms) between user-triggered syncs. */
-const SYNC_THROTTLE_MS = 5 * 60 * 1000; // 5 minutes
+const SYNC_THROTTLE_MS = 2 * 60 * 1000; // 2 minutes
 
 // ─── Throttle state (per sync kind) ──────────────────────────────────────────
 

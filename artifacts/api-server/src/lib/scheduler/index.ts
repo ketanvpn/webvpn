@@ -69,10 +69,10 @@ export function startScheduler(): void {
     runSafely("checkAndAutoDisableServers", checkAndAutoDisableServers);
   }, FIVE_MIN);
 
-  // Sync NadiaVPN server capacity setiap 5 menit
+  // Sync NadiaVPN server capacity setiap 2 menit
   setInterval(() => {
     runSafely("syncNadiaVpnServers", async () => { await syncNadiaVpnServersFromProvider(); });
-  }, FIVE_MIN);
+  }, TWO_MIN);
 
   // Auto-cleanup jalan setiap 3 jam
   setInterval(() => {
