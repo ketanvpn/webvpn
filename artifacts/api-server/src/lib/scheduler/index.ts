@@ -24,7 +24,7 @@ export { checkExpiringAccounts } from "./notifications";
 export function startScheduler(): void {
   const ONE_HOUR = 60 * 60 * 1000;
   const THREE_HOURS = 3 * 60 * 60 * 1000;
-  const FIVE_SECONDS = 5 * 1000;
+  const ONE_MIN = 60 * 1000;
   const TWO_MIN = 2 * 60 * 1000;
   const FIVE_MIN = 5 * 60 * 1000;
   const FIFTEEN_MIN = 15 * 60 * 1000;
@@ -47,7 +47,7 @@ export function startScheduler(): void {
 
   setInterval(() => {
     runSafely("reconcileShopeePayTransactions", reconcileShopeePayTransactions);
-  }, FIVE_SECONDS);
+  }, ONE_MIN);
 
   setInterval(() => {
     runSafely("retryPaidOrderFulfillment", retryPaidOrderFulfillment);
@@ -98,7 +98,7 @@ export function startScheduler(): void {
   }, ONE_HOUR);
 
   logger.info("Scheduler notifikasi kedaluwarsa aktif (cek setiap jam, kirim sesuai jam WIB yang dikonfigurasi)");
-  logger.info("Scheduler rekonsiliasi ShopeePay aktif (1 batch setiap 5 detik)");
+  logger.info("Scheduler rekonsiliasi ShopeePay aktif (1 batch setiap 1 menit)");
   logger.info("Scheduler rekonsiliasi GoPay aktif (attempt stale setiap 2 menit)");
   logger.info("Scheduler retry fulfillment order berbayar aktif (interval: 2 menit)");
   logger.info("Scheduler auto-cancel QRIS expired aktif (interval: 5 menit, sesudah rekonsiliasi)");
