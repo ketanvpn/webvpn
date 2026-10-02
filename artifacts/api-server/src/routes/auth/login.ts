@@ -10,17 +10,29 @@ import { normalizeWhatsapp } from "../../lib/fonnte";
 import { verifyTurnstileToken } from "../../lib/turnstile";
 import { getClientIp } from "../../lib/request-ip";
 import { logger } from "../../lib/logger";
-import { toUserResponse, loginRateLimitKey, createLimiter } from "./shared";
+import { toUserResponse, loginRateLimitKey, authRateLimitKey, createLimiter } from "./shared";
 
 const router = Router();
 
-// ─── Rate Limiters ────────────────────────────────────────────────────────────
+//  Rate Limiters 
 
-const loginLimiter = createLimiter({ max: 5, message: "Terlalu banyak percobaan login. Coba lagi dalam 15 menit.", keyGenerator: loginRateLimitKey });
+// Limiter 1: Mencegah brute force ke akun spesifik (5 kali percobaan per IP+Username)
+const loginAccountLimiter = createLimiter({ 
+  max: 5, 
+  message: "Terlalu banyak percobaan login untuk akun ini. Coba lagi dalam 15 menit.", 
+  keyGenerator: loginRateLimitKey 
+});
 
-// ─── Login ────────────────────────────────────────────────────────────────────
+// Limiter 2: Mencegah Credential Stuffing dari satu IP (20 kali percobaan absolut per IP)
+const loginIpLimiter = createLimiter({ 
+  max: 20, 
+  message: "Terlalu banyak percobaan login dari jaringan ini. Coba lagi dalam 15 menit demi keamanan.", 
+  keyGenerator: authRateLimitKey 
+});
 
-router.post("/auth/login", loginLimiter, asyncHandler(async (req, res) => {
+//  Login 
+
+router.post("/auth/login", loginIpLimiter, loginAccountLimiter, asyncHandler(async (req, res) => {
   const turnstileSecretConfigured = Boolean(process.env.TURNSTILE_SECRET_KEY);
   const turnstileToken = typeof req.body?.turnstileToken === "string"
     ? req.body.turnstileToken.trim()
