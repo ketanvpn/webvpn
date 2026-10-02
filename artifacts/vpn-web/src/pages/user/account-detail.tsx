@@ -370,6 +370,7 @@ export default function AccountDetail() {
   const dynamicRenewTypes = (dynamicOrder?.supportedTypes ?? []).filter(isDynamicDurationType);
   const isSsh = account.protocol === "ssh";
   const accountHost = pickDisplayHost(allLinks, account.server?.host ?? "");
+  const cloudfrontHost = allLinks?.cloudfront && allLinks.cloudfront.includes(".cloudfront.net") ? allLinks.cloudfront : null;
   const hasAllLinks = !isSsh && allLinks && Object.entries(allLinks).some(([key, value]) => !["hostname", "servername", "host", "domain", "server", "cloudfront", "sni"].includes(key) && !!value);
   const sshHost = accountHost;
   const sshPortText = [allLinks?.port_tls, allLinks?.port_none].filter(Boolean).join(" / ") || "22 / 443";
@@ -474,6 +475,17 @@ export default function AccountDetail() {
                           )}
                         </div>
                       </div>
+                      {cloudfrontHost && (
+                        <div className="space-y-1.5 min-w-0">
+                          <Label>☁️ CloudFront Domain</Label>
+                          <div className="flex min-w-0 gap-2">
+                            <Input value={cloudfrontHost} readOnly className="min-w-0 font-mono bg-muted/50 text-sm" />
+                            <Button variant="outline" size="icon" className="shrink-0" onClick={() => copyToClipboard(cloudfrontHost, "CloudFront Domain")} title="Salin CloudFront Domain">
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                       <div className="space-y-1.5 min-w-0">
                         <Label>Username</Label>
                         <div className="flex min-w-0 gap-2">
