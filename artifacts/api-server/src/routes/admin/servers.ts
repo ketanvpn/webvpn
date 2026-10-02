@@ -8,7 +8,7 @@ import { logger } from "../../lib/logger";
 import { formatFullServer } from "../servers";
 import { logAdminAction } from "../admin-audit";
 import { getClientIp } from "../../lib/request-ip";
-import { checkPanelHealth } from "../../lib/vpn-panel";
+import { checkPanelHealth, validateApiUrlSecurity } from "../../lib/vpn-panel";
 import { AdminCreateServerBody, AdminUpdateServerBody } from "@workspace/api-zod";
 import { getAdminId } from "./helpers";
 
@@ -42,6 +42,14 @@ router.post("/admin/servers", requireAdmin, asyncHandler(async (req, res) => {
     return;
   }
   const data = parsed.data;
+
+  try {
+    if (data.apiUrl) validateApiUrlSecurity(data.apiUrl);
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "URL tidak valid" });
+    return;
+  }
+
   const [server] = await db
     .insert(serversTable)
     .values({
@@ -81,6 +89,14 @@ router.patch("/admin/servers/:id", requireAdmin, asyncHandler(async (req, res) =
   }
 
   const data = parsed.data;
+
+  try {
+    if (data.apiUrl) validateApiUrlSecurity(data.apiUrl);
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "URL tidak valid" });
+    return;
+  }
+
   const updateData: Record<string, unknown> = {};
   if (data.name !== undefined) updateData.name = data.name;
   if (data.location !== undefined) updateData.location = data.location;
