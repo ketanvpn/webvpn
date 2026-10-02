@@ -3,15 +3,15 @@ import { asyncHandler } from "../lib/async-handler";
 import { db } from "@workspace/db";
 import { bugPresetsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
-import { requireAdmin } from "../lib/auth";
+import { requireAdmin, requireAuth } from "../lib/auth";
 import { AdminCreateBugPresetBody, AdminUpdateBugPresetBody } from "@workspace/api-zod";
 import { logAdminAction } from "./admin-audit";
 import { getClientIp } from "../lib/request-ip";
 
 const router = Router();
 
-// Public: List all active bug presets
-router.get("/bug-presets", asyncHandler(async (_req, res) => {
+// User: hanya bug presets aktif, harus login
+router.get("/bug-presets", requireAuth, asyncHandler(async (_req, res) => {
   try {
     const presets = await db
       .select()

@@ -40,38 +40,37 @@ router.post("/webhooks/fonnte", asyncHandler(async (req, res) => {
   try {
     const body = req.body ?? {};
 
-    // Log raw body untuk debug — field apa saja yang Fonnte kirimkan
-    logger.info({ rawBody: JSON.stringify(body).slice(0, 1000) }, "Fonnte webhook: raw POST body received");
+    // Log webhook masuk — TANPA raw body (bisa berisi token sensitif)
+    const sender = String(body.sender ?? body.from ?? body.pengirim ?? "").trim();
+    logger.info(
+      { sender: sender || "(empty)", hasToken: !!(body.token || body.device_token) },
+      "Fonnte webhook: POST received"
+    );
 
     // ─── Verifikasi Token Fonnte ──────────────────────────────────────────
     // Fonnte mengirimkan token device di setiap webhook request.
     // Kita cocokkan dengan token yang disimpan admin di settings.
-    // Ini mencegah siapapun mengirim POST palsu ke endpoint ini.
+    // Jika token dikonfigurasi, request WAJIB menyertakan token yang cocok.
     const incomingToken = String(body.token ?? body.device_token ?? "").trim();
     const storedToken = await getSettingValue("fonnteToken");
 
-    if (storedToken && incomingToken) {
-      if (incomingToken !== storedToken) {
+    if (storedToken) {
+      if (!incomingToken || incomingToken !== storedToken) {
         logger.warn(
-          { incomingToken: incomingToken.slice(0, 8) + "..." },
-          "Fonnte webhook: token mismatch — rejected"
+          { hasToken: !!incomingToken },
+          "Fonnte webhook: token missing or mismatch — rejected"
         );
         res.status(401).json({ status: false, error: "Invalid token" });
         return;
       }
-    } else if (storedToken && !incomingToken) {
-      // Token tersimpan tapi request tidak kirim token — log warning tapi tetap proses
-      // (Fonnte mungkin tidak selalu kirim token tergantung versi)
-      logger.warn("Fonnte webhook: no token in request, but fonnteToken is configured — proceeding with caution");
     }
 
     // Fonnte bisa kirim sebagai form-urlencoded atau JSON
     // Field yang mungkin: sender/from, message/text/pesan
-    const sender = String(body.sender ?? body.from ?? body.pengirim ?? "").trim();
     const message = String(body.message ?? body.text ?? body.pesan ?? body.msg ?? "").trim();
 
     if (!sender) {
-      logger.warn({ body: JSON.stringify(body).slice(0, 500) }, "Fonnte webhook: no sender");
+      logger.warn("Fonnte webhook: no sender field in request");
       res.json({ status: true });
       return;
     }

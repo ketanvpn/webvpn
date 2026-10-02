@@ -49,8 +49,14 @@ app.use(
     },
   }),
 );
-// Batasi CORS ke domain produksi jika CORS_ORIGIN diset, fallback ke semua domain (untuk dev)
+// CORS: production WAJIB set CORS_ORIGIN, dev boleh permisif
 const allowedOrigin = process.env.CORS_ORIGIN;
+const isProductionEnv = process.env.NODE_ENV === "production";
+
+if (isProductionEnv && !allowedOrigin) {
+  logger.warn("CORS_ORIGIN not set in production — falling back to same-origin only");
+}
+
 app.use(cors({
   origin: allowedOrigin
     ? (origin, callback) => {
@@ -60,7 +66,9 @@ app.use(cors({
           callback(new Error("Not allowed by CORS"));
         }
       }
-    : true,
+    : isProductionEnv
+      ? false  // production tanpa CORS_ORIGIN = same-origin only (paling aman)
+      : true,  // dev = permisif
   credentials: true,
 }));
 app.use(

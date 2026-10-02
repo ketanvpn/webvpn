@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction } from "express";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { logger } from "./logger";
 
 const envSecret = process.env.SESSION_SECRET;
 const isProduction = process.env.NODE_ENV === "production";
@@ -61,8 +62,13 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     payload.role = dbUser.role;
     (req as Request & { user: JwtPayload }).user = payload;
     next();
-  } catch {
-    res.status(401).json({ error: "Invalid or expired token" });
+  } catch (err) {
+    if (err instanceof jwt.JsonWebTokenError || err instanceof jwt.TokenExpiredError) {
+      res.status(401).json({ error: "Invalid or expired token" });
+    } else {
+      logger.error({ err }, "requireAuth: unexpected error (possible DB outage)");
+      res.status(500).json({ error: "Terjadi kesalahan server, silakan coba lagi." });
+    }
   }
 }
 
@@ -107,8 +113,13 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
     
     (req as Request & { user: JwtPayload }).user = payload;
     next();
-  } catch {
-    res.status(401).json({ error: "Invalid or expired token" });
+  } catch (err) {
+    if (err instanceof jwt.JsonWebTokenError || err instanceof jwt.TokenExpiredError) {
+      res.status(401).json({ error: "Invalid or expired token" });
+    } else {
+      logger.error({ err }, "requireAdmin: unexpected error (possible DB outage)");
+      res.status(500).json({ error: "Terjadi kesalahan server, silakan coba lagi." });
+    }
   }
 }
 
