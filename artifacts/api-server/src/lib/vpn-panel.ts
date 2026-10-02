@@ -93,8 +93,37 @@ function buildHeaders(apiToken: string) {
   };
 }
 
-/** Normalize base URL (strip trailing slashes) */
+/** Normalize base URL and prevent SSRF (Server-Side Request Forgery) */
 function normalizeBaseUrl(apiUrl: string): string {
+  let urlObj: URL;
+  try {
+    urlObj = new URL(apiUrl);
+  } catch {
+    throw new Error(`[vpn-panel] URL tidak valid: ${apiUrl}`);
+  }
+
+  const hostname = urlObj.hostname.toLowerCase();
+
+  // Memblokir IP Private/Lokal dan Metadata Cloud (Mencegah SSRF)
+  const isPrivateIp = 
+    hostname === "localhost" ||
+    hostname === "::1" ||
+    hostname.startsWith("127.") ||
+    hostname.startsWith("10.") ||
+    hostname.startsWith("192.168.") ||
+    hostname.startsWith("169.254.") || // Cloud metadata (AWS/DO/dll)
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname) ||
+    hostname.endsWith(".local") ||
+    hostname.endsWith(".internal");
+
+  if (isPrivateIp) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(`[vpn-panel] SSRF Blocked: Penggunaan IP/Domain internal (${hostname}) tidak diizinkan demi keamanan server.`);
+    } else {
+      logger.warn(`[vpn-panel] Peringatan SSRF: Mengizinkan akses ke ${hostname} karena mode development.`);
+    }
+  }
+
   return apiUrl.replace(/\/+$/, "");
 }
 
