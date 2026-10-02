@@ -1,4 +1,5 @@
 import { Router } from "express";
+import crypto from "crypto";
 import { asyncHandler } from "../lib/async-handler";
 import { db } from "@workspace/db";
 import { waVerificationsTable } from "@workspace/db";
@@ -6,6 +7,15 @@ import { eq, and, gt } from "drizzle-orm";
 import { sendOtp, normalizeWhatsapp } from "../lib/fonnte";
 import { logger } from "../lib/logger";
 import { getSettingValue } from "./settings";
+
+/**
+ * Constant-time string comparison to prevent timing attacks on token verification.
+ * Falls back to false if either value is empty.
+ */
+function safeTokenCompare(a: string, b: string): boolean {
+  if (!a || !b || a.length !== b.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(a, "utf8"), Buffer.from(b, "utf8"));
+}
 
 const router = Router();
 
@@ -47,22 +57,23 @@ router.post("/webhooks/fonnte", asyncHandler(async (req, res) => {
       "Fonnte webhook: POST received"
     );
 
-    // ─── Verifikasi Token Fonnte ──────────────────────────────────────────
-    // Fonnte mengirimkan token device di setiap webhook request.
-    // Kita cocokkan dengan token yang disimpan admin di settings.
-    // Jika token dikonfigurasi, request WAJIB menyertakan token yang cocok.
+    // ─── Verifikasi Token Fonnte (fail-closed) ──────────────────────────────
     const incomingToken = String(body.token ?? body.device_token ?? "").trim();
     const storedToken = await getSettingValue("fonnteToken");
 
-    if (storedToken) {
-      if (!incomingToken || incomingToken !== storedToken) {
-        logger.warn(
-          { hasToken: !!incomingToken },
-          "Fonnte webhook: token missing or mismatch — rejected"
-        );
-        res.status(401).json({ status: false, error: "Invalid token" });
-        return;
-      }
+    if (!storedToken) {
+      logger.error("Fonnte webhook: fonnteToken not configured — rejecting ALL requests (fail-closed)");
+      res.status(503).json({ status: false, error: "Webhook not configured" });
+      return;
+    }
+
+    if (!safeTokenCompare(incomingToken, storedToken)) {
+      logger.warn(
+        { hasToken: !!incomingToken },
+        "Fonnte webhook: token missing or mismatch — rejected"
+      );
+      res.status(401).json({ status: false, error: "Invalid token" });
+      return;
     }
 
     // Fonnte bisa kirim sebagai form-urlencoded atau JSON
@@ -122,7 +133,7 @@ router.post("/webhooks/fonnte", asyncHandler(async (req, res) => {
         .set({ otpSent: true })
         .where(eq(waVerificationsTable.id, record.id));
 
-      logger.info({ sender: normalized, token: record.token }, "Fonnte webhook: OTP sent as reply");
+      logger.info({ sender: normalized, verificationId: record.id }, "Fonnte webhook: OTP sent as reply");
     } else {
       logger.error(
         { sender: normalized, error: otpResult.error },

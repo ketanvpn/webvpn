@@ -1,5 +1,6 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
+import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import path from "path";
@@ -28,6 +29,11 @@ if (trustedProxiesEnv) {
   app.set("trust proxy", false);
   logger.info("Trust proxy disabled (socket IP mode)");
 }
+
+app.use(helmet({
+  contentSecurityPolicy: false,
+  hsts: { maxAge: 31_536_000, includeSubDomains: true },
+}));
 
 app.use(
   pinoHttp({
@@ -83,15 +89,21 @@ app.use(cookieParser());
 
 // ─── Webhook Guard ────────────────────────────────────────────────────────────
 // Blokir akses langsung (bypass Nginx) ke endpoint non-webhook.
-// Hanya aktif di production — di development semua diizinkan.
-if (process.env.NODE_ENV === "production") {
-  app.use(webhookGuard);
-  logger.info("Webhook guard enabled (production mode)");
-}
+app.use(webhookGuard);
+logger.info("Webhook guard enabled");
 
 // ─── Static file serving (uploads) ────────────────────────────────────────────
-// Serve uploaded files at /api/uploads so Nginx proxies them correctly
-app.use("/api/uploads", express.static(path.join(process.cwd(), "uploads")));
+// Serve uploaded tutorial images only — reject non-image extensions
+const SAFE_UPLOAD_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
+
+app.use("/api/uploads", (req, res, next) => {
+  const ext = path.extname(req.path).toLowerCase();
+  if (!SAFE_UPLOAD_EXTENSIONS.has(ext)) {
+    res.status(403).json({ error: "File type not allowed" });
+    return;
+  }
+  next();
+}, express.static(path.join(process.cwd(), "uploads")));
 
 app.use("/api", router);
 
