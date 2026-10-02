@@ -318,8 +318,16 @@ router.post("/dynamic-vpn/orders", requireAuth, dynamicOrderLimiter, asyncHandle
   if (username.length < 5 || !/[a-z]/.test(username) || !/\d{2,}/.test(username)) {
     return sendError(res, 400, "Username minimal 5 karakter, huruf kecil/angka, dan minimal 2 angka");
   }
-  if (protocol === "ssh" && (password.length < 6 || password.length > 32)) {
-    return sendError(res, 400, "Password SSH wajib diisi 6-32 karakter");
+  if (protocol === "ssh") {
+    if (password.length < 6 || password.length > 32) {
+      return sendError(res, 400, "Password SSH wajib diisi 6-32 karakter");
+    }
+    // Keamanan: Mencegah RCE (Remote Code Execution) pada server VPN hilir.
+    // Membatasi hanya huruf dan angka (Whitelist) agar hacker tidak bisa
+    // menyisipkan karakter injeksi command Linux seperti (; & | $ >)
+    if (!/^[a-zA-Z0-9]+$/.test(password)) {
+      return sendError(res, 400, "Password SSH hanya boleh berisi huruf dan angka (tanpa spasi atau simbol khusus)");
+    }
   }
   if (paymentMethod !== "balance") return sendError(res, 400, "Dynamic order saat ini baru mendukung pembayaran saldo");
 
