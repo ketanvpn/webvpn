@@ -44,20 +44,32 @@ function releaseRenewLock(accountId: number): void {
   renewLocks.delete(accountId);
 }
 
-function pickDisplayHost(allLinks: Record<string, string | null | undefined> | null) {
+function isValidHostValue(value: string | null | undefined): value is string {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  return !!normalized && !["no", "none", "null", "undefined", "-"].includes(normalized);
+}
+
+function isCloudfrontCapableServerName(name: string): boolean {
+  return /cloudfront/i.test(name);
+}
+
+function pickDisplayHost(allLinks: Record<string, string | null | undefined> | null, serverName?: string) {
+  const cf = allLinks?.cloudfront;
+  // CloudFront domain gets priority ONLY when server is named "cloudfront" AND value is .cloudfront.net
+  if (serverName && isCloudfrontCapableServerName(serverName) && isValidHostValue(cf) && cf.toLowerCase().endsWith(".cloudfront.net")) {
+    return cf;
+  }
+
   const values = [
     allLinks?.domain,
-    allLinks?.cloudfront,
+    ...(serverName && isCloudfrontCapableServerName(serverName) ? [allLinks?.cloudfront] : []),
     allLinks?.host,
     allLinks?.server,
     allLinks?.sni,
     allLinks?.servername,
     allLinks?.hostname,
   ];
-  return values.find((value) => {
-    const normalized = String(value ?? "").trim().toLowerCase();
-    return normalized && !["no", "none", "null", "undefined", "-"].includes(normalized);
-  }) ?? null;
+  return values.find(isValidHostValue) ?? null;
 }
 
 function stringifyConfigValue(value: unknown): string | null {
@@ -237,7 +249,8 @@ async function formatAccount(a: typeof vpnAccountsTable.$inferSelect) {
     .limit(1);
 
   const allLinks = (a.allLinks ?? null) as Record<string, string | null | undefined> | null;
-  const dynamicHost = pickDisplayHost(allLinks);
+  const serverDisplayName = dynamicOrder?.serverDisplayName ?? server?.name ?? "";
+  const dynamicHost = pickDisplayHost(allLinks, serverDisplayName);
 
   return {
     id: a.id,
@@ -331,7 +344,8 @@ async function formatAccounts(accounts: (typeof vpnAccountsTable.$inferSelect)[]
     const productName = a.orderId ? (orderProductMap.get(a.orderId) ?? null) : null;
     const dynamicOrder = dynamicOrderMap.get(a.id) ?? null;
     const allLinks = (a.allLinks ?? null) as Record<string, string | null | undefined> | null;
-    const dynamicHost = pickDisplayHost(allLinks);
+    const serverDisplayName = dynamicOrder?.serverDisplayName ?? server?.name ?? "";
+    const dynamicHost = pickDisplayHost(allLinks, serverDisplayName);
 
     return {
       id: a.id,

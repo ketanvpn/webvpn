@@ -24,10 +24,35 @@ import {
 
 const LINK_ORDER = ["tls", "none", "grpc", "uptls", "upntls"];
 
-function pickDisplayHost(allLinks: Record<string, string | null> | null | undefined, fallback: string) {
+function isValidHostValue(value: string | null | undefined): value is string {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  return !!normalized && !["no", "none", "null", "undefined", "-"].includes(normalized);
+}
+
+function isCloudFrontDomain(value: string | null | undefined): boolean {
+  return isValidHostValue(value) && value.toLowerCase().endsWith(".cloudfront.net");
+}
+
+function isCloudfrontCapableServerName(name: string): boolean {
+  return /cloudfront/i.test(name);
+}
+
+function pickDisplayHost(
+  allLinks: Record<string, string | null> | null | undefined,
+  fallback: string,
+  serverName?: string,
+) {
+  // CloudFront domain gets priority ONLY when both conditions are met:
+  // 1. Server name contains "cloudfront" (confirms it's a CloudFront server)
+  // 2. allLinks.cloudfront is a valid .cloudfront.net domain
+  if (serverName && isCloudfrontCapableServerName(serverName) && isCloudFrontDomain(allLinks?.cloudfront)) {
+    return allLinks!.cloudfront!;
+  }
+
   const values = [
     allLinks?.domain,
-    allLinks?.cloudfront,
+    // Skip cloudfront for non-CloudFront servers (temporary domain from NadiaVPN)
+    ...(serverName && isCloudfrontCapableServerName(serverName) ? [allLinks?.cloudfront] : []),
     allLinks?.host,
     allLinks?.server,
     allLinks?.sni,
@@ -35,10 +60,7 @@ function pickDisplayHost(allLinks: Record<string, string | null> | null | undefi
     allLinks?.hostname,
     fallback,
   ];
-  return values.find((value) => {
-    const normalized = String(value ?? "").trim().toLowerCase();
-    return normalized && !["no", "none", "null", "undefined", "-"].includes(normalized);
-  }) ?? "";
+  return values.find(isValidHostValue) ?? "";
 }
 
 const SSH_WS_PAYLOADS = [
@@ -369,8 +391,9 @@ export default function AccountDetail() {
   const isDynamicAccount = dynamicOrder?.provider === "nadiavpn" || dynamicOrder?.provider === "local_panel";
   const dynamicRenewTypes = (dynamicOrder?.supportedTypes ?? []).filter(isDynamicDurationType);
   const isSsh = account.protocol === "ssh";
-  const accountHost = pickDisplayHost(allLinks, account.server?.host ?? "");
-  const cloudfrontHost = allLinks?.cloudfront && allLinks.cloudfront.includes(".cloudfront.net") ? allLinks.cloudfront : null;
+const serverName = account.server?.name ?? "";
+const accountHost = pickDisplayHost(allLinks, account.server?.host ?? "", serverName);
+const hostIsCloudFront = isCloudfrontCapableServerName(serverName) && isCloudFrontDomain(accountHost);
   const hasAllLinks = !isSsh && allLinks && Object.entries(allLinks).some(([key, value]) => !["hostname", "servername", "host", "domain", "server", "cloudfront", "sni"].includes(key) && !!value);
   const sshHost = accountHost;
   const sshPortText = [allLinks?.port_tls, allLinks?.port_none].filter(Boolean).join(" / ") || "22 / 443";
@@ -465,27 +488,16 @@ export default function AccountDetail() {
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5 min-w-0">
-                        <Label>Host / IP</Label>
+                        <Label>{hostIsCloudFront ? "☁️ CloudFront" : "Host / IP"}</Label>
                         <div className="flex min-w-0 gap-2">
                           <Input value={accountHost} readOnly className="min-w-0 font-mono bg-muted/50 text-sm" />
                           {accountHost && (
-                            <Button variant="outline" size="icon" className="shrink-0" onClick={() => copyToClipboard(accountHost, "Host")} title="Salin Host">
+                            <Button variant="outline" size="icon" className="shrink-0" onClick={() => copyToClipboard(accountHost, hostIsCloudFront ? "CloudFront" : "Host")} title={hostIsCloudFront ? "Salin CloudFront" : "Salin Host"}>
                               <Copy className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
                       </div>
-                      {cloudfrontHost && (
-                        <div className="space-y-1.5 min-w-0">
-                          <Label>☁️ CloudFront Domain</Label>
-                          <div className="flex min-w-0 gap-2">
-                            <Input value={cloudfrontHost} readOnly className="min-w-0 font-mono bg-muted/50 text-sm" />
-                            <Button variant="outline" size="icon" className="shrink-0" onClick={() => copyToClipboard(cloudfrontHost, "CloudFront Domain")} title="Salin CloudFront Domain">
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      )}
                       <div className="space-y-1.5 min-w-0">
                         <Label>Username</Label>
                         <div className="flex min-w-0 gap-2">

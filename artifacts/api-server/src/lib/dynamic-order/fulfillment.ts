@@ -414,9 +414,14 @@ export async function fulfillDynamicOrder(orderId: number, userId: number) {
   }
 
   // Send notifications
-  const host = allLinks?.domain ?? allLinks?.cloudfront ?? allLinks?.host
-    ?? allLinks?.server ?? allLinks?.sni ?? allLinks?.servername
-    ?? allLinks?.hostname ?? null;
+  const cfValue = allLinks?.cloudfront;
+  const isCfServer = /cloudfront/i.test(order.serverDisplayName);
+  const cfHasPriority = isCfServer && cfValue && cfValue.toLowerCase().endsWith(".cloudfront.net");
+  const host = cfHasPriority ? cfValue
+    : allLinks?.domain
+      ?? (isCfServer ? allLinks?.cloudfront : null)
+      ?? allLinks?.host ?? allLinks?.server ?? allLinks?.sni
+      ?? allLinks?.servername ?? allLinks?.hostname ?? null;
   notifyUserDynamicVpnAccountCreated({
     userId,
     orderId: order.id,
