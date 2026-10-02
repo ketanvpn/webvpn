@@ -190,13 +190,13 @@ function cleanupAdminInputSessions(): void {
   }
 }
 
-function setAdminInputSession(chatId: number, session: AdminInputSession): void {
+function setAdminInputSession(messageId: number, session: AdminInputSession): void {
   cleanupAdminInputSessions();
-  adminInputSessions.set(chatId, { ...session, createdAt: Date.now() });
+  adminInputSessions.set(messageId, { ...session, createdAt: Date.now() });
 }
 
-function clearAdminInputSession(chatId: number): void {
-  adminInputSessions.delete(chatId);
+function clearAdminInputSession(messageId: number): void {
+  adminInputSessions.delete(messageId);
 }
 
 async function handleMessage(message: any) {
@@ -592,30 +592,54 @@ async function handleCallbackQuery(callbackQuery: any) {
   if (data.startsWith("admin_")) {
     const adminChatId = await getAdminChatId();
     if (adminChatId && String(chatId) === String(adminChatId)) {
-      if (data === "admin_search_prompt") setAdminInputSession(chatId, { mode: "cek_user", createdAt: Date.now() });
-      if (data === "admin_comp_gift_prompt") setAdminInputSession(chatId, { mode: "gift", createdAt: Date.now() });
-      if (data === "admin_comp_extend_prompt") setAdminInputSession(chatId, { mode: "extend", createdAt: Date.now() });
-      if (data === "admin_broadcast_custom_prompt") {
-        setAdminInputSession(chatId, { mode: "broadcast_custom", createdAt: Date.now() });
-      }
-      if (data.startsWith("admin_broadcast_tpl_")) {
+      let handledAsPrompt = false;
+      
+      if (data === "admin_search_prompt") {
+        await answerCallbackQuery(callbackId);
+        await editMessageReplyMarkup(chatId, messageId, null);
+        const promptId = await sendMessage(chatId, "?? <b>Mode Cari User Aktif</b>\n\nSilakan balas (reply) pesan ini dengan <b>username</b>.\n\nContoh: <code>budi123</code>\n\nKetik <b>batal</b> untuk keluar.", { reply_markup: { force_reply: true, selective: true } });
+        if (promptId) setAdminInputSession(promptId, { mode: "cek_user", createdAt: Date.now() });
+        handledAsPrompt = true;
+      } else if (data === "admin_comp_gift_prompt") {
+        await answerCallbackQuery(callbackId);
+        await editMessageReplyMarkup(chatId, messageId, null);
+        const promptId = await sendMessage(chatId, "?? <b>Mode Gift Saldo Aktif</b>\n\nSilakan balas (reply) pesan ini dengan format:\n<code>username nominal</code>\nContoh: <code>user1 5000</code>\n\nKetik <b>batal</b> untuk keluar.", { reply_markup: { force_reply: true, selective: true } });
+        if (promptId) setAdminInputSession(promptId, { mode: "gift", createdAt: Date.now() });
+        handledAsPrompt = true;
+      } else if (data === "admin_comp_extend_prompt") {
+        await answerCallbackQuery(callbackId);
+        await editMessageReplyMarkup(chatId, messageId, null);
+        const promptId = await sendMessage(chatId, "? <b>Mode Extend Massal Aktif</b>\n\nSilakan balas (reply) pesan ini dengan format:\n<code>id_server jumlah_hari [jeda_detik]</code>\nContoh: <code>1 2 3</code>\n\nKetik <b>batal</b> untuk keluar.", { reply_markup: { force_reply: true, selective: true } });
+        if (promptId) setAdminInputSession(promptId, { mode: "extend", createdAt: Date.now() });
+        handledAsPrompt = true;
+      } else if (data === "admin_broadcast_custom_prompt") {
+        await answerCallbackQuery(callbackId);
+        await editMessageReplyMarkup(chatId, messageId, null);
+        const promptId = await sendMessage(chatId, "?? <b>Mode Broadcast (Custom)</b>\n\nSilakan balas (reply) pesan ini dengan isi pesan broadcast Anda.\n\nKetik <b>batal</b> untuk membatalkan.", { reply_markup: { force_reply: true, selective: true } });
+        if (promptId) setAdminInputSession(promptId, { mode: "broadcast_custom", createdAt: Date.now() });
+        handledAsPrompt = true;
+      } else if (data.startsWith("admin_broadcast_tpl_")) {
         const templateKey = data.replace("admin_broadcast_tpl_", "");
         const template = broadcastTemplates[templateKey];
-        if (!template) {
-          await answerCallbackQuery(callbackId, "Template tidak ditemukan");
-          return;
+        if (template) {
+          await answerCallbackQuery(callbackId);
+          await editMessageReplyMarkup(chatId, messageId, null);
+          const promptId = await sendMessage(chatId, `?? <b>Template ${template.name}</b>\n\nSilakan balas (reply) pesan ini dengan:\n\n?? ${template.fields[0]}:`, { reply_markup: { force_reply: true, selective: true } });
+          if (promptId) {
+            setAdminInputSession(promptId, {
+              mode: "broadcast_template",
+              templateKey,
+              step: 0,
+              values: [],
+              createdAt: Date.now(),
+            });
+          }
         }
-        setAdminInputSession(chatId, {
-          mode: "broadcast_template",
-          templateKey,
-          step: 0,
-          values: [],
-          createdAt: Date.now(),
-        });
-        await answerCallbackQuery(callbackId, `Template: ${template.name}`);
-        await sendMessage(chatId, `🧩 <b>Template ${template.name}</b>\nSilakan isi data berikut satu per satu.\n\n✍️ ${template.fields[0]}:`);
+        handledAsPrompt = true;
       }
-      if (data === "admin_menu" || data === "admin_close" || data === "admin_broadcast_prompt") clearAdminInputSession(chatId);
+
+      if (handledAsPrompt) return;
+
       await handleAdminCallback(data, chatId, messageId, callbackId);
     }
     return;
