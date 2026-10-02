@@ -43,13 +43,13 @@ export async function tryAutoUpgradeReseller(
     // ── Notifikasi ke user via WhatsApp ────────────────────────────────
     if (user.whatsapp) {
       const msg = `🎉 Selamat, ${user.username}!\n\nAkun kamu telah otomatis diupgrade menjadi *Reseller KETANTECH VPN* karena topup sebesar ${formatRp(topupAmount)}.\n\nKamu sekarang mendapat harga spesial *${settings.resellerDiscountPercent}% lebih murah* untuk semua produk.\n\nLogin ke panel untuk melihat harga reseller kamu. Semangat berjualan! 💪`;
-      sendWhatsapp(user.whatsapp, msg).catch(() => {});
+      sendWhatsapp(user.whatsapp, msg).catch((err) => logger.warn({ err, userId }, "WhatsApp reseller upgrade notification failed"));
     }
 
     // ── Notifikasi ke user via Telegram ───────────────────────────────
     if (user.telegramId) {
       const msg = `🎉 *Selamat, ${user.username}!*\n\nAkun kamu telah otomatis diupgrade menjadi *Reseller KETANTECH VPN* karena topup sebesar ${formatRp(topupAmount)}.\n\nKamu sekarang mendapat harga spesial *${settings.resellerDiscountPercent}% lebih murah* untuk semua produk.\n\nLogin ke panel untuk melihat harga reseller kamu. Semangat berjualan! 💪`;
-      sendMessage(user.telegramId, msg, { parse_mode: "Markdown" }).catch(() => {});
+      sendMessage(user.telegramId, msg, { parse_mode: "Markdown" }).catch((err) => logger.warn({ err, userId }, "Telegram reseller upgrade notification failed"));
     }
 
     // ── Notifikasi ke admin via Telegram ──────────────────────────────
@@ -57,7 +57,7 @@ export async function tryAutoUpgradeReseller(
     if (adminChatId) {
       const wa = user.whatsapp ? `\nWA: ${user.whatsapp}` : "";
       const adminMsg = `⬆️ *Auto-Upgrade Reseller*\n\nUser *${user.username}* (ID: ${userId}) otomatis jadi reseller setelah topup ${formatRp(topupAmount)}.${wa}`;
-      sendMessage(adminChatId, adminMsg, { parse_mode: "Markdown" }).catch(() => {});
+      sendMessage(adminChatId, adminMsg, { parse_mode: "Markdown" }).catch((err) => logger.warn({ err, userId }, "Telegram admin reseller upgrade notification failed"));
     }
   } catch (err) {
     logger.error({ err, userId, topupAmount }, "tryAutoUpgradeReseller error");

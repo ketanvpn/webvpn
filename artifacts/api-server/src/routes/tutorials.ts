@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { asyncHandler } from "../lib/async-handler";
+import { logger } from "../lib/logger";
 import { db } from "@workspace/db";
 import {
   appTutorialsTable,
@@ -105,7 +106,7 @@ router.post("/admin/tutorials", requireAdmin, asyncHandler(async (req, res) => {
     targetId: row.id,
     details: { appSlug: row.appSlug, appName: row.appName },
     ipAddress: getClientIp(req as any),
-  }).catch(() => {});
+  }).catch((err) => logger.warn({ err }, "Audit log write failed"));
 
   res.status(201).json(row);
 }));
@@ -159,7 +160,7 @@ router.put("/admin/tutorials/:id", requireAdmin, asyncHandler(async (req, res) =
     targetId: id,
     details: { changes: Object.keys(parsed.data) },
     ipAddress: getClientIp(req as any),
-  }).catch(() => {});
+  }).catch((err) => logger.warn({ err }, "Audit log write failed"));
 
   res.json(row);
 }));
@@ -185,7 +186,7 @@ router.delete("/admin/tutorials/:id", requireAdmin, asyncHandler(async (req, res
     targetId: id,
     details: { appSlug: deleted.appSlug, appName: deleted.appName },
     ipAddress: getClientIp(req as any),
-  }).catch(() => {});
+  }).catch((err) => logger.warn({ err }, "Audit log write failed"));
 
   res.json({ message: "Tutorial berhasil dihapus" });
 }));
@@ -210,7 +211,7 @@ router.post(
       targetType: "tutorial",
       details: { filename: req.file.filename, size: req.file.size },
       ipAddress: getClientIp(req as any),
-    }).catch(() => {});
+    }).catch((err) => logger.warn({ err }, "Audit log write failed"));
 
     res.json({ url });
   },
@@ -231,7 +232,7 @@ router.delete("/admin/tutorials/delete-image", requireAdmin, asyncHandler(async 
     targetType: "tutorial",
     details: { url },
     ipAddress: getClientIp(req as any),
-  }).catch(() => {});
+  }).catch((err) => logger.warn({ err }, "Audit log write failed"));
 
   res.json({ message: "Gambar berhasil dihapus" });
 }));

@@ -81,7 +81,7 @@ export async function handleGiftSaldo(chatId: number, username: string, amount: 
       `Mohon maaf atas ketidaknyamanannya. Admin telah memberikan kompensasi saldo sebesar <b>${formatRupiah(amount)}</b> ke akun kamu.\n\n` +
       `Saldo kamu sekarang: <b>${formatRupiah(newBalance)}</b>\n\n` +
       `Terima kasih telah menggunakan layanan KETANTECH VPN!`;
-    await sendMessage(Number(user.telegramId), userMsg).catch(() => {});
+    await sendMessage(Number(user.telegramId), userMsg).catch((err) => logger.warn({ err }, "Telegram compensation notification failed"));
   }
 }
 

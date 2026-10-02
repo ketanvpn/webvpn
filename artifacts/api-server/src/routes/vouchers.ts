@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { asyncHandler } from "../lib/async-handler";
+import { logger } from "../lib/logger";
 import { db } from "@workspace/db";
 import { vouchersTable, productsTable, usersTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
@@ -58,7 +59,7 @@ router.post("/admin/vouchers", requireAdmin, asyncHandler(async (req, res) => {
     targetId: voucher.id,
     details: { code: voucher.code, discountType, discountValue },
     ipAddress: getClientIp(req as any),
-  }).catch(() => {});
+  }).catch((err) => logger.warn({ err }, "Audit log write failed"));
 
   res.status(201).json(voucher);
 }));
@@ -111,7 +112,7 @@ router.put("/admin/vouchers/:id", requireAdmin, asyncHandler(async (req, res) =>
     targetId: id,
     details: { changes: data },
     ipAddress: getClientIp(req as any),
-  }).catch(() => {});
+  }).catch((err) => logger.warn({ err }, "Audit log write failed"));
 
   res.json(voucher);
 }));
@@ -134,7 +135,7 @@ router.delete("/admin/vouchers/:id", requireAdmin, asyncHandler(async (req, res)
     targetId: id,
     details: { code: deleted.code },
     ipAddress: getClientIp(req as any),
-  }).catch(() => {});
+  }).catch((err) => logger.warn({ err }, "Audit log write failed"));
   
   res.json({ message: "Voucher berhasil dihapus" });
 }));

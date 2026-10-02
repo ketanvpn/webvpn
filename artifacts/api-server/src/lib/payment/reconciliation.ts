@@ -429,7 +429,7 @@ async function reconcileAutoGoPayGoPayInternal(): Promise<void> {
           .update(paymentAttemptsTable)
           .set({ lastCheckedAt: checkedAt, updatedAt: checkedAt })
           .where(eq(paymentAttemptsTable.id, attempt.id))
-          .catch(() => {});
+          .catch((dbErr) => logger.warn({ err: dbErr, attemptId: attempt.id }, "Failed to update lastCheckedAt during reconciliation"));
       }
     }
   }

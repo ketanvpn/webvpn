@@ -510,7 +510,7 @@ export async function retryLegacyPaidOrder(
     if (locked) {
       await client
         .query("select pg_advisory_unlock($1, $2)", [1_934_771_201, orderId])
-        .catch(() => {});
+        .catch((unlockErr) => logger.warn({ err: unlockErr, orderId }, "Failed to release pg_advisory_lock"));
     }
     client.release();
   }

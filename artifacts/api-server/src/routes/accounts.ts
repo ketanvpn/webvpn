@@ -595,7 +595,7 @@ router.post("/accounts/:id/renew-dynamic", requireAuth, asyncHandler(async (req,
           apiToken: localServer.apiToken,
           protocol: account.protocol,
           username: account.username,
-        }).catch(() => null);
+        }).catch((err) => { logger.warn({ err }, "syncPanelAccount failed"); return null; });
 
         if (panelInfo) {
           const mergedLinks = {
@@ -657,7 +657,7 @@ router.post("/accounts/:id/renew-dynamic", requireAuth, asyncHandler(async (req,
         `Aktif hingga: *${expiryFormatted}*\n` +
         `Harga: *Rp ${price.amount.toLocaleString("id-ID")}*\n\n` +
         `Terima kasih telah menggunakan KETANTECH VPN! 🚀`;
-      sendWhatsapp(buyer.whatsapp, waMsg).catch(() => {});
+      sendWhatsapp(buyer.whatsapp, waMsg).catch((err) => logger.warn({ err }, "WhatsApp renew notification failed"));
     }
 
     notifyAdminDynamicOrderFulfilled({

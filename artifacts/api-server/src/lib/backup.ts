@@ -396,7 +396,7 @@ export function saveBackupFile(buffer: Buffer, filename: string): string {
   fs.writeFileSync(filePath, buffer);
   lastBackupFilePath = filePath;
   // Persist to DB so download survives server restart
-  upsertSetting("backupLastFilePath", filePath).catch(() => {});
+  upsertSetting("backupLastFilePath", filePath).catch((err) => logger.warn({ err }, "Failed to persist backup file path to DB"));
   pruneOldBackups(getBackupDir());
   return filePath;
 }
@@ -573,7 +573,7 @@ export async function performBackup(): Promise<{
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : "Unknown error";
     logger.error({ err }, "Database backup gagal");
-    await updateBackupStatus("failed", filename, sizeBytes, errMsg, null, false).catch(() => {});
+    await updateBackupStatus("failed", filename, sizeBytes, errMsg, null, false).catch((statusErr) => logger.warn({ err: statusErr }, "Failed to update backup status after error"));
     return { success: false, filename, sizeBytes, sentToTelegram, error: errMsg, checksum: null, encrypted: false };
   } finally {
     releaseLock();
@@ -859,7 +859,7 @@ export async function performFullBackup(): Promise<{
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : "Unknown error";
     logger.error({ err }, "Full backup bundle gagal");
-    await updateBackupStatus("failed", filename, sizeBytes, errMsg, null, false).catch(() => {});
+    await updateBackupStatus("failed", filename, sizeBytes, errMsg, null, false).catch((statusErr) => logger.warn({ err: statusErr }, "Failed to update backup status after error"));
     return { success: false, filename, sizeBytes, sentToTelegram, error: errMsg, checksum: null, encrypted: false, includedFiles };
   } finally {
     releaseLock();

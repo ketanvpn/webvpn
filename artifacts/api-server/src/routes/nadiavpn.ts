@@ -1,6 +1,7 @@
 import { Router, type Response } from "express";
 import { asyncHandler } from "../lib/async-handler";
 import { requireAdmin } from "../lib/auth";
+import { logger } from "../lib/logger";
 import { logAdminAction } from "./admin-audit";
 import { getClientIp } from "../lib/request-ip";
 import {
@@ -109,7 +110,7 @@ router.post("/admin/nadiavpn/trial", requireAdmin, asyncHandler(async (req, res)
       targetId: null,
       details: payload,
       ipAddress: getClientIp(req as any),
-    }).catch(() => {});
+    }).catch((err) => logger.warn({ err }, "Audit log write failed"));
     res.json(result);
   } catch (error) {
     sendNadiaVpnError(res, error);
@@ -136,7 +137,7 @@ router.post("/admin/nadiavpn/order", requireAdmin, asyncHandler(async (req, res)
       targetId: null,
       details: payload,
       ipAddress: getClientIp(req as any),
-    }).catch(() => {});
+    }).catch((err) => logger.warn({ err }, "Audit log write failed"));
     res.json(result);
   } catch (error) {
     sendNadiaVpnError(res, error);
@@ -161,7 +162,7 @@ router.post("/admin/nadiavpn/renew", requireAdmin, asyncHandler(async (req, res)
       targetId: null,
       details: payload,
       ipAddress: getClientIp(req as any),
-    }).catch(() => {});
+    }).catch((err) => logger.warn({ err }, "Audit log write failed"));
     res.json(result);
   } catch (error) {
     sendNadiaVpnError(res, error);
@@ -185,7 +186,7 @@ router.post("/admin/nadiavpn/migrate", requireAdmin, asyncHandler(async (req, re
       targetId: null,
       details: payload,
       ipAddress: getClientIp(req as any),
-    }).catch(() => {});
+    }).catch((err) => logger.warn({ err }, "Audit log write failed"));
     res.json(result);
   } catch (error) {
     sendNadiaVpnError(res, error);
@@ -215,7 +216,7 @@ router.post("/admin/nadiavpn/change-protocol", requireAdmin, asyncHandler(async 
       targetId: null,
       details: payload,
       ipAddress: getClientIp(req as any),
-    }).catch(() => {});
+    }).catch((err) => logger.warn({ err }, "Audit log write failed"));
     res.json(result);
   } catch (error) {
     sendNadiaVpnError(res, error);
@@ -244,7 +245,7 @@ router.post("/admin/nadiavpn/account/details", requireAdmin, asyncHandler(async 
       targetId: null,
       details: { account_id: accountId },
       ipAddress: getClientIp(req as any),
-    }).catch(() => {});
+    }).catch((err) => logger.warn({ err }, "Audit log write failed"));
     res.json(result);
   } catch (error) {
     sendNadiaVpnError(res, error);
@@ -265,7 +266,7 @@ router.post("/admin/nadiavpn/account/sync", requireAdmin, asyncHandler(async (re
       targetId: null,
       details: { account_id: accountId },
       ipAddress: getClientIp(req as any),
-    }).catch(() => {});
+    }).catch((err) => logger.warn({ err }, "Audit log write failed"));
     res.json(result);
   } catch (error) {
     sendNadiaVpnError(res, error);
@@ -286,7 +287,7 @@ router.delete("/admin/nadiavpn/account/delete", requireAdmin, asyncHandler(async
       targetId: null,
       details: { account_id: accountId },
       ipAddress: getClientIp(req as any),
-    }).catch(() => {});
+    }).catch((err) => logger.warn({ err }, "Audit log write failed"));
     res.json(result);
   } catch (error) {
     sendNadiaVpnError(res, error);

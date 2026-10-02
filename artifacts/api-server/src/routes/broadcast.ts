@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { asyncHandler } from "../lib/async-handler";
 import { requireAdmin } from "../lib/auth";
+import { logger } from "../lib/logger";
 import { broadcastMessage } from "../lib/telegram";
 import { logAdminAction } from "./admin-audit";
 import { getClientIp } from "../lib/request-ip";
@@ -31,7 +32,7 @@ router.post("/admin/broadcast", requireAdmin, asyncHandler(async (req, res) => {
     targetId: null,
     details: { message: message.trim().substring(0, 200), sent, failed },
     ipAddress: getClientIp(req as any),
-  }).catch(() => {});
+  }).catch((err) => logger.warn({ err }, "Audit log write failed"));
 
   res.json({ success: true, sent, failed });
 }));

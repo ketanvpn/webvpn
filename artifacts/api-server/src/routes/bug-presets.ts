@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { asyncHandler } from "../lib/async-handler";
+import { logger } from "../lib/logger";
 import { db } from "@workspace/db";
 import { bugPresetsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
@@ -68,7 +69,7 @@ router.post("/admin/bug-presets", requireAdmin, asyncHandler(async (req, res) =>
       targetId: preset.id,
       details: { name: preset.name, mode: preset.mode },
       ipAddress: getClientIp(req as any),
-    }).catch(() => {});
+    }).catch((err) => logger.warn({ err }, "Audit log write failed"));
       
     res.status(201).json(preset);
   } catch (error) {
@@ -135,7 +136,7 @@ router.delete("/admin/bug-presets/:id", requireAdmin, asyncHandler(async (req, r
       targetId: id,
       details: { name: deleted.name, mode: deleted.mode },
       ipAddress: getClientIp(req as any),
-    }).catch(() => {});
+    }).catch((err) => logger.warn({ err }, "Audit log write failed"));
     
     res.json({ success: true });
   } catch (error) {

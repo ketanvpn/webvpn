@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { asyncHandler } from "../lib/async-handler";
+import { logger } from "../lib/logger";
 import { db } from "@workspace/db";
 import { announcementsTable } from "@workspace/db";
 import { eq, and, lte, gte, or, isNull, desc } from "drizzle-orm";
@@ -59,7 +60,7 @@ router.post("/admin/announcements", requireAdmin, asyncHandler(async (req, res) 
     targetId: row.id,
     details: { title, type: finalType, isActive: isActive !== false },
     ipAddress: getClientIp(req as any),
-  }).catch(() => {});
+  }).catch((err) => logger.warn({ err }, "Audit log write failed"));
 
   res.status(201).json(row);
 }));
@@ -111,7 +112,7 @@ router.put("/admin/announcements/:id", requireAdmin, asyncHandler(async (req, re
     targetId: id,
     details: { changes: { title, content, type, isActive, startAt, endAt } },
     ipAddress: getClientIp(req as any),
-  }).catch(() => {});
+  }).catch((err) => logger.warn({ err }, "Audit log write failed"));
 
   res.json(row);
 }));
@@ -136,7 +137,7 @@ router.delete("/admin/announcements/:id", requireAdmin, asyncHandler(async (req,
     targetId: id,
     details: { title: deleted.title, type: deleted.type },
     ipAddress: getClientIp(req as any),
-  }).catch(() => {});
+  }).catch((err) => logger.warn({ err }, "Audit log write failed"));
 
   res.json({ message: "Pengumuman berhasil dihapus" });
 }));

@@ -419,7 +419,7 @@ export async function fulfillDynamicOrder(orderId: number, userId: number) {
 
   // Refresh local server capacity
   if (server.provider === "local_panel") {
-    const refreshed = await refreshLocalDynamicServerCapacity(server).catch(() => null);
+    const refreshed = await refreshLocalDynamicServerCapacity(server).catch((err) => { logger.warn({ err }, "refreshLocalDynamicServerCapacity failed"); return null; });
     if (refreshed) server = refreshed;
   }
 

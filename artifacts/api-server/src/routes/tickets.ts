@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { asyncHandler } from "../lib/async-handler";
+import { logger } from "../lib/logger";
 import { db } from "@workspace/db";
 import { ticketsTable, ticketMessagesTable, usersTable } from "@workspace/db";
 import { eq, desc, and, inArray } from "drizzle-orm";
@@ -60,7 +61,7 @@ router.post("/tickets", requireAuth, asyncHandler(async (req, res) => {
   });
 
   const [user] = await db.select({ username: usersTable.username }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-  notifyAdminNewTicket(ticket.id, user?.username ?? "unknown", subject.trim(), validPriority).catch(() => {});
+  notifyAdminNewTicket(ticket.id, user?.username ?? "unknown", subject.trim(), validPriority).catch((err) => logger.warn({ err }, "Telegram notify new ticket failed"));
 
   res.status(201).json(formatTicket(ticket));
 }));
@@ -124,7 +125,7 @@ router.post("/tickets/:id/reply", requireAuth, asyncHandler(async (req, res) => 
     .where(eq(ticketsTable.id, ticketId));
 
   const [user] = await db.select({ username: usersTable.username }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-  notifyAdminTicketReply(ticketId, user?.username ?? "user", ticket.subject, message.trim()).catch(() => {});
+  notifyAdminTicketReply(ticketId, user?.username ?? "user", ticket.subject, message.trim()).catch((err) => logger.warn({ err }, "Telegram notify ticket reply failed"));
 
   res.status(201).json(msg);
 }));
