@@ -93,13 +93,18 @@ function buildHeaders(apiToken: string) {
   };
 }
 
-/** Normalize base URL and prevent SSRF (Server-Side Request Forgery) */
-function normalizeBaseUrl(apiUrl: string): string {
+/**
+ * Validasi keamanan API URL untuk mencegah SSRF.
+ * Digunakan baik saat mengeksekusi request maupun saat menyimpan data server.
+ */
+export function validateApiUrlSecurity(apiUrl: string): void {
+  if (!apiUrl) return;
+  
   let urlObj: URL;
   try {
     urlObj = new URL(apiUrl);
   } catch {
-    throw new Error(`[vpn-panel] URL tidak valid: ${apiUrl}`);
+    throw new Error(`URL tidak valid: ${apiUrl}`);
   }
 
   const hostname = urlObj.hostname.toLowerCase();
@@ -118,12 +123,16 @@ function normalizeBaseUrl(apiUrl: string): string {
 
   if (isPrivateIp) {
     if (process.env.NODE_ENV === "production") {
-      throw new Error(`[vpn-panel] SSRF Blocked: Penggunaan IP/Domain internal (${hostname}) tidak diizinkan demi keamanan server.`);
+      throw new Error(`SSRF Blocked: Penggunaan IP/Domain internal (${hostname}) tidak diizinkan demi keamanan server.`);
     } else {
       logger.warn(`[vpn-panel] Peringatan SSRF: Mengizinkan akses ke ${hostname} karena mode development.`);
     }
   }
+}
 
+/** Normalize base URL and prevent SSRF (Server-Side Request Forgery) */
+function normalizeBaseUrl(apiUrl: string): string {
+  validateApiUrlSecurity(apiUrl);
   return apiUrl.replace(/\/+$/, "");
 }
 
