@@ -28,6 +28,13 @@ import {
 } from "./settlement";
 
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/** Advisory lock namespace for legacy order retry. */
+const LEGACY_ORDER_LOCK_NS = 1_934_771_201;
+
+// ---------------------------------------------------------------------------
 // Post-commit side effects (fire-and-forget)
 // ---------------------------------------------------------------------------
 
@@ -54,7 +61,7 @@ function runOrderPostCommit(result: OrderPostCommit): void {
     })
     .catch((err) =>
       logger.error(
-        { err, orderId: result.orderId },
+        { err, orderId: result.orderId, userId: result.userId },
         "addPoints failed after order settlement",
       ),
     );
@@ -189,6 +196,68 @@ async function completePaidOrderAttempt(
 }
 
 // ---------------------------------------------------------------------------
+// Shared: fulfill order and complete attempt (DRY helper)
+// ---------------------------------------------------------------------------
+
+/**
+ * Attempt to fulfill a claimed order, then complete its payment attempt.
+ *
+ * On fulfillment failure:
+ *  - Check whether a concurrent worker already completed the order.
+ *  - If not, record the failure on the attempt and update `lastCheckedAt`
+ *    so the reconciliation lease timer resets properly.
+ */
+async function fulfillAndCompleteAttempt(
+  orderId: number,
+  attemptId: number,
+  source: string,
+  fallbackResult: SettlementResult,
+): Promise<SettlementResult> {
+  try {
+    await fulfillOrder(orderId, { deductBalance: false });
+  } catch (err) {
+    // A concurrent worker may have completed fulfillment while this one failed.
+    const completion = await completePaidOrderAttempt(attemptId);
+    if (completion.outcome === "settled") {
+      return completion;
+    }
+
+    // Record the failure on the attempt so admins can see what went wrong and
+    // so that `lastCheckedAt` resets the reconciliation lease timer.
+    const failureMessage =
+      err instanceof Error ? err.message : "Unknown fulfillment error";
+    await db
+      .update(paymentAttemptsTable)
+      .set({
+        lastCheckedAt: new Date(),
+        failureCode: "fulfillment_error",
+        failureMessage,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(paymentAttemptsTable.id, attemptId),
+          ne(paymentAttemptsTable.status, "completed"),
+        ),
+      )
+      .catch((updateErr) =>
+        logger.warn(
+          { err: updateErr, orderId, attemptId },
+          "Failed to record fulfillment failure on attempt",
+        ),
+      );
+
+    logger.error(
+      { err, orderId, attemptId, source },
+      "Paid order fulfillment failed; leaving processing for reconciliation retry",
+    );
+    return fallbackResult;
+  }
+
+  return completePaidOrderAttempt(attemptId);
+}
+
+// ---------------------------------------------------------------------------
 // Modern path: settle via paymentAttempts
 // ---------------------------------------------------------------------------
 
@@ -315,22 +384,12 @@ export async function settleAttemptOrder(
   if (claim.orderAlreadyPaid) return completePaidOrderAttempt(attemptId);
   if (!claim.shouldFulfill) return claim.result;
 
-  try {
-    await fulfillOrder(claim.orderId, { deductBalance: false });
-  } catch (err) {
-    // A concurrent worker may have completed fulfillment while this one failed.
-    const completion = await completePaidOrderAttempt(attemptId);
-    if (completion.outcome === "settled") {
-      return completion;
-    }
-    logger.error(
-      { err, orderId: claim.orderId, attemptId, source: input.source },
-      "Paid order fulfillment failed; leaving it processing for reconciliation",
-    );
-    return claim.result;
-  }
-
-  return completePaidOrderAttempt(attemptId);
+  return fulfillAndCompleteAttempt(
+    claim.orderId,
+    attemptId,
+    input.source,
+    claim.result,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -426,7 +485,7 @@ export async function settleLegacyOrder(
   } catch (err) {
     logger.error(
       { err, orderId: claimedOrderId, source: input.source },
-      "Legacy paid order fulfillment failed; leaving it processing",
+      "Legacy paid order fulfillment failed; leaving it processing for reconciliation retry",
     );
     return {
       outcome: "processing",
@@ -438,21 +497,77 @@ export async function settleLegacyOrder(
 
 // ---------------------------------------------------------------------------
 // Legacy retry: advisory-lock-based retry for processing orders
+//
+// FIX: The advisory lock + pool connection are now released BEFORE calling
+// fulfillOrder. Previously, the pool connection was held during the entire
+// external API call (panel account creation), which could starve the
+// connection pool under load.
 // ---------------------------------------------------------------------------
 
 export async function retryLegacyPaidOrder(
   orderId: number,
 ): Promise<SettlementResult> {
+  // Phase 1: Acquire advisory lock and validate order status.
+  // The lock prevents concurrent retry attempts for the same order.
+  const validationResult = await validateWithAdvisoryLock(orderId);
+  if (validationResult.outcome !== "ready") {
+    return validationResult.result;
+  }
+
+  // Phase 2: Fulfill the order WITHOUT holding the advisory lock or pool
+  // connection. This is the key fix — fulfillOrder calls external APIs
+  // (VPN panel) which can be slow. Holding a pool connection during that
+  // call risks connection pool starvation.
+  const claimedOrderId = validationResult.claimedOrderId;
+  try {
+    await fulfillOrder(claimedOrderId, { deductBalance: false });
+    return {
+      outcome: "settled",
+      ownerType: "order",
+      ownerId: claimedOrderId,
+    };
+  } catch (err) {
+    logger.error(
+      { err, orderId: claimedOrderId },
+      "Legacy paid order retry failed; leaving it processing for reconciliation retry",
+    );
+    return {
+      outcome: "processing",
+      ownerType: "order",
+      ownerId: claimedOrderId,
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Advisory lock helper (scoped lifetime)
+// ---------------------------------------------------------------------------
+
+type LockValidationResult =
+  | { outcome: "ready"; claimedOrderId: number }
+  | { outcome: "skipped"; result: SettlementResult };
+
+/**
+ * Acquire an advisory lock for the given order, validate its status, and
+ * release the lock + connection before returning. This ensures the pool
+ * connection is never held during slow external calls.
+ */
+async function validateWithAdvisoryLock(
+  orderId: number,
+): Promise<LockValidationResult> {
   const client = await pool.connect();
   let locked = false;
   try {
     const lockResult = await client.query<{ locked: boolean }>(
       "select pg_try_advisory_lock($1, $2) as locked",
-      [1_934_771_201, orderId],
+      [LEGACY_ORDER_LOCK_NS, orderId],
     );
     locked = lockResult.rows[0]?.locked === true;
     if (!locked) {
-      return { outcome: "processing", ownerType: "order", ownerId: orderId };
+      return {
+        outcome: "skipped",
+        result: { outcome: "processing", ownerType: "order", ownerId: orderId },
+      };
     }
 
     const claim = await db.transaction(async (tx) => {
@@ -486,31 +601,17 @@ export async function retryLegacyPaidOrder(
       return { orderId: order.id };
     });
 
-    if (!("orderId" in claim)) return claim.result;
-    const claimedOrderId = claim.orderId as number;
-    try {
-      await fulfillOrder(claimedOrderId, { deductBalance: false });
-      return {
-        outcome: "settled",
-        ownerType: "order",
-        ownerId: claimedOrderId,
-      };
-    } catch (err) {
-      logger.error(
-        { err, orderId: claimedOrderId },
-        "Legacy paid order retry failed; leaving it processing",
-      );
-      return {
-        outcome: "processing",
-        ownerType: "order",
-        ownerId: claimedOrderId,
-      };
+    if (!("orderId" in claim)) {
+      return { outcome: "skipped", result: claim.result };
     }
+    return { outcome: "ready", claimedOrderId: claim.orderId as number };
   } finally {
     if (locked) {
       await client
-        .query("select pg_advisory_unlock($1, $2)", [1_934_771_201, orderId])
-        .catch((unlockErr) => logger.warn({ err: unlockErr, orderId }, "Failed to release pg_advisory_lock"));
+        .query("select pg_advisory_unlock($1, $2)", [LEGACY_ORDER_LOCK_NS, orderId])
+        .catch((unlockErr) =>
+          logger.warn({ err: unlockErr, orderId }, "Failed to release pg_advisory_lock"),
+        );
     }
     client.release();
   }
