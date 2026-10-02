@@ -7,9 +7,11 @@ import {
   vouchersTable,
   vpnAccountsTable,
 } from "@workspace/db";
+import type { DynamicProviderServer, DynamicVpnOrder } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { createNadiaVpnOrder, getNadiaVpnAccountDetails } from "../nadiavpn";
+import type { NadiaVpnOrderResponse, NadiaVpnAccountDetailResponse } from "../nadiavpn";
 import { createPanelAccount } from "../vpn-panel";
 import { deletePanelAccountWithRetry, deleteNadiaVpnAccountWithRetry } from "../fulfillment/retry-utils";
 import { addBalanceLog } from "../../routes/balance-logs";
@@ -17,10 +19,43 @@ import { addPoints, getPointsSettings } from "../../routes/points";
 import { notifyAdminDynamicOrderFulfilled, notifyUserDynamicVpnAccountCreated } from "../telegram";
 import { logger } from "../logger";
 import { getDynamicDurationDays, isDynamicDurationType } from "../dynamic-duration";
+import type { DynamicDurationType } from "../dynamic-duration";
 import { calculateBaseQuote } from "./pricing";
 import { extractNadiaConnectionDetails, extractProviderAccountId } from "./connection-parser";
 import { refreshLocalDynamicServerCapacity } from "./sync";
 import { normalizeProtocol } from "./utils";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface ValidatedOrderContext {
+  order: DynamicVpnOrder;
+  server: DynamicProviderServer;
+  buyerUsername: string;
+  amount: number;
+  durationType: DynamicDurationType;
+  fallbackExpiry: Date;
+}
+
+interface ProviderAccountResult {
+  providerResponse: Record<string, unknown>;
+  accountProtocol: string;
+  accountUsername: string;
+  providerPassword: string | null;
+  providerUuid: string | null;
+  providerAccountId: string | null;
+  configLink: string | null;
+  allLinks: Record<string, string | null> | null;
+  localServerId: number;
+  expiresAt: Date;
+  rollbackPanelAccount: RollbackTarget | null;
+}
+
+interface RollbackTarget {
+  apiUrl: string;
+  apiToken: string;
+  protocol: string;
+  username: string;
+}
 
 // ─── Helper functions ─────────────────────────────────────────────────────────
 
@@ -104,31 +139,13 @@ function createStepTracker(orderId: number, userId: number) {
   };
 }
 
-// ─── Main fulfillment function ────────────────────────────────────────────────
+// ─── Phase 1: Validate order and server ───────────────────────────────────────
 
-/**
- * Fulfills a dynamic VPN order.
- *
- * **Critical fix**: Balance deduction is now INSIDE the database transaction,
- * ensuring atomic rollback if any step fails. Previously, balance was deducted
- * outside the transaction, requiring a manual refund attempt that could fail
- * and cause money loss.
- *
- * Flow:
- * 1. Validate order + server
- * 2. Create VPN account on provider (NadiaVPN or local panel)
- * 3. Inside a single DB transaction:
- *    a. Deduct user balance (atomic WHERE balance >= amount)
- *    b. Insert VPN account record
- *    c. Update order status to "paid"
- *    d. Increment voucher usage (if applicable)
- * 4. If DB transaction fails → rollback panel account (best effort)
- * 5. Fire-and-forget: balance log, points, notifications
- */
-export async function fulfillDynamicOrder(orderId: number, userId: number) {
-  logger.info({ orderId, userId }, "[dynamic-vpn] Starting fulfillDynamicOrder");
-  const tracker = createStepTracker(orderId, userId);
-
+async function validateOrderAndServer(
+  orderId: number,
+  userId: number,
+  tracker: ReturnType<typeof createStepTracker>,
+): Promise<ValidatedOrderContext> {
   const [order] = await db
     .select()
     .from(dynamicVpnOrdersTable)
@@ -154,135 +171,170 @@ export async function fulfillDynamicOrder(orderId: number, userId: number) {
   const [buyer] = await db.select({ username: usersTable.username }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
 
   if (!isDynamicDurationType(order.durationType)) throw new Error("Tipe durasi order tidak valid");
-  calculateBaseQuote(server, order.durationType, order.duration);
-  const fallbackExpiry = new Date(Date.now() + getDynamicDurationDays(order.durationType, order.duration) * 24 * 60 * 60 * 1000);
+  const durationType = order.durationType;
+  calculateBaseQuote(server, durationType, order.duration);
+  const fallbackExpiry = new Date(Date.now() + getDynamicDurationDays(durationType, order.duration) * 24 * 60 * 60 * 1000);
 
-  // ─── Step 1: Create account on provider ────────────────────────────────
+  return {
+    order,
+    server,
+    buyerUsername: buyer?.username ?? `User #${userId}`,
+    amount,
+    durationType,
+    fallbackExpiry,
+  };
+}
 
-  let providerResponse: any;
-  let accountProtocol = order.protocol;
-  let accountUsername = order.username;
-  let providerPassword: string | null = order.password ?? null;
-  let providerUuid: string | null = null;
-  let providerAccountId: string | null = null;
-  let configLink: string | null = null;
-  let allLinks: Record<string, string | null> | null = null;
-  let localServerId: number;
-  let expiresAt = fallbackExpiry;
-  let rollbackPanelAccount: null | { apiUrl: string; apiToken: string; protocol: string; username: string } = null;
+// ─── Phase 2: Create account on provider ──────────────────────────────────────
 
-  try {
-    if (server.provider === "local_panel") {
-      localServerId = parseInt(server.providerServerId, 10);
-      if (!Number.isInteger(localServerId)) throw new Error("Mapping server lokal tidak valid");
+async function createLocalPanelAccount(
+  order: DynamicVpnOrder,
+  server: DynamicProviderServer,
+  durationType: DynamicDurationType,
+  fallbackExpiry: Date,
+): Promise<ProviderAccountResult> {
+  const localServerId = parseInt(server.providerServerId, 10);
+  if (!Number.isInteger(localServerId)) throw new Error("Mapping server lokal tidak valid");
 
-      const [localServer] = await db.select().from(serversTable).where(eq(serversTable.id, localServerId)).limit(1);
-      if (!localServer || !localServer.isActive) throw new Error("Server lokal tidak aktif");
-      if (!localServer.apiUrl || !localServer.apiToken) throw new Error("API panel server lokal belum diatur");
-      if (!Array.isArray(localServer.supportedProtocols) || !localServer.supportedProtocols.includes(order.protocol)) {
-        throw new Error("Protocol tidak didukung server lokal");
-      }
-
-      const panelResult = await createPanelAccount({
-        apiUrl: localServer.apiUrl,
-        apiToken: localServer.apiToken,
-        protocol: order.protocol,
-        username: order.username,
-        password: order.password ?? undefined,
-        durationDays: getDynamicDurationDays(order.durationType, order.duration),
-        uuid: randomUUID(),
-        maxConnections: server.maxConnections ?? null,
-      });
-
-      rollbackPanelAccount = {
-        apiUrl: localServer.apiUrl,
-        apiToken: localServer.apiToken,
-        protocol: order.protocol,
-        username: panelResult.username,
-      };
-      accountUsername = panelResult.username;
-      providerPassword = panelResult.password ?? order.password ?? null;
-      providerUuid = panelResult.uuid ?? null;
-      providerAccountId = panelResult.username;
-      configLink = panelResult.configLink ?? null;
-      allLinks = extractPanelConnectionDetails(panelResult);
-      providerResponse = {
-        provider: "local_panel",
-        serverId: localServer.id,
-        username: panelResult.username,
-        uuid: panelResult.uuid ?? null,
-        hostname: panelResult.hostname ?? null,
-        expiryInfo: panelResult.expiryInfo ?? null,
-      };
-    } else {
-      providerResponse = await createNadiaVpnOrder({
-        server_id: order.providerServerId,
-        protocol: order.protocol,
-        type: order.durationType,
-        duration: order.duration,
-        username: order.username,
-        ...(order.password ? { password: order.password } : {}),
-      });
-
-      let data = providerResponse?.data ?? {};
-      let connectionResponse = providerResponse;
-      providerAccountId = extractProviderAccountId(data);
-
-      if (providerAccountId) {
-        try {
-          const detailResponse: any = await getNadiaVpnAccountDetails(providerAccountId);
-          if (detailResponse?.data) {
-            providerResponse = {
-              order: providerResponse,
-              details: detailResponse,
-            };
-            connectionResponse = detailResponse;
-            data = detailResponse.data;
-          }
-        } catch (detailError) {
-          logger.warn({ err: detailError, orderId, providerAccountId }, "[dynamic-vpn] failed to fetch Nadia account details after order");
-        }
-      }
-
-      accountProtocol = normalizeProtocol(data.protocol ?? order.protocol);
-      allLinks = extractNadiaConnectionDetails(connectionResponse, accountProtocol);
-      configLink = accountProtocol === "ssh" ? null : allLinks?.tls ?? Object.values(allLinks ?? {}).find(Boolean) ?? null;
-      providerPassword = data.password ?? data.config?.password ?? data.config_data?.password ?? order.password ?? null;
-      providerUuid = data.uuid ?? data.config?.uuid ?? data.config_data?.uuid ?? null;
-      providerAccountId = providerAccountId ?? extractProviderAccountId(data);
-      accountUsername = data.username ?? data.config?.username ?? data.config_data?.username ?? order.username;
-      localServerId = await getKetantechProviderServerId();
-      expiresAt = parseNadiaExpireAt(data.expire_at, fallbackExpiry);
-
-      // Inject CloudFront domain from server catalog if not present in account data
-      if (allLinks && !allLinks.cloudfront && server.domainCloudfront) {
-        allLinks.cloudfront = server.domainCloudfront;
-      }
-    }
-  } catch (error) {
-    tracker.logFailure(error);
-    logger.error({ err: error, orderId, userId }, "[dynamic-vpn] Provider order creation failed - no balance was deducted");
-    throw error;
+  const [localServer] = await db.select().from(serversTable).where(eq(serversTable.id, localServerId)).limit(1);
+  if (!localServer || !localServer.isActive) throw new Error("Server lokal tidak aktif");
+  if (!localServer.apiUrl || !localServer.apiToken) throw new Error("API panel server lokal belum diatur");
+  if (!Array.isArray(localServer.supportedProtocols) || !localServer.supportedProtocols.includes(order.protocol)) {
+    throw new Error("Protocol tidak didukung server lokal");
   }
 
-  tracker.mark("provider_account_created");
+  const panelResult = await createPanelAccount({
+    apiUrl: localServer.apiUrl,
+    apiToken: localServer.apiToken,
+    protocol: order.protocol,
+    username: order.username,
+    password: order.password ?? undefined,
+    durationDays: getDynamicDurationDays(durationType, order.duration),
+    uuid: randomUUID(),
+    maxConnections: server.maxConnections ?? null,
+  });
 
-  logger.info({ orderId, userId, amount, provider: server.provider }, "[dynamic-vpn] Provider creation successful, proceeding to atomic balance + DB commit");
+  return {
+    providerResponse: {
+      provider: "local_panel",
+      serverId: localServer.id,
+      username: panelResult.username,
+      uuid: panelResult.uuid ?? null,
+      hostname: panelResult.hostname ?? null,
+      expiryInfo: panelResult.expiryInfo ?? null,
+    },
+    accountProtocol: order.protocol,
+    accountUsername: panelResult.username,
+    providerPassword: panelResult.password ?? order.password ?? null,
+    providerUuid: panelResult.uuid ?? null,
+    providerAccountId: panelResult.username,
+    configLink: panelResult.configLink ?? null,
+    allLinks: extractPanelConnectionDetails(panelResult),
+    localServerId,
+    expiresAt: fallbackExpiry,
+    rollbackPanelAccount: {
+      apiUrl: localServer.apiUrl,
+      apiToken: localServer.apiToken,
+      protocol: order.protocol,
+      username: panelResult.username,
+    },
+  };
+}
 
-  // ─── Step 2: ATOMIC transaction (balance deduction + DB records) ───────
-  //
-  // CRITICAL FIX: Balance deduction is now INSIDE the transaction.
-  // If any step fails (insert vpn account, update order, voucher increment),
-  // the entire transaction rolls back INCLUDING the balance deduction.
-  // No manual refund needed, no risk of money loss.
+async function createNadiaVpnProviderAccount(
+  order: DynamicVpnOrder,
+  server: DynamicProviderServer,
+  durationType: DynamicDurationType,
+  fallbackExpiry: Date,
+): Promise<ProviderAccountResult> {
+  const orderResponse = await createNadiaVpnOrder({
+    server_id: order.providerServerId,
+    protocol: order.protocol,
+    type: durationType,
+    duration: order.duration,
+    username: order.username,
+    ...(order.password ? { password: order.password } : {}),
+  });
 
-  let balanceBefore: number;
-  let balanceAfter: number;
+  let providerResponse: Record<string, unknown> = orderResponse as unknown as Record<string, unknown>;
+  let data = orderResponse.data;
+  let connectionResponse: NadiaVpnOrderResponse | NadiaVpnAccountDetailResponse = orderResponse;
+  let providerAccountId = extractProviderAccountId(data);
+
+  if (providerAccountId) {
+    try {
+      const detailResponse = await getNadiaVpnAccountDetails(providerAccountId);
+      if (detailResponse?.data) {
+        providerResponse = { order: orderResponse, details: detailResponse };
+        connectionResponse = detailResponse;
+        data = detailResponse.data;
+      }
+    } catch (detailError) {
+      logger.warn({ err: detailError, orderId: order.id, providerAccountId }, "[dynamic-vpn] failed to fetch Nadia account details after order");
+    }
+  }
+
+  const accountProtocol = normalizeProtocol(data.protocol ?? order.protocol);
+  let allLinks = extractNadiaConnectionDetails(connectionResponse, accountProtocol);
+  const configLink = accountProtocol === "ssh" ? null : allLinks?.tls ?? Object.values(allLinks ?? {}).find(Boolean) ?? null;
+  const providerPassword = (data.password ?? data.config?.password ?? data.config_data?.password ?? order.password ?? null) as string | null;
+  const providerUuid = (data.uuid ?? data.config?.uuid ?? data.config_data?.uuid ?? null) as string | null;
+  providerAccountId = providerAccountId ?? extractProviderAccountId(data);
+  const accountUsername = (data.username ?? data.config?.username ?? data.config_data?.username ?? order.username) as string;
+  const localServerId = await getKetantechProviderServerId();
+  const expiresAt = parseNadiaExpireAt(data.expire_at, fallbackExpiry);
+
+  // Inject CloudFront domain from server catalog if not present in account data
+  if (allLinks && !allLinks.cloudfront && server.domainCloudfront) {
+    allLinks.cloudfront = server.domainCloudfront;
+  }
+
+  return {
+    providerResponse,
+    accountProtocol,
+    accountUsername,
+    providerPassword,
+    providerUuid,
+    providerAccountId,
+    configLink,
+    allLinks,
+    localServerId,
+    expiresAt,
+    rollbackPanelAccount: null,
+  };
+}
+
+async function createProviderAccount(
+  order: DynamicVpnOrder,
+  server: DynamicProviderServer,
+  durationType: DynamicDurationType,
+  fallbackExpiry: Date,
+): Promise<ProviderAccountResult> {
+  if (server.provider === "local_panel") {
+    return createLocalPanelAccount(order, server, durationType, fallbackExpiry);
+  }
+  return createNadiaVpnProviderAccount(order, server, durationType, fallbackExpiry);
+}
+
+// ─── Phase 3: Atomic DB transaction ───────────────────────────────────────────
+
+interface CommitParams {
+  orderId: number;
+  userId: number;
+  amount: number;
+  order: DynamicVpnOrder;
+  server: DynamicProviderServer;
+  tracker: ReturnType<typeof createStepTracker>;
+  account: ProviderAccountResult;
+}
+
+async function commitFulfillmentTransaction(params: CommitParams): Promise<{ balanceBefore: number; balanceAfter: number }> {
+  const { orderId, userId, amount, order, server, tracker, account } = params;
 
   try {
     const result = await db.transaction(async (tx: any) => {
       // Deduct balance atomically — fails if insufficient
-      const [updatedUser] = await tx
+      const [updatedUser] = await (tx as typeof db)
         .update(usersTable)
         .set({ balance: sql`balance - ${amount}` })
         .where(and(eq(usersTable.id, userId), sql`balance >= ${amount}::numeric`))
@@ -296,38 +348,38 @@ export async function fulfillDynamicOrder(orderId: number, userId: number) {
       const bBefore = bAfter + amount;
 
       // Insert VPN account record
-      const [account] = await tx
+      const [vpnAccount] = await (tx as typeof db)
         .insert(vpnAccountsTable)
         .values({
           userId,
           orderId: null,
-          protocol: accountProtocol,
-          username: accountUsername,
-          password: providerPassword,
-          uuid: providerUuid,
-          serverId: localServerId,
-          configLink,
-          allLinks,
-          expiresAt,
+          protocol: account.accountProtocol,
+          username: account.accountUsername,
+          password: account.providerPassword,
+          uuid: account.providerUuid,
+          serverId: account.localServerId,
+          configLink: account.configLink,
+          allLinks: account.allLinks,
+          expiresAt: account.expiresAt,
           quota: null,
         })
         .returning();
 
       // Update order to "paid"
-      await tx
+      await (tx as typeof db)
         .update(dynamicVpnOrdersTable)
         .set({
           status: "paid",
-          vpnAccountId: account.id,
-          providerAccountId,
-          providerResponse,
+          vpnAccountId: vpnAccount.id,
+          providerAccountId: account.providerAccountId,
+          providerResponse: account.providerResponse,
           updatedAt: new Date(),
         })
         .where(eq(dynamicVpnOrdersTable.id, orderId));
 
       // Increment voucher usage (atomic guard against over-redemption)
       if (order.voucherId) {
-        const [updatedVoucher] = await tx
+        const [updatedVoucher] = await (tx as typeof db)
           .update(vouchersTable)
           .set({ currentUses: sql`current_uses + 1`, updatedAt: new Date() })
           .where(
@@ -346,24 +398,23 @@ export async function fulfillDynamicOrder(orderId: number, userId: number) {
       return { balanceBefore: bBefore, balanceAfter: bAfter };
     });
 
-    balanceBefore = result.balanceBefore;
-    balanceAfter = result.balanceAfter;
     tracker.mark("db_transaction_committed");
+    return result;
   } catch (error) {
     // Transaction failed — balance was NOT deducted (atomic rollback).
     // Only need to clean up the provider-side account.
     const rollbackReason = error instanceof Error ? error.message : "DB transaction failed";
 
-    if (rollbackPanelAccount) {
-      await deletePanelAccountWithRetry(rollbackPanelAccount, {
+    if (account.rollbackPanelAccount) {
+      await deletePanelAccountWithRetry(account.rollbackPanelAccount, {
         orderId,
         userId,
         reason: rollbackReason,
       });
     }
 
-    if (server.provider === "nadiavpn" && providerAccountId) {
-      await deleteNadiaVpnAccountWithRetry(providerAccountId, {
+    if (server.provider === "nadiavpn" && account.providerAccountId) {
+      await deleteNadiaVpnAccountWithRetry(account.providerAccountId, {
         orderId,
         userId,
         reason: rollbackReason,
@@ -378,12 +429,41 @@ export async function fulfillDynamicOrder(orderId: number, userId: number) {
     }
     throw error;
   }
+}
 
-  logger.info({ orderId, userId, amount, balanceBefore, balanceAfter }, "[dynamic-vpn] Atomic transaction successful");
-  tracker.mark("post_commit_started");
+// ─── Phase 4: Post-commit side effects ────────────────────────────────────────
 
-  // ─── Step 3: Post-commit side effects (fire-and-forget) ────────────────
+function resolveNotificationHost(
+  allLinks: Record<string, string | null> | null,
+  serverDisplayName: string,
+): string | null {
+  const cfValue = allLinks?.cloudfront;
+  const isCfServer = /cloudfront/i.test(serverDisplayName);
+  const cfHasPriority = isCfServer && cfValue && cfValue.toLowerCase().endsWith(".cloudfront.net");
 
+  if (cfHasPriority) return cfValue;
+  if (allLinks?.domain) return allLinks.domain;
+  if (isCfServer && cfValue) return cfValue;
+  return allLinks?.host ?? allLinks?.server ?? allLinks?.sni
+    ?? allLinks?.servername ?? allLinks?.hostname ?? null;
+}
+
+interface PostCommitParams {
+  order: DynamicVpnOrder;
+  userId: number;
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  buyerUsername: string;
+  server: DynamicProviderServer;
+  account: ProviderAccountResult;
+}
+
+async function runPostCommitSideEffects(params: PostCommitParams): Promise<void> {
+  const { order, userId, amount, balanceBefore, balanceAfter, buyerUsername, server, account } = params;
+  const orderId = order.id;
+
+  // Balance log
   addBalanceLog({
     userId,
     type: "order",
@@ -391,8 +471,8 @@ export async function fulfillDynamicOrder(orderId: number, userId: number) {
     balanceBefore,
     balanceAfter,
     description: `Dynamic VPN order: ${order.serverDisplayName} ${order.protocol.toUpperCase()} ${order.duration} ${order.durationType}`,
-    relatedId: order.id,
-  }).catch((err) => logger.error({ err, orderId: order.id }, "[dynamic-vpn] addBalanceLog failed after dynamic order"));
+    relatedId: orderId,
+  }).catch((err) => logger.error({ err, orderId }, "[dynamic-vpn] addBalanceLog failed after dynamic order"));
 
   // Award loyalty points
   try {
@@ -408,51 +488,99 @@ export async function fulfillDynamicOrder(orderId: number, userId: number) {
           userId,
           points,
           "order",
-          `Dynamic VPN #${order.id} — ${order.serverDisplayName}`,
-          order.id,
+          `Dynamic VPN #${orderId} — ${order.serverDisplayName}`,
+          orderId,
         );
       }
     }
   } catch (err) {
-    logger.error({ err, orderId: order.id }, "[dynamic-vpn] addPoints failed after dynamic order");
+    logger.error({ err, orderId }, "[dynamic-vpn] addPoints failed after dynamic order");
   }
 
   // Refresh local server capacity
   if (server.provider === "local_panel") {
-    const refreshed = await refreshLocalDynamicServerCapacity(server).catch((err) => { logger.warn({ err }, "refreshLocalDynamicServerCapacity failed"); return null; });
-    if (refreshed) server = refreshed;
+    await refreshLocalDynamicServerCapacity(server).catch((err) => { logger.warn({ err }, "refreshLocalDynamicServerCapacity failed"); });
   }
 
   // Send notifications
-  const cfValue = allLinks?.cloudfront;
-  const isCfServer = /cloudfront/i.test(order.serverDisplayName);
-  const cfHasPriority = isCfServer && cfValue && cfValue.toLowerCase().endsWith(".cloudfront.net");
-  const host = cfHasPriority ? cfValue
-    : allLinks?.domain
-      ?? (isCfServer ? allLinks?.cloudfront : null)
-      ?? allLinks?.host ?? allLinks?.server ?? allLinks?.sni
-      ?? allLinks?.servername ?? allLinks?.hostname ?? null;
+  const host = resolveNotificationHost(account.allLinks, order.serverDisplayName);
+
   notifyUserDynamicVpnAccountCreated({
     userId,
-    orderId: order.id,
+    orderId,
     serverName: order.serverDisplayName,
-    protocol: accountProtocol,
-    username: accountUsername,
-    password: providerPassword,
+    protocol: account.accountProtocol,
+    username: account.accountUsername,
+    password: account.providerPassword,
     host,
-    configLink,
-    expiresAt,
+    configLink: account.configLink,
+    expiresAt: account.expiresAt,
   }).catch((err) => logger.error({ err, orderId }, "notifyUserDynamicVpnAccountCreated failed"));
 
   notifyAdminDynamicOrderFulfilled({
-    orderId: order.id,
-    buyerUsername: buyer?.username ?? `User #${userId}`,
+    orderId,
+    buyerUsername,
     serverName: order.serverDisplayName,
-    protocol: accountProtocol,
-    vpnUsername: accountUsername,
+    protocol: account.accountProtocol,
+    vpnUsername: account.accountUsername,
     amount,
     discountAmount: Number(order.discountAmount ?? 0),
     paymentMethod: order.paymentMethod,
-    providerAccountId,
+    providerAccountId: account.providerAccountId,
   }).catch((err) => logger.error({ err, orderId }, "notifyAdminDynamicOrderFulfilled failed"));
+}
+
+// ─── Main fulfillment function ────────────────────────────────────────────────
+
+/**
+ * Fulfills a dynamic VPN order.
+ *
+ * **Critical fix**: Balance deduction is now INSIDE the database transaction,
+ * ensuring atomic rollback if any step fails. Previously, balance was deducted
+ * outside the transaction, requiring a manual refund attempt that could fail
+ * and cause money loss.
+ *
+ * Flow:
+ * 1. Validate order + server
+ * 2. Create VPN account on provider (NadiaVPN or local panel)
+ * 3. Inside a single DB transaction:
+ *    a. Deduct user balance (atomic WHERE balance >= amount)
+ *    b. Insert VPN account record
+ *    c. Update order status to "paid"
+ *    d. Increment voucher usage (if applicable)
+ * 4. If DB transaction fails → rollback panel account (best effort)
+ * 5. Fire-and-forget: balance log, points, notifications
+ */
+export async function fulfillDynamicOrder(orderId: number, userId: number) {
+  logger.info({ orderId, userId }, "[dynamic-vpn] Starting fulfillDynamicOrder");
+  const tracker = createStepTracker(orderId, userId);
+
+  // Phase 1: Validate order, server, buyer
+  const { order, server, buyerUsername, amount, durationType, fallbackExpiry } = await validateOrderAndServer(orderId, userId, tracker);
+
+  // Phase 2: Create account on provider
+  let account: ProviderAccountResult;
+  try {
+    account = await createProviderAccount(order, server, durationType, fallbackExpiry);
+  } catch (error) {
+    tracker.logFailure(error);
+    logger.error({ err: error, orderId, userId }, "[dynamic-vpn] Provider order creation failed - no balance was deducted");
+    throw error;
+  }
+  tracker.mark("provider_account_created");
+
+  logger.info({ orderId, userId, amount, provider: server.provider }, "[dynamic-vpn] Provider creation successful, proceeding to atomic balance + DB commit");
+
+  // Phase 3: Atomic DB transaction (balance + records)
+  const { balanceBefore, balanceAfter } = await commitFulfillmentTransaction({
+    orderId, userId, amount, order, server, tracker, account,
+  });
+
+  logger.info({ orderId, userId, amount, balanceBefore, balanceAfter }, "[dynamic-vpn] Atomic transaction successful");
+  tracker.mark("post_commit_started");
+
+  // Phase 4: Post-commit side effects (fire-and-forget)
+  await runPostCommitSideEffects({
+    order, userId, amount, balanceBefore, balanceAfter, buyerUsername, server, account,
+  });
 }
