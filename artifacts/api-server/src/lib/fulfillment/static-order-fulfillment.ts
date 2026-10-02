@@ -254,13 +254,23 @@ export async function fulfillOrder(
         .where(eq(ordersTable.id, orderId));
 
       if (order.voucherId) {
-        await tx
+        const [updatedVoucher] = await tx
           .update(vouchersTable)
           .set({
             currentUses: sql`current_uses + 1`,
             updatedAt: new Date(),
           })
-          .where(eq(vouchersTable.id, order.voucherId));
+          .where(
+            and(
+              eq(vouchersTable.id, order.voucherId),
+              sql`(max_uses IS NULL OR current_uses < max_uses)`,
+            ),
+          )
+          .returning({ id: vouchersTable.id });
+
+        if (!updatedVoucher) {
+          throw new Error("Voucher sudah mencapai batas penggunaan");
+        }
       }
     });
   } catch (dbError) {
@@ -379,13 +389,12 @@ async function processReferralBonus(
   const [buyer] = await db
     .select({
       referredBy: usersTable.referredBy,
-      referralBonusClaimed: usersTable.referralBonusClaimed,
     })
     .from(usersTable)
     .where(eq(usersTable.id, buyerUserId))
     .limit(1);
 
-  if (!buyer?.referredBy || buyer.referralBonusClaimed) return;
+  if (!buyer?.referredBy) return;
 
   const [referrer] = await db
     .select({ id: usersTable.id, username: usersTable.username })
@@ -398,6 +407,14 @@ async function processReferralBonus(
   const bonusAmount = referralSettings.bonusAmount;
 
   await db.transaction(async (tx) => {
+    const [claimed] = await tx
+      .update(usersTable)
+      .set({ referralBonusClaimed: true, updatedAt: new Date() })
+      .where(and(eq(usersTable.id, buyerUserId), eq(usersTable.referralBonusClaimed, false)))
+      .returning({ id: usersTable.id });
+
+    if (!claimed) return;
+
     const [updatedReferrer] = await tx
       .update(usersTable)
       .set({
@@ -406,11 +423,6 @@ async function processReferralBonus(
       })
       .where(eq(usersTable.id, referrer.id))
       .returning({ balance: usersTable.balance });
-
-    await tx
-      .update(usersTable)
-      .set({ referralBonusClaimed: true, updatedAt: new Date() })
-      .where(eq(usersTable.id, buyerUserId));
 
     if (updatedReferrer) {
       const balanceAfter = Number(updatedReferrer.balance);

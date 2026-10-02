@@ -325,12 +325,22 @@ export async function fulfillDynamicOrder(orderId: number, userId: number) {
         })
         .where(eq(dynamicVpnOrdersTable.id, orderId));
 
-      // Increment voucher usage
+      // Increment voucher usage (atomic guard against over-redemption)
       if (order.voucherId) {
-        await tx
+        const [updatedVoucher] = await tx
           .update(vouchersTable)
           .set({ currentUses: sql`current_uses + 1`, updatedAt: new Date() })
-          .where(eq(vouchersTable.id, order.voucherId));
+          .where(
+            and(
+              eq(vouchersTable.id, order.voucherId),
+              sql`(max_uses IS NULL OR current_uses < max_uses)`,
+            ),
+          )
+          .returning({ id: vouchersTable.id });
+
+        if (!updatedVoucher) {
+          throw new Error("Voucher sudah mencapai batas penggunaan");
+        }
       }
 
       return { balanceBefore: bBefore, balanceAfter: bAfter };

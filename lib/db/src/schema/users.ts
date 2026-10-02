@@ -1,6 +1,7 @@
-import { pgTable, serial, text, boolean, numeric, integer, timestamp, bigint, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, boolean, numeric, integer, timestamp, bigint, index, uniqueIndex, check } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { sql } from "drizzle-orm";
 
 export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -29,6 +30,7 @@ export const usersTable = pgTable("users", {
   index("users_telegram_link_token_idx").on(t.telegramLinkToken),
   index("users_vpn_telegram_id_idx").on(t.vpnTelegramId),
   index("users_vpn_telegram_link_token_idx").on(t.vpnTelegramLinkToken),
+  check("users_balance_non_negative_check", sql`${t.balance} >= 0`),
 ]);
 
 export const insertUserSchema = createInsertSchema(usersTable).omit({

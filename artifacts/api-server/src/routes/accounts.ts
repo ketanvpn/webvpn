@@ -548,90 +548,101 @@ router.post("/accounts/:id/renew-dynamic", requireAuth, asyncHandler(async (req,
     }
 
     const price = await calculateDynamicRenewAmount({ dynamicServerId: dynamicOrder.dynamicServerId, durationType, duration, userId });
-    const [user] = await db.select({ balance: usersTable.balance }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-    if (!user || Number(user.balance) < price.amount) {
+
+    // ─── STEP 1: Deduct balance FIRST (atomic, prevents double-spend) ───
+    let balanceBefore = 0;
+    let balanceAfter = 0;
+    const [deductedUser] = await db
+      .update(usersTable)
+      .set({ balance: sql`balance - ${price.amount}`, updatedAt: new Date() })
+      .where(and(eq(usersTable.id, userId), sql`balance >= ${price.amount}::numeric`))
+      .returning({ balance: usersTable.balance });
+
+    if (!deductedUser) {
       res.status(400).json({ error: "Saldo tidak cukup untuk melakukan renew" });
       return;
     }
+    balanceAfter = Number(deductedUser.balance);
+    balanceBefore = balanceAfter + price.amount;
 
+    // ─── STEP 2: Call provider (if fails, refund balance) ───
     let synced = account;
     let finalExpiresAt = new Date(account.expiresAt.getTime() + getDynamicDurationDays(durationType, duration) * 24 * 60 * 60 * 1000);
 
-    if (dynamicOrder.provider === "nadiavpn") {
-      await renewNadiaVpnAccount({ account_id: dynamicOrder.providerAccountId!, type: durationType, duration });
-      synced = await syncNadiaAccountDetails(account);
-      finalExpiresAt = synced.expiresAt ?? finalExpiresAt;
-    } else {
-      const [dynamicServer] = await db.select().from(dynamicProviderServersTable).where(eq(dynamicProviderServersTable.id, dynamicOrder.dynamicServerId!)).limit(1);
-      const localServerId = parseInt(String(dynamicServer?.providerServerId ?? account.serverId), 10);
-      const [localServer] = await db.select().from(serversTable).where(eq(serversTable.id, localServerId)).limit(1);
-      if (!localServer || !localServer.isActive) throw new Error("Server sedang tidak aktif");
-      if (!localServer.apiUrl || !localServer.apiToken) throw new Error("API panel server belum diatur");
+    try {
+      if (dynamicOrder.provider === "nadiavpn") {
+        await renewNadiaVpnAccount({ account_id: dynamicOrder.providerAccountId!, type: durationType, duration });
+        synced = await syncNadiaAccountDetails(account);
+        finalExpiresAt = synced.expiresAt ?? finalExpiresAt;
+      } else {
+        const [dynamicServer] = await db.select().from(dynamicProviderServersTable).where(eq(dynamicProviderServersTable.id, dynamicOrder.dynamicServerId!)).limit(1);
+        const localServerId = parseInt(String(dynamicServer?.providerServerId ?? account.serverId), 10);
+        const [localServer] = await db.select().from(serversTable).where(eq(serversTable.id, localServerId)).limit(1);
+        if (!localServer || !localServer.isActive) throw new Error("Server sedang tidak aktif");
+        if (!localServer.apiUrl || !localServer.apiToken) throw new Error("API panel server belum diatur");
 
-      await renewPanelAccount({
-        apiUrl: localServer.apiUrl,
-        apiToken: localServer.apiToken,
-        protocol: account.protocol,
-        username: account.username,
-        durationDays: getDynamicDurationDays(durationType, duration),
-        quota: account.quota ? Number(account.quota) : null,
-      });
+        await renewPanelAccount({
+          apiUrl: localServer.apiUrl,
+          apiToken: localServer.apiToken,
+          protocol: account.protocol,
+          username: account.username,
+          durationDays: getDynamicDurationDays(durationType, duration),
+          quota: account.quota ? Number(account.quota) : null,
+        });
 
-      const panelInfo = await syncPanelAccount({
-        apiUrl: localServer.apiUrl,
-        apiToken: localServer.apiToken,
-        protocol: account.protocol,
-        username: account.username,
-      }).catch(() => null);
+        const panelInfo = await syncPanelAccount({
+          apiUrl: localServer.apiUrl,
+          apiToken: localServer.apiToken,
+          protocol: account.protocol,
+          username: account.username,
+        }).catch(() => null);
 
-      if (panelInfo) {
-        const mergedLinks = {
-          ...((account.allLinks ?? {}) as Record<string, string | null>),
-          ...((panelInfo.allLinks ?? {}) as Record<string, string | null>),
-          hostname: panelInfo.hostname ?? (account.allLinks as Record<string, string | null> | null)?.hostname ?? null,
-        };
-        const [updatedLocal] = await db
-          .update(vpnAccountsTable)
-          .set({
-            uuid: panelInfo.uuid ?? account.uuid,
-            configLink: panelInfo.configLink ?? account.configLink,
-            allLinks: mergedLinks,
-            updatedAt: new Date(),
-          })
-          .where(eq(vpnAccountsTable.id, account.id))
-          .returning();
-        synced = updatedLocal ?? account;
+        if (panelInfo) {
+          const mergedLinks = {
+            ...((account.allLinks ?? {}) as Record<string, string | null>),
+            ...((panelInfo.allLinks ?? {}) as Record<string, string | null>),
+            hostname: panelInfo.hostname ?? (account.allLinks as Record<string, string | null> | null)?.hostname ?? null,
+          };
+          const [updatedLocal] = await db
+            .update(vpnAccountsTable)
+            .set({
+              uuid: panelInfo.uuid ?? account.uuid,
+              configLink: panelInfo.configLink ?? account.configLink,
+              allLinks: mergedLinks,
+              updatedAt: new Date(),
+            })
+            .where(eq(vpnAccountsTable.id, account.id))
+            .returning();
+          synced = updatedLocal ?? account;
+        }
       }
+    } catch (providerError) {
+      // Provider failed — REFUND the balance
+      logger.error({ err: providerError, accountId: account.id, userId, amount: price.amount }, "Renewal provider call failed, refunding balance");
+      await db
+        .update(usersTable)
+        .set({ balance: sql`balance + ${price.amount}`, updatedAt: new Date() })
+        .where(eq(usersTable.id, userId));
+      throw providerError;
     }
 
-    let balanceBefore = 0;
-    let balanceAfter = 0;
+    // ─── STEP 3: Update account records + write balance log (atomic) ───
     await db.transaction(async (tx) => {
-      const [updatedUser] = await tx
-        .update(usersTable)
-        .set({ balance: sql`balance - ${price.amount}` })
-        .where(and(eq(usersTable.id, userId), sql`balance >= ${price.amount}::numeric`))
-        .returning({ balance: usersTable.balance });
-
-      if (!updatedUser) throw new Error("INSUFFICIENT_BALANCE");
-      balanceAfter = Number(updatedUser.balance);
-      balanceBefore = balanceAfter + price.amount;
-
       await tx
         .update(vpnAccountsTable)
         .set({ expiresAt: finalExpiresAt, isActive: true, notified3Days: false, notified1Day: false, updatedAt: new Date() })
         .where(eq(vpnAccountsTable.id, account.id));
-    });
 
-    addBalanceLog({
-      userId,
-      type: "order",
-      amount: -price.amount,
-      balanceBefore,
-      balanceAfter,
-      description: `Renew dynamic VPN: ${account.username} (+${duration} ${getDynamicDurationUnit(durationType)})`,
-      relatedId: account.id,
-    }).catch(() => {});
+      await addBalanceLog({
+        userId,
+        type: "order",
+        amount: -price.amount,
+        balanceBefore,
+        balanceAfter,
+        description: `Renew dynamic VPN: ${account.username} (+${duration} ${getDynamicDurationUnit(durationType)})`,
+        relatedId: account.id,
+      });
+    });
 
     const [buyer] = await db.select({ username: usersTable.username, whatsapp: usersTable.whatsapp }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
     const expiryFormatted = format(finalExpiresAt, "d MMM yyyy, HH:mm", { locale: idLocale });
@@ -665,10 +676,7 @@ router.post("/accounts/:id/renew-dynamic", requireAuth, asyncHandler(async (req,
     res.json({ account: await formatAccount(updated), amount: price.amount, discountAmount: price.resellerDiscountAmount });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Gagal renew dynamic";
-    if (message === "INSUFFICIENT_BALANCE") {
-      res.status(400).json({ error: "Saldo tidak cukup untuk melakukan renew" });
-      return;
-    }
+    logger.error({ err, accountId: id, userId }, "Dynamic renewal failed");
     res.status(500).json({ error: message });
   } finally {
     releaseRenewLock(id);
