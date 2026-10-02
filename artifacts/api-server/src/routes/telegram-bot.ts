@@ -222,14 +222,19 @@ async function handleMessage(message: any) {
   }
 
   if (adminChat) {
+    let promptMsgId: number | undefined;
+    if (message.reply_to_message?.message_id) {
+      promptMsgId = message.reply_to_message.message_id;
+    }
+
     const normalized = text.trim().toLowerCase();
     if (normalized === "batal" || normalized === "/batal") {
-      clearAdminInputSession(chatId);
-      await sendMessage(chatId, "✅ Mode input interaktif dibatalkan.");
+      if (promptMsgId) clearAdminInputSession(promptMsgId);
+      await sendMessage(chatId, "? Mode input interaktif dibatalkan.");
       return;
     }
 
-    const pending = adminInputSessions.get(chatId);
+    const pending = promptMsgId ? adminInputSessions.get(promptMsgId) : undefined;
     if (pending && !text.trim().startsWith("/")) {
       if (pending.mode === "cek_user") {
         const username = text.trim();
@@ -238,7 +243,7 @@ async function handleMessage(message: any) {
           return;
         }
         await handleCekUser(chatId, username);
-        clearAdminInputSession(chatId);
+        if (promptMsgId) clearAdminInputSession(promptMsgId);
         return;
       }
 
@@ -255,7 +260,7 @@ async function handleMessage(message: any) {
           return;
         }
         await handleGiftSaldo(chatId, username, amount);
-        clearAdminInputSession(chatId);
+        if (promptMsgId) clearAdminInputSession(promptMsgId);
         return;
       }
 
@@ -273,7 +278,7 @@ async function handleMessage(message: any) {
           return;
         }
         handleExtendServer(chatId, serverId, days, delaySec).catch(console.error);
-        clearAdminInputSession(chatId);
+        if (promptMsgId) clearAdminInputSession(promptMsgId);
         return;
       }
 
@@ -295,7 +300,7 @@ async function handleMessage(message: any) {
             { text: "❌ Batal", callback_data: `broadcast_cancel_${token}` },
           ]],
         );
-        clearAdminInputSession(chatId);
+        if (promptMsgId) clearAdminInputSession(promptMsgId);
         return;
       }
 
@@ -303,7 +308,7 @@ async function handleMessage(message: any) {
         const templateKey = pending.templateKey ?? "";
         const template = broadcastTemplates[templateKey];
         if (!template) {
-          clearAdminInputSession(chatId);
+          if (promptMsgId) clearAdminInputSession(promptMsgId);
           await sendMessage(chatId, "❌ Template tidak ditemukan. Silakan ulangi dari menu Broadcast.");
           return;
         }
@@ -313,14 +318,17 @@ async function handleMessage(message: any) {
         const nextStep = (pending.step ?? 0) + 1;
 
         if (nextStep < template.fields.length) {
-          setAdminInputSession(chatId, {
-            mode: "broadcast_template",
-            templateKey,
-            step: nextStep,
-            values,
-            createdAt: Date.now(),
-          });
-          await sendMessage(chatId, `✍️ ${template.fields[nextStep]}:`);
+          const newPromptId = await sendMessage(chatId, `?? ${template.fields[nextStep]}:`, { reply_markup: { force_reply: true, selective: true } });
+          if (newPromptId) {
+            setAdminInputSession(newPromptId, {
+              mode: "broadcast_template",
+              templateKey,
+              step: nextStep,
+              values,
+              createdAt: Date.now(),
+            });
+          }
+          if (promptMsgId) clearAdminInputSession(promptMsgId);
           return;
         }
 
@@ -337,7 +345,7 @@ async function handleMessage(message: any) {
             { text: "❌ Batal", callback_data: `broadcast_cancel_${token}` },
           ]],
         );
-        clearAdminInputSession(chatId);
+        if (promptMsgId) clearAdminInputSession(promptMsgId);
         return;
       }
     }
