@@ -100,7 +100,6 @@ router.post("/auth/login", loginLimiter, asyncHandler(async (req, res) => {
     })
     .json({
       user: toUserResponse(user),
-      token,
     });
 }));
 

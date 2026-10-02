@@ -310,7 +310,6 @@ router.post("/auth/register", registerLimiter, asyncHandler(async (req, res) => 
     .status(201)
     .json({
       user: toUserResponse(user),
-      token,
     });
 }));
 

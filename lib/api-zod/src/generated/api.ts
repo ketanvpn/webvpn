@@ -57,7 +57,6 @@ export const LoginResponse = zod.object({
       .describe("Kode referral yang digunakan saat daftar"),
     createdAt: zod.coerce.date(),
   }),
-  token: zod.string(),
 });
 
 /**

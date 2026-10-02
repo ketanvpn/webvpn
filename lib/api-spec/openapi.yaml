@@ -3254,12 +3254,10 @@ components:
 
     AuthResponse:
       type: object
-      required: [user, token]
+      required: [user]
       properties:
         user:
           $ref: "#/components/schemas/User"
-        token:
-          type: string
 
     User:
       type: object
