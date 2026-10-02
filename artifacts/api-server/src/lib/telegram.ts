@@ -371,7 +371,11 @@ export async function notifyUserDynamicVpnAccountCreated(opts: {
     `👤 Username: <code>${opts.username}</code>\n`;
 
   if (opts.password) text += `🔑 Password: <i>(lihat di halaman akun VPN)</i>\n`;
-  if (opts.host) text += `🌐 Host/IP: <code>${opts.host}</code>\n`;
+  if (opts.host) {
+    const isCloudFront = opts.host.endsWith('.cloudfront.net');
+    const label = isCloudFront ? '☁️ CloudFront' : '🌐 Host/IP';
+    text += `${label}: <code>${opts.host}</code>\n`;
+  }
   text += `📅 Aktif sampai: <b>${expiry}</b>\n`;
   if (opts.configLink) text += `\n🔗 <b>Config Link:</b>\n<code>${opts.configLink}</code>\n`;
   text += `\n🆔 Dynamic Order #${opts.orderId}`;

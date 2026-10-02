@@ -253,6 +253,11 @@ export async function fulfillDynamicOrder(orderId: number, userId: number) {
       accountUsername = data.username ?? data.config?.username ?? data.config_data?.username ?? order.username;
       localServerId = await getKetantechProviderServerId();
       expiresAt = parseNadiaExpireAt(data.expire_at, fallbackExpiry);
+
+      // Inject CloudFront domain from server catalog if not present in account data
+      if (allLinks && !allLinks.cloudfront && server.domainCloudfront) {
+        allLinks.cloudfront = server.domainCloudfront;
+      }
     }
   } catch (error) {
     tracker.logFailure(error);
@@ -409,7 +414,9 @@ export async function fulfillDynamicOrder(orderId: number, userId: number) {
   }
 
   // Send notifications
-  const host = allLinks?.hostname ?? null;
+  const host = allLinks?.domain ?? allLinks?.cloudfront ?? allLinks?.host
+    ?? allLinks?.server ?? allLinks?.sni ?? allLinks?.servername
+    ?? allLinks?.hostname ?? null;
   notifyUserDynamicVpnAccountCreated({
     userId,
     orderId: order.id,

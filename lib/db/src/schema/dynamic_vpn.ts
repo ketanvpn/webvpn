@@ -38,6 +38,7 @@ export const dynamicProviderServersTable = pgTable("dynamic_provider_servers", {
   maxConnections: integer("max_connections").notNull().default(0),
   pricingMode: text("pricing_mode").notNull().default("manual"),
   markupPercent: integer("markup_percent").notNull().default(30),
+  domainCloudfront: text("domain_cloudfront"),
   sortOrder: integer("sort_order").notNull().default(0),
   lastSyncedAt: timestamp("last_synced_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

@@ -140,6 +140,7 @@ export async function syncNadiaVpnServersFromProvider() {
       maxDays: existing?.maxDays ?? 30,
       minMonths: existing?.minMonths ?? 1,
       maxMonths: existing?.maxMonths ?? 12,
+      domainCloudfront: srv.domain_cloudfront ? String(srv.domain_cloudfront) : null,
       capacityLimit: srv.capacity?.limit != null ? String(srv.capacity.limit) : null,
       capacityUsed: Number(srv.capacity?.used ?? 0),
       capacityIsFull: !!srv.capacity?.is_full,

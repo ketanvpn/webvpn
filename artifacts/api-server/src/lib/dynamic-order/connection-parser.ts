@@ -24,7 +24,7 @@ export function extractNadiaConnectionDetails(response: any, protocol?: string):
       domain: stringifyConfigValue(serverInfo?.domain ?? config?.domain ?? data.domain),
       server: stringifyConfigValue(config?.server ?? data.server),
       sni: stringifyConfigValue(config?.sni ?? data.sni),
-      cloudfront: stringifyConfigValue(config?.cloudfront ?? data.cloudfront),
+      cloudfront: stringifyConfigValue(config?.cloudfront ?? data.cloudfront ?? config?.domain_cloudfront ?? data.domain_cloudfront),
     };
     for (const [key, value] of Object.entries(rawLinks)) {
       links[key] = typeof value === "string" ? value : null;
@@ -44,7 +44,7 @@ export function extractNadiaConnectionDetails(response: any, protocol?: string):
     servername: stringifyConfigValue(config.servername ?? data.servername),
     domain: stringifyConfigValue(serverInfo?.domain ?? config.domain ?? data.domain),
     host: stringifyConfigValue(config.host ?? data.host),
-    cloudfront: stringifyConfigValue(config.cloudfront ?? data.cloudfront),
+    cloudfront: stringifyConfigValue(config.cloudfront ?? data.cloudfront ?? config.domain_cloudfront ?? data.domain_cloudfront),
     sni: stringifyConfigValue(config.sni ?? data.sni),
     pubkey: stringifyConfigValue(config.pubkey),
     isp: stringifyConfigValue(config.ISP),

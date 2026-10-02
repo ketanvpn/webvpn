@@ -99,10 +99,23 @@ async function syncNadiaAccountDetails(account: typeof vpnAccountsTable.$inferSe
   const data = detailResponse?.data ?? {};
   const config = data.config_data ?? data.config ?? {};
   const mergedLinks = {
-    ...((account.allLinks ?? {}) as Record<string, string | null>),
-    ...details,
-  };
-  const expiresAt = parseNadiaExpireAt(data.expire_at, account.expiresAt);
+      ...((account.allLinks ?? {}) as Record<string, string | null>),
+      ...details,
+    };
+
+    // Inject CloudFront domain from server catalog if not present in account data
+    if (!mergedLinks.cloudfront && dynamicOrder.dynamicServerId) {
+      const [dynServer] = await db
+        .select({ domainCloudfront: dynamicProviderServersTable.domainCloudfront })
+        .from(dynamicProviderServersTable)
+        .where(eq(dynamicProviderServersTable.id, dynamicOrder.dynamicServerId))
+        .limit(1);
+      if (dynServer?.domainCloudfront) {
+        mergedLinks.cloudfront = dynServer.domainCloudfront;
+      }
+    }
+
+    const expiresAt = parseNadiaExpireAt(data.expire_at, account.expiresAt);
 
   const [updated] = await db
     .update(vpnAccountsTable)
