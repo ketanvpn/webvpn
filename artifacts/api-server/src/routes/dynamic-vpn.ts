@@ -189,8 +189,8 @@ router.get("/admin/dynamic-vpn/orders", requireAdmin, asyncHandler(async (req, r
 /** Allowed fields with their sanitizers. Only these keys are accepted. */
 const ADMIN_PATCH_FIELDS: Record<string, (v: unknown) => unknown> = {
   displayName: (v) => String(v).trim(),
-  isActive: (v) => !!v,
-  trialEnabled: (v) => !!v,
+  isActive: (v) => v === true || v === "true" || v === 1,
+  trialEnabled: (v) => v === true || v === "true" || v === 1,
   enabledProtocols: (v) => {
     if (!Array.isArray(v)) return undefined;
     return v.map((p: unknown) => String(p ?? "").trim().toLowerCase()).filter((p: string) => VALID_PROTOCOLS.includes(p));
@@ -323,9 +323,6 @@ router.post("/dynamic-vpn/orders", requireAuth, dynamicOrderLimiter, asyncHandle
   }
   if (paymentMethod !== "balance") return sendError(res, 400, "Dynamic order saat ini baru mendukung pembayaran saldo");
 
-  // Throttled sync instead of per-request sync
-  await syncAllServersThrottled();
-
   let [server] = await db.select().from(dynamicProviderServersTable).where(eq(dynamicProviderServersTable.id, serverId)).limit(1);
   if (server?.provider === "local_panel") server = await refreshLocalDynamicServerCapacity(server);
   if (!server || !server.isActive || server.capacityIsFull) return sendError(res, 409, "Server penuh atau sedang tidak tersedia. Silakan pilih server lain.");
@@ -338,13 +335,6 @@ router.post("/dynamic-vpn/orders", requireAuth, dynamicOrderLimiter, asyncHandle
   } catch (error) {
     return sendError(res, 400, error instanceof Error ? error.message : "Quote gagal");
   }
-
-  const [existingAccount] = await db
-    .select({ id: vpnAccountsTable.id })
-    .from(vpnAccountsTable)
-    .where(and(eq(vpnAccountsTable.username, username), eq(vpnAccountsTable.isActive, true)))
-    .limit(1);
-  if (existingAccount) return sendError(res, 409, `Nama akun "${username}" sudah dipakai`);
 
   const requestedConfiguration = {
     dynamicServerId: server.id,
@@ -360,6 +350,14 @@ router.post("/dynamic-vpn/orders", requireAuth, dynamicOrderLimiter, asyncHandle
     await tx.execute(
       sql`select pg_advisory_xact_lock(${DYNAMIC_ORDER_CREATION_LOCK_NAMESPACE}, ${userId})`,
     );
+
+    // Username uniqueness check INSIDE transaction to prevent TOCTOU race
+    const [existingAccount] = await tx
+      .select({ id: vpnAccountsTable.id })
+      .from(vpnAccountsTable)
+      .where(and(eq(vpnAccountsTable.username, username), eq(vpnAccountsTable.isActive, true)))
+      .limit(1);
+    if (existingAccount) return { kind: "username-taken" } as const;
 
     const candidateOrders = await tx
       .select()
@@ -412,6 +410,8 @@ router.post("/dynamic-vpn/orders", requireAuth, dynamicOrderLimiter, asyncHandle
   });
 
   switch (creationResult.kind) {
+    case "username-taken":
+      return sendError(res, 409, `Nama akun "${username}" sudah dipakai`);
     case "reuse":
       return res.json({ order: formatDynamicOrderForUser(creationResult.order), quote, reused: true });
     case "conflict":
@@ -534,10 +534,13 @@ router.post("/dynamic-vpn/orders/:id/pay", requireAuth, dynamicOrderLimiter, asy
 
 router.get("/dynamic-vpn/orders", requireAuth, asyncHandler(async (req, res) => {
   const userId = req.user!.userId;
-  const limitRaw = req.query.limit;
-  const limit = limitRaw ? Math.min(parseInt(String(limitRaw), 10) || 50, 100) : undefined;
-  const query = db.select().from(dynamicVpnOrdersTable).where(eq(dynamicVpnOrdersTable.userId, userId)).orderBy(desc(dynamicVpnOrdersTable.createdAt));
-  const rows = limit ? await query.limit(limit) : await query;
+  const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? "50"), 10) || 50, 1), 100);
+  const rows = await db
+    .select()
+    .from(dynamicVpnOrdersTable)
+    .where(eq(dynamicVpnOrdersTable.userId, userId))
+    .orderBy(desc(dynamicVpnOrdersTable.createdAt))
+    .limit(limit);
   res.json({ orders: rows.map(formatDynamicOrderForUser) });
 }));
 
@@ -572,15 +575,15 @@ router.get("/admin/stats/profit-tracking", requireAdmin, asyncHandler(async (req
     periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   }
 
-  const orders = await db
+  const aggregated = await db
     .select({
-      orderId: dynamicVpnOrdersTable.id,
       dynamicServerId: dynamicVpnOrdersTable.dynamicServerId,
-      amount: dynamicVpnOrdersTable.amount,
-      durationType: dynamicVpnOrdersTable.durationType,
-      duration: dynamicVpnOrdersTable.duration,
       serverDisplayName: dynamicVpnOrdersTable.serverDisplayName,
       provider: dynamicVpnOrdersTable.provider,
+      durationType: dynamicVpnOrdersTable.durationType,
+      totalOrders: count(),
+      totalRevenue: sql<string>`coalesce(sum(${dynamicVpnOrdersTable.amount}::numeric), 0)`,
+      totalDuration: sql<string>`coalesce(sum(${dynamicVpnOrdersTable.duration}), 0)`,
     })
     .from(dynamicVpnOrdersTable)
     .where(
@@ -589,6 +592,12 @@ router.get("/admin/stats/profit-tracking", requireAdmin, asyncHandler(async (req
         gte(dynamicVpnOrdersTable.createdAt, periodStart),
         lt(dynamicVpnOrdersTable.createdAt, periodEnd),
       ),
+    )
+    .groupBy(
+      dynamicVpnOrdersTable.dynamicServerId,
+      dynamicVpnOrdersTable.serverDisplayName,
+      dynamicVpnOrdersTable.provider,
+      dynamicVpnOrdersTable.durationType,
     );
 
   const allServers = await db.select().from(dynamicProviderServersTable);
@@ -607,27 +616,30 @@ router.get("/admin/stats/profit-tracking", requireAdmin, asyncHandler(async (req
   let totalCost = 0;
   let totalOrders = 0;
 
-  for (const order of orders) {
-    const revenue = Number(order.amount ?? 0);
-    const server = order.dynamicServerId ? serverMap.get(order.dynamicServerId) : null;
-    const cost = server ? getDynamicCost(server, order.durationType) * order.duration : 0;
+  for (const row of aggregated) {
+    const revenue = Number(row.totalRevenue);
+    const orderCount = Number(row.totalOrders);
+    const durationSum = Number(row.totalDuration);
+    const key = row.dynamicServerId ?? 0;
+    const server = key ? serverMap.get(key) : null;
+    const costPerUnit = server ? getDynamicCost(server, row.durationType) : 0;
+    const cost = costPerUnit * durationSum;
 
     totalRevenue += revenue;
     totalCost += cost;
-    totalOrders++;
+    totalOrders += orderCount;
 
-    const key = order.dynamicServerId ?? 0;
     const existing = serverStats.get(key);
     if (existing) {
-      existing.orders++;
+      existing.orders += orderCount;
       existing.revenue += revenue;
       existing.cost += cost;
     } else {
       serverStats.set(key, {
         serverId: key,
-        serverName: order.serverDisplayName ?? server?.displayName ?? "Unknown",
-        provider: order.provider ?? server?.provider ?? "unknown",
-        orders: 1,
+        serverName: row.serverDisplayName ?? server?.displayName ?? "Unknown",
+        provider: row.provider ?? server?.provider ?? "unknown",
+        orders: orderCount,
         revenue,
         cost,
       });
